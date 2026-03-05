@@ -1245,6 +1245,130 @@ class JSONStoreTest(TestCase):
         )
         self.assertEqual(node.generator_specs[0].cv_kwargs, {"test_cv_kwarg": True})
 
+    def test_block_gen_if_met_migration(self) -> None:
+        """Test that TransitionCriteria with block_gen_if_met=True are migrated
+        to PausingCriterion during deserialization."""
+        with self.subTest("MaxGenerationParallelism_with_block_gen_if_met"):
+            # MaxGenerationParallelism with block_gen_if_met=True should be
+            # migrated to pausing_criteria and removed from
+            # transition_criteria
+            json = {
+                "node_name": "test_node",
+                "model_specs": [
+                    {
+                        "__type": "GeneratorSpec",
+                        "model_enum": {"__type": "Generators", "name": "SOBOL"},
+                        "model_kwargs": {},
+                        "model_gen_kwargs": {},
+                        "model_cv_kwargs": {},
+                    }
+                ],
+                "best_model_selector": None,
+                "should_deduplicate": False,
+                "transition_criteria": [
+                    {
+                        "__type": "MaxGenerationParallelism",
+                        "threshold": 3,
+                        "only_in_statuses": [
+                            {"__type": "TrialStatus", "name": "RUNNING"}
+                        ],
+                        "block_gen_if_met": True,
+                        "transition_to": None,
+                    }
+                ],
+            }
+            node = generation_node_from_json(json)
+            self.assertEqual(len(node.transition_criteria), 0)
+            self.assertEqual(len(node.pausing_criteria), 1)
+            blocking = node.pausing_criteria[0]
+            self.assertEqual(blocking.__class__.__name__, "MaxGenerationParallelism")
+            # pyre-ignore[16]: Attribute exists on MaxGenerationParallelism
+            self.assertEqual(blocking.threshold, 3)
+
+        with self.subTest("MinTrials_with_block_gen_if_met_only"):
+            # MinTrials with block_gen_if_met=True only should be migrated to
+            # MaxTrialsAwaitingData and removed from transition_criteria
+            json = {
+                "node_name": "test_node",
+                "model_specs": [
+                    {
+                        "__type": "GeneratorSpec",
+                        "model_enum": {"__type": "Generators", "name": "SOBOL"},
+                        "model_kwargs": {},
+                        "model_gen_kwargs": {},
+                        "model_cv_kwargs": {},
+                    }
+                ],
+                "best_model_selector": None,
+                "should_deduplicate": False,
+                "transition_criteria": [
+                    {
+                        "__type": "MinTrials",
+                        "threshold": 5,
+                        "only_in_statuses": [
+                            {"__type": "TrialStatus", "name": "RUNNING"}
+                        ],
+                        "not_in_statuses": None,
+                        "use_all_trials_in_exp": False,
+                        "block_gen_if_met": True,
+                        "block_transition_if_unmet": False,
+                        "transition_to": None,
+                    }
+                ],
+            }
+            node = generation_node_from_json(json)
+            self.assertEqual(len(node.transition_criteria), 0)
+            self.assertEqual(len(node.pausing_criteria), 1)
+            blocking = node.pausing_criteria[0]
+            self.assertEqual(blocking.__class__.__name__, "MaxTrialsAwaitingData")
+            self.assertEqual(blocking.threshold, 5)
+
+        with self.subTest("MinTrials_with_block_gen_if_met_and_block_transition"):
+            # MinTrials with both block_gen_if_met=True and
+            # block_transition_if_unmet=True should create
+            # MaxTrialsAwaitingData AND keep in transition_criteria
+            json = {
+                "node_name": "test_node",
+                "model_specs": [
+                    {
+                        "__type": "GeneratorSpec",
+                        "model_enum": {"__type": "Generators", "name": "SOBOL"},
+                        "model_kwargs": {},
+                        "model_gen_kwargs": {},
+                        "model_cv_kwargs": {},
+                    }
+                ],
+                "best_model_selector": None,
+                "should_deduplicate": False,
+                "transition_criteria": [
+                    {
+                        "__type": "MinTrials",
+                        "threshold": 5,
+                        "only_in_statuses": None,
+                        "not_in_statuses": None,
+                        "use_all_trials_in_exp": True,
+                        "block_gen_if_met": True,
+                        "block_transition_if_unmet": True,
+                        "transition_to": "next_node",
+                    }
+                ],
+            }
+            node = generation_node_from_json(json)
+            # Should have both
+            self.assertEqual(len(node.transition_criteria), 1)
+            self.assertEqual(len(node.pausing_criteria), 1)
+            tc = node.transition_criteria[0]
+            self.assertEqual(tc.__class__.__name__, "MinTrials")
+            # pyre-ignore[16]: Attribute exists on MinTrials
+            self.assertEqual(tc.threshold, 5)
+            self.assertEqual(tc.transition_to, "next_node")
+            blocking = node.pausing_criteria[0]
+            self.assertEqual(blocking.__class__.__name__, "MaxTrialsAwaitingData")
+            # pyre-ignore[16]: threshold exists on MaxTrialsAwaitingData
+            self.assertEqual(blocking.threshold, 5)
+            # pyre-ignore[16]: use_all_trials_in_exp exists on MaxTrialsAwaitingData
+            self.assertTrue(blocking.use_all_trials_in_exp)
+
     def test_SobolQMCNormalSampler(self) -> None:
         # This fails default equality checks, so testing it separately.
         sampler = SobolQMCNormalSampler(sample_shape=torch.Size([2]))

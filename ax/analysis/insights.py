@@ -5,7 +5,7 @@
 
 # pyre-strict
 
-from typing import final
+from typing import final, Literal
 
 from ax.adapter.base import Adapter
 from ax.analysis.analysis import Analysis
@@ -116,11 +116,18 @@ class InsightsAnalysis(Analysis):
         # For non-bandit experiments, for each objective and constraint, compute a
         # sensitivity analysis and plot the top 3 surfaces.
         else:
+            # Default to second-order sensitivity analysis, but fall back to first-order
+            # if there is only one parameter (second-order requires at least 2
+            # parameters for interaction effects).
+            order: Literal["first", "second"] = (
+                "first" if len(experiment.search_space.parameters) == 1 else "second"
+            )
             top_surfaces_groups = [
                 TopSurfacesAnalysis(
                     metric_name=metric_name,
                     top_k=3,
                     relativize=relativize,
+                    order=order,
                 ).compute_or_error_card(
                     experiment=experiment,
                     generation_strategy=generation_strategy,

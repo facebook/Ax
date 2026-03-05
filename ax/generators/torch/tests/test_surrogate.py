@@ -318,7 +318,7 @@ class SurrogateTest(TestCase):
         )
         self.fixed_features = {1: 2.0}
         self.refit = True
-        self.objective_weights = torch.tensor([-1.0, 1.0], **self.tkwargs)
+        self.objective_weights = torch.tensor([[-1.0, 1.0]], **self.tkwargs)
         # Note: these only work with 1 outcome
         self.outcome_constraints = (
             torch.tensor([[1.0]], **self.tkwargs),
@@ -1518,7 +1518,7 @@ class SurrogateTest(TestCase):
             torch.tensor([[1.0, 0.0]], **self.tkwargs),
             torch.tensor([[4.0]], **self.tkwargs),
         )
-        objective_weights = -torch.ones(2, **self.tkwargs)
+        objective_weights = -torch.ones(1, 2, **self.tkwargs)
 
         self.options = {}
 
@@ -1545,10 +1545,7 @@ class SurrogateTest(TestCase):
                 ):
                     surrogate.best_in_sample_point(
                         search_space_digest=self.search_space_digest,
-                        torch_opt_config=dataclasses.replace(
-                            self.torch_opt_config,
-                            objective_weights=None,
-                        ),
+                        torch_opt_config=self.torch_opt_config,
                     )
             with self.subTest("All points are in the search space"):
                 # No linear constraints
@@ -1651,7 +1648,7 @@ class SurrogateTest(TestCase):
                 datasets=self.training_data,
                 search_space_digest=self.search_space_digest,
             )
-            torch_opt_config = TorchOptConfig(objective_weights=torch.tensor([1.0]))
+            torch_opt_config = TorchOptConfig(objective_weights=torch.tensor([[1.0]]))
             candidate, acqf_value = surrogate.best_out_of_sample_point(
                 search_space_digest=self.search_space_digest,
                 torch_opt_config=torch_opt_config,

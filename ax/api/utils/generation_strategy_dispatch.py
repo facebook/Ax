@@ -22,7 +22,7 @@ from ax.generation_strategy.generation_strategy import (
     GenerationStrategy,
 )
 from ax.generation_strategy.generator_spec import GeneratorSpec
-from ax.generation_strategy.transition_criterion import MinTrials
+from ax.generation_strategy.transition_criterion import MaxTrialsAwaitingData, MinTrials
 from ax.generators.torch.botorch_modular.surrogate import ModelConfig, SurrogateSpec
 from botorch.acquisition.acquisition import AcquisitionFunction
 from botorch.models.fully_bayesian import SaasFullyBayesianSingleTaskGP
@@ -71,21 +71,28 @@ def _get_sobol_node(
         MinTrials(  # This represents the initialization budget.
             threshold=initialization_budget,
             transition_to="MBM",
-            block_gen_if_met=(not allow_exceeding_initialization_budget),
-            block_transition_if_unmet=True,
             use_all_trials_in_exp=use_existing_trials_for_initialization,
             not_in_statuses=[TrialStatus.FAILED, TrialStatus.ABANDONED],
         ),
         MinTrials(  # This represents minimum observed trials requirement.
             threshold=min_observed_initialization_trials,
             transition_to="MBM",
-            block_gen_if_met=False,
-            block_transition_if_unmet=True,
             use_all_trials_in_exp=True,
             only_in_statuses=[TrialStatus.COMPLETED],
             count_only_trials_with_data=True,
         ),
     ]
+    # If we want to enforce the initialization budget, add a pausing
+    # criterion that prevents exceeding the budget.
+    pausing_criteria = None
+    if not allow_exceeding_initialization_budget:
+        pausing_criteria = [
+            MaxTrialsAwaitingData(
+                threshold=initialization_budget,
+                not_in_statuses=[TrialStatus.FAILED, TrialStatus.ABANDONED],
+                use_all_trials_in_exp=use_existing_trials_for_initialization,
+            )
+        ]
     return GenerationNode(
         name="Sobol",
         generator_specs=[
@@ -95,6 +102,7 @@ def _get_sobol_node(
             )
         ],
         transition_criteria=transition_criteria,
+        pausing_criteria=pausing_criteria,
         should_deduplicate=True,
         suggested_experiment_status=ExperimentStatus.INITIALIZATION,
     )

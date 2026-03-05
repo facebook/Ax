@@ -99,9 +99,7 @@ class IntToFloat(Transform):
         for obsf in observation_features:
             for p_name in self.transform_parameters:
                 if p_name in obsf.parameters:
-                    # pyre: param is declared to have type `int` but is used
-                    # pyre-fixme[9]: as type `Optional[typing.Union[bool, float, str]]`.
-                    param: int = obsf.parameters[p_name]
+                    param = assert_is_instance(obsf.parameters[p_name], int)
                     obsf.parameters[p_name] = float(param)
         return observation_features
 
@@ -146,9 +144,7 @@ class IntToFloat(Transform):
             )
             if self.rounding == "strict":
                 for p_name in present_params:
-                    # pyre: param is declared to have type `float` but is used as
-                    # pyre-fixme[9]: type `Optional[typing.Union[bool, float, str]]`.
-                    param: float = obsf.parameters.get(p_name)
+                    param = assert_is_instance(obsf.parameters.get(p_name), float)
                     obsf.parameters[p_name] = int(round(param))  # TODO: T41938776
             else:
                 if self.contains_constrained_integer:
@@ -191,8 +187,8 @@ class IntToFloat(Transform):
                     # that satisfies the search space bounds, but this candidate may
                     # not satisfy the parameter constraints.
                     for p_name in present_params:
-                        param = obsf.parameters.get(p_name)
-                        obsf.parameters[p_name] = int(round(param))  # pyre-ignore
+                        param = assert_is_instance(obsf.parameters.get(p_name), float)
+                        obsf.parameters[p_name] = int(round(param))
                 else:  # Update observation if rounding was successful
                     for p_name in present_params:
                         obsf.parameters[p_name] = rounded_parameters[p_name]

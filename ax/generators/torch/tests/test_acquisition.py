@@ -157,7 +157,7 @@ class AcquisitionTest(TestCase):
             )
 
         self.botorch_acqf_class = DummyAcquisitionFunction
-        self.objective_weights = torch.tensor([1.0])
+        self.objective_weights = torch.tensor([[1.0]])
         self.objective_thresholds = None
         self.pending_observations = [torch.tensor([[1.0, 3.0, 4.0]], **self.tkwargs)]
         self.outcome_constraints = (
@@ -1117,7 +1117,9 @@ class AcquisitionTest(TestCase):
                 outcome_names=["m1", "m2", "m3"],
             )
         ]
-        moo_objective_weights = torch.tensor([-1.0, -1.0, 0.0], **self.tkwargs)
+        moo_objective_weights = torch.tensor(
+            [[-1.0, 0.0, 0.0], [0.0, -1.0, 0.0]], **self.tkwargs
+        )
         moo_objective_thresholds = (
             torch.tensor([0.5, 1.5, float("nan")], **self.tkwargs)
             if with_objective_thresholds
@@ -1145,7 +1147,6 @@ class AcquisitionTest(TestCase):
             objective_weights=moo_objective_weights,
             outcome_constraints=outcome_constraints,
             objective_thresholds=moo_objective_thresholds,
-            is_moo=True,
         )
         acquisition = Acquisition(
             surrogate=self.surrogate,
@@ -1257,12 +1258,13 @@ class AcquisitionTest(TestCase):
             search_space_digest=self.search_space_digest,
         )
         torch_opt_config = TorchOptConfig(
-            objective_weights=torch.tensor([1.0, 1.0, 0.0], **self.tkwargs),
+            objective_weights=torch.tensor(
+                [[1.0, 0.0, 0.0], [0.0, 1.0, 0.0]], **self.tkwargs
+            ),
             outcome_constraints=(
                 torch.tensor([[0.0, 0.0, 1.0]], **self.tkwargs),
                 torch.tensor([[0.0]], **self.tkwargs),
             ),
-            is_moo=True,
         )
         with self.assertLogs(logger=logger, level="WARNING") as logs:
             acquisition = Acquisition(
@@ -1300,10 +1302,11 @@ class AcquisitionTest(TestCase):
             torch.tensor([[0.0]], **self.tkwargs),
         )
         torch_opt_config = TorchOptConfig(
-            objective_weights=torch.tensor([1.0, 1.0, 0.0], **self.tkwargs),
+            objective_weights=torch.tensor(
+                [[1.0, 0.0, 0.0], [0.0, 1.0, 0.0]], **self.tkwargs
+            ),
             outcome_constraints=outcome_constraints,
             objective_thresholds=None,
-            is_moo=True,
         )
         with self.assertLogs(logger=logger, level="WARNING") as logs:
             acquisition = Acquisition(
@@ -1326,9 +1329,12 @@ class AcquisitionTest(TestCase):
         n_constraints = len(acquisition.acqf._constraints)
         assert oc_transforms is not None
         self.assertEqual(n_constraints, len(oc_transforms))
-        # Test that when using qLogProbabilityOfFeasibility with MOO
-        # objective thresholds, the threshold-derived constraints are
-        # combined with the outcome constraints.
+
+    @mock_botorch_optimize
+    def test_p_feasible_moo_with_thresholds(self) -> None:
+        # Test qLogProbabilityOfFeasibility with MOO objective thresholds.
+        # Verifies that threshold-derived constraints are correct and combined
+        # with outcome constraints properly.
         moo_training_data = [
             SupervisedDataset(
                 X=self.X,
@@ -1341,7 +1347,9 @@ class AcquisitionTest(TestCase):
             datasets=moo_training_data,
             search_space_digest=self.search_space_digest,
         )
-        moo_objective_weights = torch.tensor([1.0, 1.0, 0.0], **self.tkwargs)
+        moo_objective_weights = torch.tensor(
+            [[1.0, 0.0, 0.0], [0.0, 1.0, 0.0]], **self.tkwargs
+        )
         moo_objective_thresholds = torch.tensor(
             [0.5, 1.5, float("nan")], **self.tkwargs
         )
@@ -1369,7 +1377,6 @@ class AcquisitionTest(TestCase):
             objective_weights=moo_objective_weights,
             outcome_constraints=outcome_constraints,
             objective_thresholds=moo_objective_thresholds,
-            is_moo=True,
         )
         acquisition = Acquisition(
             surrogate=self.surrogate,
@@ -1378,6 +1385,9 @@ class AcquisitionTest(TestCase):
             torch_opt_config=torch_opt_config,
         )
         self.assertIsInstance(acquisition.acqf, qLogProbabilityOfFeasibility)
+        # Verify posterior_transform is None — the fix ensures objective weights
+        # are NOT applied via posterior_transform when using qLogPF.
+        self.assertIsNone(acquisition.acqf.posterior_transform)
         # Verify the number of constraints: 1 from outcome constraints
         # + 2 from threshold constraints (two objectives with non-NaN thresholds).
         # pyre-ignore[6]: _constraints is typed as Union[Tensor, Module].
@@ -1386,13 +1396,53 @@ class AcquisitionTest(TestCase):
         assert threshold_transforms is not None
         self.assertEqual(n_constraints, len(oc_transforms) + len(threshold_transforms))
 
+        # Verify the constraint VALUES are correct by evaluating on known
+        # inputs. After subsetting (weights=[1,1,0], constraint on m3),
+        # all 3 outputs are kept.
+        Y_test = torch.tensor([[1.0, 2.0, 0.3]], **self.tkwargs)
+        # pyre-ignore[6]: _constraints is typed as Union[Tensor, Module].
+        constraints = acquisition.acqf._constraints
+        # Constraint 0 (outcome constraint): m3 <= 0.5 → Y[2] - 0.5
+        # = 0.3 - 0.5 = -0.2 (feasible)
+        # pyre-ignore[29]: _constraints elements are callables at runtime.
+        self.assertAlmostEqual(constraints[0](Y_test).item(), -0.2, places=5)
+        # Constraint 1 (threshold for m1, maximize): m1 >= 0.5 → -Y[0] + 0.5
+        # = -1.0 + 0.5 = -0.5 (feasible)
+        # pyre-ignore[29]: _constraints elements are callables at runtime.
+        self.assertAlmostEqual(constraints[1](Y_test).item(), -0.5, places=5)
+        # Constraint 2 (threshold for m2, maximize): m2 >= 1.5 → -Y[1] + 1.5
+        # = -2.0 + 1.5 = -0.5 (feasible)
+        # pyre-ignore[29]: _constraints elements are callables at runtime.
+        self.assertAlmostEqual(constraints[2](Y_test).item(), -0.5, places=5)
+
+        # Test infeasible point.
+        Y_infeasible = torch.tensor([[0.3, 1.0, 0.7]], **self.tkwargs)
+        # Constraint 0: 0.7 - 0.5 = 0.2 > 0 (infeasible)
+        # pyre-ignore[29]: _constraints elements are callables at runtime.
+        self.assertAlmostEqual(constraints[0](Y_infeasible).item(), 0.2, places=5)
+        # Constraint 1: -0.3 + 0.5 = 0.2 > 0 (infeasible: m1=0.3 < 0.5)
+        # pyre-ignore[29]: _constraints elements are callables at runtime.
+        self.assertAlmostEqual(constraints[1](Y_infeasible).item(), 0.2, places=5)
+        # Constraint 2: -1.0 + 1.5 = 0.5 > 0 (infeasible: m2=1.0 < 1.5)
+        # pyre-ignore[29]: _constraints elements are callables at runtime.
+        self.assertAlmostEqual(constraints[2](Y_infeasible).item(), 0.5, places=5)
+
+        # Verify constraints work with batched inputs (mc_samples x b x q x m).
+        Y_batched = torch.tensor(
+            [[[[1.0, 2.0, 0.3]], [[0.3, 1.0, 0.7]]]], **self.tkwargs
+        )  # shape: 1 x 2 x 1 x 3
+        # pyre-ignore[29]: _constraints elements are callables at runtime.
+        con0_batched = constraints[0](Y_batched)
+        self.assertEqual(con0_batched.shape, (1, 2, 1))
+        self.assertAlmostEqual(con0_batched[0, 0, 0].item(), -0.2, places=5)
+        self.assertAlmostEqual(con0_batched[0, 1, 0].item(), 0.2, places=5)
+
         # Case 2: qLogProbabilityOfFeasibility with only objective thresholds
         # (no outcome constraints). Only threshold-derived constraints.
         torch_opt_config_no_oc = TorchOptConfig(
             objective_weights=moo_objective_weights,
             outcome_constraints=None,
             objective_thresholds=moo_objective_thresholds,
-            is_moo=True,
         )
         acquisition_no_oc = Acquisition(
             surrogate=self.surrogate,
@@ -1401,10 +1451,26 @@ class AcquisitionTest(TestCase):
             torch_opt_config=torch_opt_config_no_oc,
         )
         self.assertIsInstance(acquisition_no_oc.acqf, qLogProbabilityOfFeasibility)
+        # Verify posterior_transform is None — the fix ensures objective weights
+        # are NOT applied via posterior_transform when using qLogPF, since the
+        # threshold constraints already embed the weights.
+        self.assertIsNone(acquisition_no_oc.acqf.posterior_transform)
         # pyre-ignore[6]: _constraints is typed as Union[Tensor, Module].
         n_constraints_no_oc = len(acquisition_no_oc.acqf._constraints)
         assert threshold_transforms is not None
         self.assertEqual(n_constraints_no_oc, len(threshold_transforms))
+
+        # Verify constraint values: model is subsetted to 2 outputs (m1, m2)
+        # since there are no outcome constraints referencing m3.
+        Y_test_2d = torch.tensor([[1.0, 2.0]], **self.tkwargs)
+        # pyre-ignore[6]: _constraints is typed as Union[Tensor, Module].
+        constraints_no_oc = acquisition_no_oc.acqf._constraints
+        # Threshold for m1 (maximize): -Y[0] + 0.5 = -1.0 + 0.5 = -0.5
+        # pyre-ignore[29]: _constraints elements are callables at runtime.
+        self.assertAlmostEqual(constraints_no_oc[0](Y_test_2d).item(), -0.5, places=5)
+        # Threshold for m2 (maximize): -Y[1] + 1.5 = -2.0 + 1.5 = -0.5
+        # pyre-ignore[29]: _constraints elements are callables at runtime.
+        self.assertAlmostEqual(constraints_no_oc[1](Y_test_2d).item(), -0.5, places=5)
 
         # Case 3: With a non-qLogProbabilityOfFeasibility acqf class, the
         # threshold constraints should NOT be added.
@@ -1412,7 +1478,6 @@ class AcquisitionTest(TestCase):
             objective_weights=moo_objective_weights,
             outcome_constraints=outcome_constraints,
             objective_thresholds=moo_objective_thresholds,
-            is_moo=True,
         )
         acquisition_nehvi = Acquisition(
             surrogate=self.surrogate,

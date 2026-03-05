@@ -10,6 +10,7 @@ import math
 from typing import TYPE_CHECKING
 
 import numpy as np
+from ax.core.batch_trial import BatchTrial
 from ax.core.observation import ObservationFeatures
 from ax.core.parameter import (
     ChoiceParameter,
@@ -68,9 +69,21 @@ def _get_best_trial_info(
         return None
 
     trial_index, parameterization, _prediction = result
-    # Get the arm name from the trial
-    trial = assert_is_instance(experiment.trials[trial_index], Trial)
-    arm_name = none_throws(trial.arm).name
+    # Get the arm name from the trial. Handle both single-arm Trial and
+    # multi-arm BatchTrial (used by PTS experiments).
+    base_trial = experiment.trials[trial_index]
+    if isinstance(base_trial, Trial):
+        arm_name = none_throws(base_trial.arm).name
+    else:
+        # BatchTrial: match the best parameterization to the corresponding arm.
+        batch_trial = assert_is_instance(base_trial, BatchTrial)
+        arm_name = None
+        for arm in batch_trial.arms:
+            if arm.parameters == parameterization:
+                arm_name = arm.name
+                break
+        if arm_name is None:
+            return None
     return parameterization, trial_index, arm_name
 
 

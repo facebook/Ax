@@ -214,6 +214,13 @@ class TestArmEffectsPlot(TestCase):
         for experiment in get_online_experiments():
             arm = Generators.SOBOL(experiment=experiment).gen(n=1).arms[0]
             arm.name = "additional_arm"
+
+            generation_strategy = get_default_generation_strategy_at_MBM_node(
+                experiment=experiment
+            )
+            generation_strategy.current_node._fit(experiment=experiment)
+            adapter = none_throws(generation_strategy.adapter)
+
             for (
                 use_model_predictions,
                 trial_index,
@@ -223,11 +230,6 @@ class TestArmEffectsPlot(TestCase):
                     additional_arms = [arm]
                 else:
                     additional_arms = None
-                generation_strategy = get_default_generation_strategy_at_MBM_node(
-                    experiment=experiment
-                )
-                generation_strategy.current_node._fit(experiment=experiment)
-                adapter = none_throws(generation_strategy.adapter)
 
                 for signature in adapter.metric_signatures:
                     metric_name = adapter._experiment.signature_to_metric[
@@ -263,6 +265,17 @@ class TestArmEffectsPlot(TestCase):
         # resemble those we see in an offline setting.
 
         for experiment in get_offline_experiments():
+            generation_strategy = get_default_generation_strategy_at_MBM_node(
+                experiment=experiment
+            )
+            generation_strategy.current_node._fit(experiment=experiment)
+            adapter = none_throws(generation_strategy.adapter)
+
+            model_metric_names = [
+                adapter._experiment.signature_to_metric[signature].name
+                for signature in adapter.metric_signatures
+            ]
+
             for use_model_predictions in [True, False]:
                 for trial_index in [None, 0]:
                     for with_additional_arms in [True, False]:
@@ -280,18 +293,6 @@ class TestArmEffectsPlot(TestCase):
                         else:
                             additional_arms = None
 
-                        generation_strategy = (
-                            get_default_generation_strategy_at_MBM_node(
-                                experiment=experiment
-                            )
-                        )
-                        generation_strategy.current_node._fit(experiment=experiment)
-                        adapter = none_throws(generation_strategy.adapter)
-
-                        model_metric_names = [
-                            adapter._experiment.signature_to_metric[signature].name
-                            for signature in adapter.metric_signatures
-                        ]
                         for metric_name in model_metric_names:
                             analysis = ArmEffectsPlot(
                                 metric_name=metric_name,

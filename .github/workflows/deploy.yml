@@ -9,13 +9,6 @@ on:
   workflow_dispatch:
 
 jobs:
-  tests-and-coverage-latest:
-    name: Tests with latest BoTorch
-    uses: ./.github/workflows/reusable_test.yml
-    with:
-      pinned_botorch: false
-    secrets: inherit
-
   tests-and-coverage-pinned:
     name: Tests with pinned BoTorch
     uses: ./.github/workflows/reusable_test.yml

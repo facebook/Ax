@@ -38,7 +38,7 @@ from ax.core.outcome_constraint import (
 from ax.core.parameter import ChoiceParameter, Parameter, ParameterType, RangeParameter
 from ax.core.parameter_constraint import ParameterConstraint
 from ax.core.search_space import SearchSpace, SearchSpaceDigest
-from ax.core.types import TBounds, TCandidateMetadata
+from ax.core.types import TBounds, TCandidateMetadata, TNumeric
 from ax.exceptions.core import DataRequiredError, UserInputError
 from ax.generators.torch.botorch_moo_utils import (
     get_weighted_mc_objective_and_objective_thresholds,
@@ -56,7 +56,7 @@ from botorch.utils.multi_objective.box_decompositions.dominated import (
     DominatedPartitioning,
 )
 from pyre_extensions import assert_is_instance, none_throws
-from torch import Tensor
+from torch import LongTensor, Tensor
 
 logger: Logger = get_logger(__name__)
 
@@ -143,8 +143,11 @@ def extract_search_space_digest(
             else:
                 categorical_features.append(i)
             # at this point we can assume that values are numeric due to transforms
-            discrete_choices[i] = p.values  # pyre-ignore [6]
-            bounds.append((min(p.values), max(p.values)))  # pyre-ignore [6]
+            numeric_values: list[TNumeric] = [
+                assert_is_instance_of_tuple(v, (int, float)) for v in p.values
+            ]
+            discrete_choices[i] = numeric_values
+            bounds.append((min(numeric_values), max(numeric_values)))
         elif isinstance(p, RangeParameter):
             if p.log_scale or p.logit_scale:
                 raise UserInputError(
@@ -154,8 +157,7 @@ def extract_search_space_digest(
                 )
             if p.parameter_type == ParameterType.INT:
                 ordinal_features.append(i)
-                d_choices = list(range(int(p.lower), int(p.upper) + 1))
-                # pyre-ignore [6]
+                d_choices: list[TNumeric] = list(range(int(p.lower), int(p.upper) + 1))
                 discrete_choices[i] = d_choices
             bounds.append((p.lower, p.upper))
         else:
@@ -275,6 +277,36 @@ def extract_objective_weights(objective: Objective, outcomes: list[str]) -> npt.
         s = -1.0 if objective.minimize else 1.0
         objective_weights[outcomes.index(objective.metric.signature)] = s
     return objective_weights
+
+
+def extract_objective_weight_matrix(
+    objective: Objective, outcomes: list[str]
+) -> npt.NDArray:
+    """Extract a 2D weight matrix for objectives.
+
+    Each row corresponds to one objective and each column to one modeled
+    outcome.  Outcomes that are not part of an objective get weight 0 in
+    every row.
+
+    For a single ``Objective`` (including ``ScalarizedObjective``), the
+    matrix has a single row.  For a ``MultiObjective``, each sub-objective
+    gets its own row.
+
+    Args:
+        objective: Objective to extract weights from.
+        outcomes: n-length list of names of metrics.
+
+    Returns:
+        ``(n_objectives, n)`` array of weights.
+    """
+    if isinstance(objective, MultiObjective):
+        rows: list[npt.NDArray] = []
+        for obj in objective.objectives:
+            rows.append(extract_objective_weights(obj, outcomes))
+        return np.stack(rows, axis=0)
+    else:
+        # Single row – covers Objective and ScalarizedObjective
+        return extract_objective_weights(objective, outcomes).reshape(1, -1)
 
 
 def extract_outcome_constraints(
@@ -603,7 +635,7 @@ def get_pareto_frontier_and_configs(
         MultiObjectiveOptimizationConfig,
     )
     # Extract weights, constraints, and objective_thresholds
-    objective_weights = extract_objective_weights(
+    objective_weights = extract_objective_weight_matrix(
         objective=optimization_config.objective, outcomes=adapter.outcomes
     )
     outcome_constraints = extract_outcome_constraints(
@@ -877,7 +909,7 @@ def hypervolume(
         objective_weights=obj_w, objective_thresholds=none_throws(obj_t)
     )
     f_t = obj(f)
-    obj_mask = obj_w.nonzero().view(-1)
+    obj_mask = (obj_w != 0).any(dim=0).nonzero().view(-1)
     selected_metrics_mask = selected_metrics_mask[obj_mask]
     f_t = f_t[:, selected_metrics_mask]
     obj_t = obj_t[selected_metrics_mask]
@@ -1262,8 +1294,11 @@ def prep_pairwise_data(
 
     datapoints, comparisons = X, Y.long()
     event_shape = torch.Size([2 * datapoints.shape[-1]])
-    # pyre-ignore[6]: For 2nd param expected `LongTensor` but
-    dataset_X = SliceContainer(datapoints, comparisons, event_shape=event_shape)
+    dataset_X = SliceContainer(
+        values=datapoints,
+        indices=assert_is_instance(comparisons, LongTensor),
+        event_shape=event_shape,
+    )
     dataset_Y = torch.tensor([[0, 1]]).expand(comparisons.shape)
     dataset = RankingDataset(
         X=dataset_X,

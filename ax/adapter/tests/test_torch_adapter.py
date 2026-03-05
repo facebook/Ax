@@ -252,7 +252,7 @@ class TorchAdapterTest(TestCase):
         self.assertTrue(
             torch.equal(
                 gen_opt_config.objective_weights,
-                torch.tensor([1.0, 0.0], **tkwargs),
+                torch.tensor([[1.0, 0.0]], **tkwargs),
             )
         )
         self.assertIsNone(gen_opt_config.outcome_constraints)

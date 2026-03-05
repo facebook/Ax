@@ -252,6 +252,19 @@ class TestScatterPlot(TestCase):
                 continue
             arm = Generators.SOBOL(experiment=experiment).gen(n=1).arms[0]
             arm.name = "additional_arm"
+
+            generation_strategy = get_default_generation_strategy_at_MBM_node(
+                experiment=experiment
+            )
+            generation_strategy.current_node._fit(experiment=experiment)
+            adapter = none_throws(generation_strategy.adapter)
+
+            metric_names = [
+                experiment.signature_to_metric[signature].name
+                for signature in adapter.metric_signatures
+            ]
+            x_metric_name, y_metric_name = metric_names[:2]
+
             for (
                 use_model_predictions,
                 trial_index,
@@ -267,19 +280,6 @@ class TestScatterPlot(TestCase):
                     additional_arms = [arm]
                 else:
                     additional_arms = None
-
-                generation_strategy = get_default_generation_strategy_at_MBM_node(
-                    experiment=experiment
-                )
-                generation_strategy.current_node._fit(experiment=experiment)
-                adapter = none_throws(generation_strategy.adapter)
-
-                metric_names = [
-                    experiment.signature_to_metric[signature].name
-                    for signature in adapter.metric_signatures
-                ]
-
-                x_metric_name, y_metric_name = metric_names[:2]
 
                 analysis = ScatterPlot(
                     x_metric_name=x_metric_name,
@@ -321,6 +321,18 @@ class TestScatterPlot(TestCase):
             if len(experiment.metrics) < 2:
                 continue
 
+            generation_strategy = get_default_generation_strategy_at_MBM_node(
+                experiment=experiment
+            )
+            generation_strategy.current_node._fit(experiment=experiment)
+            adapter = none_throws(generation_strategy.adapter)
+
+            metric_names = [
+                experiment.signature_to_metric[signature].name
+                for signature in adapter.metric_signatures
+            ]
+            x_metric_name, y_metric_name = metric_names[:2]
+
             for use_model_predictions in [True, False]:
                 for trial_index in [None, 0]:
                     for with_additional_arms in [True, False]:
@@ -338,20 +350,6 @@ class TestScatterPlot(TestCase):
                                 ]
                             else:
                                 additional_arms = None
-
-                            generation_strategy = (
-                                get_default_generation_strategy_at_MBM_node(
-                                    experiment=experiment
-                                )
-                            )
-                            generation_strategy.current_node._fit(experiment=experiment)
-                            adapter = none_throws(generation_strategy.adapter)
-
-                            metric_names = [
-                                experiment.signature_to_metric[signature].name
-                                for signature in adapter.metric_signatures
-                            ]
-                            x_metric_name, y_metric_name = metric_names[:2]
 
                             analysis = ScatterPlot(
                                 x_metric_name=x_metric_name,

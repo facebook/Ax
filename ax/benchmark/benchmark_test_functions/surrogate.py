@@ -129,3 +129,28 @@ class SurrogateTestFunction(BenchmarkTestFunction):
 
         # Don't check surrogate, datasets, or callable
         return self.name == other.name
+
+
+@dataclass(kw_only=True)
+class HeterogeneousSurrogateTestFunction(SurrogateTestFunction):
+    """Wraps a test function to impute removed parameters during evaluation.
+
+    When target parameters are removed from the search space, this class ensures
+    that evaluations still work by imputing the removed parameters with status quo
+    values before calling the underlying surrogate model.
+    """
+
+    imputed_parameters: Mapping[str, TParamValue]
+
+    def __post_init__(self) -> None:
+        super().__post_init__()
+        search_space = self.surrogate._experiment.search_space
+        for param_name, value in self.imputed_parameters.items():
+            if param_name not in search_space.parameters:
+                raise AttributeError(
+                    f"Imputed parameter '{param_name}' is not in the search space."
+                )
+            search_space.parameters[param_name].validate(value, raises=True)
+
+    def evaluate_true(self, params: Mapping[str, TParamValue]) -> Tensor:
+        return super().evaluate_true({**self.imputed_parameters, **params})

@@ -8,10 +8,13 @@
 
 from logging import Logger
 
+import pandas as pd
 from ax.adapter.registry import Generators
 from ax.core.auxiliary import AuxiliaryExperiment, AuxiliaryExperimentPurpose
+from ax.core.data import Data
 from ax.core.trial_status import TrialStatus
-from ax.exceptions.core import UserInputError
+from ax.exceptions.core import DataRequiredError, UserInputError
+from ax.exceptions.generation_strategy import MaxParallelismReachedException
 from ax.generation_strategy.generation_strategy import (
     GenerationNode,
     GenerationStep,
@@ -23,11 +26,13 @@ from ax.generation_strategy.transition_criterion import (
     AuxiliaryExperimentCheck,
     IsSingleObjective,
     MaxGenerationParallelism,
+    MaxTrialsAwaitingData,
     MinTrials,
 )
 from ax.utils.common.logger import get_logger
 from ax.utils.common.testutils import TestCase
 from ax.utils.testing.core_stubs import (
+    get_branin_data,
     get_branin_experiment,
     get_branin_multi_objective_optimization_config,
     get_experiment,
@@ -167,7 +172,6 @@ class TestTransitionCriterion(TestCase):
         step_0_expected_transition_criteria = [
             MinTrials(
                 threshold=3,
-                block_gen_if_met=True,
                 transition_to="GenerationStep_1_BoTorch",
                 only_in_statuses=None,
                 not_in_statuses=[TrialStatus.FAILED, TrialStatus.ABANDONED],
@@ -176,7 +180,6 @@ class TestTransitionCriterion(TestCase):
         step_1_expected_transition_criteria = [
             MinTrials(
                 threshold=4,
-                block_gen_if_met=False,
                 transition_to="GenerationStep_2_BoTorch",
                 only_in_statuses=None,
                 not_in_statuses=[TrialStatus.FAILED, TrialStatus.ABANDONED],
@@ -185,13 +188,13 @@ class TestTransitionCriterion(TestCase):
                 only_in_statuses=[TrialStatus.COMPLETED, TrialStatus.EARLY_STOPPED],
                 threshold=2,
                 transition_to="GenerationStep_2_BoTorch",
+                count_only_trials_with_data=True,
             ),
+        ]
+        step_1_expected_pausing_criteria = [
             MaxGenerationParallelism(
                 threshold=1,
                 only_in_statuses=[TrialStatus.RUNNING],
-                block_gen_if_met=True,
-                block_transition_if_unmet=False,
-                transition_to="GenerationStep_1_BoTorch",
             ),
         ]
         step_2_expected_transition_criteria = []
@@ -200,6 +203,9 @@ class TestTransitionCriterion(TestCase):
         )
         self.assertEqual(
             gs._nodes[1].transition_criteria, step_1_expected_transition_criteria
+        )
+        self.assertEqual(
+            gs._nodes[1].pausing_criteria, step_1_expected_pausing_criteria
         )
         self.assertEqual(
             gs._nodes[2].transition_criteria, step_2_expected_transition_criteria
@@ -244,11 +250,25 @@ class TestTransitionCriterion(TestCase):
             .is_met(experiment=experiment, curr_node=gs._nodes[0])
         )
 
-        # Should pass after two trials are marked completed
+        # Should pass after two trials are marked completed AND have data
         for idx, trial in experiment.trials.items():
             trial.mark_running(no_runner_required=True).mark_completed()
             if idx == 1:
                 break
+        # With count_only_trials_with_data=True (now the default for
+        # min_trials_observed), this should still be False without data.
+        self.assertFalse(
+            gs._nodes[0]
+            .transition_criteria[1]
+            .is_met(experiment=experiment, curr_node=gs._nodes[0])
+        )
+        # Attach data for both completed trials
+        experiment.attach_data(
+            get_branin_data(
+                trials=[experiment.trials[0], experiment.trials[1]],
+                metrics=["branin"],
+            )
+        )
         self.assertTrue(
             gs._nodes[0]
             .transition_criteria[1]
@@ -267,6 +287,91 @@ class TestTransitionCriterion(TestCase):
         for idx, trial in experiment.trials.items():
             if idx == 2:
                 trial._status = TrialStatus.EARLY_STOPPED
+        self.assertTrue(
+            min_criterion.is_met(experiment=experiment, curr_node=gs._nodes[0])
+        )
+
+    def test_min_trials_count_only_with_data(self) -> None:
+        """Test that count_only_trials_with_data excludes COMPLETED trials
+        that are missing required optimization config metrics."""
+        experiment = self.branin_experiment
+        gs = GenerationStrategy(
+            name="SOBOL::default",
+            steps=[
+                GenerationStep(
+                    generator=Generators.SOBOL,
+                    num_trials=4,
+                    min_trials_observed=2,
+                    enforce_num_trials=True,
+                ),
+                GenerationStep(
+                    Generators.SOBOL,
+                    num_trials=-1,
+                    max_parallelism=1,
+                ),
+            ],
+        )
+        gs.experiment = experiment
+
+        for _i in range(4):
+            experiment.new_trial(
+                generator_run=gs.gen_single_trial(experiment=experiment)
+            )
+
+        # Create a MinTrials criterion with count_only_trials_with_data=True
+        min_criterion = MinTrials(
+            threshold=2,
+            transition_to="GenerationStep_1",
+            only_in_statuses=[TrialStatus.COMPLETED, TrialStatus.EARLY_STOPPED],
+            count_only_trials_with_data=True,
+        )
+
+        # Mark all 4 trials as completed
+        for trial in experiment.trials.values():
+            trial.mark_running(no_runner_required=True).mark_completed()
+
+        # Even though 4 trials are COMPLETED, none have data, so the
+        # criterion should not be met.
+        self.assertFalse(
+            min_criterion.is_met(experiment=experiment, curr_node=gs._nodes[0])
+        )
+
+        # Attach data for "branin" (the opt config metric) to 1 trial only
+        experiment.attach_data(
+            get_branin_data(trials=[experiment.trials[0]], metrics=["branin"])
+        )
+        # Still not met — only 1 trial has data, need 2
+        self.assertFalse(
+            min_criterion.is_met(experiment=experiment, curr_node=gs._nodes[0])
+        )
+
+        # Attach data for a NON-opt-config metric to trial 1 (missing "branin")
+        experiment.attach_data(
+            Data(
+                df=pd.DataFrame(
+                    [
+                        {
+                            "trial_index": 1,
+                            "arm_name": experiment.trials[1].arm.name,
+                            "metric_name": "not_branin",
+                            "mean": 1.0,
+                            "sem": 0.0,
+                            "metric_signature": "not_branin",
+                        }
+                    ]
+                )
+            )
+        )
+        # Still not met — trial 1 has data but not for "branin"
+        self.assertFalse(
+            min_criterion.is_met(experiment=experiment, curr_node=gs._nodes[0])
+        )
+
+        # Attach "branin" data to trial 1 too
+        experiment.attach_data(
+            get_branin_data(trials=[experiment.trials[1]], metrics=["branin"])
+        )
+        # Now 2 trials have "branin" data — criterion should be met
         self.assertTrue(
             min_criterion.is_met(experiment=experiment, curr_node=gs._nodes[0])
         )
@@ -391,12 +496,9 @@ class TestTransitionCriterion(TestCase):
         max_criterion_with_status = MinTrials(
             threshold=2,
             transition_to="next_node",
-            block_gen_if_met=True,
             only_in_statuses=[TrialStatus.COMPLETED],
         )
-        max_criterion = MinTrials(
-            threshold=2, transition_to="next_node", block_gen_if_met=True
-        )
+        max_criterion = MinTrials(threshold=2, transition_to="next_node")
         self.assertFalse(
             max_criterion.is_met(experiment=experiment, curr_node=gs._nodes[0])
         )
@@ -428,8 +530,6 @@ class TestTransitionCriterion(TestCase):
         min_trials_criterion = MinTrials(
             threshold=5,
             transition_to="GenerationStep_1",
-            block_gen_if_met=True,
-            block_transition_if_unmet=False,
             only_in_statuses=[TrialStatus.COMPLETED],
             not_in_statuses=[TrialStatus.FAILED],
         )
@@ -439,8 +539,6 @@ class TestTransitionCriterion(TestCase):
             + "'transition_to': 'GenerationStep_1', "
             + "'only_in_statuses': [<enum 'TrialStatus'>.COMPLETED], "
             + "'not_in_statuses': [<enum 'TrialStatus'>.FAILED], "
-            + "'block_transition_if_unmet': False, "
-            + "'block_gen_if_met': True, "
             + "'use_all_trials_in_exp': False, "
             + "'continue_trial_generation': False, "
             + "'count_only_trials_with_data': False})",
@@ -449,8 +547,6 @@ class TestTransitionCriterion(TestCase):
             threshold=0,
             transition_to="GenerationStep_2",
             only_in_statuses=[TrialStatus.COMPLETED, TrialStatus.EARLY_STOPPED],
-            block_gen_if_met=True,
-            block_transition_if_unmet=False,
             not_in_statuses=[TrialStatus.FAILED],
         )
         self.assertEqual(
@@ -460,8 +556,6 @@ class TestTransitionCriterion(TestCase):
             + "'only_in_statuses': "
             + "[<enum 'TrialStatus'>.COMPLETED, <enum 'TrialStatus'>.EARLY_STOPPED], "
             + "'not_in_statuses': [<enum 'TrialStatus'>.FAILED], "
-            + "'block_transition_if_unmet': False, "
-            + "'block_gen_if_met': True, "
             + "'use_all_trials_in_exp': False, "
             + "'continue_trial_generation': False, "
             + "'count_only_trials_with_data': False})",
@@ -469,27 +563,54 @@ class TestTransitionCriterion(TestCase):
         max_parallelism = MaxGenerationParallelism(
             only_in_statuses=[TrialStatus.EARLY_STOPPED],
             threshold=3,
-            transition_to="GenerationStep_2",
-            block_gen_if_met=True,
-            block_transition_if_unmet=False,
             not_in_statuses=[TrialStatus.FAILED],
         )
         self.assertEqual(
             str(max_parallelism),
             "MaxGenerationParallelism({'threshold': 3, "
-            + "'transition_to': 'GenerationStep_2', "
             + "'only_in_statuses': "
             + "[<enum 'TrialStatus'>.EARLY_STOPPED], "
             + "'not_in_statuses': [<enum 'TrialStatus'>.FAILED], "
-            + "'block_transition_if_unmet': False, "
-            + "'block_gen_if_met': True, "
             + "'use_all_trials_in_exp': False, "
-            + "'continue_trial_generation': False})",
+            + "'count_only_trials_with_data': False})",
         )
         auto_transition = AutoTransitionAfterGen(transition_to="GenerationStep_2")
         self.assertEqual(
             str(auto_transition),
             "AutoTransitionAfterGen({'transition_to': 'GenerationStep_2', "
-            + "'block_transition_if_unmet': True, "
             + "'continue_trial_generation': True})",
         )
+
+
+class TestPausingCriterion(TestCase):
+    """Tests for PausingCriterion classes."""
+
+    def setUp(self) -> None:
+        super().setUp()
+        self.experiment = get_branin_experiment()
+
+    def test_max_trials_awaiting_data(self) -> None:
+        with self.subTest("default_not_in_statuses"):
+            criterion = MaxTrialsAwaitingData(threshold=10)
+            self.assertEqual(
+                criterion.not_in_statuses,
+                [TrialStatus.FAILED, TrialStatus.ABANDONED],
+            )
+
+        with self.subTest("block_continued_generation_error"):
+            criterion = MaxTrialsAwaitingData(threshold=3)
+            with self.assertRaises(DataRequiredError):
+                criterion.block_continued_generation_error(
+                    node_name="test", experiment=self.experiment, trials_from_node=set()
+                )
+
+    def test_max_generation_parallelism_block_error(self) -> None:
+        criterion = MaxGenerationParallelism(
+            threshold=2, only_in_statuses=[TrialStatus.RUNNING]
+        )
+        with self.assertRaises(MaxParallelismReachedException):
+            criterion.block_continued_generation_error(
+                node_name="test",
+                experiment=self.experiment,
+                trials_from_node={0, 1, 2},
+            )

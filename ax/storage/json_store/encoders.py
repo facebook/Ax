@@ -50,7 +50,10 @@ from ax.generation_strategy.generation_strategy import (
     GenerationStrategy,
 )
 from ax.generation_strategy.generator_spec import GeneratorSpec
-from ax.generation_strategy.transition_criterion import TransitionCriterion
+from ax.generation_strategy.transition_criterion import (
+    PausingCriterion,
+    TransitionCriterion,
+)
 from ax.generators.torch.botorch_modular.generator import BoTorchGenerator
 from ax.generators.torch.botorch_modular.surrogate import Surrogate
 from ax.generators.winsorization_config import WinsorizationConfig
@@ -409,6 +412,7 @@ def generation_node_to_dict(generation_node: GenerationNode) -> dict[str, Any]:
         "best_model_selector": generation_node.best_model_selector,
         "should_deduplicate": generation_node.should_deduplicate,
         "transition_criteria": generation_node.transition_criteria,
+        "generation_pausing_criteria": generation_node.pausing_criteria,
         "generator_spec_to_gen_from": generation_node._generator_spec_to_gen_from,
         "previous_node_name": generation_node._previous_node_name,
         "trial_type": generation_node._trial_type,
@@ -442,6 +446,15 @@ def generation_strategy_to_dict(
 
 def transition_criterion_to_dict(criterion: TransitionCriterion) -> dict[str, Any]:
     """Convert Ax TransitionCriterion to a dictionary."""
+    properties = serialize_init_args(obj=criterion)
+    properties["__type"] = criterion.__class__.__name__
+    return properties
+
+
+def pausing_criterion_to_dict(
+    criterion: PausingCriterion,
+) -> dict[str, Any]:
+    """Convert Ax PausingCriterion to a dictionary."""
     properties = serialize_init_args(obj=criterion)
     properties["__type"] = criterion.__class__.__name__
     return properties

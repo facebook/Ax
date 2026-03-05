@@ -6,103 +6,14 @@
 
 # pyre-strict
 
-from logging import Logger
-from typing import Any
-
 import numpy as np
 import numpy.typing as npt
 import pandas as pd
 import plotly.graph_objs as go
 from ax.adapter import Adapter
 from ax.core.parameter import ChoiceParameter
-from ax.exceptions.core import NoDataError
 from ax.plot.base import AxPlotConfig, AxPlotTypes
 from ax.plot.helper import compose_annotation
-from ax.utils.common.logger import get_logger
-from plotly import subplots
-
-logger: Logger = get_logger(__name__)
-
-
-def plot_feature_importance_plotly(df: pd.DataFrame, title: str) -> go.Figure:
-    if df.empty:
-        raise NoDataError("No Data on Feature Importances found.")
-    df.set_index(df.columns[0], inplace=True)
-    data = [
-        go.Bar(y=df.index, x=df[column_name], name=column_name, orientation="h")
-        for column_name in df.columns
-    ]
-    fig = subplots.make_subplots(
-        rows=len(df.columns),
-        cols=1,
-        subplot_titles=df.columns,
-        print_grid=False,
-        shared_xaxes=True,
-    )
-
-    for idx, item in enumerate(data):
-        fig.append_trace(item, idx + 1, 1)
-    fig.layout.showlegend = False
-    fig.layout.margin = go.layout.Margin(
-        l=8 * min(max(len(idx) for idx in df.index), 75)  # noqa E741
-    )
-    fig.layout.title = title
-    return fig
-
-
-def plot_feature_importance(df: pd.DataFrame, title: str) -> AxPlotConfig:
-    """Wrapper method to convert plot_feature_importance_plotly to
-    AxPlotConfig"""
-    return AxPlotConfig(
-        # pyre-fixme[6]: For 1st argument expected `Dict[str, typing.Any]` but got
-        #  `Figure`.
-        data=plot_feature_importance_plotly(df, title),
-        plot_type=AxPlotTypes.GENERIC,
-    )
-
-
-def plot_feature_importance_by_metric_plotly(model: Adapter) -> go.Figure:
-    """One plot per feature, showing importances by metric."""
-    importances = []
-    metric_names = [
-        model._experiment.signature_to_metric[signature].name
-        for signature in model.metric_signatures
-    ]
-    for metric_name in sorted(metric_names):
-        try:
-            vals: dict[str, Any] = model.feature_importances(metric_name)
-            vals["index"] = metric_name
-            importances.append(vals)
-        except NotImplementedError:
-            logger.warning(
-                f"Model for {metric_name} does not support feature importances."
-            )
-    if not importances:
-        raise NotImplementedError(
-            "Feature importances could not be calculated for any metric"
-        )
-    df = pd.DataFrame(importances)
-
-    # plot_feature_importance expects index in first column
-    df = df.reindex(columns=(["index"] + [a for a in df.columns if a != "index"]))
-
-    plot_fi = plot_feature_importance_plotly(df, "Parameter Sensitivity by Metric")
-    num_subplots = len(df.columns)
-    num_features = len(df)
-    # Include per-subplot margin for subplot titles (feature names).
-    plot_fi["layout"]["height"] = num_subplots * (num_features + 1) * 50
-    return plot_fi
-
-
-def plot_feature_importance_by_metric(model: Adapter) -> AxPlotConfig:
-    """Wrapper method to convert plot_feature_importance_by_metric_plotly to
-    AxPlotConfig"""
-    return AxPlotConfig(
-        # pyre-fixme[6]: For 1st argument expected `Dict[str, typing.Any]` but got
-        #  `Figure`.
-        data=plot_feature_importance_by_metric_plotly(model),
-        plot_type=AxPlotTypes.GENERIC,
-    )
 
 
 def plot_feature_importance_by_feature_plotly(
@@ -305,50 +216,5 @@ def plot_feature_importance_by_feature(
             importance_measure=importance_measure,
             label_dict=label_dict,
         ),
-        plot_type=AxPlotTypes.GENERIC,
-    )
-
-
-def plot_relative_feature_importance_plotly(model: Adapter) -> go.Figure:
-    """Create a stacked bar chart of feature importances per metric"""
-    importances = []
-    metric_names = [
-        model._experiment.signature_to_metric[signature].name
-        for signature in model.metric_signatures
-    ]
-    for metric_name in sorted(metric_names):
-        try:
-            vals: dict[str, Any] = model.feature_importances(metric_name)
-            vals["index"] = metric_name
-            importances.append(vals)
-        except Exception:
-            logger.warning(
-                f"Model for {metric_name} does not support feature importances."
-            )
-    df = pd.DataFrame(importances)
-    df.set_index("index", inplace=True)
-    df = df.div(df.sum(axis=1), axis=0)
-    data = [
-        go.Bar(y=df.index, x=df[column_name], name=column_name, orientation="h")
-        for column_name in df.columns
-    ]
-    layout = go.Layout(
-        margin=go.layout.Margin(l=250),  # noqa E741
-        barmode="group",
-        yaxis={"title": ""},
-        xaxis={"title": "Relative Parameter importance"},
-        showlegend=False,
-        title="Relative Parameter Importance per Metric",
-    )
-    return go.Figure(data=data, layout=layout)
-
-
-def plot_relative_feature_importance(model: Adapter) -> AxPlotConfig:
-    """Wrapper method to convert plot_relative_feature_importance_plotly to
-    AxPlotConfig"""
-    return AxPlotConfig(
-        # pyre-fixme[6]: For 1st argument expected `Dict[str, typing.Any]` but got
-        #  `Figure`.
-        data=plot_relative_feature_importance_plotly(model),
         plot_type=AxPlotTypes.GENERIC,
     )

@@ -41,6 +41,7 @@ from ax.generation_strategy.transition_criterion import (
     AutoTransitionAfterGen,
     IsSingleObjective,
     MaxGenerationParallelism,
+    MaxTrialsAwaitingData,
     MinTrials,
 )
 from ax.generators.torch.botorch_modular.surrogate import (
@@ -184,7 +185,6 @@ def sobol_gpei_generation_node_gs(
         MinTrials(
             threshold=5,
             transition_to="MBM_node",
-            block_gen_if_met=True,
             only_in_statuses=None,
             not_in_statuses=[TrialStatus.FAILED, TrialStatus.ABANDONED],
         )
@@ -195,7 +195,6 @@ def sobol_gpei_generation_node_gs(
         MinTrials(
             threshold=2,
             transition_to="MBM_node",
-            block_gen_if_met=True,
             only_in_statuses=None,
             not_in_statuses=[TrialStatus.FAILED, TrialStatus.ABANDONED],
         ),
@@ -204,17 +203,20 @@ def sobol_gpei_generation_node_gs(
         MinTrials(
             threshold=0,
             transition_to="MBM_node",
-            block_gen_if_met=False,
             only_in_statuses=[TrialStatus.CANDIDATE],
             not_in_statuses=None,
         ),
+    ]
+    sobol_blocking_criteria = [
+        MaxTrialsAwaitingData(
+            threshold=5,
+            only_in_statuses=None,
+            not_in_statuses=[TrialStatus.FAILED, TrialStatus.ABANDONED],
+        ),
         MaxGenerationParallelism(
             threshold=1000,
-            transition_to="MBM_node",
-            block_gen_if_met=True,
             only_in_statuses=[TrialStatus.RUNNING],
             not_in_statuses=None,
-            continue_trial_generation=False,
         ),
     ]
     auto_mbm_criterion = [AutoTransitionAfterGen(transition_to="MBM_node")]
@@ -235,6 +237,7 @@ def sobol_gpei_generation_node_gs(
     sobol_node = GenerationNode(
         name="sobol_node",
         transition_criteria=sobol_criterion,
+        pausing_criteria=sobol_blocking_criteria,
         generator_specs=[sobol_generator_spec],
     )
     if with_model_selection:

@@ -764,6 +764,17 @@ class TestUtils(TestCase):
             raw_arm_value = raw_df[
                 (raw_df.arm_name == "0_0") & (raw_df.metric_name == metric_name)
             ]["mean"].values[0]
+
+            generation_strategy = get_default_generation_strategy_at_MBM_node(
+                experiment=experiment
+            )
+            generation_strategy.current_node._fit(experiment=experiment)
+            adapter = none_throws(generation_strategy.adapter)
+            model_metric_names = [
+                experiment.signature_to_metric[signature].name
+                for signature in adapter.metric_signatures
+            ]
+
             for (
                 use_model_predictions,
                 trial_index,
@@ -789,15 +800,6 @@ class TestUtils(TestCase):
                 else:
                     additional_arms = None
 
-                generation_strategy = get_default_generation_strategy_at_MBM_node(
-                    experiment=experiment
-                )
-                generation_strategy.current_node._fit(experiment=experiment)
-                adapter = none_throws(generation_strategy.adapter)
-                model_metric_names = [
-                    experiment.signature_to_metric[signature].name
-                    for signature in adapter.metric_signatures
-                ]
                 df = prepare_arm_data(
                     experiment=experiment,
                     metric_names=model_metric_names,
@@ -835,6 +837,16 @@ class TestUtils(TestCase):
         # resemble those we see in an offline setting.
 
         for experiment in get_offline_experiments():
+            generation_strategy = get_default_generation_strategy_at_MBM_node(
+                experiment=experiment
+            )
+            generation_strategy.current_node._fit(experiment=experiment)
+            adapter = none_throws(generation_strategy.adapter)
+            model_metric_names = [
+                experiment.signature_to_metric[signature].name
+                for signature in adapter.metric_signatures
+            ]
+
             for use_model_predictions in [True, False]:
                 for trial_index in [None, 0]:
                     for with_additional_arms in [True, False]:
@@ -851,18 +863,6 @@ class TestUtils(TestCase):
                             ]
                         else:
                             additional_arms = None
-
-                        generation_strategy = (
-                            get_default_generation_strategy_at_MBM_node(
-                                experiment=experiment
-                            )
-                        )
-                        generation_strategy.current_node._fit(experiment=experiment)
-                        adapter = none_throws(generation_strategy.adapter)
-                        model_metric_names = [
-                            experiment.signature_to_metric[signature].name
-                            for signature in adapter.metric_signatures
-                        ]
 
                         _ = prepare_arm_data(
                             experiment=experiment,

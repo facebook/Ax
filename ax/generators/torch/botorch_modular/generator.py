@@ -15,7 +15,7 @@ import numpy.typing as npt
 import torch
 from ax.core.search_space import SearchSpaceDigest
 from ax.core.types import TCandidateMetadata, TGenMetadata
-from ax.exceptions.core import UserInputError
+from ax.exceptions.core import UnsupportedError, UserInputError
 from ax.exceptions.model import ModelError
 from ax.generators.torch.botorch_modular.acquisition import Acquisition
 from ax.generators.torch.botorch_modular.multi_acquisition import MultiAcquisition
@@ -111,10 +111,16 @@ def _build_candidate_generation_options(
 
             # Get objective weights - for minimization this is -1, maximization is 1
             objective_weights = torch_opt_config.objective_weights
+            if torch_opt_config.is_moo:
+                raise UnsupportedError(
+                    "Thompson Sampling is not supported for multi-objective "
+                    "optimization."
+                )
             # Only use non-zero weights (actual objectives, not constraints)
-            obj_mask = objective_weights.nonzero().view(-1)
+            weights_1d = objective_weights.squeeze(0)
+            obj_mask = weights_1d.nonzero().view(-1)
             posterior_transform = ScalarizedPosteriorTransform(
-                weights=objective_weights[obj_mask]
+                weights=weights_1d[obj_mask]
             )
 
             sampling_strategy = sampling_strategy_class(
@@ -204,10 +210,9 @@ class BoTorchGenerator(TorchGenerator, Base):
         acquisition_options: dict[str, Any] | None = None,
         botorch_acqf_class: type[AcquisitionFunction] | None = None,
         botorch_acqf_options: dict[str, Any] | None = None,
-        botorch_acqf_classes_with_options: list[
-            tuple[type[AcquisitionFunction], dict[str, Any]]
-        ]
-        | None = None,
+        botorch_acqf_classes_with_options: (
+            list[tuple[type[AcquisitionFunction], dict[str, Any]]] | None
+        ) = None,
         refit_on_cv: bool = False,
         warm_start_refit: bool = True,
         use_p_feasible: bool = True,
@@ -425,7 +430,7 @@ class BoTorchGenerator(TorchGenerator, Base):
         gen_metadata: TGenMetadata = {
             Keys.EXPECTED_ACQF_VAL: expected_acquisition_value.tolist()
         }
-        if torch_opt_config.objective_weights.nonzero().numel() > 1:
+        if torch_opt_config.is_moo:
             gen_metadata["objective_thresholds"] = acqf.objective_thresholds
             gen_metadata["objective_weights"] = acqf.objective_weights
 
@@ -537,10 +542,9 @@ class BoTorchGenerator(TorchGenerator, Base):
         torch_opt_config: TorchOptConfig,
         botorch_acqf_options: dict[str, Any],
         acq_options: dict[str, Any] | None = None,
-        botorch_acqf_classes_with_options: list[
-            tuple[type[AcquisitionFunction], dict[str, Any]]
-        ]
-        | None = None,
+        botorch_acqf_classes_with_options: (
+            list[tuple[type[AcquisitionFunction], dict[str, Any]]] | None
+        ) = None,
         n: int | None = None,
     ) -> Acquisition:
         """Set a BoTorch acquisition function class for this model if needed and

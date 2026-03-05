@@ -23,8 +23,8 @@ from ax.core.trial import Trial
 from ax.core.types import TModelPredictArm, TParameterization
 from ax.exceptions.core import UserInputError
 from ax.generation_strategy.generation_strategy import GenerationStrategy
-from ax.plot.pareto_utils import get_tensor_converter_adapter
 from ax.service.utils import best_point as best_point_utils
+from ax.service.utils.best_point import get_tensor_converter_adapter
 from ax.service.utils.best_point_utils import select_baseline_name_default_first_trial
 from pyre_extensions import assert_is_instance, none_throws
 

@@ -126,7 +126,7 @@ class SobolGenerator(RandomGenerator):
             self.init_position = none_throws(self.engine).num_generated
         return points, weights
 
-    def _gen_samples(self, n: int, tunable_d: int) -> npt.NDArray:
+    def _gen_samples(self, n: int, tunable_d: int, bounds: npt.NDArray) -> npt.NDArray:
         """Generate n samples.
 
         Args:
@@ -134,6 +134,7 @@ class SobolGenerator(RandomGenerator):
             tunable_d: The dimension of the generated samples. This must
                 match the tunable parameters used while initializing the
                 Sobol engine.
+            bounds: A (tunable_d x 2) array of (lower, upper) bounds.
 
         Returns:
             A numpy array of samples of shape `(n x tunable_d)`.
@@ -144,4 +145,8 @@ class SobolGenerator(RandomGenerator):
             raise ValueError(
                 "Sobol Engine must be initialized before candidate generation."
             )
-        return none_throws(self.engine).draw(n, dtype=torch.double).numpy()
+        unit_samples = none_throws(self.engine).draw(n, dtype=torch.double).numpy()
+        # Rescale from [0, 1]^d to [lower, upper]^d
+        lower = bounds[:, 0]
+        upper = bounds[:, 1]
+        return unit_samples * (upper - lower) + lower

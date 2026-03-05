@@ -37,12 +37,14 @@ class RandomGeneratorTest(TestCase):
 
     def test_RandomGeneratorGenSamples(self) -> None:
         with self.assertRaises(NotImplementedError):
-            self.random_model._gen_samples(n=1, tunable_d=1)
+            self.random_model._gen_samples(
+                n=1, tunable_d=1, bounds=np.array([[0.0, 1.0]])
+            )
 
     def test_RandomGeneratorGenUnconstrained(self) -> None:
         with self.assertRaises(NotImplementedError):
             self.random_model._gen_unconstrained(
-                n=1, d=2, tunable_feature_indices=np.array([])
+                n=1, d=2, tunable_feature_indices=np.array([], dtype=int)
             )
 
     def test_ConvertEqualityConstraints(self) -> None:

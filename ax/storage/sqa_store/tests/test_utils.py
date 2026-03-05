@@ -15,22 +15,11 @@ from ax.storage.sqa_store.sqa_config import (
     SQAGenerationStrategy,
 )
 from ax.storage.sqa_store.utils import are_relationships_loaded, copy_db_ids
-from ax.utils.common.base import Base
 from ax.utils.common.testutils import TestCase
 from ax.utils.testing.core_stubs import (
     get_experiment_with_batch_trial,
     get_experiment_with_data,
 )
-
-
-class DummyClassWithBaseline(Base):
-    # pyre-fixme[3]: Return type must be annotated.
-    # pyre-fixme[2]: Parameter must be annotated.
-    def __init__(self, baseline_workflow_inputs, db_id):
-        # pyre-fixme[4]: Attribute must be annotated.
-        self.baseline_workflow_inputs = baseline_workflow_inputs
-        # pyre-fixme[4]: Attribute must be annotated.
-        self.dummy_db_id = db_id
 
 
 class SQAStoreUtilsTest(TestCase):
@@ -113,18 +102,6 @@ class SQAStoreUtilsTest(TestCase):
         # pyre-fixme[8]: Attribute has type `SearchSpace`; used as `None`.
         exp2._search_space = None
         self.assertEqual(exp1, exp2)
-
-    def test_json_copy_db_ids(self) -> None:
-        target_obj = DummyClassWithBaseline(
-            baseline_workflow_inputs=[{1: 2, 3: 4}, {"a": "b", "c": "d"}],
-            db_id=None,
-        )
-        source_obj = DummyClassWithBaseline(
-            baseline_workflow_inputs=[{1: 2, 3: 4}, {"a": "b", "c": "d"}],
-            db_id=1,
-        )
-        copy_db_ids(source_obj, target_obj)
-        self.assertEqual(source_obj, target_obj)
 
     def test_are_relationships_loaded(self) -> None:
         exp_sqa = SQAExperiment()

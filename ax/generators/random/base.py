@@ -23,7 +23,6 @@ from ax.generators.utils import (
     DEFAULT_MAX_RS_DRAWS,
     rejection_sample,
     tunable_feature_indices,
-    validate_bounds,
 )
 from ax.utils.common.docutils import copy_doc
 from ax.utils.common.logger import get_logger
@@ -85,6 +84,7 @@ class RandomGenerator(Generator):
         # Used for deduplication.
         self.fallback_to_sample_polytope = fallback_to_sample_polytope
         self.polytope_sampler_kwargs: dict[str, Any] = polytope_sampler_kwargs or {}
+        self._bounds: npt.NDArray = np.empty((0, 2))
         self.attempted_draws: int = 0
         if generated_points is not None:
             # generated_points was deprecated in Ax 1.0.0, so it can now be reaped.
@@ -146,15 +146,8 @@ class RandomGenerator(Generator):
         tf_indices = tunable_feature_indices(
             bounds=search_space_digest.bounds, fixed_features=fixed_features
         )
-        if fixed_features:
-            fixed_feature_indices = np.array(list(fixed_features.keys()))
-        else:
-            fixed_feature_indices = np.array([])
+        self._bounds = np.array(search_space_digest.bounds)  # (d, 2)
 
-        validate_bounds(
-            bounds=search_space_digest.bounds,
-            fixed_feature_indices=fixed_feature_indices,
-        )
         max_draws = DEFAULT_MAX_RS_DRAWS
         discrete_indices = set(search_space_digest.discrete_choices.keys())
         continuous_indices = {
@@ -282,7 +275,12 @@ class RandomGenerator(Generator):
             An (n x d) array of generated points.
 
         """
-        tunable_points = self._gen_samples(n=n, tunable_d=len(tunable_feature_indices))
+        tunable_bounds = self._bounds[tunable_feature_indices]
+        tunable_points = self._gen_samples(
+            n=n,
+            tunable_d=len(tunable_feature_indices),
+            bounds=tunable_bounds,
+        )
         return add_fixed_features(
             tunable_points=tunable_points,
             d=d,
@@ -290,14 +288,16 @@ class RandomGenerator(Generator):
             fixed_features=fixed_features,
         )
 
-    def _gen_samples(self, n: int, tunable_d: int) -> npt.NDArray:
-        """Generate n samples on [0, 1]^d.
+    def _gen_samples(self, n: int, tunable_d: int, bounds: npt.NDArray) -> npt.NDArray:
+        """Generate n samples within the given bounds.
 
         Args:
             n: Number of points to generate.
+            tunable_d: Number of tunable dimensions.
+            bounds: A (tunable_d x 2) array of (lower, upper) bounds.
 
         Returns:
-            (n x d) array of generated points.
+            (n x tunable_d) array of generated points.
 
         """
         raise NotImplementedError("Base RandomGenerator can't generate samples.")
@@ -359,7 +359,6 @@ class RandomGenerator(Generator):
 
             Args:
                 bounds: A list of (lower, upper) tuples for each column of X.
-                    Defined on [0, 1]^d.
 
             Returns:
                 Optional 2 x d tensor representing the bounds

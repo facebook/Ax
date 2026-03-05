@@ -19,7 +19,7 @@ from ax.core.trial_status import TrialStatus
 from ax.exceptions.core import UserInputError
 from ax.generation_strategy.center_generation_node import CenterGenerationNode
 from ax.generation_strategy.dispatch_utils import get_derelativize_config
-from ax.generation_strategy.transition_criterion import MinTrials
+from ax.generation_strategy.transition_criterion import MaxTrialsAwaitingData, MinTrials
 from ax.generators.torch.botorch_modular.surrogate import ModelConfig, SurrogateSpec
 from ax.utils.common.testutils import TestCase
 from ax.utils.testing.core_stubs import (
@@ -99,16 +99,12 @@ class TestDispatchUtils(TestCase):
             MinTrials(
                 threshold=2,
                 transition_to="MBM",
-                block_gen_if_met=False,
-                block_transition_if_unmet=True,
                 use_all_trials_in_exp=False,
                 not_in_statuses=[TrialStatus.FAILED, TrialStatus.ABANDONED],
             ),
             MinTrials(
                 threshold=4,
                 transition_to="MBM",
-                block_gen_if_met=False,
-                block_transition_if_unmet=True,
                 use_all_trials_in_exp=True,
                 only_in_statuses=[TrialStatus.COMPLETED],
                 count_only_trials_with_data=True,
@@ -390,7 +386,18 @@ class TestDispatchUtils(TestCase):
             first_tc.not_in_statuses, [TrialStatus.FAILED, TrialStatus.ABANDONED]
         )
         self.assertEqual(first_tc.threshold, 5)
-        self.assertTrue(first_tc.block_gen_if_met)
+        # Verify MaxTrialsAwaitingData is in pausing_criteria
+        pausing_criteria = [
+            pc
+            for pc in sobol_node._pausing_criteria
+            if isinstance(pc, MaxTrialsAwaitingData)
+        ]
+        self.assertEqual(len(pausing_criteria), 1)
+        self.assertEqual(pausing_criteria[0].threshold, 5)
+        self.assertEqual(
+            pausing_criteria[0].not_in_statuses,
+            [TrialStatus.FAILED, TrialStatus.ABANDONED],
+        )
 
         # Test the actual behavior: Generate 5 trials, mark 3 as ABANDONED,
         # verify that Sobol can still generate more trials

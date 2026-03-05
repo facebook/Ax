@@ -445,3 +445,68 @@ class TestBenchmarkRunner(TestCase):
                 ValueError, "Step duration must be non-negative"
             ):
                 runner.run(trial=trial)
+
+    def test_nan_trials_abandoned(self) -> None:
+        """Trials with NaN data are marked ABANDONED, valid trials COMPLETED."""
+        test_function = IdentityTestFunction(outcome_names=["objective"])
+
+        with self.subTest("without simulated backend"):
+            runner = BenchmarkRunner(
+                test_function=test_function,
+                noise=GaussianNoise(noise_std=0.0),
+            )
+            experiment = Experiment(
+                name="test_nan_sync",
+                is_test=True,
+                runner=runner,
+                search_space=Mock(spec=SearchSpace),
+            )
+            trial_valid = Trial(experiment=experiment)
+            trial_valid.add_arm(Arm(name="0_0", parameters={"x0": 1.5}))
+            trial_valid.run()
+
+            trial_nan = Trial(experiment=experiment)
+            trial_nan.add_arm(Arm(name="1_0", parameters={"x0": float("nan")}))
+            trial_nan.run()
+
+            trial_valid2 = Trial(experiment=experiment)
+            trial_valid2.add_arm(Arm(name="2_0", parameters={"x0": 2.0}))
+            trial_valid2.run()
+
+            statuses = runner.poll_trial_status([trial_valid, trial_nan, trial_valid2])
+            self.assertEqual(
+                statuses[TrialStatus.COMPLETED],
+                {trial_valid.index, trial_valid2.index},
+            )
+            self.assertEqual(statuses[TrialStatus.ABANDONED], {trial_nan.index})
+
+        with self.subTest("with simulated backend"):
+            runner = BenchmarkRunner(
+                test_function=test_function,
+                noise=GaussianNoise(noise_std=0.0),
+                force_use_simulated_backend=True,
+            )
+            experiment = Experiment(
+                name="test_nan_async",
+                is_test=True,
+                runner=runner,
+                search_space=Mock(spec=SearchSpace),
+            )
+            trial_nan = Trial(experiment=experiment)
+            trial_nan.add_arm(Arm(name="0_0", parameters={"x0": float("nan")}))
+            trial_nan.run()
+
+            trial_valid = Trial(experiment=experiment)
+            trial_valid.add_arm(Arm(name="1_0", parameters={"x0": 3.0}))
+            trial_valid.run()
+
+            # Advance simulated time so trials complete
+            simulator = none_throws(
+                none_throws(runner.simulated_backend_runner).simulator
+            )
+            while simulator.num_completed < 2:
+                simulator.update()
+
+            statuses = runner.poll_trial_status([trial_nan, trial_valid])
+            self.assertEqual(statuses[TrialStatus.COMPLETED], {trial_valid.index})
+            self.assertEqual(statuses[TrialStatus.ABANDONED], {trial_nan.index})

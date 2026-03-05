@@ -28,6 +28,7 @@ from ax.core.arm import Arm
 from ax.core.auxiliary import AuxiliaryExperiment, AuxiliaryExperimentPurpose
 from ax.core.batch_trial import AbandonedArm, BatchTrial
 from ax.core.data import Data
+from ax.core.derived_metric import ExpressionDerivedMetric
 from ax.core.evaluations_to_data import DataType
 from ax.core.experiment_status import ExperimentStatus
 from ax.core.generator_run import GeneratorRun
@@ -79,6 +80,7 @@ from ax.generation_strategy.transition_criterion import (
     AuxiliaryExperimentCheck,
     IsSingleObjective,
     MaxGenerationParallelism,
+    MaxTrialsAwaitingData,
     MinTrials,
     TransitionCriterion,
 )
@@ -143,6 +145,7 @@ from ax.storage.json_store.encoders import (
     outcome_constraint_to_dict,
     parameter_constraint_to_dict,
     pathlib_to_dict,
+    pausing_criterion_to_dict,
     percentile_early_stopping_strategy_to_dict,
     preference_optimization_config_to_dict,
     range_parameter_to_dict,
@@ -200,6 +203,7 @@ CORE_ENCODER_REGISTRY: dict[type, Callable[[Any], dict[str, Any]]] = {
     ChainedInputTransform: botorch_component_to_dict,
     ChoiceParameter: choice_parameter_to_dict,
     Data: data_to_dict,
+    ExpressionDerivedMetric: metric_to_dict,
     DerivedParameter: derived_parameter_to_dict,
     Experiment: experiment_to_dict,
     FactorialMetric: metric_to_dict,
@@ -216,7 +220,8 @@ CORE_ENCODER_REGISTRY: dict[type, Callable[[Any], dict[str, Any]]] = {
     L2NormMetric: metric_to_dict,
     LogNormalPrior: botorch_component_to_dict,
     MapMetric: metric_to_dict,
-    MaxGenerationParallelism: transition_criterion_to_dict,
+    MaxGenerationParallelism: pausing_criterion_to_dict,
+    MaxTrialsAwaitingData: pausing_criterion_to_dict,
     Metric: metric_to_dict,
     MinTrials: transition_criterion_to_dict,
     AuxiliaryExperimentCheck: transition_criterion_to_dict,
@@ -314,6 +319,7 @@ CORE_DECODER_REGISTRY: TDecoderRegistry = {
     "Data": Data,
     "DataLoaderConfig": DataLoaderConfig,
     "DataType": DataType,
+    "ExpressionDerivedMetric": ExpressionDerivedMetric,
     "DerivedParameter": DerivedParameter,
     "DomainType": DomainType,
     "Experiment": Experiment,
@@ -345,6 +351,7 @@ CORE_DECODER_REGISTRY: TDecoderRegistry = {
     "MapMetric": MapMetric,
     "MaxTrials": MinTrials,
     "MaxGenerationParallelism": MaxGenerationParallelism,
+    "MaxTrialsAwaitingData": MaxTrialsAwaitingData,
     "Metric": Metric,
     "MinTrials": MinTrials,
     # DEPRECATED; backward compatibility for MinimumTrialsInStatus -> MinTrials

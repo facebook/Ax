@@ -15,35 +15,24 @@ from typing import NamedTuple
 import numpy as np
 import numpy.typing as npt
 import torch
-from ax.adapter.adapter_utils import (
-    _get_adapter_training_data,
-    get_pareto_frontier_and_configs,
-    observed_pareto_frontier,
-)
-from ax.adapter.registry import Generators, MBM_X_trans
-from ax.adapter.torch import TorchAdapter
+from ax.adapter.adapter_utils import observed_pareto_frontier
+from ax.adapter.registry import Generators
 from ax.adapter.transforms.derelativize import derelativize_bound
 from ax.core.batch_trial import BatchTrial
 from ax.core.data import Data
 from ax.core.experiment import Experiment
 from ax.core.metric import Metric
-from ax.core.objective import MultiObjective, ScalarizedObjective
+from ax.core.objective import ScalarizedObjective
 from ax.core.observation import ObservationFeatures
 from ax.core.optimization_config import MultiObjectiveOptimizationConfig
-from ax.core.outcome_constraint import (
-    ComparisonOp,
-    ObjectiveThreshold,
-    OutcomeConstraint,
-)
+from ax.core.outcome_constraint import OutcomeConstraint
 from ax.core.types import TParameterization
 from ax.exceptions.core import AxError, UnsupportedError, UserInputError
-from ax.generators.torch_base import TorchGenerator
+from ax.service.utils.best_point import get_tensor_converter_adapter
 from ax.utils.common.logger import get_logger
 from ax.utils.stats.math_utils import relativize
 from botorch.acquisition.monte_carlo import qSimpleRegret
 from botorch.utils.multi_objective import is_non_dominated
-from botorch.utils.multi_objective.hypervolume import infer_reference_point
-from pyre_extensions import assert_is_instance
 
 # type aliases
 Mu = dict[str, list[float]]
@@ -298,34 +287,6 @@ def get_observed_pareto_frontiers(
     return pfr_list
 
 
-def get_tensor_converter_adapter(
-    experiment: Experiment, data: Data | None = None
-) -> TorchAdapter:
-    """
-    Constructs a minimal model for converting things to tensors.
-
-    Model fitting will instantiate all of the transforms but will not do any
-    expensive (i.e. GP) fitting beyond that. The model will raise an error if
-    it is used for predicting or generating.
-
-    Will work for any search space regardless of types of parameters.
-
-    Args:
-        experiment: Experiment.
-        data: Data for fitting the model.
-
-    Returns: A torch adapter with transforms set.
-    """
-    # Transforms is the minimal set that will work for converting any search
-    # space to tensors.
-    return TorchAdapter(
-        experiment=experiment,
-        data=data,
-        generator=TorchGenerator(),
-        transforms=MBM_X_trans,
-    )
-
-
 def compute_posterior_pareto_frontier(
     experiment: Experiment,
     primary_objective: Metric,
@@ -553,176 +514,3 @@ def _build_scalarized_optimization_config(
         objective=obj, outcome_constraints=outcome_constraints
     )
     return optimization_config
-
-
-def infer_reference_point_from_experiment(
-    experiment: Experiment, data: Data
-) -> list[ObjectiveThreshold]:
-    """This functions is a wrapper around ``infer_reference_point`` to find the nadir
-    point from the pareto front of an experiment. Aside from converting experiment
-    to tensors, this wrapper transforms back and forth the objectives of the experiment
-    so that they are appropriately used by ``infer_reference_point``.
-
-    Args:
-        experiment: The experiment for which we want to infer the reference point.
-
-    Returns:
-        A list of objective thresholds representing the reference point.
-    """
-    if not experiment.is_moo_problem:
-        raise ValueError(
-            "This function works for MOO experiments only."
-            f" Experiment {experiment.name} is single objective."
-        )
-
-    # Reading experiment data.
-    adapter = get_tensor_converter_adapter(
-        experiment=experiment,
-        data=data,
-    )
-    obs_feats, obs_data, _ = _get_adapter_training_data(adapter=adapter)
-
-    # Since objectives could have arbitrary orders in objective_thresholds and
-    # further down the road `get_pareto_frontier_and_configs` arbitrarily changes the
-    # orders of the objectives, we fix the objective orders here based on the
-    # observation_data and maintain it throughout the flow.
-    objective_orders = obs_data[0].metric_signatures
-
-    # Defining a dummy reference point so that all observed points are considered
-    # when calculating the Pareto front. Also, defining a multiplier to turn all
-    # the objectives to be maximized. Note that the multiplier at this point
-    # contains 0 for outcome_constraint metrics, but this will be dropped later.
-    opt_config = assert_is_instance(
-        experiment.optimization_config, MultiObjectiveOptimizationConfig
-    )
-    inferred_rp = _get_objective_thresholds(optimization_config=opt_config)
-    multiplier = [0] * len(objective_orders)
-    if len(opt_config.objective_thresholds) > 0:
-        inferred_rp = deepcopy(opt_config.objective_thresholds)
-    else:
-        inferred_rp = []
-        for objective in assert_is_instance(
-            opt_config.objective, MultiObjective
-        ).objectives:
-            ot = ObjectiveThreshold(
-                metric=objective.metric,
-                bound=0.0,  # dummy value
-                op=ComparisonOp.LEQ if objective.minimize else ComparisonOp.GEQ,
-                relative=False,
-            )
-            inferred_rp.append(ot)
-    for ot in inferred_rp:
-        # In the following, we find the index of the objective in
-        # `objective_orders`. If there is an objective that does not exist
-        # in `obs_data`, a ValueError is raised.
-        try:
-            objective_index = objective_orders.index(ot.metric.signature)
-        except ValueError:
-            raise ValueError(
-                f"Metric {ot.metric.signature} does not exist in `obs_data`."
-            )
-
-        if ot.op == ComparisonOp.LEQ:
-            ot.bound = np.inf
-            multiplier[objective_index] = -1
-        else:
-            ot.bound = -np.inf
-            multiplier[objective_index] = 1
-
-    # Finding the pareto frontier
-    frontier_observations, f, obj_w, _ = get_pareto_frontier_and_configs(
-        adapter=adapter,
-        observation_features=obs_feats,
-        observation_data=obs_data,
-        objective_thresholds=inferred_rp,
-        use_model_predictions=False,
-    )
-    if len(frontier_observations) == 0:
-        outcome_constraints = opt_config._outcome_constraints
-        if len(outcome_constraints) == 0:
-            raise RuntimeError(
-                "No frontier observations found in the experiment and no constraints "
-                "are present. Please check the data of the experiment."
-            )
-
-        logger.warning(
-            "No frontier observations found in the experiment. The likely cause is "
-            "the absence of feasible arms in the experiment if a constraint is present."
-            " Trying to find a reference point with the unconstrained objective values."
-        )
-
-        opt_config._outcome_constraints = []  # removing the constraints
-        # getting the unconstrained pareto frontier
-        frontier_observations, f, obj_w, _ = get_pareto_frontier_and_configs(
-            adapter=adapter,
-            observation_features=obs_feats,
-            observation_data=obs_data,
-            objective_thresholds=inferred_rp,
-            use_model_predictions=False,
-        )
-        # restoring constraints
-        opt_config._outcome_constraints = outcome_constraints
-
-    # Need to reshuffle columns of `f` and `obj_w` to be consistent
-    # with objective_orders.
-    order = [
-        objective_orders.index(metric_signature)
-        for metric_signature in frontier_observations[0].data.metric_signatures
-    ]
-    f = f[:, order]
-    obj_w = obj_w[order]
-
-    # Dropping the columns related to outcome constraints.
-    f = f[:, obj_w.nonzero().view(-1)]
-    multiplier_tensor = torch.tensor(multiplier, dtype=f.dtype, device=f.device)
-    multiplier_nonzero = multiplier_tensor[obj_w.nonzero().view(-1)]
-
-    # Transforming all the objectives to be maximized.
-    f_transformed = multiplier_nonzero * f
-
-    # Finding nadir point.
-    rp_raw = infer_reference_point(f_transformed)
-
-    # Un-transforming the reference point.
-    rp = multiplier_nonzero * rp_raw
-
-    # Removing the non-objective metrics form the order.
-    objective_orders_reduced = [
-        x for (i, x) in enumerate(objective_orders) if multiplier[i] != 0
-    ]
-
-    for obj_threshold in inferred_rp:
-        obj_threshold.bound = rp[
-            objective_orders_reduced.index(obj_threshold.metric.signature)
-        ].item()
-    return inferred_rp
-
-
-def _get_objective_thresholds(
-    optimization_config: MultiObjectiveOptimizationConfig,
-) -> list[ObjectiveThreshold]:
-    """Get objective thresholds for an optimization config.
-
-    This will return objective thresholds with dummy values if there are
-    no objective thresholds on the optimization config.
-
-    Args:
-        optimization_config: Optimization config.
-
-    Returns:
-        List of objective thresholds.
-    """
-    if optimization_config.objective_thresholds is not None:
-        return deepcopy(optimization_config.objective_thresholds)
-    objective_thresholds = []
-    for objective in assert_is_instance(
-        optimization_config.objective, MultiObjective
-    ).objectives:
-        ot = ObjectiveThreshold(
-            metric=objective.metric,
-            bound=0.0,  # dummy value
-            op=ComparisonOp.LEQ if objective.minimize else ComparisonOp.GEQ,
-            relative=False,
-        )
-        objective_thresholds.append(ot)
-    return objective_thresholds

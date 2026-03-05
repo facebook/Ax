@@ -13,6 +13,7 @@ from ax.adapter.adapter_utils import (
     _get_adapter_training_data,
     arm_to_np_array,
     can_map_to_binary,
+    extract_objective_weight_matrix,
     extract_search_space_digest,
     feasible_hypervolume,
     is_unordered_choice,
@@ -25,7 +26,7 @@ from ax.adapter.torch import TorchAdapter
 from ax.adapter.transforms.choice_encode import ChoiceToNumericChoice
 from ax.core.arm import Arm
 from ax.core.metric import Metric
-from ax.core.objective import MultiObjective, Objective
+from ax.core.objective import MultiObjective, Objective, ScalarizedObjective
 from ax.core.optimization_config import MultiObjectiveOptimizationConfig
 from ax.core.outcome_constraint import ObjectiveThreshold, OutcomeConstraint
 from ax.core.parameter import ChoiceParameter, ParameterType, RangeParameter
@@ -525,3 +526,32 @@ class TestAdapterUtils(TestCase):
         ]:
             with self.subTest(p=p):
                 self.assertFalse(can_map_to_binary(p))
+
+    def test_extract_objective_weight_matrix(self) -> None:
+        m1, m2, m3 = Metric(name="m1"), Metric(name="m2"), Metric(name="m3")
+        outcomes = ["m1", "m2", "m3"]
+
+        # Single Objective: one row, nonzero only in matching column.
+        obj = Objective(metric=m1, minimize=False)
+        result = extract_objective_weight_matrix(obj, outcomes)
+        np.testing.assert_array_equal(result, [[1.0, 0.0, 0.0]])
+
+        # Minimization flips the sign.
+        obj_min = Objective(metric=m2, minimize=True)
+        result = extract_objective_weight_matrix(obj_min, outcomes)
+        np.testing.assert_array_equal(result, [[0.0, -1.0, 0.0]])
+
+        # ScalarizedObjective: single row with multiple nonzero entries.
+        scal = ScalarizedObjective(metrics=[m1, m3], weights=[0.3, 0.7], minimize=False)
+        result = extract_objective_weight_matrix(scal, outcomes)
+        np.testing.assert_array_almost_equal(result, [[0.3, 0.0, 0.7]])
+
+        # MultiObjective: one row per sub-objective.
+        multi = MultiObjective(
+            objectives=[
+                Objective(metric=m1, minimize=False),
+                Objective(metric=m3, minimize=True),
+            ]
+        )
+        result = extract_objective_weight_matrix(multi, outcomes)
+        np.testing.assert_array_equal(result, [[1.0, 0.0, 0.0], [0.0, 0.0, -1.0]])

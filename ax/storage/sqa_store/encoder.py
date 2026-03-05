@@ -128,7 +128,7 @@ class Encoder:
                 raise ValueError(
                     f"An experiment already exists with the name {experiment.name}. "
                     "If you need to override this existing experiment, first delete it "
-                    "via `delete_experiment` in ax/ax/storage/sqa_store/delete.py, "
+                    "via `delete_experiment` in ax/storage/sqa_store/delete.py, "
                     "and then resave."
                 )
 
@@ -391,14 +391,15 @@ class Encoder:
         json blob.
         """
         metric_class = type(metric)
-        metric_type = int(self.config.metric_registry.get(metric_class))
-        if metric_type is None:
+        metric_type_or_none = self.config.metric_registry.get(metric_class)
+        if metric_type_or_none is None:
             raise SQAEncodeError(
                 "Cannot encode metric to SQLAlchemy because metric's "
                 f"subclass ({metric_class}) is missing from the registry. "
                 "The metric registry currently contains the following: "
                 f"{','.join(map(str, self.config.metric_registry.keys()))} "
             )
+        metric_type = int(metric_type_or_none)
 
         properties = metric_class.serialize_init_args(obj=metric)
         return metric_type, object_to_json(
@@ -646,13 +647,13 @@ class Encoder:
     def scalarized_outcome_constraint_to_sqa(
         self, outcome_constraint: ScalarizedOutcomeConstraint
     ) -> SQAMetric:
-        """Convert Ax SCalarized OutcomeConstraint to SQLAlchemy."""
+        """Convert Ax Scalarized OutcomeConstraint to SQLAlchemy."""
         metrics, weights = outcome_constraint.metrics, outcome_constraint.weights
 
         if metrics is None or weights is None or len(metrics) != len(weights):
             raise SQAEncodeError(
-                "Metrics and weights in scalarized OutcomeConstraint \
-                must be lists of equal length."
+                "Metrics and weights in scalarized OutcomeConstraint "
+                "must be lists of equal length."
             )
 
         metrics_by_name = self.get_children_metrics_by_name(

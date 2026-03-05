@@ -341,6 +341,7 @@ class SearchSpace(Base):
         parameterization: Mapping[str, TParamValue],
         raise_error: bool = False,
         check_all_parameters_present: bool = True,
+        check_range_bounds: bool = True,
     ) -> bool:
         """Whether the given parameterization belongs in the search space.
 
@@ -354,6 +355,10 @@ class SearchSpace(Base):
                 with detailed explanation of why.
             check_all_parameters_present: Ensure that parameterization specifies
                 values for all parameters as expected by the search space.
+            check_range_bounds: If False, only check that values for
+                RangeParameters have the correct type, without enforcing
+                the parameter bounds. Other parameter types (ChoiceParameter,
+                FixedParameter, DerivedParameter) are still fully validated.
 
         Returns:
             Whether the parameterization is contained in the search space.
@@ -366,12 +371,16 @@ class SearchSpace(Base):
 
         for name, value in parameterization.items():
             p = self.parameters[name]
-            kwargs = (
-                {"parameters": parameterization}
-                if isinstance(p, DerivedParameter)
-                else {}
-            )
-            if not p.validate(value=value, raises=False, **kwargs):
+            if not check_range_bounds and isinstance(p, RangeParameter):
+                is_valid = p.is_valid_type(value)
+            else:
+                kwargs = (
+                    {"parameters": parameterization}
+                    if isinstance(p, DerivedParameter)
+                    else {}
+                )
+                is_valid = p.validate(value=value, raises=False, **kwargs)
+            if not is_valid:
                 if raise_error:
                     raise ValueError(
                         f"{value} is not a valid value for "

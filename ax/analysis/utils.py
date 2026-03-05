@@ -173,7 +173,6 @@ def prepare_arm_data(
     # status quo arm from the target trial if relativizing.
     target_trial_index = get_target_trial_index(
         experiment=experiment,
-        require_data_for_all_metrics=True,
     )
     if use_model_predictions:
         if adapter is None:
@@ -378,6 +377,7 @@ def _prepare_modeled_arm_data(
             parameterization=arm.parameters,
             raise_error=False,
             check_all_parameters_present=True,
+            check_range_bounds=False,
         ):
             predictable_pairs.append((trial_index, arm))
         else:

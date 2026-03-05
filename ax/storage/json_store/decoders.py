@@ -54,6 +54,7 @@ from ax.utils.common.typeutils_torch import torch_type_from_str
 from botorch.models.transforms.input import ChainedInputTransform, InputTransform
 from botorch.models.transforms.outcome import ChainedOutcomeTransform, OutcomeTransform
 from botorch.utils.types import _DefaultType, DEFAULT
+from gpytorch.priors.utils import BUFFERED_PREFIX
 from pyre_extensions import assert_is_instance
 from torch.distributions.transformed_distribution import TransformedDistribution
 
@@ -369,10 +370,10 @@ def botorch_component_from_json(botorch_class: type[T], json: dict[str, Any]) ->
             }
         )
     if issubclass(botorch_class, TransformedDistribution):
-        # Extract the transformed attributes for transformed priors.
+        # Extract the buffered attributes for transformed priors.
         for k in list(state_dict.keys()):
-            if k.startswith("_transformed_"):
-                state_dict[k[13:]] = state_dict.pop(k)
+            if k.startswith(BUFFERED_PREFIX):
+                state_dict[k[len(BUFFERED_PREFIX) :]] = state_dict.pop(k)
     class_path = json.pop("class")
     init_args = inspect.signature(botorch_class).parameters
     required_args = {

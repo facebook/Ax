@@ -108,10 +108,12 @@ class ChoiceToNumericChoice(Transform):
                 dependents = None
                 if p.is_hierarchical:
                     # The dependents of hierarchical parameters need to be updated to
-                    # reflect the changes by encoding.
-                    dependents = {
+                    # reflect the changes by encoding. The encoded keys are ints,
+                    # which is a subtype of TParamValue.
+                    encoded_dependents: dict[TParamValue, list[str]] = {
                         encoding[val]: deps for val, deps in p.dependents.items()
                     }
+                    dependents = encoded_dependents
 
                 transformed_parameters[p_name] = ChoiceParameter(
                     name=p_name,
@@ -130,7 +132,7 @@ class ChoiceToNumericChoice(Transform):
                     # Retain the original sort_values if the parameter is not ordered.
                     # Ordered numeric parameters are always sorted.
                     sort_values=p.sort_values if not p.is_ordered else True,
-                    dependents=dependents,  # pyre-ignore[6]
+                    dependents=dependents,
                 )
             else:
                 transformed_parameters[p.name] = p
@@ -153,7 +155,13 @@ class ChoiceToNumericChoice(Transform):
                 if p_name in obsf.parameters:
                     # Rounding & casting to int in case a floating point value was
                     # generated. This can happen since generation uses float tensors.
-                    pval = int(round(obsf.parameters[p_name]))  # pyre-ignore [6]
+                    # The value can be int (from data) or float (from generation).
+                    param_val = obsf.parameters[p_name]
+                    pval = (
+                        int(round(param_val))
+                        if isinstance(param_val, float)
+                        else assert_is_instance(param_val, int)
+                    )
                     if pval in reverse_transform:
                         obsf.parameters[p_name] = reverse_transform[pval]
         return observation_features

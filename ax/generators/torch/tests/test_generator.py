@@ -30,7 +30,11 @@ from ax.generators.torch.botorch_modular.utils import (
     fit_botorch_model,
     ModelConfig,
 )
-from ax.generators.torch.utils import _filter_X_observed, predict_from_model
+from ax.generators.torch.utils import (
+    _filter_X_observed,
+    extract_objectives,
+    predict_from_model,
+)
 from ax.generators.torch_base import TorchOptConfig
 from ax.utils.common.constants import Keys
 from ax.utils.common.testutils import TestCase
@@ -140,12 +144,14 @@ class BoTorchGeneratorTest(TestCase):
             Keys.ACQF_KWARGS: {"eta": 3.0},
             Keys.AX_ACQUISITION_KWARGS: {Keys.SUBSET_MODEL: False},
         }
-        self.objective_weights = torch.tensor([1.0], **tkwargs)
+        self.objective_weights = torch.tensor([[1.0]], **tkwargs)
         self.outcome_constraints = (
             torch.tensor([[1.0]], **tkwargs),
             torch.tensor([[3.5]], **tkwargs),
         )
-        self.moo_objective_weights = torch.tensor([1.0, 1.5, 0.0], **tkwargs)
+        self.moo_objective_weights = torch.tensor(
+            [[1.0, 0.0, 0.0], [0.0, 1.5, 0.0]], **tkwargs
+        )
         self.moo_objective_thresholds = torch.tensor(
             [0.5, 1.5, float("nan")], **tkwargs
         )
@@ -186,7 +192,6 @@ class BoTorchGeneratorTest(TestCase):
             objective_weights=self.moo_objective_weights,
             objective_thresholds=self.moo_objective_thresholds,
             outcome_constraints=self.moo_outcome_constraints,
-            is_moo=True,
             model_gen_options={
                 Keys.OPTIMIZER_KWARGS: self.optimizer_options,
                 Keys.ACQF_KWARGS: {"eta": 3.0},
@@ -852,7 +857,8 @@ class BoTorchGeneratorTest(TestCase):
             self.model.best_point(
                 search_space_digest=self.mf_search_space_digest,
                 torch_opt_config=dataclasses.replace(
-                    self.torch_opt_config, is_moo=True
+                    self.torch_opt_config,
+                    objective_weights=self.moo_objective_weights,
                 ),
             )
 
@@ -968,9 +974,11 @@ class BoTorchGeneratorTest(TestCase):
             )
             self.assertEqual(
                 model._botorch_acqf_class,
-                qLogNoisyExpectedHypervolumeImprovement
-                if torch_opt_config.is_moo
-                else qLogNoisyExpectedImprovement,
+                (
+                    qLogNoisyExpectedHypervolumeImprovement
+                    if torch_opt_config.is_moo
+                    else qLogNoisyExpectedImprovement
+                ),
             )
 
     @mock_botorch_optimize
@@ -1115,7 +1123,7 @@ class BoTorchGeneratorTest(TestCase):
         self.assertTrue(
             torch.equal(
                 ckwargs["objective"].weights,
-                self.moo_objective_weights[:2],
+                extract_objectives(self.moo_objective_weights)[1],
             )
         )
         expected_X_baseline = _filter_X_observed(
@@ -1130,7 +1138,7 @@ class BoTorchGeneratorTest(TestCase):
             torch.equal(ckwargs["X_baseline"], none_throws(expected_X_baseline))
         )
         # test inferred objective_thresholds
-        objective_weights = torch.tensor([-1.0, -1.0, 0.0])
+        objective_weights = torch.tensor([[-1.0, 0.0, 0.0], [0.0, -1.0, 0.0]])
         outcome_constraints = (
             torch.tensor([[1.0, 0.0, 0.0]]),
             torch.tensor([[10.0]]),

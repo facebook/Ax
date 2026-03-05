@@ -26,6 +26,7 @@ class TestBenchmarkResult(TestCase):
                 score_trace=[],
                 is_feasible_trace=[],
                 cost_trace=[],
+                num_trials=[],
                 fit_time=0.0,
                 gen_time=0.0,
                 experiment=get_experiment(),
@@ -44,6 +45,7 @@ class TestBenchmarkResult(TestCase):
                 score_trace=[],
                 is_feasible_trace=[],
                 cost_trace=[],
+                num_trials=[],
                 fit_time=0.0,
                 gen_time=0.0,
             )

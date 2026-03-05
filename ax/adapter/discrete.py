@@ -10,14 +10,15 @@
 from collections.abc import Mapping, Sequence
 
 import numpy as np
-from ax.adapter.adapter_utils import array_to_observation_data, get_fixed_features
-from ax.adapter.base import Adapter, DataLoaderConfig, GenResults
-from ax.adapter.data_utils import ExperimentData
-from ax.adapter.torch import (
+from ax.adapter.adapter_utils import (
+    array_to_observation_data,
     extract_objective_weights,
     extract_outcome_constraints,
-    validate_transformed_optimization_config,
+    get_fixed_features,
 )
+from ax.adapter.base import Adapter, DataLoaderConfig, GenResults
+from ax.adapter.data_utils import ExperimentData
+from ax.adapter.torch import validate_transformed_optimization_config
 from ax.adapter.transforms.base import Transform
 from ax.core.data import Data
 from ax.core.experiment import Experiment

@@ -301,7 +301,7 @@ class Acquisition(Base):
             torch_opt_config.is_moo
             and (
                 self._full_objective_thresholds is None
-                or self._full_objective_thresholds[self._full_objective_weights != 0]
+                or self._full_objective_thresholds[torch_opt_config.outcome_mask]
                 .isnan()
                 .any()
             )
@@ -369,7 +369,6 @@ class Acquisition(Base):
             botorch_acqf_class=botorch_acqf_class,
             model=model,
             objective_weights=self._objective_weights,
-            objective_thresholds=self._objective_thresholds,
             outcome_constraints=self._outcome_constraints,
             X_observed=self.X_observed,
             learned_objective_preference_model=self._learned_objective_preference_model,
@@ -883,7 +882,6 @@ class Acquisition(Base):
         botorch_acqf_class: type[AcquisitionFunction],
         model: Model,
         objective_weights: Tensor,
-        objective_thresholds: Tensor | None = None,
         outcome_constraints: tuple[Tensor, Tensor] | None = None,
         X_observed: Tensor | None = None,
         learned_objective_preference_model: Model | None = None,
