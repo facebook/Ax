@@ -18,6 +18,7 @@ from ax.core.experiment import Experiment
 from ax.utils.common.base import Base
 from numpy import nanmean, nanquantile
 from pandas import DataFrame
+from pyre_extensions import none_throws
 from scipy.stats import sem
 
 PERCENTILES = [0.25, 0.5, 0.75]
@@ -188,11 +189,7 @@ class AggregatedBenchmarkResult(Base):
         num_trials_mean = None
         if all(res.num_trials is not None for res in results):
             num_trials_step_data = zip(
-                *(
-                    # pyre-ignore[16]: already checked for None above
-                    res.num_trials
-                    for res in results
-                )
+                *(none_throws(res.num_trials) for res in results)
             )
             num_trials_mean = [nanmean(step_vals) for step_vals in num_trials_step_data]
 

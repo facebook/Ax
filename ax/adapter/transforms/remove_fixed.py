@@ -22,6 +22,7 @@ from ax.core.parameter import (
 )
 from ax.core.search_space import SearchSpace
 from ax.generators.types import TConfig
+from pyre_extensions import assert_is_instance
 
 if TYPE_CHECKING:
     # import as module to make sphinx-autodoc-typehints happy
@@ -59,8 +60,7 @@ def find_adoptable_descendants(
                 continue
             if isinstance(search_space.parameters[child], FixedParameter):
                 lst_adoptable_descendants += find_adoptable_descendants(
-                    # pyre-ignore[6]: It's a fixed parameter for sure.
-                    search_space.parameters[child],
+                    assert_is_instance(search_space.parameters[child], FixedParameter),
                     search_space=search_space,
                 )
             else:
@@ -141,8 +141,9 @@ class RemoveFixed(Transform):
                                 search_space.parameters[child], FixedParameter
                             ):
                                 updated_children += find_adoptable_descendants(
-                                    # pyre-ignore[6]: It's a fixed parameter for sure.
-                                    param=search_space.parameters[child],
+                                    param=assert_is_instance(
+                                        search_space.parameters[child], FixedParameter
+                                    ),
                                     search_space=search_space,
                                 )
                             else:
