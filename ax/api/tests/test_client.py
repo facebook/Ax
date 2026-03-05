@@ -1794,10 +1794,11 @@ class TestClient(TestCase):
             self.assertIn("x2", trial_params)
             self.assertIn("x3", trial_params)
             # Verify derived parameter is correctly computed
-            # pyre-fixme[58]: Arithmetic operations on TParameterValue
-            expected_x3 = 1.0 - trial_params["x1"] - trial_params["x2"]
-            # pyre-fixme[6]: Type mismatch on assertAlmostEqual
-            self.assertAlmostEqual(trial_params["x3"], expected_x3, places=6)
+            x1_val = assert_is_instance(trial_params["x1"], float)
+            x2_val = assert_is_instance(trial_params["x2"], float)
+            x3_val = assert_is_instance(trial_params["x3"], float)
+            expected_x3 = 1.0 - x1_val - x2_val
+            self.assertAlmostEqual(x3_val, expected_x3, places=6)
 
     def test_complete_trial_with_derived_parameters(self) -> None:
         # Setup: Configure experiment with derived parameter and generate trial

@@ -10,6 +10,7 @@ from abc import ABC
 from collections.abc import Iterable
 
 import numpy as np
+import numpy.typing as npt
 from ax.adapter.adapter_utils import observed_hypervolume, predicted_hypervolume
 from ax.adapter.torch import TorchAdapter
 from ax.core.data import Data, MAP_KEY
@@ -422,26 +423,22 @@ class BestPointMixin(ABC):
             # reached the maximum progression
             prog_per_trial = df[MAP_KEY].max()
             num_trials = len(experiment.trials)
-            bins = np.linspace(
+            bins_arr: npt.NDArray = np.linspace(
                 0, prog_per_trial * num_trials, NUM_BINS_PER_TRIAL * num_trials
             )
         else:
-            bins = np.array(bins)  # pyre-ignore[9]
+            bins_arr = np.array(bins)
 
-        # pyre-fixme[9]: bins has type `Optional[List[float]]`; used as
-        #  `ndarray[typing.Any, dtype[typing.Any]]`.
-        bins = np.expand_dims(bins, axis=0)
+        bins_arr = np.expand_dims(bins_arr, axis=0)
 
         # compute for each bin value the largest trial index finished by then
         # (interpreting the bin value as a cumulative progression)
         best_observed_idcs = np.maximum.accumulate(
-            np.argmax(np.expand_dims(progressions, axis=1) >= bins, axis=0)
+            np.argmax(np.expand_dims(progressions, axis=1) >= bins_arr, axis=0)
         )
         obj_vals = (df["mean"].cummin() if minimize else df["mean"].cummax()).to_numpy()
         best_observed = obj_vals[best_observed_idcs]
-        # pyre-fixme[16]: Item `List` of `Union[List[float], ndarray[typing.Any,
-        #  np.dtype[typing.Any]]]` has no attribute `squeeze`.
-        return best_observed.tolist(), bins.squeeze(axis=0).tolist()
+        return best_observed.tolist(), bins_arr.squeeze(axis=0).tolist()
 
     def get_improvement_over_baseline(
         self,

@@ -228,9 +228,7 @@ def _get_objective_v_param_plots(
                     # sort the params by their sensitivity
                     params_to_use = sorted(
                         range_params_sens_for_metric,
-                        # pyre-fixme[6]: For 2nd argument expected `None` but got
-                        #  `(x: Any) -> Union[ndarray[typing.Any, typing.Any], float]`.
-                        key=lambda x: range_params_sens_for_metric[x],
+                        key=lambda x: float(range_params_sens_for_metric[x]),
                         reverse=True,
                     )[:num_params_per_metric]
                 # if sens is not available, just use the first num_features_per_metric.
@@ -416,11 +414,9 @@ def get_standard_plots(
             logger.debug("Starting feature importance plot.")
             feature_importance_plot = plot_feature_importance_by_feature_plotly(
                 model=model,
-                # pyre-ignore [6]:
-                # In call for argument `sensitivity_values`, expected
-                # `Optional[Dict[str, Dict[str, Union[float, ndarray]]]]`
-                # but got `Dict[str, Dict[str, ndarray]]`.
-                sensitivity_values=sens,
+                sensitivity_values=cast(
+                    dict[str, dict[str, float | npt.NDArray]] | None, sens
+                ),
                 relative=False,
                 caption=FEATURE_IMPORTANCE_CAPTION if importance_measure == "" else "",
                 importance_measure=importance_measure,

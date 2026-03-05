@@ -87,8 +87,7 @@ AxClientSubclass = TypeVar("AxClientSubclass", bound="AxClient")
 
 ROUND_FLOATS_IN_LOGS_TO_DECIMAL_PLACES: int = 6
 
-# pyre-fixme[5]: Global expression must be annotated.
-round_floats_for_logging = partial(
+round_floats_for_logging: partial[Any] = partial(
     _round_floats_for_logging,
     decimal_places=ROUND_FLOATS_IN_LOGS_TO_DECIMAL_PLACES,
 )
@@ -1303,8 +1302,7 @@ class AxClient(AnalysisBase, BestPointMixin, InstantiationBase):
     def load_from_json_file(
         cls: type[AxClientSubclass],
         filepath: str = "ax_client_snapshot.json",
-        # pyre-fixme[2]: Parameter must be annotated.
-        **kwargs,
+        **kwargs: Any,
     ) -> AxClientSubclass:
         """Restore an `AxClient` and its state from a JSON-serialized snapshot,
         residing in a .json file by the given path.
@@ -1315,13 +1313,10 @@ class AxClient(AnalysisBase, BestPointMixin, InstantiationBase):
 
     def to_json_snapshot(
         self,
-        # pyre-fixme[24]: Generic type `type` expects 1 type parameter, use
-        #  `typing.Type` to avoid runtime subscripting errors.
-        encoder_registry: dict[type, Callable[[Any], dict[str, Any]]] | None = None,
-        # pyre-fixme[24]: Generic type `type` expects 1 type parameter, use
-        #  `typing.Type` to avoid runtime subscripting errors.
-        class_encoder_registry: None
-        | (dict[type, Callable[[Any], dict[str, Any]]]) = None,
+        encoder_registry: dict[type[Any], Callable[[Any], dict[str, Any]]]
+        | None = None,
+        class_encoder_registry: dict[type[Any], Callable[[Any], dict[str, Any]]]
+        | None = None,
     ) -> dict[str, Any]:
         """Serialize this `AxClient` to JSON to be able to interrupt and restart
         optimization and save it to file by the provided path.
@@ -1357,8 +1352,7 @@ class AxClient(AnalysisBase, BestPointMixin, InstantiationBase):
         decoder_registry: TDecoderRegistry | None = None,
         class_decoder_registry: None
         | (dict[str, Callable[[dict[str, Any]], Any]]) = None,
-        # pyre-fixme[2]: Parameter must be annotated.
-        **kwargs,
+        **kwargs: Any,
     ) -> AxClientSubclass:
         """Recreate an `AxClient` from a JSON snapshot."""
         if decoder_registry is None:

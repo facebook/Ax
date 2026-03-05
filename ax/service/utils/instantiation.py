@@ -11,7 +11,7 @@ from collections.abc import Mapping, Sequence
 from copy import deepcopy
 from dataclasses import dataclass
 from logging import Logger
-from typing import Any, Union
+from typing import Any, cast, Union
 
 from ax.core.arm import Arm
 from ax.core.auxiliary import AuxiliaryExperiment, AuxiliaryExperimentPurpose
@@ -210,9 +210,11 @@ class InstantiationBase:
         field_name: str,
     ) -> ParameterType:
         if typ is None:
-            typ = type(none_throws(vals[0]))
-            parameter_type = cls._get_parameter_type(typ)  # pyre-ignore[6]
-            assert all(isinstance(x, typ) for x in vals), (
+            inferred_type = type(none_throws(vals[0]))
+            parameter_type = cls._get_parameter_type(
+                cast(TParameterType, inferred_type)
+            )
+            assert all(isinstance(x, inferred_type) for x in vals), (
                 f"Values in `{field_name}` not of the same type and no "
                 "`value_type` was explicitly specified; cannot infer "
                 f"value type for parameter {param_name}."
@@ -223,7 +225,7 @@ class InstantiationBase:
                 "'value_type' ('int', 'float', 'bool' or 'str') in parameter dict."
             )
             return parameter_type
-        return cls._get_parameter_type(PARAM_TYPES[typ])  # pyre-ignore[6]
+        return cls._get_parameter_type(cast(TParameterType, PARAM_TYPES[typ]))
 
     @classmethod
     def _make_range_param(
@@ -246,14 +248,11 @@ class InstantiationBase:
             lower=assert_is_instance_of_tuple(bounds[0], (float, int)),
             upper=assert_is_instance_of_tuple(bounds[1], (float, int)),
             log_scale=assert_is_instance(representation.get("log_scale", False), bool),
-            digits=representation.get("digits", None),  # pyre-ignore[6]
+            digits=assert_is_instance_optional(representation.get("digits", None), int),
             is_fidelity=assert_is_instance(
                 representation.get("is_fidelity", False), bool
             ),
-            # pyre-ignore[6]: Expected `Union[None, bool, float, int, str]`
-            #  for 8th param but got `Union[None, List[
-            #  Union[None, bool, float, int, str]], bool, float, int, str]`.
-            target_value=representation.get("target_value", None),
+            target_value=cast(TParamValue, representation.get("target_value", None)),
         )
 
     @classmethod
@@ -281,7 +280,7 @@ class InstantiationBase:
                 representation.get("is_fidelity", False), bool
             ),
             is_task=assert_is_instance(representation.get("is_task", False), bool),
-            target_value=representation.get("target_value", None),  # pyre-ignore[6]
+            target_value=cast(TParamValue, representation.get("target_value", None)),
             sort_values=assert_is_instance_optional(
                 representation.get("sort_values", None), bool
             ),
@@ -306,17 +305,21 @@ class InstantiationBase:
         return FixedParameter(
             name=name,
             parameter_type=(
-                cls._get_parameter_type(type(value))  # pyre-ignore[6]
+                cls._get_parameter_type(cast(TParameterType, type(value)))
                 if parameter_type is None
-                # pyre-ignore[6]
-                else cls._get_parameter_type(PARAM_TYPES[parameter_type])
+                else cls._get_parameter_type(
+                    cast(TParameterType, PARAM_TYPES[parameter_type])
+                )
             ),
-            value=value,  # pyre-ignore[6]
+            value=cast(TParamValue, value),
             is_fidelity=assert_is_instance(
                 representation.get("is_fidelity", False), bool
             ),
-            target_value=representation.get("target_value", None),  # pyre-ignore[6]
-            dependents=representation.get("dependents", None),  # pyre-ignore[6]
+            target_value=cast(TParamValue, representation.get("target_value", None)),
+            dependents=cast(
+                dict[TParamValue, list[str]] | None,
+                representation.get("dependents", None),
+            ),
         )
 
     @classmethod
@@ -333,7 +336,7 @@ class InstantiationBase:
         return DerivedParameter(
             name=name,
             parameter_type=cls._get_parameter_type(
-                PARAM_TYPES[none_throws(parameter_type, msg)]  # pyre-ignore[6]
+                cast(TParameterType, PARAM_TYPES[none_throws(parameter_type, msg)])
             ),
             expression_str=assert_is_instance(representation["expression_str"], str),
         )

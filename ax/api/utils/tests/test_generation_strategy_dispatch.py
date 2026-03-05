@@ -8,7 +8,7 @@
 
 
 from itertools import product
-from typing import Any
+from typing import Any, Literal
 
 import torch
 from ax.adapter.registry import Generators
@@ -234,13 +234,9 @@ class TestDispatchUtils(TestCase):
         self.assertEqual(mbm_node.name, "MBM")
 
     def test_gs_simplify_parameter_changes(self) -> None:
-        for simplify, method in product((True, False), ("fast", "quality")):
+        methods: list[Literal["fast", "quality"]] = ["fast", "quality"]
+        for simplify, method in product((True, False), methods):
             struct = GenerationStrategyDispatchStruct(
-                # pyre-fixme [6]: In call
-                # `GenerationStrategyDispatchStruct.__init__`, for argument
-                # `method`, expected `Union[typing_extensions.Literal['fast'],
-                # typing_extensions.Literal['quality'],
-                # typing_extensions.Literal['random_search']]` but got `str`
                 method=method,
                 simplify_parameter_changes=simplify,
             )
@@ -323,7 +319,13 @@ class TestDispatchUtils(TestCase):
         """Test that custom botorch_acqf_class is properly passed to generator kwargs
         and appended to the node name. Tests both fast and custom methods.
         """
-        for method, model_config, expected_name in [
+        test_cases: list[
+            tuple[
+                Literal["quality", "fast", "random_search", "custom"],
+                ModelConfig | None,
+                str,
+            ]
+        ] = [
             ("fast", None, "Sobol+MBM:fast+qLogNoisyExpectedImprovement"),
             (
                 "custom",
@@ -333,10 +335,11 @@ class TestDispatchUtils(TestCase):
                 ),
                 "Sobol+MBM:MAPSAAS+qLogNoisyExpectedImprovement",
             ),
-        ]:
+        ]
+        for method, model_config, expected_name in test_cases:
             with self.subTest(method=method):
                 struct = GenerationStrategyDispatchStruct(
-                    method=method,  # pyre-ignore [6]
+                    method=method,
                     initialization_budget=3,
                     initialize_with_center=False,
                 )

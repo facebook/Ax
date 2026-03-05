@@ -28,7 +28,6 @@ def interactive_optimize(
     candidate_queue_maxsize: int,
     candidate_generator_function: Callable[..., None],
     data_attacher_function: Callable[..., None],
-    # pyre-ignore[2]: Missing parameter annotation
     elicitation_function: Callable[..., Any],
     candidate_generator_kwargs: dict[str, Any] | None = None,
     data_attacher_kwargs: dict[str, Any] | None = None,

@@ -8,7 +8,7 @@
 import json
 from collections.abc import Iterable, Sequence
 from logging import Logger
-from typing import Any, Literal, Self
+from typing import Any, cast, Literal, Self
 
 import numpy as np
 import pandas as pd
@@ -39,6 +39,7 @@ from ax.core.optimization_config import OptimizationConfig
 from ax.core.runner import Runner
 from ax.core.trial import Trial
 from ax.core.trial_status import TrialStatus  # Used as a return type
+from ax.core.types import TParameterization as CoreTParameterization
 from ax.early_stopping.strategies import (
     BaseEarlyStoppingStrategy,
     PercentileEarlyStoppingStrategy,
@@ -183,8 +184,7 @@ class Client(WithDBSettingsBase):
         pruning_target_arm: Arm | None = None
         if pruning_target_parameterization is not None:
             self._experiment.search_space.validate_membership(
-                # pyre-fixme[6]: Core Ax TParameterization is dict not Mapping
-                parameters=pruning_target_parameterization
+                parameters=cast(CoreTParameterization, pruning_target_parameterization)
             )
             pruning_target_arm = Arm(
                 parameters=pruning_target_parameterization, name="pruning_target"
@@ -442,9 +442,9 @@ class Client(WithDBSettingsBase):
                 experiment=self._experiment,
                 n=1,
                 fixed_features=(
-                    # pyre-fixme[6]: Type narrowing broken because core Ax
-                    # TParameterization is dict not Mapping
-                    ObservationFeatures(parameters=fixed_parameters)
+                    ObservationFeatures(
+                        parameters=cast(CoreTParameterization, fixed_parameters)
+                    )
                     if fixed_parameters is not None
                     else None
                 ),
@@ -483,9 +483,10 @@ class Client(WithDBSettingsBase):
             experiment=self._experiment, trials=trials
         )
 
-        # pyre-fixme[7]: Core Ax allows users to specify TParameterization values as
-        # None, but we do not allow this in the API.
-        return {trial.index: none_throws(trial.arm).parameters for trial in trials}
+        return {
+            trial.index: cast(TParameterization, none_throws(trial.arm).parameters)
+            for trial in trials
+        }
 
     def complete_trial(
         self,
@@ -573,9 +574,7 @@ class Client(WithDBSettingsBase):
             The index of the attached trial.
         """
         _, trial_index = self._experiment.attach_trial(
-            # pyre-fixme[6]: Type narrowing broken because core Ax TParameterization
-            # is dict not Mapping
-            parameterizations=[parameters],
+            parameterizations=[cast(CoreTParameterization, parameters)],
             arm_names=[arm_name] if arm_name else None,
         )
 
@@ -888,13 +887,14 @@ class Client(WithDBSettingsBase):
             )
         )
 
-        # pyre-fixme[7]: Core Ax allows users to specify TParameterization values as
-        # None but we do not allow this in the API.
-        return BestPointMixin._to_best_point_tuple(
-            experiment=self._experiment,
-            trial_index=trial_index,
-            parameterization=parameterization,
-            model_prediction=model_prediction,
+        return cast(
+            tuple[TParameterization, TOutcome, int, str],
+            BestPointMixin._to_best_point_tuple(
+                experiment=self._experiment,
+                trial_index=trial_index,
+                parameterization=parameterization,
+                model_prediction=model_prediction,
+            ),
         )
 
     def get_pareto_frontier(
@@ -945,14 +945,15 @@ class Client(WithDBSettingsBase):
             use_model_predictions=use_model_predictions,
         )
 
-        # pyre-fixme[7]: Core Ax allows users to specify TParameterization values as
-        # None but we do not allow this in the API.
         return [
-            BestPointMixin._to_best_point_tuple(
-                experiment=self._experiment,
-                trial_index=trial_index,
-                parameterization=parameterization,
-                model_prediction=model_prediction,
+            cast(
+                tuple[TParameterization, TOutcome, int, str],
+                BestPointMixin._to_best_point_tuple(
+                    experiment=self._experiment,
+                    trial_index=trial_index,
+                    parameterization=parameterization,
+                    model_prediction=model_prediction,
+                ),
             )
             for trial_index, (parameterization, model_prediction) in frontier.items()
         ]
@@ -978,9 +979,9 @@ class Client(WithDBSettingsBase):
         try:
             mean, covariance = none_throws(self._generation_strategy.adapter).predict(
                 observation_features=[
-                    # pyre-fixme[6]: Core Ax allows users to specify TParameterization
-                    # values as None but we do not allow this in the API.
-                    ObservationFeatures(parameters=parameters)
+                    ObservationFeatures(
+                        parameters=cast(CoreTParameterization, parameters)
+                    )
                     for parameters in points
                 ]
             )
