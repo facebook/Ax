@@ -1131,6 +1131,18 @@ class TestBenchmark(TestCase):
             self.assertEqual(
                 orchestrator_options.status_quo_weight, 1.0 if include_sq else 0.0
             )
+            # Default tolerated_trial_failure_rate should be 0.5
+            self.assertEqual(orchestrator_options.tolerated_trial_failure_rate, 0.5)
+
+        with self.subTest("custom tolerated_trial_failure_rate"):
+            orchestrator_options = get_benchmark_orchestrator_options(
+                batch_size=1,
+                run_trials_in_batches=False,
+                max_pending_trials=2,
+                early_stopping_strategy=None,
+                tolerated_trial_failure_rate=0.9,
+            )
+            self.assertEqual(orchestrator_options.tolerated_trial_failure_rate, 0.9)
 
     def test_replication_with_status_quo(self) -> None:
         method = BenchmarkMethod(
