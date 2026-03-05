@@ -1,6 +1,24 @@
 # Changelog
 
 The release log for Ax.
+## [1.2.4] -- Mar 4, 2026
+
+#### Bug Fixes
+* Fix incorrect feasibility computation when using `qLogProbabilityOfFeasibility` for MOO — objective weights were applied twice via both the posterior transform and the constraint matrix, leading to incorrect results when only objective thresholds (no outcome constraints) were present (#4935)
+* Add defensive `issubclass` guard for acquisition function dispatch to prevent silent fallthrough for future subclasses of `qLogProbabilityOfFeasibility` (#4938)
+* Require only opt_config metrics for `prepare_arm_data` to fix `ArmEffectsPlot` failures when tracking metrics are missing (#4957)
+
+#### Other changes
+* Bumped pinned [botorch](https://github.com/pytorch/botorch) version to 0.17.2 (#4959). This picks up the following changes from botorch 0.17.2:
+  - Support `post_processing_func` in `optimize_with_nsgaii` for post-processing optimization results, e.g., to round discrete dimensions to valid values
+* Remove unused `objective_thresholds` parameter from `Acquisition.get_botorch_objective_and_transform` — the parameter was silently discarded (#4939)
+* Add `Self` type annotations to clone methods for better type inference in subclasses (#4907)
+* Heterogeneous search space utilities for transfer learning benchmarks (#4767)
+* Migrate benchmarking state dict files for GPyTorch compatibility (#4916)
+* Move `merge_multiple_curves` to Advanced tier in complexity classification (#4949)
+* Move `infer_reference_point_from_experiment` and `get_tensor_converter_adapter` to `ax/service/utils/best_point.py` (#4940)
+* Replace disclosure triangle with info icon in Bento notebooks for analysis cards (#4956)
+
 ## [1.2.3] -- Feb 19, 2026
 
 #### Breaking Changes
