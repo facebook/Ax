@@ -20,7 +20,7 @@ classifiers = [
 dynamic = ["version"]
 
 dependencies = [
-    "botorch[pymoo]>=0.17.0,<0.17.1dev9999",
+    "botorch[pymoo]>=0.17.2,<0.17.3dev9999",
     "jinja2",  # also a Plotly dep
     "pandas",
     "scipy",
