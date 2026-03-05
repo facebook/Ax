@@ -3197,7 +3197,7 @@ class SQAStoreTest(TestCase):
 
             # Assert: Should find the experiment with the matching parameters
             self.assertIn(experiment.name, result)
-            returned_ss = result[experiment.name]
+            returned_ss, _time_created = result[experiment.name]
             self.assertIsNotNone(returned_ss)
             # The returned search space should contain w and x
             self.assertIn("w", none_throws(returned_ss).parameters)
