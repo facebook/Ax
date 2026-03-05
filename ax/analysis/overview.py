@@ -196,7 +196,7 @@ class OverviewAnalysis(Analysis):
                         self.options.early_stopping_strategy if self.options else None
                     ),
                 )
-                if has_map_data and has_map_metrics
+                if has_map_data and has_map_metrics and not has_batch_trials
                 else None
             ),
             CanGenerateCandidatesAnalysis(
