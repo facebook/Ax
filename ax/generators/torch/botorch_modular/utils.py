@@ -525,17 +525,11 @@ def construct_acquisition_and_optimizer_options(
                 "Found forbidden keys in `model_gen_options`: "
                 f"{extra_keys_in_model_gen_options}."
             )
-        new_botorch_acqf_options = assert_is_instance(
+        new_botorch_acqf_options: dict[str, Any] = assert_is_instance(
             model_gen_options.get(Keys.ACQF_KWARGS, {}),
             dict,
         )
-        if (
-            # pyre-fixme [6]: Incompatible parameter type [6]: In call `len`,
-            # for 1st positional argument, expected
-            # `pyre_extensions.PyreReadOnly[Sized]` but got `dict`.
-            len(new_botorch_acqf_options) > 0
-            and botorch_acqf_classes_with_options is not None
-        ):
+        if new_botorch_acqf_options and botorch_acqf_classes_with_options is not None:
             if len(botorch_acqf_classes_with_options) > 1:
                 warnings.warn(
                     message="botorch_acqf_options are being ignored, due to using "
@@ -681,8 +675,7 @@ def convert_to_block_design(
         Y = torch.cat([ds.Y[i] for ds, i in zip(datasets, idcs_shared)], dim=-1)
         if is_fixed:
             Yvar = torch.cat(
-                # pyre-fixme[16]: `Optional` has no attribute `__getitem__`.
-                [ds.Yvar[i] for ds, i in zip(datasets, idcs_shared)],
+                [none_throws(ds.Yvar)[i] for ds, i in zip(datasets, idcs_shared)],
                 dim=-1,
             )
         else:

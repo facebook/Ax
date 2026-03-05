@@ -14,7 +14,7 @@ from collections.abc import Mapping, Sequence
 from copy import deepcopy
 from dataclasses import dataclass, field
 from logging import Logger
-from typing import Any
+from typing import Any, cast
 
 import numpy as np
 import torch
@@ -218,7 +218,7 @@ def _construct_specified_input_transforms(
     ]
 
     return [
-        # pyre-fixme[45]: Cannot instantiate abstract class `InputTransform`.
+        # pyre-ignore[45]: Concrete subclasses are passed at runtime.
         transform_class(**single_input_transform_kwargs)
         for transform_class, single_input_transform_kwargs in zip(
             input_transform_classes, input_transform_kwargs
@@ -288,7 +288,7 @@ def _make_botorch_outcome_transform(
     ]
 
     outcome_transforms = [
-        # pyre-fixme[45]: Cannot instantiate abstract class `OutcomeTransform`.
+        # pyre-ignore[45]: Concrete subclasses are passed at runtime.
         transform_class(**single_outcome_transform_kwargs)
         for transform_class, single_outcome_transform_kwargs in zip(
             outcome_transform_classes, outcome_transform_kwargs
@@ -337,12 +337,12 @@ def _construct_submodules(
             botorch_model_class=botorch_model_class,
             **deepcopy(model_config.covar_module_options),
         )
-        # pyre-ignore [45]: Cannot instantiate abstract class `Kernel`.
+        # pyre-ignore[45]: Concrete subclasses are passed at runtime.
         submodules["covar_module"] = covar_class(**covar_module_kwargs)
 
     if (likelihood_class := model_config.likelihood_class) is not None:
         _error_if_arg_not_supported("likelihood")
-        # pyre-ignore [45]: Cannot instantiate abstract class `Likelihood`.
+        # pyre-ignore[45]: Concrete subclasses are passed at runtime.
         submodules["likelihood"] = likelihood_class(
             **deepcopy(model_config.likelihood_options)
         )
@@ -566,7 +566,7 @@ class Surrogate(Base):
             search_space_digest=search_space_digest,
             surrogate=self,
         )
-        # pyre-ignore [45]
+        # pyre-ignore[45]: Concrete subclasses are passed at runtime.
         model = botorch_model_class(**formatted_model_inputs)
         if state_dict is not None and (not refit or self.warm_start_refit):
             model.load_state_dict(state_dict)
@@ -827,7 +827,7 @@ class Surrogate(Base):
                     state_dict=None,
                     refit=True,
                 )
-                state_dict = model.state_dict()
+                state_dict = cast(OrderedDict[str, Tensor], model.state_dict())
                 # perform LOOCV
                 if self.surrogate_spec.eval_criterion in (AIC, BIC, MLL):
                     eval_metric = compute_in_sample_model_fit_metric(
@@ -839,9 +839,6 @@ class Surrogate(Base):
                         dataset=dataset,
                         search_space_digest=search_space_digest,
                         model_config=model_config,
-                        # pyre-fixme [6]: In call `Surrogate.cross_validate`, for
-                        # argument  `state_dict`, expected `Optional[OrderedDict[str,
-                        # Tensor]]` but got `Dict[str, typing.Any]`.
                         state_dict=state_dict,
                     )
             except ModelFittingError as e:
@@ -899,7 +896,12 @@ class Surrogate(Base):
             indices_or_sections=num_folds,
         )
         cv_folds = (
-            get_cv_fold(dataset=dataset, X=X, Y=Y, idcs=idcs)  # pyre-ignore[6]
+            get_cv_fold(
+                dataset=dataset,
+                X=X,
+                Y=Y,
+                idcs=torch.as_tensor(idcs, device=X.device),
+            )
             for idcs in test_folds
         )
 

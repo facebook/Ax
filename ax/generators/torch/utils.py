@@ -46,6 +46,7 @@ from botorch.utils.constraints import get_outcome_constraint_transforms
 from botorch.utils.datasets import SupervisedDataset
 from botorch.utils.objective import get_objective_weights_transform
 from botorch.utils.transforms import is_ensemble
+from pyre_extensions import none_throws
 from torch import Tensor
 from torch.nn import ModuleList  # @manual
 
@@ -551,8 +552,8 @@ def get_feature_importances_from_botorch_model(
         if is_ensemble(m):  # Take the median over the model batch dimension
             ls = torch.quantile(ls, q=0.5, dim=0, keepdim=True)
         lengthscales.append(ls)
-    lengthscales = torch.cat(lengthscales, dim=0)
-    feature_importances = (1 / lengthscales).detach().cpu()  # pyre-ignore
+    lengthscales_t: Tensor = torch.cat(lengthscales, dim=0)
+    feature_importances = torch.reciprocal(lengthscales_t).detach().cpu()
     # Make sure the sum of feature importances is 1.0 for each metric
     feature_importances /= feature_importances.sum(dim=-1, keepdim=True)
     return feature_importances.numpy()
@@ -567,9 +568,7 @@ def get_rounding_func(
     # make sure rounding_func is properly applied to q- and t-batches
     def botorch_rounding_func(X: Tensor) -> Tensor:
         batch_shape, d = X.shape[:-1], X.shape[-1]
-        X_round = torch.stack(
-            [rounding_func(x) for x in X.view(-1, d)]  # pyre-ignore: [16]
-        )
+        X_round = torch.stack([none_throws(rounding_func)(x) for x in X.view(-1, d)])
         return X_round.view(*batch_shape, d)
 
     return botorch_rounding_func

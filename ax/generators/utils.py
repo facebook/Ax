@@ -11,7 +11,7 @@ from __future__ import annotations
 import itertools
 import warnings
 from collections.abc import Callable, Mapping, Sequence
-from typing import Protocol, TypeVar, Union
+from typing import cast, Protocol, TypeVar, Union
 
 import numpy as np
 import numpy.typing as npt
@@ -24,8 +24,7 @@ from pyre_extensions import assert_is_instance
 from torch import Tensor
 
 
-# pyre-fixme[24]: Generic type `np.ndarray` expects 2 type parameters.
-Tensoray = Union[torch.Tensor, np.ndarray]
+Tensoray = Union[torch.Tensor, npt.NDArray]
 TTensoray = TypeVar("TTensoray", bound=Tensoray)
 
 
@@ -116,7 +115,7 @@ def rejection_sample(
 
     while points.shape[0] < n and attempted_draws < max_draws:
         # _gen_unconstrained returns points including fixed features.
-        # pyre-ignore: Anonymous function w/ named args.
+        # pyre-ignore[28]: Unexpected keyword argument to anonymous call.
         point = gen_unconstrained(
             n=1,
             d=d,
@@ -435,9 +434,7 @@ def best_in_sample_point(
         return None
     # Predict objective and P(feas) at these points for Torch models.
     if isinstance(Xs[0], torch.Tensor):
-        # pyre-fixme[16]: Item `ndarray` of `Union[ndarray[typing.Any, typing.Any],
-        #  Tensor]` has no attribute `detach`.
-        X_obs = X_obs.detach().clone()
+        X_obs = assert_is_instance(X_obs, torch.Tensor).detach().clone()
     # (n_feasible x n_outcomes), (n_feasible x n_outcomes x n_outcomes)
     f, cov = as_array(model.predict(X_obs))
     # (n_outcomes,) x (n_outcomes, n_feasible) => (n_feasible,)
@@ -484,7 +481,10 @@ def as_array(
         x, with everything converted to array.
     """
     if isinstance(x, tuple):
-        return tuple(as_array(x_i) for x_i in x)  # pyre-ignore
+        return cast(
+            tuple[npt.NDArray, ...],
+            tuple(as_array(x_i) for x_i in x),
+        )
     elif isinstance(x, np.ndarray):
         return x
     elif torch.is_tensor(x):
@@ -530,15 +530,17 @@ def get_observed(
             {tuple(float(x_i) for x_i in x) for x in Xs[idx]}
         )
     if isinstance(Xs[0], np.ndarray):
-        # pyre-fixme[7]: This function only returns a Numpy array when Xs
-        # contains all Numpy arrays, but Pyre doesn't understand
-        return np.array(list(X_obs_set), dtype=Xs[0].dtype)  # (n x d)
-    # pyre-fixme[7]: This function only returns a tensor when Xs
-    # contains all tensors, but Pyre doesn't understand`.
-    return torch.tensor(
-        list(X_obs_set),
-        device=assert_is_instance(Xs[0], torch.Tensor).device,
-        dtype=Xs[0].dtype,
+        return cast(
+            TTensoray,
+            np.array(
+                list(X_obs_set),
+                dtype=assert_is_instance(Xs[0], np.ndarray).dtype,
+            ),
+        )  # (n x d)
+    X0 = assert_is_instance(Xs[0], torch.Tensor)
+    return cast(
+        TTensoray,
+        torch.tensor(list(X_obs_set), device=X0.device, dtype=X0.dtype),
     )
 
 
@@ -565,9 +567,11 @@ def filter_constraints_and_fixed_features(
     """
     if len(X) == 0:  # if there are no points, nothing to filter
         return X
-    # pyre-ignore: Undefined attribute [16]: `np.ndarray` has no attribute
-    # `cpu`.
-    X_np = X.cpu().numpy() if isinstance(X, torch.Tensor) else X
+    X_np: npt.NDArray = (
+        assert_is_instance(X, torch.Tensor).cpu().numpy()
+        if isinstance(X, torch.Tensor)
+        else assert_is_instance(X, np.ndarray)
+    )
     feas = np.ones(X_np.shape[0], dtype=bool)  # (n)
     for i, b in enumerate(bounds):
         feas &= (X_np[:, i] >= b[0]) & (X_np[:, i] <= b[1])
@@ -579,8 +583,10 @@ def filter_constraints_and_fixed_features(
             feas &= X_np[:, idx] == val
     X_feas = X_np[feas, :]
     if isinstance(X, torch.Tensor):
-        return torch.from_numpy(X_feas).to(device=X.device, dtype=X.dtype)
-    return X_feas
+        return cast(
+            TTensoray, torch.from_numpy(X_feas).to(device=X.device, dtype=X.dtype)
+        )
+    return cast(TTensoray, X_feas)
 
 
 def mk_discrete_choices(
