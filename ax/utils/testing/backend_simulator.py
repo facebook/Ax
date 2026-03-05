@@ -333,9 +333,7 @@ class BackendSimulator(Base):
             running=[t.trial_index for t in self._running],
             failed=[t.trial_index for t in self._failed],
             time_remaining=[
-                # pyre-fixme[58]: `+` is not supported for operand types
-                #  `Optional[float]` and `float`.
-                t.sim_start_time + t.sim_runtime - now
+                none_throws(t.sim_start_time) + t.sim_runtime - now
                 for t in self._running
             ],
             completed=[t.trial_index for t in self._completed],
@@ -384,12 +382,10 @@ class BackendSimulator(Base):
         completed_since_last = []
         new_running = []
         for trial in self._running:
-            # pyre-fixme[58]: `+` is not supported for operand types
-            #  `Optional[float]` and `float`.
-            if timestamp >= trial.sim_start_time + trial.sim_runtime:
+            if timestamp >= none_throws(trial.sim_start_time) + trial.sim_runtime:
                 completed_since_last.append(trial)
                 trial.sim_completed_time = (
-                    trial.sim_start_time + trial.sim_runtime  # pyre-ignore[58]
+                    none_throws(trial.sim_start_time) + trial.sim_runtime
                 )
             elif (
                 trial.sim_completed_time is not None
@@ -423,9 +419,7 @@ class BackendSimulator(Base):
             if self.num_queued > 0:
                 new_running_trial = self._queued.pop(0)
                 sim_start_time = (
-                    # pyre-fixme[58]: `+` is not supported for operand types
-                    #  `Optional[float]` and `float`.
-                    c.sim_start_time + c.sim_runtime
+                    none_throws(c.sim_start_time) + c.sim_runtime
                     if not self.options.use_update_as_start_time
                     else self.time
                 )

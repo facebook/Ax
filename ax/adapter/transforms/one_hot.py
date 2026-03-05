@@ -9,7 +9,7 @@
 from __future__ import annotations
 
 from copy import deepcopy
-from typing import TYPE_CHECKING
+from typing import cast, TYPE_CHECKING
 
 import numpy as np
 import pandas as pd
@@ -32,7 +32,6 @@ from ax.core.search_space import SearchSpace
 from ax.core.types import TParameterization, TParamValue
 from ax.exceptions.core import UnsupportedError
 from ax.generators.types import TConfig
-from ax.utils.common.typeutils import assert_is_instance_of_tuple
 from pyre_extensions import assert_is_instance
 
 if TYPE_CHECKING:
@@ -176,9 +175,7 @@ class OneHot(Transform):
                     # If the dependent is not being transformed, keep it as is.
                     new_deps.extend(oh_param_names_for_p.get(dep, [dep]))
                 new_dependents[val] = new_deps
-            assert_is_instance_of_tuple(
-                p, (ChoiceParameter, FixedParameter)
-            ).dependents = new_dependents
+            cast(ChoiceParameter | FixedParameter, p).dependents = new_dependents
 
         return construct_new_search_space(
             search_space=search_space,

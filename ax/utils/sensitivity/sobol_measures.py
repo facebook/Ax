@@ -29,6 +29,7 @@ from botorch.models.model import Model
 from botorch.sampling.normal import SobolQMCNormalSampler
 from botorch.utils.sampling import draw_sobol_samples
 from botorch.utils.transforms import unnormalize
+from pyre_extensions import none_throws
 from torch import Tensor
 
 
@@ -75,13 +76,16 @@ class SobolSensitivity:
         )  # deduct 1 because the first is meant to be the full grid
         self.bootstrap_array = bootstrap_array
         self.device: torch.device = bounds.device
+        self.A: torch.Tensor
+        self.B: torch.Tensor
         if input_qmc:
-            sobol_kwargs = {"bounds": bounds, "n": num_mc_samples, "q": 1}
             seed_A, seed_B = 1234, 5678  # to make it reproducible
-            # pyre-ignore
-            self.A = draw_sobol_samples(**sobol_kwargs, seed=seed_A).squeeze(1)
-            # pyre-ignore
-            self.B = draw_sobol_samples(**sobol_kwargs, seed=seed_B).squeeze(1)
+            self.A = draw_sobol_samples(
+                bounds=bounds, n=num_mc_samples, q=1, seed=seed_A
+            ).squeeze(1)
+            self.B = draw_sobol_samples(
+                bounds=bounds, n=num_mc_samples, q=1, seed=seed_B
+            ).squeeze(1)
         else:
             self.A = unnormalize(
                 torch.rand(num_mc_samples, self.dim, device=self.device),
@@ -106,39 +110,23 @@ class SobolSensitivity:
             num_mc_samples=num_mc_samples,
         )
 
-        # pyre-fixme[4]: Attribute must be annotated.
-        self.A_B_ABi = self.generate_all_input_matrix().to(torch.double)
+        self.A_B_ABi: torch.Tensor = self.generate_all_input_matrix().to(torch.double)
 
         if self.bootstrap:
             subset_size = 4
-            # pyre-fixme[4]: Attribute must be annotated.
-            self.bootstrap_indices = torch.randint(
+            self.bootstrap_indices: torch.Tensor = torch.randint(
                 0, num_mc_samples, (self.num_bootstrap_samples, subset_size)
             )
         self.f_A: torch.Tensor | None = None
         self.f_B: torch.Tensor | None = None
-        # pyre-fixme[24]: Generic type `list` expects 1 type parameter, use
-        #  `typing.List` to avoid runtime subscripting errors.
-        self.f_ABis: list | None = None
+        self.f_ABis: list[torch.Tensor] | None = None
         self.f_total_var: torch.Tensor | None = None
-        # pyre-fixme[24]: Generic type `list` expects 1 type parameter, use
-        #  `typing.List` to avoid runtime subscripting errors.
-        self.f_A_btsp: list | None = None
-        # pyre-fixme[24]: Generic type `list` expects 1 type parameter, use
-        #  `typing.List` to avoid runtime subscripting errors.
-        self.f_B_btsp: list | None = None
-        # pyre-fixme[24]: Generic type `list` expects 1 type parameter, use
-        #  `typing.List` to avoid runtime subscripting errors.
-        self.f_ABis_btsp: list | None = None
-        # pyre-fixme[24]: Generic type `list` expects 1 type parameter, use
-        #  `typing.List` to avoid runtime subscripting errors.
-        self.f_total_var_btsp: list | None = None
-        # pyre-fixme[24]: Generic type `list` expects 1 type parameter, use
-        #  `typing.List` to avoid runtime subscripting errors.
-        self.f_BAis: list | None = None
-        # pyre-fixme[24]: Generic type `list` expects 1 type parameter, use
-        #  `typing.List` to avoid runtime subscripting errors.
-        self.f_BAis_btsp: list | None = None
+        self.f_A_btsp: list[torch.Tensor] | None = None
+        self.f_B_btsp: list[torch.Tensor] | None = None
+        self.f_ABis_btsp: list[list[torch.Tensor]] | None = None
+        self.f_total_var_btsp: list[torch.Tensor] | None = None
+        self.f_BAis: list[torch.Tensor] | None = None
+        self.f_BAis_btsp: list[list[torch.Tensor]] | None = None
         self.first_order_idcs: torch.Tensor | None = first_order_idcs
         self.first_order_idcs_btsp: torch.Tensor | None = None
 
@@ -166,7 +154,7 @@ class SobolSensitivity:
             f_A_B_ABi: Function evaluations on the entire grid of size M(d+2).
         """
         if f_A_B_ABi is None:
-            f_A_B_ABi = self.input_function(self.A_B_ABi)  # pyre-ignore
+            f_A_B_ABi = none_throws(self.input_function)(self.A_B_ABi)
         # for multiple output models, average the outcomes
         if len(f_A_B_ABi.shape) == 3:
             f_A_B_ABi = f_A_B_ABi.mean(dim=0)
@@ -184,26 +172,27 @@ class SobolSensitivity:
         # Get the variances of A and B (so simply the variance of 2 num_mc samples)
         self.f_total_var = torch.var(f_A_B_ABi[: self.num_mc_samples * 2])
         if self.bootstrap:
+            f_A = none_throws(self.f_A)
+            f_B = none_throws(self.f_B)
+            f_ABis = none_throws(self.f_ABis)
             self.f_A_btsp = [
-                torch.index_select(self.f_A, 0, indices)  # pyre-ignore
+                torch.index_select(f_A, 0, indices)
                 for indices in self.bootstrap_indices
             ]
             self.f_B_btsp = [
-                torch.index_select(self.f_B, 0, indices)  # pyre-ignore
+                torch.index_select(f_B, 0, indices)
                 for indices in self.bootstrap_indices
             ]
             self.f_ABis_btsp = [
-                [
-                    torch.index_select(f_ABi, 0, indices)
-                    for f_ABi in self.f_ABis  # pyre-ignore
-                ]
+                [torch.index_select(f_ABi, 0, indices) for f_ABi in f_ABis]
                 for indices in self.bootstrap_indices
             ]
+            f_A_btsp = self.f_A_btsp
+            f_B_btsp = self.f_B_btsp
             self.f_total_var_btsp = [
                 torch.var(
                     torch.cat(
-                        # pyre-fixme[16]: Optional type has no attribute `__getitem__`.
-                        (self.f_A_btsp[i], self.f_B_btsp[i]),
+                        (f_A_btsp[i], f_B_btsp[i]),
                         dim=0,
                     )
                 )
@@ -221,8 +210,9 @@ class SobolSensitivity:
                 for i in range(self.dim)
             ]
             if self.bootstrap:
+                f_BAis = self.f_BAis
                 self.f_BAis_btsp = [
-                    [torch.index_select(f_BAi, 0, indices) for f_BAi in self.f_BAis]
+                    [torch.index_select(f_BAi, 0, indices) for f_BAi in f_BAis]
                     for indices in self.bootstrap_indices
                 ]
 
@@ -235,31 +225,31 @@ class SobolSensitivity:
             else
                 Tensor: (values)x dim
         """
+        f_A = none_throws(self.f_A)
+        f_B = none_throws(self.f_B)
+        f_ABis = none_throws(self.f_ABis)
+        f_total_var = none_throws(self.f_total_var)
         first_order_idcs = []
         for i in range(self.dim):
             # The only difference between self.f_ABis[i] and self.f_A is in dimension i
             # So we get the variance in the component that corresponds to dimension i
-            vi = (
-                torch.mean(self.f_B * (self.f_ABis[i] - self.f_A))  # pyre-ignore
-                # pyre-fixme[58]: `/` is not supported for operand types `Tensor`
-                #  and `Optional[Tensor]`.
-                / self.f_total_var
-            )
+            vi = torch.mean(f_B * (f_ABis[i] - f_A)) / f_total_var
             first_order_idcs.append(vi.unsqueeze(0))
         self.first_order_idcs = torch.cat(first_order_idcs, dim=0).detach()
         if not self.bootstrap:
             return self.first_order_idcs
         else:
+            f_B_btsp = none_throws(self.f_B_btsp)
+            f_A_btsp = none_throws(self.f_A_btsp)
+            f_ABis_btsp = none_throws(self.f_ABis_btsp)
+            f_total_var_btsp = none_throws(self.f_total_var_btsp)
             first_order_idcs_btsp = [torch.cat(first_order_idcs, dim=0).unsqueeze(0)]
             for b in range(self.num_bootstrap_samples):
                 first_order_idcs = []
                 for i in range(self.dim):
                     vi = (
-                        torch.mean(
-                            self.f_B_btsp[b]
-                            * (self.f_ABis_btsp[b][i] - self.f_A_btsp[b])
-                        )
-                        / self.f_total_var_btsp[b]
+                        torch.mean(f_B_btsp[b] * (f_ABis_btsp[b][i] - f_A_btsp[b]))
+                        / f_total_var_btsp[b]
                     )
                     first_order_idcs.append(vi.unsqueeze(0))
                 first_order_idcs_btsp.append(
@@ -269,16 +259,14 @@ class SobolSensitivity:
             if self.bootstrap_array:
                 return self.first_order_idcs_btsp.detach()
             else:
+                btsp = none_throws(self.first_order_idcs_btsp)
                 return (
                     torch.cat(
                         [
-                            self.first_order_idcs_btsp.mean(dim=0).unsqueeze(0),
-                            self.first_order_idcs_btsp.var(  # pyre-ignore
-                                dim=0
-                            ).unsqueeze(0),
+                            btsp.mean(dim=0).unsqueeze(0),
+                            btsp.var(dim=0).unsqueeze(0),
                             torch.sqrt(
-                                self.first_order_idcs_btsp.var(dim=0)
-                                / (self.num_bootstrap_samples + 1)
+                                btsp.var(dim=0) / (self.num_bootstrap_samples + 1)
                             ).unsqueeze(0),
                         ],
                         dim=0,
@@ -296,33 +284,28 @@ class SobolSensitivity:
             else
                 Tensor: (values)x dim
         """
+        f_A = none_throws(self.f_A)
+        f_ABis = none_throws(self.f_ABis)
+        f_total_var = none_throws(self.f_total_var)
         total_order_idcs = []
         for i in range(self.dim):
-            vti = (
-                0.5
-                # pyre-fixme[58]: `-` is not supported for operand types
-                #  `Optional[torch._tensor.Tensor]` and `Any`.
-                # pyre-fixme[16]: `Optional` has no attribute `__getitem__`.
-                * torch.mean(torch.pow(self.f_A - self.f_ABis[i], 2))
-                # pyre-fixme[58]: `/` is not supported for operand types `Tensor`
-                #  and `Optional[Tensor]`.
-                / self.f_total_var
-            )
+            vti = 0.5 * torch.mean(torch.pow(f_A - f_ABis[i], 2)) / f_total_var
             total_order_idcs.append(vti.unsqueeze(0))
         if not (self.bootstrap):
             total_order_idcs = torch.cat(total_order_idcs, dim=0).detach()
             return total_order_idcs
         else:
+            f_A_btsp = none_throws(self.f_A_btsp)
+            f_ABis_btsp = none_throws(self.f_ABis_btsp)
+            f_total_var_btsp = none_throws(self.f_total_var_btsp)
             total_order_idcs_btsp = [torch.cat(total_order_idcs, dim=0).unsqueeze(0)]
             for b in range(self.num_bootstrap_samples):
                 total_order_idcs = []
                 for i in range(self.dim):
                     vti = (
                         0.5
-                        * torch.mean(
-                            torch.pow(self.f_A_btsp[b] - self.f_ABis_btsp[b][i], 2)
-                        )
-                        / self.f_total_var_btsp[b]
+                        * torch.mean(torch.pow(f_A_btsp[b] - f_ABis_btsp[b][i], 2))
+                        / f_total_var_btsp[b]
                     )
                     total_order_idcs.append(vti.unsqueeze(0))
                 total_order_idcs_btsp.append(
@@ -374,37 +357,44 @@ class SobolSensitivity:
             if self.first_order_idcs is None:
                 self.first_order_indices()
             first_order_idcs = self.first_order_idcs
+        f_A = none_throws(self.f_A)
+        f_B = none_throws(self.f_B)
+        f_ABis = none_throws(self.f_ABis)
+        f_BAis = none_throws(self.f_BAis)
+        f_total_var = none_throws(self.f_total_var)
+        first_order_idcs_val = none_throws(first_order_idcs)
         second_order_idcs = []
         for i in range(self.dim):
             for j in range(i + 1, self.dim):
-                vij = torch.mean(
-                    self.f_BAis[i] * self.f_ABis[j] - self.f_A * self.f_B  # pyre-ignore
-                )
+                vij = torch.mean(f_BAis[i] * f_ABis[j] - f_A * f_B)
                 vij = (
-                    # pyre-fixme[58]: `/` is not supported for operand types
-                    #  `Tensor` and `Optional[Tensor]`.
-                    (vij / self.f_total_var)
-                    - first_order_idcs[i]  # pyre-ignore
-                    - first_order_idcs[j]
+                    (vij / f_total_var)
+                    - first_order_idcs_val[i]
+                    - first_order_idcs_val[j]
                 )
                 second_order_idcs.append(vij.unsqueeze(0))
         if not self.bootstrap:
             second_order_idcs = torch.cat(second_order_idcs, dim=0).detach()
             return second_order_idcs
         else:
+            f_A_btsp = none_throws(self.f_A_btsp)
+            f_B_btsp = none_throws(self.f_B_btsp)
+            f_ABis_btsp = none_throws(self.f_ABis_btsp)
+            f_BAis_btsp = none_throws(self.f_BAis_btsp)
+            f_total_var_btsp = none_throws(self.f_total_var_btsp)
             second_order_idcs_btsp = [torch.cat(second_order_idcs, dim=0).unsqueeze(0)]
             if first_order_idcs_btsp is None:
-                first_order_idcs_btsp = self.first_order_idcs_btsp
+                first_order_idcs_btsp = none_throws(self.first_order_idcs_btsp)
             for b in range(self.num_bootstrap_samples):
                 second_order_idcs = []
                 for i in range(self.dim):
                     for j in range(i + 1, self.dim):
                         vij = torch.mean(
-                            self.f_BAis_btsp[b][i] * self.f_ABis_btsp[b][j]
-                            - self.f_A_btsp[b] * self.f_B_btsp[b]
+                            f_BAis_btsp[b][i] * f_ABis_btsp[b][j]
+                            - f_A_btsp[b] * f_B_btsp[b]
                         )
                         vij = (
-                            (vij / self.f_total_var_btsp[b])
+                            (vij / f_total_var_btsp[b])
                             - first_order_idcs_btsp[b][i]
                             - first_order_idcs_btsp[b][j]
                         )
@@ -579,11 +569,11 @@ class SobolSensitivityGPSampling:
         self.second_order = second_order
         self.input_qmc = input_qmc
         self.gp_sample_qmc = gp_sample_qmc
-        # pyre-fixme[4]: Attribute must be annotated.
-        self.bootstrap = num_bootstrap_samples > 1
+        self.bootstrap: bool = num_bootstrap_samples > 1
         self.num_bootstrap_samples = num_bootstrap_samples
         self.num_mc_samples = num_mc_samples
         self.num_gp_samples = num_gp_samples
+        self.first_order_idcs_list: torch.Tensor = torch.empty(0)
         self.sensitivity = SobolSensitivity(
             bounds=bounds,
             num_mc_samples=self.num_mc_samples,
@@ -600,8 +590,7 @@ class SobolSensitivityGPSampling:
             sampler = SobolQMCNormalSampler(
                 sample_shape=torch.Size([self.num_gp_samples]), seed=0
             )
-            # pyre-fixme[4]: Attribute must be annotated.
-            self.samples = sampler(posterior)
+            self.samples: torch.Tensor = sampler(posterior)
         else:
             with torch.no_grad():
                 self.samples = posterior.rsample(torch.Size([self.num_gp_samples]))
@@ -625,9 +614,9 @@ class SobolSensitivityGPSampling:
             self.sensitivity.evalute_function(self.samples[j])
             first_order_idcs = self.sensitivity.first_order_indices()
             first_order_idcs_list.append(first_order_idcs.unsqueeze(0))
-        # pyre-fixme[16]: `SobolSensitivityGPSampling` has no attribute
-        #  `first_order_idcs_list`.
-        self.first_order_idcs_list = torch.cat(first_order_idcs_list, dim=0)
+        self.first_order_idcs_list: torch.Tensor = torch.cat(
+            first_order_idcs_list, dim=0
+        )
         if not (self.bootstrap):
             first_order_idcs_mean_var_se = []
             for i in range(self.dim):
@@ -728,17 +717,15 @@ class SobolSensitivityGPSampling:
         """
         if not (self.bootstrap):
             second_order_idcs_list = []
+            second_order_idcs: Tensor = torch.empty(0)
             for j in range(self.num_gp_samples):
                 self.sensitivity.evalute_function(self.samples[j])
                 second_order_idcs = self.sensitivity.second_order_indices(
-                    # pyre-fixme[16]: `SobolSensitivityGPSampling` has no attribute
-                    #  `first_order_idcs_list`.
                     self.first_order_idcs_list[j]
                 )
                 second_order_idcs_list.append(second_order_idcs.unsqueeze(0))
             second_order_idcs_list = torch.cat(second_order_idcs_list, dim=0)
             second_order_idcs_mean_var = []
-            # pyre-fixme[61]: `second_order_idcs` is undefined, or not always defined.
             for i in range(len(second_order_idcs)):
                 second_order_idcs_mean_var.append(
                     torch.tensor(

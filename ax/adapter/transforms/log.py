@@ -114,12 +114,13 @@ class Log(Transform):
                     ]
                     target_value = p.target_value
                     if target_value is not None:
-                        target_value = math.log10(
-                            assert_is_instance_of_tuple(target_value, (float, int))
-                        )
+                        assert_is_instance_of_tuple(target_value, (float, int))
+                        target_value = math.log10(float(target_value))
                     if dependents is not None:
                         dependents = {
-                            math.log10(assert_is_instance_of_tuple(k, (float, int))): v
+                            math.log10(
+                                float(assert_is_instance_of_tuple(k, (float, int)))
+                            ): v
                             for k, v in dependents.items()
                         }
 

@@ -17,8 +17,7 @@ from ax.utils.common.logger import get_logger
 from ax.utils.stats.math_utils import relativize
 
 logger: Logger = get_logger(__name__)
-# pyre-fixme[24]: Generic type `np.ndarray` expects 2 type parameters.
-num_mixed = np.ndarray | list[float]
+num_mixed = npt.NDArray | list[float]
 
 
 def inverse_variance_weight(

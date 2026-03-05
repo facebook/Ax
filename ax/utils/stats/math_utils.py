@@ -180,8 +180,4 @@ def unrelativize(
         m_t[means_t == 0.0] = mean_c
         s_t[means_t == 0.0] = sem_c
 
-    # pyre-fixme[7]: Expected `Tuple[ndarray[typing.Any, typing.Any],
-    #  ndarray[typing.Any, typing.Any]]` but got `Tuple[Union[ndarray[typing.Any,
-    #  dtype[typing.Any]], float], Union[ndarray[typing.Any, dtype[typing.Any]],
-    #  float]]`.
-    return m_t, s_t
+    return np.asarray(m_t), np.asarray(s_t)
