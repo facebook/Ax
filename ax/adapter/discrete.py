@@ -26,7 +26,7 @@ from ax.core.observation import ObservationData, ObservationFeatures
 from ax.core.optimization_config import OptimizationConfig
 from ax.core.parameter import ChoiceParameter, FixedParameter
 from ax.core.search_space import SearchSpace
-from ax.core.types import TParamValueList
+from ax.core.types import TParamValue, TParamValueList
 from ax.exceptions.core import DataRequiredError, UserInputError
 from ax.generators.discrete_base import DiscreteGenerator
 from ax.generators.types import TConfig
@@ -173,9 +173,17 @@ class DiscreteAdapter(Adapter):
             )
 
         # Get fixed features
-        fixed_features_dict = get_fixed_features(
+        # Widen the type from dict[int, float] to dict[int, TParamValue] for
+        # compatibility with DiscreteGenerator.gen (dict invariance).
+        fixed_features_raw = get_fixed_features(
             fixed_features=fixed_features, param_names=self.parameters
         )
+        fixed_features_dict: dict[int, TParamValue] | None = None
+        if fixed_features_raw is not None:
+            fixed_features_dict = {}
+            for k, v in fixed_features_raw.items():
+                val: TParamValue = v
+                fixed_features_dict[k] = val
 
         # Pending observations
         if len(pending_observations) == 0:
@@ -193,7 +201,7 @@ class DiscreteAdapter(Adapter):
             parameter_values=parameter_values,
             objective_weights=objective_weights,
             outcome_constraints=outcome_constraints,
-            fixed_features=fixed_features_dict,  # pyre-ignore
+            fixed_features=fixed_features_dict,
             pending_observations=pending_array,
             model_gen_options=model_gen_options,
         )

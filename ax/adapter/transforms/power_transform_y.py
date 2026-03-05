@@ -79,8 +79,10 @@ class PowerTransformY(Transform):
             adapter=adapter,
             config=config,
         )
-        # pyre-fixme[9]: Can't annotate config["metrics"] properly.
-        metric_signatures: list[str] | None = self.config.get("metrics", None)
+        raw_metrics = self.config.get("metrics", None)
+        metric_signatures: list[str] | None = (
+            assert_is_instance(raw_metrics, list) if raw_metrics is not None else None
+        )
         self.clip_mean: bool = assert_is_instance(
             self.config.get("clip_mean", True), bool
         )
@@ -264,8 +266,10 @@ def _compute_inverse_bounds(
     inv_bounds = defaultdict()
     for k, pt in power_transforms.items():
         bounds = [-np.inf, np.inf]
-        mu, sigma = pt._scaler.mean_.item(), pt._scaler.scale_.item()  # pyre-ignore
-        lambda_ = pt.lambdas_.item()  # pyre-ignore
+        # pyre-ignore[16]: sklearn's PowerTransformer lacks type stubs for
+        # _scaler (internal attr) and lambdas_ (set during fit).
+        mu, sigma = pt._scaler.mean_.item(), pt._scaler.scale_.item()
+        lambda_ = pt.lambdas_.item()  # pyre-ignore[16]
         if lambda_ < -1 * tol:
             bounds[1] = (-1.0 / lambda_ - mu) / sigma
         elif lambda_ > 2.0 + tol:

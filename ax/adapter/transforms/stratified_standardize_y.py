@@ -78,25 +78,19 @@ class StratifiedStandardizeY(Transform):
             config=config,
         )
         # Get parameter name for standardization.
-        self.strata_mapping = None  # pyre-ignore [8]
+        strata_mapping: dict[TParamValue, TParamValue] | None = None
         if "parameter_name" in self.config:
-            # pyre: Attribute `p_name` declared in class `ax.adapter.
-            # pyre: transforms.stratified_standardize_y.
-            # pyre: StratifiedStandardizeY` has type `str` but is used as type
-            # pyre-fixme[8]: `typing.Union[float, int, str]`.
-            self.p_name: str = self.config["parameter_name"]
+            self.p_name: str = assert_is_instance(self.config["parameter_name"], str)
             strat_p = search_space.parameters[self.p_name]
             if not isinstance(strat_p, ChoiceParameter):
                 raise ValueError(f"{self.p_name} not a ChoiceParameter")
             if "strata_mapping" in self.config:
-                # pyre-ignore [8]
-                self.strata_mapping: dict[
-                    bool | float | int | str, bool | float | int | str
-                ] = self.config["strata_mapping"]
-                if set(strat_p.values) != set(self.strata_mapping.keys()):
+                strata_map = assert_is_instance(self.config["strata_mapping"], dict)
+                strata_mapping = strata_map
+                if set(strat_p.values) != set(strata_map.keys()):
                     raise ValueError(
                         f"{self.p_name} values {strat_p.values} do not match "
-                        f"strata_mapping keys {self.strata_mapping.keys()}."
+                        f"strata_mapping keys {strata_map.keys()}."
                     )
         else:
             # See if there is a task parameter
@@ -117,12 +111,12 @@ class StratifiedStandardizeY(Transform):
                     "standardization"
                 )
             self.p_name = task_parameters[0]
-        if self.strata_mapping is None:
+        if strata_mapping is None:
             strat_p = assert_is_instance(
                 search_space.parameters[self.p_name], ChoiceParameter
             )
-            # pyre-ignore [8]
-            self.strata_mapping = {v: v for v in strat_p.values}
+            strata_mapping = {v: v for v in strat_p.values}
+        self.strata_mapping: dict[TParamValue, TParamValue] = strata_mapping
         # Compute means and SDs
         experiment_data = none_throws(experiment_data)
         if len(experiment_data.observation_data.index.names) > 2:
@@ -141,14 +135,8 @@ class StratifiedStandardizeY(Transform):
             for m in means.columns:
                 Ys[(m, strata_value)] = group[m].dropna().values.tolist()
 
-        # Expected `DefaultDict[typing.Union[str, typing.Tuple[str,
-        # Optional[typing.Union[bool, float, str]]]], List[float]]` for 1st anonymous
-        # parameter to call
-        # `ax.adapter.transforms.standardize_y.compute_standardization_parameters`
-        # but got `DefaultDict[typing.Tuple[str, Optional[typing.Union[bool, float,
-        # str]]], List[float]]`.
-        # pyre-fixme[6]: Expected `DefaultDict[Union[str, Tuple[str, Optional[Union[b...
-        # pyre-fixme[4]: Attribute must be annotated.
+        self.Ymean: dict[tuple[str, TParamValue], float]
+        self.Ystd: dict[tuple[str, TParamValue], float]
         self.Ymean, self.Ystd = compute_standardization_parameters(Ys)
 
     def transform_observations(
