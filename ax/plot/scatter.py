@@ -107,7 +107,7 @@ def _error_scatter_trace(
     status_quo_arm: PlotInSampleArm | None = None,
     show_CI: bool = True,
     name: str = "In-sample",
-    color: tuple[int] = COLORS.STEELBLUE.value,
+    color: tuple[int, int, int] = COLORS.STEELBLUE.value,
     visible: bool = True,
     legendgroup: str | None = None,
     showlegend: bool = True,
@@ -529,7 +529,6 @@ def plot_multiple_metrics(
         legend={"x": 1 + layout_offset_x},
     )
     fig = go.Figure(data=traces, layout=layout)
-    # pyre-fixme[6]: For 1st argument expected `Dict[str, typing.Any]` but got `Figure`.
     return AxPlotConfig(data=fig, plot_type=AxPlotTypes.GENERIC)
 
 
@@ -771,7 +770,6 @@ def plot_objective_vs_constraints(
     )
 
     fig = go.Figure(data=plot_data, layout=layout)
-    # pyre-fixme[6]: For 1st argument expected `Dict[str, typing.Any]` but got `Figure`.
     return AxPlotConfig(data=fig, plot_type=AxPlotTypes.GENERIC)
 
 
@@ -1025,7 +1023,6 @@ def plot_fitted(
     )
 
     fig = go.Figure(data=traces, layout=layout)
-    # pyre-fixme[6]: For 1st argument expected `Dict[str, typing.Any]` but got `Figure`.
     return AxPlotConfig(data=fig, plot_type=AxPlotTypes.GENERIC)
 
 
@@ -1220,8 +1217,6 @@ def interact_fitted(
     """
 
     return AxPlotConfig(
-        # pyre-fixme[6]: For 1st argument expected `Dict[str, typing.Any]` but got
-        #  `Figure`.
         data=interact_fitted_plotly(
             model=model,
             generator_runs_dict=generator_runs_dict,
