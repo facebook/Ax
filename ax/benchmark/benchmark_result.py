@@ -171,9 +171,7 @@ class AggregatedBenchmarkResult(Base):
         """
         # Extract average wall times and standard errors thereof
         fit_time, gen_time = (
-            # pyre-fixme [16]: Item `float` of `typing.Union[numpy.ndarray[typing.Any,
-            # typing.Any], float]` has no attribute `item`.
-            [nanmean(Ts).item(), sem(Ts, ddof=1, nan_policy="propagate").item()]
+            [float(nanmean(Ts)), float(sem(Ts, ddof=1, nan_policy="propagate"))]
             for Ts in zip(*((res.fit_time, res.gen_time) for res in results))
         )
 

@@ -297,7 +297,9 @@ class TestImprovementGlobalStoppingStrategy(TestCase):
         gss = ImprovementGlobalStoppingStrategy(
             min_trials=3, window_size=3, improvement_bar=0.1
         )
-        objectives = exp.optimization_config.objective.objectives  # pyre-ignore
+        objectives = assert_is_instance(
+            none_throws(exp.optimization_config).objective, MultiObjective
+        ).objectives
         custom_objective_thresholds = [
             ObjectiveThreshold(
                 metric=objectives[0].metric,

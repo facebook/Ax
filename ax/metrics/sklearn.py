@@ -40,8 +40,7 @@ class SklearnDataset(StrEnum):
 
 
 @lru_cache(maxsize=8)
-# pyre-fixme[2]: Parameter must be annotated.
-def _get_data(dataset) -> dict[str, npt.NDArray]:
+def _get_data(dataset: SklearnDataset) -> dict[str, npt.NDArray]:
     """Return sklearn dataset, loading and caching if necessary."""
     if dataset is SklearnDataset.DIGITS:
         return datasets.load_digits()
@@ -105,8 +104,7 @@ class SklearnMetric(Metric):
             )
         if model_type is SklearnModelType.NN:
             if regression:
-                # pyre-fixme[4]: Attribute must be annotated.
-                self._model_cls = MLPRegressor
+                self._model_cls: Any = MLPRegressor
             else:
                 self._model_cls = MLPClassifier
         elif model_type is SklearnModelType.RF:

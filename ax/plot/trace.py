@@ -30,7 +30,7 @@ def map_data_single_trace_scatters(
     ylabel: str = "Trial performance",
     plot_stopping_marker: bool = False,
     opacity: float = 0.5,
-    trace_color: tuple[int] = COLORS.STEELBLUE.value,
+    trace_color: tuple[int, int, int] = COLORS.STEELBLUE.value,
     visible: bool = True,
 ) -> list[go.Scatter]:
     """Plot a single trial's trace from map data.
@@ -205,7 +205,7 @@ def map_data_multiple_metrics_dropdown_plotly(
 
 def mean_trace_scatter(
     y: npt.NDArray,
-    trace_color: tuple[int] = COLORS.STEELBLUE.value,
+    trace_color: tuple[int, int, int] = COLORS.STEELBLUE.value,
     legend_label: str = "mean",
     hover_labels: list[str] | None = None,
 ) -> go.Scatter:
@@ -238,7 +238,7 @@ def mean_trace_scatter(
 
 def sem_range_scatter(
     y: npt.NDArray,
-    trace_color: tuple[int] = COLORS.STEELBLUE.value,
+    trace_color: tuple[int, int, int] = COLORS.STEELBLUE.value,
     legend_label: str = "",
 ) -> tuple[go.Scatter, go.Scatter]:
     """Creates a graph object for trace of mean +/- 2 SEMs for y, across runs.
@@ -281,7 +281,7 @@ def sem_range_scatter(
 
 def mean_markers_scatter(
     y: npt.NDArray,
-    marker_color: tuple[int] = COLORS.LIGHT_PURPLE.value,
+    marker_color: tuple[int, int, int] = COLORS.LIGHT_PURPLE.value,
     legend_label: str = "",
     hover_labels: list[str] | None = None,
 ) -> go.Scatter:
@@ -317,7 +317,9 @@ def mean_markers_scatter(
 
 
 def optimum_objective_scatter(
-    optimum: float, num_iterations: int, optimum_color: tuple[int] = COLORS.ORANGE.value
+    optimum: float,
+    num_iterations: int,
+    optimum_color: tuple[int, int, int] = COLORS.ORANGE.value,
 ) -> go.Scatter:
     """Creates a graph object for the line representing optimal objective.
 
@@ -347,12 +349,12 @@ def optimization_trace_single_method_plotly(
     title: str = "",
     ylabel: str = "",
     hover_labels: list[str] | None = None,
-    trace_color: tuple[int] = COLORS.STEELBLUE.value,
-    optimum_color: tuple[int] = COLORS.ORANGE.value,
-    generator_change_color: tuple[int] = COLORS.TEAL.value,
+    trace_color: tuple[int, int, int] = COLORS.STEELBLUE.value,
+    optimum_color: tuple[int, int, int] = COLORS.ORANGE.value,
+    generator_change_color: tuple[int, int, int] = COLORS.TEAL.value,
     optimization_direction: str | None = "passthrough",
     plot_trial_points: bool = False,
-    trial_points_color: tuple[int] = COLORS.LIGHT_PURPLE.value,
+    trial_points_color: tuple[int, int, int] = COLORS.LIGHT_PURPLE.value,
     autoset_axis_limits: bool = True,
 ) -> go.Figure:
     """Plots an optimization trace with mean and 2 SEMs
@@ -482,12 +484,12 @@ def optimization_trace_single_method(
     title: str = "",
     ylabel: str = "",
     hover_labels: list[str] | None = None,
-    trace_color: tuple[int] = COLORS.STEELBLUE.value,
-    optimum_color: tuple[int] = COLORS.ORANGE.value,
-    generator_change_color: tuple[int] = COLORS.TEAL.value,
+    trace_color: tuple[int, int, int] = COLORS.STEELBLUE.value,
+    optimum_color: tuple[int, int, int] = COLORS.ORANGE.value,
+    generator_change_color: tuple[int, int, int] = COLORS.TEAL.value,
     optimization_direction: str | None = "passthrough",
     plot_trial_points: bool = False,
-    trial_points_color: tuple[int] = COLORS.LIGHT_PURPLE.value,
+    trial_points_color: tuple[int, int, int] = COLORS.LIGHT_PURPLE.value,
     autoset_axis_limits: bool = True,
 ) -> AxPlotConfig:
     """Plots an optimization trace with mean and 2 SEMs
@@ -521,8 +523,6 @@ def optimization_trace_single_method(
         AxPlotConfig: plot of the optimization trace with IQR
     """
     return AxPlotConfig(
-        # pyre-fixme[6]: For 1st argument expected `Dict[str, typing.Any]` but got
-        #  `Figure`.
         data=optimization_trace_single_method_plotly(
             y=y,
             optimum=optimum,
@@ -548,8 +548,8 @@ def optimization_trace_all_methods(
     title: str = "",
     ylabel: str = "",
     hover_labels: list[str] | None = None,
-    trace_colors: list[tuple[int]] = DISCRETE_COLOR_SCALE,
-    optimum_color: tuple[int] = COLORS.ORANGE.value,
+    trace_colors: list[tuple[int, int, int]] = DISCRETE_COLOR_SCALE,
+    optimum_color: tuple[int, int, int] = COLORS.ORANGE.value,
 ) -> AxPlotConfig:
     """Plots a comparison of optimization traces with 2-SEM bands for multiple
     methods on the same problem.
@@ -599,8 +599,6 @@ def optimization_trace_all_methods(
     )
 
     return AxPlotConfig(
-        # pyre-fixme[6]: For 1st argument expected `Dict[str, typing.Any]` but got
-        #  `Figure`.
         data=go.Figure(layout=layout, data=data),
         plot_type=AxPlotTypes.GENERIC,
     )
@@ -625,17 +623,13 @@ def optimization_times(
     fit_res: dict[str, str | list[float]] = {"name": "Fitting"}
     fit_res["mean"] = [np.mean(fit_times[m]) for m in methods]
     fit_res["2sems"] = [
-        # pyre-fixme[58]: `*` is not supported for operand types `int` and
-        #  `floating[typing.Any]`.
-        2 * np.std(fit_times[m]) / np.sqrt(len(fit_times[m]))
+        2 * float(np.std(fit_times[m])) / float(np.sqrt(len(fit_times[m])))
         for m in methods
     ]
     gen_res: dict[str, str | list[float]] = {"name": "Generation"}
     gen_res["mean"] = [np.mean(gen_times[m]) for m in methods]
     gen_res["2sems"] = [
-        # pyre-fixme[58]: `*` is not supported for operand types `int` and
-        #  `floating[typing.Any]`.
-        2 * np.std(gen_times[m]) / np.sqrt(len(gen_times[m]))
+        2 * float(np.std(gen_times[m])) / float(np.sqrt(len(gen_times[m])))
         for m in methods
     ]
     total_mean: list[float] = []
@@ -643,9 +637,7 @@ def optimization_times(
     for m in methods:
         totals = np.array(fit_times[m]) + np.array(gen_times[m])
         total_mean.append(np.mean(totals))
-        # pyre-fixme[58]: `*` is not supported for operand types `int` and
-        #  `floating[typing.Any]`.
-        total_2sems.append(2 * np.std(totals) / np.sqrt(len(totals)))
+        total_2sems.append(2 * float(np.std(totals)) / float(np.sqrt(len(totals))))
     total_res: dict[str, str | list[float]] = {
         "name": "Total",
         "mean": total_mean,
@@ -680,8 +672,6 @@ def optimization_times(
     )
 
     return AxPlotConfig(
-        # pyre-fixme[6]: For 1st argument expected `Dict[str, typing.Any]` but got
-        #  `Figure`.
         data=go.Figure(layout=layout, data=data),
         plot_type=AxPlotTypes.GENERIC,
     )

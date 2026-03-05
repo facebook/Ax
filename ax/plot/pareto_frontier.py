@@ -386,7 +386,6 @@ def plot_pareto_frontier(
     )
 
     fig = go.Figure(data=[trace], layout=layout)
-    # pyre-fixme[6]: For 1st argument expected `Dict[str, typing.Any]` but got `Figure`.
     return AxPlotConfig(data=fig, plot_type=AxPlotTypes.GENERIC)
 
 
@@ -493,7 +492,6 @@ def interact_pareto_frontier(
     )
 
     fig = go.Figure(data=traces, layout=layout)
-    # pyre-fixme[6]: For 1st argument expected `Dict[str, typing.Any]` but got `Figure`.
     return AxPlotConfig(data=fig, plot_type=AxPlotTypes.GENERIC)
 
 

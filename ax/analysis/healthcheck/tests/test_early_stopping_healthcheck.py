@@ -11,6 +11,7 @@ from unittest.mock import patch
 import pandas as pd
 from ax.analysis.healthcheck.early_stopping_healthcheck import EarlyStoppingAnalysis
 from ax.analysis.healthcheck.healthcheck_analysis import HealthcheckStatus
+from ax.core.analysis_card import AnalysisCard
 from ax.core.data import Data
 from ax.core.experiment import Experiment
 from ax.core.objective import MultiObjective, Objective
@@ -39,9 +40,8 @@ class TestEarlyStoppingAnalysis(TestCase):
             early_stopping_strategy=self.early_stopping_strategy
         )
 
-    def _get_df_dict(self, card: object) -> dict[str, str]:
+    def _get_df_dict(self, card: AnalysisCard) -> dict[str, str]:
         """Extract Property -> Value dict from card dataframe."""
-        # pyre-ignore[16]: card has df attribute
         return {row["Property"]: row["Value"] for _, row in card.df.iterrows()}
 
     def _create_map_data(
