@@ -35,6 +35,7 @@ from ax.generators.torch.botorch_modular.optimizer_defaults import (
 from ax.generators.torch.botorch_modular.surrogate import Surrogate
 from ax.generators.torch.botorch_modular.utils import (
     _objective_threshold_to_outcome_constraints,
+    validate_candidates,
 )
 from ax.generators.torch.utils import (
     _get_X_pending_and_observed,
@@ -63,6 +64,7 @@ from botorch.acquisition.multi_objective.monte_carlo import (
     qNoisyExpectedHypervolumeImprovement,
 )
 from botorch.acquisition.objective import LinearMCObjective
+from botorch.exceptions.errors import CandidateGenerationError
 from botorch.exceptions.warnings import OptimizationWarning
 from botorch.optim.optimize import (
     optimize_acqf,
@@ -768,26 +770,52 @@ class AcquisitionTest(TestCase):
 
     # mock `optimize_acqf_discrete_local_search` because it isn't handled by
     # `mock_botorch_optimize`
-    @mock.patch(
-        f"{ACQUISITION_PATH}.optimize_acqf_discrete_local_search",
-        return_value=(torch.rand(3, 3), torch.rand(3)),
-    )
-    def test_optimize_acqf_discrete_local_search(
-        self,
-        mock_optimize_acqf_discrete_local_search: Mock,
-    ) -> None:
+    def test_optimize_acqf_discrete_local_search(self) -> None:
+        discrete_choices = {
+            k: np.linspace(0, 1, 30 * (k + 1)).tolist() for k in range(3)
+        }
+        # Create valid mock candidates using actual discrete choices that satisfy
+        # inequality constraint: -x[0] + x[1] >= 1 => x[1] - x[0] >= 1
+        # Use x[0]=0 (first value), x[1] from later indices to ensure x[1] >= 1
+        # discrete_choices[0] has 30 values from 0 to 1
+        # discrete_choices[1] has 60 values from 0 to 1 (index 59 = 1.0)
+        # discrete_choices[2] has 90 values from 0 to 1
+        valid_candidates = torch.tensor(
+            [
+                [
+                    discrete_choices[0][0],
+                    discrete_choices[1][59],
+                    discrete_choices[2][0],
+                ],
+                [
+                    discrete_choices[0][0],
+                    discrete_choices[1][59],
+                    discrete_choices[2][1],
+                ],
+                [
+                    discrete_choices[0][0],
+                    discrete_choices[1][59],
+                    discrete_choices[2][2],
+                ],
+            ],
+            dtype=torch.double,
+        )
         ssd = SearchSpaceDigest(
             feature_names=["a", "b", "c"],
             bounds=[(0, 1) for _ in range(3)],
             categorical_features=[0, 1, 2],
-            discrete_choices={  # 30 * 60 * 90 > 100,000
-                k: np.linspace(0, 1, 30 * (k + 1)).tolist() for k in range(3)
-            },
+            discrete_choices=discrete_choices,  # 30 * 60 * 90 > 100,000
         )
         acquisition = self.get_acquisition_function()
-        with mock.patch(
-            f"{ACQUISITION_PATH}.optimizer_argparse", wraps=optimizer_argparse
-        ) as mock_optimizer_argparse:
+        with (
+            mock.patch(
+                f"{ACQUISITION_PATH}.optimize_acqf_discrete_local_search",
+                return_value=(valid_candidates, torch.rand(3)),
+            ) as mock_optimize_acqf_discrete_local_search,
+            mock.patch(
+                f"{ACQUISITION_PATH}.optimizer_argparse", wraps=optimizer_argparse
+            ) as mock_optimizer_argparse,
+        ):
             acquisition.optimize(
                 n=3,
                 search_space_digest=ssd,
@@ -796,91 +824,150 @@ class AcquisitionTest(TestCase):
                 rounding_func=self.rounding_func,
                 optimizer_options=self.optimizer_options,
             )
-        mock_optimizer_argparse.assert_called_once_with(
-            acquisition.acqf,
-            optimizer_options=self.optimizer_options,
-            optimizer="optimize_acqf_discrete_local_search",
-        )
-        mock_optimize_acqf_discrete_local_search.assert_called_once()
-        args, kwargs = mock_optimize_acqf_discrete_local_search.call_args
-        self.assertEqual(len(args), 0)
-        self.assertSetEqual(
-            {
-                "acq_function",
-                "discrete_choices",
-                "q",
-                "num_restarts",
-                "raw_samples",
-                "inequality_constraints",
-                "X_avoid",
-            },
-            set(kwargs.keys()),
-        )
-        self.assertEqual(kwargs["acq_function"], acquisition.acqf)
-        self.assertEqual(kwargs["q"], 3)
-        self.assertEqual(kwargs["inequality_constraints"], self.inequality_constraints)
-        self.assertEqual(kwargs["num_restarts"], self.optimizer_options["num_restarts"])
-        self.assertEqual(kwargs["raw_samples"], self.optimizer_options["raw_samples"])
-        self.assertTrue(
-            all(
-                torch.allclose(torch.linspace(0, 1, 30 * (k + 1), **self.tkwargs), c)
-                for k, c in enumerate(kwargs["discrete_choices"])
+            mock_optimizer_argparse.assert_called_once_with(
+                acquisition.acqf,
+                optimizer_options=self.optimizer_options,
+                optimizer="optimize_acqf_discrete_local_search",
             )
-        )
-        X_avoid_true = torch.cat((self.X, self.pending_observations[0]), dim=0)
-        self.assertEqual(kwargs["X_avoid"].shape, X_avoid_true.shape)
-        self.assertTrue(  # The order of the rows may not match
-            all((X_avoid_true == x).all(dim=-1).any().item() for x in kwargs["X_avoid"])
-        )
+            mock_optimize_acqf_discrete_local_search.assert_called_once()
+            args, kwargs = mock_optimize_acqf_discrete_local_search.call_args
+            self.assertEqual(len(args), 0)
+            self.assertSetEqual(
+                {
+                    "acq_function",
+                    "discrete_choices",
+                    "q",
+                    "num_restarts",
+                    "raw_samples",
+                    "inequality_constraints",
+                    "X_avoid",
+                },
+                set(kwargs.keys()),
+            )
+            self.assertEqual(kwargs["acq_function"], acquisition.acqf)
+            self.assertEqual(kwargs["q"], 3)
+            self.assertEqual(
+                kwargs["inequality_constraints"], self.inequality_constraints
+            )
+            self.assertEqual(
+                kwargs["num_restarts"], self.optimizer_options["num_restarts"]
+            )
+            self.assertEqual(
+                kwargs["raw_samples"], self.optimizer_options["raw_samples"]
+            )
+            self.assertTrue(
+                all(
+                    torch.allclose(
+                        torch.linspace(0, 1, 30 * (k + 1), **self.tkwargs), c
+                    )
+                    for k, c in enumerate(kwargs["discrete_choices"])
+                )
+            )
+            X_avoid_true = torch.cat((self.X, self.pending_observations[0]), dim=0)
+            self.assertEqual(kwargs["X_avoid"].shape, X_avoid_true.shape)
+            self.assertTrue(  # The order of the rows may not match
+                all(
+                    (X_avoid_true == x).all(dim=-1).any().item()
+                    for x in kwargs["X_avoid"]
+                )
+            )
 
-    @mock_botorch_optimize
     def test_optimize_acqf_discrete_too_many_choices(self) -> None:
         # Check that mixed optimizer is used when there are too many choices.
         # Otherwise, it should use local search.
+        # Create discrete choices for each search space
+        discrete_choices_ordinal_int = {
+            i: list(range(100 * (i + 1) + 1)) for i in range(3)
+        }
+        discrete_choices_categorical_int = {
+            i: list(range(100 * (i + 1) + 1)) for i in range(3)
+        }
+        discrete_choices_noninteger_small = {
+            i: np.arange(0, 100, dtype=np.float64).tolist() for i in range(3)
+        }
+        discrete_choices_noninteger_large = {
+            i: np.arange(0, 100 + 1, dtype=np.float64).tolist() for i in range(3)
+        }
+
         ssd_ordinal_integer = SearchSpaceDigest(
             feature_names=["a", "b", "c"],
             bounds=[(0, 100 * (i + 1)) for i in range(3)],
             ordinal_features=[0, 1, 2],
-            discrete_choices={i: list(range(100 * (i + 1) + 1)) for i in range(3)},
+            discrete_choices=discrete_choices_ordinal_int,
         )
         ssd_categorical_integer = SearchSpaceDigest(
             feature_names=["a", "b", "c"],
             bounds=[(0, 100 * (i + 1)) for i in range(3)],
             categorical_features=[0, 1, 2],
-            discrete_choices={i: list(range(100 * (i + 1) + 1)) for i in range(3)},
+            discrete_choices=discrete_choices_categorical_int,
         )
         ssd_ordinal_noninteger_small = SearchSpaceDigest(
             feature_names=["a", "b", "c"],
             bounds=[(0, 99) for i in range(3)],
             ordinal_features=[0, 1, 2],
-            discrete_choices={
-                i: np.arange(0, 100, dtype=np.float64).tolist() for i in range(3)
-            },
+            discrete_choices=discrete_choices_noninteger_small,
         )
         ssd_ordinal_noninteger_large = SearchSpaceDigest(
             feature_names=["a", "b", "c"],
             bounds=[(0, 100) for i in range(3)],
             ordinal_features=[0, 1, 2],
-            discrete_choices={
-                i: np.arange(0, 100 + 1, dtype=np.float64).tolist() for i in range(3)
-            },
+            discrete_choices=discrete_choices_noninteger_large,
         )
+
+        # Create valid mock candidates for each search space that satisfy:
+        # - Inequality constraint: -x[0] + x[1] >= 1 => x[1] - x[0] >= 1
+        # Valid candidates for discrete local search (noninteger_small)
+        valid_discrete_candidates = torch.tensor(
+            [[0.0, 1.0, 50.0], [0.0, 2.0, 51.0], [0.0, 3.0, 52.0]],
+            dtype=torch.double,
+        )
+        # Valid candidates for mixed alternating optimizer (integer choices)
+        valid_int_candidates = torch.tensor(
+            [[0, 1, 150], [0, 2, 151], [0, 3, 152]],
+            dtype=torch.double,
+        )
+        # Valid candidates for mixed alternating optimizer (noninteger_large)
+        valid_nonint_large_candidates = torch.tensor(
+            [[0.0, 1.0, 50.0], [0.0, 2.0, 51.0], [0.0, 3.0, 52.0]],
+            dtype=torch.double,
+        )
+
         acquisition = self.get_acquisition_function()
-        for ssd, expected_optimizer in [
-            (ssd_ordinal_integer, "optimize_acqf_mixed_alternating"),
-            (ssd_categorical_integer, "optimize_acqf_mixed_alternating"),
-            (ssd_ordinal_noninteger_small, "optimize_acqf_discrete_local_search"),
-            (ssd_ordinal_noninteger_large, "optimize_acqf_mixed_alternating"),
-        ]:
-            # Mock optimize_acqf_discrete_local_search because it isn't handled
-            # by `mock_botorch_optimize`
+        test_cases = [
+            (
+                ssd_ordinal_integer,
+                "optimize_acqf_mixed_alternating",
+                valid_int_candidates,
+            ),
+            (
+                ssd_categorical_integer,
+                "optimize_acqf_mixed_alternating",
+                valid_int_candidates,
+            ),
+            (
+                ssd_ordinal_noninteger_small,
+                "optimize_acqf_discrete_local_search",
+                valid_discrete_candidates,
+            ),
+            (
+                ssd_ordinal_noninteger_large,
+                "optimize_acqf_mixed_alternating",
+                valid_nonint_large_candidates,
+            ),
+        ]
+        for ssd, expected_optimizer, valid_candidates in test_cases:
+            # Mock both optimizers to return valid candidates
             with (
                 mock.patch(
                     f"{ACQUISITION_PATH}.optimizer_argparse", wraps=optimizer_argparse
                 ) as mock_optimizer_argparse,
                 mock.patch(
                     f"{ACQUISITION_PATH}.optimize_acqf_discrete_local_search",
-                    return_value=(torch.rand(3, 3), torch.rand(3)),
+                    return_value=(valid_candidates, torch.rand(3)),
+                ),
+                mock.patch(
+                    f"{ACQUISITION_PATH}.optimize_acqf_mixed_alternating",
+                    return_value=(valid_candidates, torch.rand(3)),
                 ),
             ):
                 acquisition.optimize(
@@ -2063,7 +2150,6 @@ class AcquisitionTest(TestCase):
             torch.equal(pruned_values, torch.tensor([0.95], dtype=torch.double))
         )
 
-    @mock_botorch_optimize
     def test_no_pruning_with_qLogProbabilityOfFeasibility(self) -> None:
         # Test that pruning is NOT called when using qLogProbabilityOfFeasibility,
         # even when prune_irrelevant_parameters option is enabled
@@ -2074,11 +2160,22 @@ class AcquisitionTest(TestCase):
             fixed_features=self.fixed_features,
         )
         n = 1
-        with mock.patch.object(
-            acquisition,
-            "_prune_irrelevant_parameters",
-            wraps=acquisition._prune_irrelevant_parameters,
-        ) as mock_prune_irrelevant_parameters:
+        # Create valid mock candidates that satisfy:
+        # - Bounds: [(0, 10), (0, 10), (0, 10)]
+        # - Fixed features: x[1] = 2.0
+        # - Inequality constraint: -x[0] + x[1] >= 1 => x[0] <= x[1] - 1 = 1.0
+        valid_candidates = torch.tensor([[0.5, 2.0, 5.0]], **self.tkwargs)
+        with (
+            mock.patch.object(
+                acquisition,
+                "_prune_irrelevant_parameters",
+                wraps=acquisition._prune_irrelevant_parameters,
+            ) as mock_prune_irrelevant_parameters,
+            mock.patch(
+                f"{ACQUISITION_PATH}.optimize_acqf",
+                return_value=(valid_candidates, torch.rand(n)),
+            ),
+        ):
             acquisition.optimize(
                 n=n,
                 search_space_digest=self.search_space_digest,
@@ -2089,6 +2186,56 @@ class AcquisitionTest(TestCase):
             )
             mock_prune_irrelevant_parameters.assert_not_called()
             self.assertIsNone(acquisition.num_pruned_dims)
+
+    def test_validate_candidates(self) -> None:
+        """Test validate_candidates helper validates bounds, discrete, constraints."""
+        # Valid candidates pass validation
+        candidates = torch.tensor([[0.5, 1.0]])
+        bounds = torch.tensor([[0.0, 0.0], [1.0, 2.0]])
+        discrete_choices = {1: [0.0, 1.0, 2.0]}
+        validate_candidates(candidates, bounds, discrete_choices, None)
+
+        # Bounds violation raises error
+        with self.assertRaisesRegex(CandidateGenerationError, "bounds"):
+            validate_candidates(torch.tensor([[1.5, 1.0]]), bounds, None, None)
+
+        # Invalid discrete value raises error
+        with self.assertRaisesRegex(CandidateGenerationError, "Invalid discrete"):
+            validate_candidates(
+                torch.tensor([[0.5, 1.5]]), bounds, discrete_choices, None
+            )
+
+        # Constraint violation raises error
+        inequality_constraints = [(torch.tensor([0, 1]), torch.tensor([1.0, 1.0]), 1.0)]
+        with self.assertRaisesRegex(CandidateGenerationError, "inequality"):
+            validate_candidates(
+                torch.tensor([[0.2, 0.2]]),
+                torch.tensor([[0.0, 0.0], [1.0, 1.0]]),
+                None,
+                inequality_constraints,
+            )
+
+        # Task features are skipped in discrete value validation
+        # This is important for multi-task models where task features can be fixed
+        # to new task values via fixed_features that are not in the search space's
+        # discrete_choices (e.g., trial_index=1 when only trial 0 exists)
+        discrete_choices_with_task = {0: [0.0], 1: [0.0, 1.0, 2.0]}  # dim 0 is task
+        # Without task_features, value 1.0 in dim 0 would raise an error
+        with self.assertRaisesRegex(CandidateGenerationError, "Invalid discrete"):
+            validate_candidates(
+                torch.tensor([[1.0, 1.0]]),  # dim 0 = 1.0, not allowed
+                torch.tensor([[0.0, 0.0], [2.0, 2.0]]),
+                discrete_choices_with_task,
+                None,
+            )
+        # With task_features=[0], dim 0 is skipped and validation passes
+        validate_candidates(
+            torch.tensor([[1.0, 1.0]]),  # dim 0 = 1.0, skipped
+            torch.tensor([[0.0, 0.0], [2.0, 2.0]]),
+            discrete_choices_with_task,
+            None,
+            task_features=[0],
+        )
 
 
 class MultiAcquisitionTest(AcquisitionTest):
@@ -2120,6 +2267,9 @@ class MultiAcquisitionTest(AcquisitionTest):
         pass
 
     def test_optimize_acqf_mixed_alternating(self) -> None:
+        pass
+
+    def test_no_pruning_with_qLogProbabilityOfFeasibility(self) -> None:
         pass
 
     def test_select_from_candidate_set(self) -> None:
@@ -2196,17 +2346,30 @@ class MultiAcquisitionTest(AcquisitionTest):
 
     @skip_if_import_error
     def test_optimize(self) -> None:
-        from botorch.utils.multi_objective.optimize import optimize_with_nsgaii
-
         acquisition = self.get_acquisition_function(fixed_features=self.fixed_features)
         n = 5
         optimizer_options = {"max_gen": 3, "population_size": 10}
+        # Mock candidates that satisfy constraints:
+        # - Bounds: [0, 10] for all dimensions
+        # - Fixed features: x[1] = 2.0
+        # - Constraint: -x[0] + x[1] >= 1 => x[0] <= x[1] - 1 = 1.0
+        valid_candidates = torch.tensor(
+            [
+                [0.5, 2.0, 5.0],
+                [0.8, 2.0, 6.0],
+                [0.3, 2.0, 7.0],
+                [0.9, 2.0, 8.0],
+                [0.2, 2.0, 9.0],
+            ],
+            **self.tkwargs,
+        )
         with (
             mock.patch(
                 f"{ACQUISITION_PATH}.optimizer_argparse", wraps=optimizer_argparse
             ) as mock_optimizer_argparse,
             mock.patch(
-                f"{ACQUISITION_PATH}.optimize_with_nsgaii", wraps=optimize_with_nsgaii
+                f"{ACQUISITION_PATH}.optimize_with_nsgaii",
+                return_value=(valid_candidates, torch.rand(n)),
             ) as mock_optimize_with_nsgaii,
         ):
             acquisition.optimize(

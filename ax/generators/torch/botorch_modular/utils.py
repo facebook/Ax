@@ -34,6 +34,7 @@ from botorch.acquisition.multi_objective.logei import (
     qLogNoisyExpectedHypervolumeImprovement,
 )
 from botorch.acquisition.multi_objective.parego import qLogNParEGO
+from botorch.exceptions.errors import BotorchError, CandidateGenerationError
 from botorch.fit import fit_fully_bayesian_model_nuts, fit_gpytorch_mll
 from botorch.models import PairwiseLaplaceMarginalLogLikelihood
 from botorch.models.fully_bayesian import (
@@ -52,6 +53,11 @@ from botorch.models.multitask import MultiTaskGP
 from botorch.models.pairwise_gp import PairwiseGP
 from botorch.models.transforms.input import InputTransform, Normalize
 from botorch.models.transforms.outcome import OutcomeTransform
+from botorch.optim.parameter_constraints import (
+    evaluate_feasibility,
+    get_constraint_tolerance,
+)
+from botorch.optim.utils import columnwise_clamp
 from botorch.utils.constraints import get_outcome_constraint_transforms
 from botorch.utils.datasets import MultiTaskDataset, RankingDataset, SupervisedDataset
 from botorch.utils.dispatcher import Dispatcher
@@ -874,3 +880,90 @@ def get_all_task_values_from_ssd(search_space_digest: SearchSpaceDigest) -> list
     task_feature = search_space_digest.task_features[0]
     task_bounds = search_space_digest.bounds[task_feature]
     return list(range(int(task_bounds[0]), int(task_bounds[1] + 1)))
+
+
+def _format_discrete_value(val: float, allowed_values: Sequence[float]) -> str:
+    """Format a discrete value for display alongside allowed values.
+
+    If all allowed values are integers, formats val as int (via rounding).
+    Otherwise formats as float with 4 decimal places.
+    """
+    if all(float(v).is_integer() for v in allowed_values):
+        return str(int(round(val)))
+    return f"{val:.4f}"
+
+
+def validate_candidates(
+    candidates: Tensor,
+    bounds: Tensor,
+    discrete_choices: Mapping[int, Sequence[float]] | None,
+    inequality_constraints: list[tuple[Tensor, Tensor, float]] | None,
+    feature_names: list[str] | None = None,
+    task_features: list[int] | None = None,
+) -> None:
+    """Validate candidates satisfy bounds, discrete, and inequality constraints.
+
+    Args:
+        candidates: A `n x d`-dim Tensor of candidates to validate.
+        bounds: A `2 x d`-dim Tensor of lower and upper bounds.
+        discrete_choices: A mapping from parameter indices to allowed discrete values.
+        inequality_constraints: A list of tuples (indices, coefficients, rhs),
+            representing inequality constraints of the form
+            `sum_i (X[indices[i]] * coefficients[i]) >= rhs`.
+        feature_names: Optional list of feature names for better error messages.
+        task_features: Optional list of task feature indices to skip discrete value
+            validation for. Task features can be fixed to new task values via
+            fixed_features that are not in the search space's discrete_choices.
+
+    Raises:
+        CandidateGenerationError: If any candidate violates constraints.
+    """
+
+    # 1. Bounds validation
+    try:
+        columnwise_clamp(
+            candidates, lower=bounds[0], upper=bounds[1], raise_on_violation=True
+        )
+    except BotorchError as e:
+        raise CandidateGenerationError(f"Candidate violates bounds: {e}")
+
+    # 2. Discrete value validation
+    task_features_set = set(task_features) if task_features else set()
+    if discrete_choices:
+        tol = get_constraint_tolerance(candidates.dtype)
+        for dim, allowed_values in discrete_choices.items():
+            # Skip task features as they can be fixed to new task values via
+            # fixed_features that are not in the search space's discrete_choices
+            if dim in task_features_set:
+                continue
+            allowed = torch.tensor(
+                allowed_values, device=candidates.device, dtype=candidates.dtype
+            )
+            candidate_vals = candidates[..., dim].flatten()
+            # Vectorized check: (num_candidates, num_allowed) -> any match per candidate
+            is_valid = torch.isclose(
+                candidate_vals.unsqueeze(-1), allowed.unsqueeze(0), atol=tol
+            ).any(dim=-1)
+            if not is_valid.all():
+                invalid_idx = int(torch.where(~is_valid)[0][0].item())
+                val_float = candidate_vals[invalid_idx].item()
+                dim_name = feature_names[dim] if feature_names else f"dim {dim}"
+                raise CandidateGenerationError(
+                    f"Invalid discrete value "
+                    f"{_format_discrete_value(val_float, allowed_values)} for "
+                    f"{dim_name}. Allowed: {list(allowed_values)}"
+                )
+
+    # 3. Inequality constraint validation
+    if inequality_constraints:
+        is_feasible = evaluate_feasibility(
+            X=candidates.unsqueeze(-2),  # Add q dimension
+            inequality_constraints=inequality_constraints,
+        )
+        if not is_feasible.all():
+            infeasible_indices = torch.where(~is_feasible)[0].tolist()
+            raise CandidateGenerationError(
+                f"Candidates violate inequality constraints. "
+                f"Infeasible candidate indices: {infeasible_indices}. "
+                f"Number of constraints: {len(inequality_constraints)}."
+            )
