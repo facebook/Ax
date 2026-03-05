@@ -6,6 +6,7 @@
 
 # pyre-strict
 
+import copy
 import datetime
 import json
 from collections import OrderedDict
@@ -934,13 +935,19 @@ def generation_node_from_json(
             class_decoder_registry=class_decoder_registry,
         ),
         should_deduplicate=generation_node_json.pop("should_deduplicate", False),
+        # Deep-copy criteria JSON before decoding. object_from_json mutates
+        # its input dicts (pops "__type" keys). If the transport layer (e.g.
+        # FBLearner/msgpack) returns data with shared dict objects between
+        # transition_criteria and generation_pausing_criteria (e.g. shared
+        # TrialStatus dicts), decoding one would strip "__type" from the other,
+        # causing enums to be deserialized as plain dicts.
         transition_criteria=object_from_json(
-            object_json=transition_criteria_json,
+            object_json=copy.deepcopy(transition_criteria_json),
             decoder_registry=decoder_registry,
             class_decoder_registry=class_decoder_registry,
         ),
         pausing_criteria=object_from_json(
-            object_json=generation_pausing_criteria_json,
+            object_json=copy.deepcopy(generation_pausing_criteria_json),
             decoder_registry=decoder_registry,
             class_decoder_registry=class_decoder_registry,
         ),
