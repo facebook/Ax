@@ -12,7 +12,7 @@ from ax.core.optimization_config import OptimizationConfig
 from ax.generators.winsorization_config import WinsorizationConfig
 from botorch.acquisition import AcquisitionFunction
 
-# pyre-ignore [33]: `TConfig` cannot alias to a type containing `Any`.
+# pyre-ignore[33]: `TConfig` cannot alias to a type containing `Any`.
 TConfig = dict[
     str,
     int

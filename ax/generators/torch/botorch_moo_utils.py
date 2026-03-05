@@ -160,13 +160,12 @@ def pareto_frontier_evaluator(
 
     # Get feasible points that do not violate outcome_constraints
     if outcome_constraints is not None:
-        cons_tfs = get_outcome_constraint_transforms(outcome_constraints)
+        cons_tfs = none_throws(get_outcome_constraint_transforms(outcome_constraints))
         # Handle NaNs in Y, if those elements are not part of the constraints.
         # By setting the unused elements to 0, we prevent them from marking
         # the whole constraint value as NaN and evaluating to infeasible.
         Y_cons = Y.clone()
         Y_cons[..., (outcome_constraints[0] == 0).all(dim=0)] = 0
-        # pyre-ignore [16]
         feas = torch.stack([c(Y_cons) <= 0 for c in cons_tfs], dim=-1).all(dim=-1)
         Y = Y[feas]
         Yvar = Yvar[feas]
@@ -258,8 +257,7 @@ def infer_objective_thresholds(
         ).mean
 
     if outcome_constraints is not None:
-        cons_tfs = get_outcome_constraint_transforms(outcome_constraints)
-        # pyre-ignore [16]
+        cons_tfs = none_throws(get_outcome_constraint_transforms(outcome_constraints))
         feas = torch.stack([c(pred) <= 0 for c in cons_tfs], dim=-1).all(dim=-1)
         pred = pred[feas]
     if pred.shape[0] == 0:
