@@ -11,7 +11,8 @@ from __future__ import annotations
 import inspect
 import logging
 import warnings
-from collections.abc import Iterable
+from collections.abc import Callable, Iterable
+from typing import cast
 
 # Manual import to avoid strange error, see Diff for details.
 import ax.generation_strategy.generation_node_input_constructors  # noqa
@@ -73,12 +74,13 @@ class OptimizationLoop:
         )
         self.experiment = experiment
         if generation_strategy is None:
-            # pyre-fixme[4]: Attribute must be annotated.
-            self.generation_strategy = choose_generation_strategy_legacy(
-                search_space=experiment.search_space,
-                use_batch_trials=self.arms_per_trial > 1,
-                random_seed=self.random_seed,
-                experiment=experiment,
+            self.generation_strategy: GenerationStrategy = (
+                choose_generation_strategy_legacy(
+                    search_space=experiment.search_space,
+                    use_batch_trials=self.arms_per_trial > 1,
+                    random_seed=self.random_seed,
+                    experiment=experiment,
+                )
             )
         else:
             self.generation_strategy = generation_strategy
@@ -147,11 +149,15 @@ class OptimizationLoop:
         signature = inspect.signature(self.evaluation_function)
         num_evaluation_function_params = len(signature.parameters.items())
         if num_evaluation_function_params == 1:
-            # pyre-ignore [20]: Can't run instance checks on subscripted generics.
-            evaluation = self.evaluation_function(parameterization)
+            evaluation = cast(
+                Callable[[TParameterization], TEvaluationOutcome],
+                self.evaluation_function,
+            )(parameterization)
         elif num_evaluation_function_params == 2:
-            # pyre-ignore [19]: Can't run instance checks on subscripted generics.
-            evaluation = self.evaluation_function(parameterization, weight)
+            evaluation = cast(
+                Callable[[TParameterization, float | None], TEvaluationOutcome],
+                self.evaluation_function,
+            )(parameterization, weight)
         else:
             raise UserInputError(
                 "Evaluation function must take either one parameter "

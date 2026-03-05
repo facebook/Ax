@@ -6,6 +6,8 @@
 # pyre-strict
 
 
+from typing import cast
+
 import numpy as np
 from ax.api.configs import (
     ChoiceParameterConfig,
@@ -20,6 +22,7 @@ from ax.core.parameter import (
     ParameterType as CoreParameterType,
     RangeParameter,
 )
+from ax.core.types import TParamValue
 from ax.exceptions.core import UserInputError
 
 
@@ -79,21 +82,21 @@ def parameter_from_config(
                 name=config.name,
                 parameter_type=_parameter_type_converter(config.parameter_type),
                 value=config.values[0],
-                # pyre-fixme[6] Variance issue caused by FixedParameter.dependents
-                # using List instead of immutable container type.
-                dependents=config.dependent_parameters,
+                dependents=cast(
+                    dict[TParamValue, list[str]] | None,
+                    config.dependent_parameters,
+                ),
             )
 
         return ChoiceParameter(
             name=config.name,
             parameter_type=_parameter_type_converter(config.parameter_type),
-            # pyre-fixme[6] Variance issue caused by ChoiceParameter.value using List
-            # instead of immutable container type.
-            values=config.values,
+            values=cast(list[TParamValue], config.values),
             is_ordered=config.is_ordered,
-            # pyre-fixme[6] Variance issue caused by ChoiceParameter.dependents using
-            # List instead of immutable container type.
-            dependents=config.dependent_parameters,
+            dependents=cast(
+                dict[TParamValue, list[str]] | None,
+                config.dependent_parameters,
+            ),
             sort_values=config.parameter_type != "str",  # Matches default behavior.
         )
 
