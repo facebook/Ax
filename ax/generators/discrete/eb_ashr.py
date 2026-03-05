@@ -357,24 +357,26 @@ def posterior_feasibility_util(
     """
     # Pr(m>ub)
     # TODO: jmarkovic simplify this directly in Ashr
-    upper_tail = (
-        posterior.tail_probabilities(left_tail=False, threshold=ub)
-        + posterior.weights[:, 0] * (ub < 0)
+    upper_tail: npt.NDArray | float = (
+        (
+            posterior.tail_probabilities(left_tail=False, threshold=ub)
+            + posterior.weights[:, 0] * (ub < 0)
+        )
         if ub < np.inf
-        else 0
+        else 0.0
     )
     # Pr(m<lb)
-    lower_tail = (
-        posterior.tail_probabilities(left_tail=True, threshold=lb)
-        + posterior.weights[:, 0] * (lb > 0)
+    lower_tail: npt.NDArray | float = (
+        (
+            posterior.tail_probabilities(left_tail=True, threshold=lb)
+            + posterior.weights[:, 0] * (lb > 0)
+        )
         if lb > -np.inf
-        else 0
+        else 0.0
     )
 
     prob_feas = np.zeros_like(nonconstant_rvs, dtype=float)
-    # pyre-fixme[58]: `-` is not supported for operand types `float` and
-    #  `Union[np.ndarray[typing.Any, np.dtype[typing.Any]], int]`.
-    prob_feas[nonconstant_rvs] = 1.0 - upper_tail - lower_tail
+    prob_feas[nonconstant_rvs] = np.subtract(np.subtract(1.0, upper_tail), lower_tail)
     prob_feas[~nonconstant_rvs] = (Y[~nonconstant_rvs] >= lb) & (
         Y[~nonconstant_rvs] <= ub
     )
