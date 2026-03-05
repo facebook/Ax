@@ -109,11 +109,12 @@ class MultiTypeExperiment(Experiment):
         self._trial_type_to_runner[trial_type] = runner
         return self
 
-    # pyre-fixme [56]: Pyre was not able to infer the type of the decorator
-    # `Experiment.optimization_config.setter`.
+    # pyre does not support inferring the type of property setter decorators
+    # or the `.fset` attribute on properties.
+    # pyre-fixme[56]: Pyre was not able to infer the type of the decorator.
     @Experiment.optimization_config.setter
     def optimization_config(self, optimization_config: OptimizationConfig) -> None:
-        # pyre-fixme [16]: `Optional` has no attribute `fset`.
+        # pyre-fixme[16]: `Optional` has no attribute `fset`.
         Experiment.optimization_config.fset(self, optimization_config)
         for metric_name in optimization_config.metrics.keys():
             # Optimization config metrics are required to be the default trial type

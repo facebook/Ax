@@ -21,8 +21,7 @@ TParameterization = dict[str, TParamValue]
 TParamValueList = list[TParamValue]  # a parameterization without the keys
 TContextStratum = dict[str, str | float | int] | None
 
-# pyre-fixme[24]: Generic type `np.ndarray` expects 2 type parameters.
-TBounds = tuple[np.ndarray, np.ndarray] | None
+TBounds = tuple[np.ndarray[Any, Any], np.ndarray[Any, Any]] | None
 TModelMean = dict[str, list[float]]
 TModelCov = dict[str, dict[str, list[float]]]
 TModelPredict = tuple[TModelMean, TModelCov]
@@ -30,7 +29,8 @@ TModelPredict = tuple[TModelMean, TModelCov]
 # ( { metric -> mean }, { metric -> { other_metric -> covariance } } ).
 TModelPredictArm = tuple[dict[str, float], dict[str, dict[str, float]] | None]
 
-# pyre-fixme[24]: Generic type `np.floating` expects 1 type parameter.
+# pyre-fixme[24]: Generic type `np.floating` expects 1 type parameter, use
+#  `np.floating[Any]` to avoid runtime subscripting errors with isinstance().
 # pyre-fixme[24]: Generic type `np.integer` expects 1 type parameter.
 FloatLike = int | float | np.floating | np.integer
 SingleMetricData = FloatLike | tuple[FloatLike, FloatLike | None]
@@ -62,10 +62,8 @@ TCandidateMetadata = dict[str, Any] | None
 class ComparisonOp(enum.Enum):
     """Class for enumerating comparison operations."""
 
-    # pyre-fixme[35]: Target cannot be annotated.
-    GEQ: int = 0
-    # pyre-fixme[35]: Target cannot be annotated.
-    LEQ: int = 1
+    GEQ = 0
+    LEQ = 1
 
 
 def merge_model_predict(

@@ -13,6 +13,7 @@ import warnings
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, field
 from logging import Logger
+from typing import Any
 
 import numpy as np
 import pandas as pd
@@ -1079,7 +1080,7 @@ class SearchSpace(Base):
         parameter should not be in the arm within the search space due to its
         hierarchical structure.
         """
-        full_parameterization_md = {
+        full_parameterization_md: dict[str, Any] = {
             Keys.FULL_PARAMETERIZATION: observation_features.parameters.copy()
         }
         obs_feats = observation_features.clone(
@@ -1089,7 +1090,7 @@ class SearchSpace(Base):
             )
         )
         if not obs_feats.metadata:
-            obs_feats.metadata = full_parameterization_md  # pyre-ignore[8]
+            obs_feats.metadata = full_parameterization_md
         else:
             obs_feats.metadata = {**obs_feats.metadata, **full_parameterization_md}
 

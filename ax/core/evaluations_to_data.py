@@ -8,6 +8,7 @@
 
 from collections.abc import Mapping
 from enum import Enum
+from typing import cast
 
 from ax.core.data import Data, DataRow
 from ax.core.types import FloatLike, SingleMetricData, TEvaluationOutcome
@@ -117,9 +118,11 @@ def raw_evaluations_to_data(
                     "multiple metrics."
                 )
             metric_name = next(iter(metric_name_to_signature.keys()))
-            # pyre-fixme[6]: Incmopatible parameter type (Pyre doesn't know that
-            # this is in fact a SingleMetricData)
-            mean, sem = _validate_and_extract_single_metric_data(dat=evaluation)
+            # After eliminating dict and list cases above, evaluation is
+            # SingleMetricData, but pyre can't narrow union type aliases.
+            mean, sem = _validate_and_extract_single_metric_data(
+                dat=cast(SingleMetricData, evaluation)
+            )
             metric_names_seen.add(metric_name)
             data_rows.append(
                 DataRow(
