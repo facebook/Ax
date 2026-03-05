@@ -189,7 +189,36 @@ class TestBestPointMixin(TestCase):
                 ]
             )
         exp.attach_data(Data(df=pd.DataFrame.from_records(df_dict2)))
-        self.assertEqual(get_trace(exp), [2.0, 20.0])
+        self.assertEqual(get_trace(exp), [2.0, 2.0, 20.0])
+
+    def test_get_trace_with_abandoned_trials(self) -> None:
+        with self.subTest("minimize with abandoned trial"):
+            exp = get_experiment_with_observations(
+                observations=[[11], [10], [9], [15], [5]], minimize=True
+            )
+            # Mark trial 2 (value=9) as abandoned
+            exp.trials[2].mark_abandoned(unsafe=True)
+
+            # Abandoned trial carries forward the last best value
+            trace = get_trace(exp)
+            self.assertEqual(len(trace), 5)
+            # Trial 0: 11, Trial 1: 10, Trial 2 (abandoned): carry forward 10
+            # Trial 3: 10 (15 > 10), Trial 4: 5
+            self.assertEqual(trace, [11, 10, 10, 10, 5])
+
+        with self.subTest("maximize with abandoned trial"):
+            exp = get_experiment_with_observations(
+                observations=[[1], [3], [2], [5], [4]], minimize=False
+            )
+            # Mark trial 1 (value=3) as abandoned
+            exp.trials[1].mark_abandoned(unsafe=True)
+
+            # Abandoned trial carries forward the last best value
+            trace = get_trace(exp)
+            self.assertEqual(len(trace), 5)
+            # Trial 0: 1, Trial 1 (abandoned): carry forward 1,
+            # Trial 2: 2, Trial 3: 5, Trial 4: 5
+            self.assertEqual(trace, [1, 1, 2, 5, 5])
 
     def test_get_trace_with_include_status_quo(self) -> None:
         with self.subTest("Multi-objective: status quo dominates in some trials"):

@@ -70,6 +70,7 @@ from ax.benchmark.testing.benchmark_stubs import (
 )
 from ax.core.experiment import Experiment
 from ax.core.objective import MultiObjective
+from ax.core.trial_status import TrialStatus
 from ax.early_stopping.strategies.threshold import ThresholdEarlyStoppingStrategy
 from ax.generation_strategy.external_generation_node import ExternalGenerationNode
 from ax.generation_strategy.generation_strategy import (
@@ -1012,6 +1013,52 @@ class TestBenchmark(TestCase):
         with self.assertRaisesRegex(ValueError, "trial with no arms"):
             get_oracle_experiment_from_params(
                 problem=problem, dict_of_dict_of_params={0: {}}
+            )
+
+        with self.subTest("trial_statuses"):
+            trial_statuses = {
+                0: TrialStatus.COMPLETED,
+                1: TrialStatus.ABANDONED,
+            }
+            experiment = get_oracle_experiment_from_params(
+                problem=problem,
+                dict_of_dict_of_params={
+                    0: {"0": near_opt_params},
+                    1: {"1": other_params},
+                },
+                trial_statuses=trial_statuses,
+            )
+            self.assertEqual(len(experiment.trials), 2)
+            self.assertTrue(experiment.trials[0].status.is_completed)
+            self.assertEqual(experiment.trials[1].status, TrialStatus.ABANDONED)
+
+        with self.subTest("trial_statuses with FAILED and EARLY_STOPPED"):
+            trial_statuses = {
+                0: TrialStatus.FAILED,
+                1: TrialStatus.EARLY_STOPPED,
+            }
+            experiment = get_oracle_experiment_from_params(
+                problem=problem,
+                dict_of_dict_of_params={
+                    0: {"0": near_opt_params},
+                    1: {"1": other_params},
+                },
+                trial_statuses=trial_statuses,
+            )
+            self.assertEqual(experiment.trials[0].status, TrialStatus.FAILED)
+            self.assertEqual(experiment.trials[1].status, TrialStatus.EARLY_STOPPED)
+
+        with self.subTest("trial_statuses=None defaults to COMPLETED"):
+            experiment = get_oracle_experiment_from_params(
+                problem=problem,
+                dict_of_dict_of_params={
+                    0: {"0": near_opt_params},
+                    1: {"1": other_params},
+                },
+                trial_statuses=None,
+            )
+            self.assertTrue(
+                all(t.status.is_completed for t in experiment.trials.values())
             )
 
     def _test_multi_fidelity_or_multi_task(
