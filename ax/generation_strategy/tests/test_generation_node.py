@@ -134,7 +134,7 @@ class TestGenerationNode(TestCase):
         self.assertEqual(self.sobol_generation_node.input_constructors, {})
 
     def test_incorrect_trial_type(self) -> None:
-        with self.assertRaisesRegex(NotImplementedError, "Trial type must be either"):
+        with self.assertRaisesRegex(NotImplementedError, "Trial type must be one of"):
             GenerationNode(
                 name="test",
                 generator_specs=[self.sobol_generator_spec],
@@ -147,12 +147,18 @@ class TestGenerationNode(TestCase):
             generator_specs=[self.sobol_generator_spec],
             trial_type=Keys.LONG_RUN,
         )
+        node_lilo = GenerationNode(
+            name="test",
+            generator_specs=[self.sobol_generator_spec],
+            trial_type=Keys.LILO_LABELING,
+        )
         node_default = GenerationNode(
             name="test",
             generator_specs=[self.sobol_generator_spec],
         )
         self.assertEqual(self.node_short._trial_type, Keys.SHORT_RUN)
         self.assertEqual(node_long._trial_type, Keys.LONG_RUN)
+        self.assertEqual(node_lilo._trial_type, Keys.LILO_LABELING)
         self.assertIsNone(node_default._trial_type)
 
     def test_input_constructor(self) -> None:

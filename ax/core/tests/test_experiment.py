@@ -207,6 +207,18 @@ class ExperimentTest(TestCase):
             new_exp = get_experiment()
             new_exp._attach_trial(batch)
 
+    def test_supports_trial_type(self) -> None:
+        exp = get_experiment()
+        self.assertTrue(exp.supports_trial_type(None))
+        self.assertTrue(exp.supports_trial_type(Keys.SHORT_RUN))
+        self.assertTrue(exp.supports_trial_type(Keys.LONG_RUN))
+        self.assertTrue(exp.supports_trial_type(Keys.LILO_LABELING))
+        self.assertFalse(exp.supports_trial_type("unsupported_type"))
+
+        # Verify LILO_LABELING trial type works with new_batch_trial
+        batch = exp.new_batch_trial(trial_type=Keys.LILO_LABELING)
+        self.assertEqual(batch.trial_type, Keys.LILO_LABELING)
+
     def test_repr(self) -> None:
         self.assertEqual("Experiment(test)", str(self.experiment))
 
