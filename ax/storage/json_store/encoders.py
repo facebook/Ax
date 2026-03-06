@@ -8,7 +8,7 @@
 
 import warnings
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 from ax.adapter.transforms.base import Transform
 from ax.core import Experiment, ObservationFeatures
@@ -74,6 +74,7 @@ from ax.utils.testing.backend_simulator import (
 from botorch.models.transforms.input import ChainedInputTransform, InputTransform
 from botorch.sampling.base import MCSampler
 from botorch.utils.types import _DefaultType
+from pyre_extensions import assert_is_instance
 from torch import Tensor
 
 
@@ -397,10 +398,13 @@ def transform_type_to_dict(transform_type: type[Transform]) -> dict[str, Any]:
 
 
 def generation_step_to_dict(generation_step: GenerationStep) -> dict[str, Any]:
-    """Converts Ax generation step to a dictionary."""
-    # pyre-fixme[6]: Currently, Pyre doesn't recognize that `Generation
-    #  Step.__new__` actually returns a `GenerationNode`.
-    return generation_node_to_dict(generation_node=generation_step)
+    """Converts Ax generation step to a dictionary.
+
+    Note: ``GenerationStep.__new__`` actually returns a ``GenerationNode``.
+    """
+    return generation_node_to_dict(
+        generation_node=cast(GenerationNode, generation_step)
+    )
 
 
 def generation_node_to_dict(generation_node: GenerationNode) -> dict[str, Any]:
@@ -582,14 +586,14 @@ def botorch_input_transform_to_init_args(
     if isinstance(input_transform, ChainedInputTransform):
         return {k: botorch_component_to_dict(v) for k, v in input_transform.items()}
     else:
-        try:
-            # pyre-fixme[29]: `Union[Tensor, Module]` is not a function.
-            return input_transform.get_init_args()
-        except AttributeError:
+        if not hasattr(input_transform, "get_init_args"):
             raise JSONEncodeError(
                 f"{input_transform.__class__.__name__} does not define `get_init_args` "
                 "method. Please implement it to enable storage."
             )
+        # pyre-fixme[29]: `Union[Tensor, Module]` is not callable; hasattr guards
+        #  this but pyre can't narrow the Union type.
+        return assert_is_instance(input_transform, InputTransform).get_init_args()
 
 
 def percentile_early_stopping_strategy_to_dict(

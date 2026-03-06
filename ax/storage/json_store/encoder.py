@@ -31,13 +31,11 @@ from ax.utils.common.typeutils_torch import torch_type_to_str
 
 def object_to_json(
     obj: Any,
-    # pyre-ignore[24]: Missing parameter annotation, Invalid type parameters
     encoder_registry: dict[
-        type, Callable[[Any], dict[str, Any]]
+        type[Any], Callable[[Any], dict[str, Any]]
     ] = CORE_ENCODER_REGISTRY,
-    # pyre-ignore[24]: Missing parameter annotation, Invalid type parameters
     class_encoder_registry: dict[
-        type, Callable[[Any], dict[str, Any]]
+        type[Any], Callable[[Any], dict[str, Any]]
     ] = CORE_CLASS_ENCODER_REGISTRY,
 ) -> Any:
     """Convert an Ax object to a JSON-serializable dictionary.

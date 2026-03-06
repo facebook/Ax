@@ -64,12 +64,8 @@ class RegistryBundleBase(ABC):
         self,
         metric_clss: dict[type[Metric], int | None],
         runner_clss: dict[type[Runner], int | None],
-        # pyre-fixme[24]: Generic type `type` expects 1 type parameter, use
-        #  `typing.Type` to avoid runtime subscripting errors.
-        json_encoder_registry: dict[type, Callable[[Any], dict[str, Any]]],
-        # pyre-fixme[24]: Generic type `type` expects 1 type parameter, use
-        #  `typing.Type` to avoid runtime subscripting errors.
-        json_class_encoder_registry: dict[type, Callable[[Any], dict[str, Any]]],
+        json_encoder_registry: dict[type[Any], Callable[[Any], dict[str, Any]]],
+        json_class_encoder_registry: dict[type[Any], Callable[[Any], dict[str, Any]]],
         json_decoder_registry: TDecoderRegistry,
         json_class_decoder_registry: dict[str, Callable[[dict[str, Any]], Any]],
     ) -> None:
@@ -79,18 +75,18 @@ class RegistryBundleBase(ABC):
         runner_clss = {
             k: int(v) if v is not None else None for k, v in runner_clss.items()
         }
-        # pyre-fixme[4]: Attribute must be annotated.
+        self._metric_registry: dict[type[Metric], int]
+        self._runner_registry: dict[type[Runner], int]
+        self._encoder_registry: dict[type[Any], Callable[[Any], dict[str, Any]]]
+        self._decoder_registry: TDecoderRegistry
         self._metric_registry, encoder_registry, decoder_registry = register_metrics(
             metric_clss=metric_clss,
             encoder_registry=json_encoder_registry,
             decoder_registry=json_decoder_registry,
         )
         (
-            # pyre-fixme[4]: Attribute must be annotated.
             self._runner_registry,
-            # pyre-fixme[4]: Attribute must be annotated.
             self._encoder_registry,
-            # pyre-fixme[4]: Attribute must be annotated.
             self._decoder_registry,
         ) = register_runners(
             runner_clss=runner_clss,
@@ -110,9 +106,7 @@ class RegistryBundleBase(ABC):
         return self._runner_registry
 
     @property
-    # pyre-fixme[24]: Generic type `type` expects 1 type parameter, use
-    #  `typing.Type` to avoid runtime subscripting errors.
-    def encoder_registry(self) -> dict[type, Callable[[Any], dict[str, Any]]]:
+    def encoder_registry(self) -> dict[type[Any], Callable[[Any], dict[str, Any]]]:
         return self._encoder_registry
 
     @property
@@ -120,9 +114,9 @@ class RegistryBundleBase(ABC):
         return self._decoder_registry
 
     @property
-    # pyre-fixme[24]: Generic type `type` expects 1 type parameter, use
-    #  `typing.Type` to avoid runtime subscripting errors.
-    def class_encoder_registry(self) -> dict[type, Callable[[Any], dict[str, Any]]]:
+    def class_encoder_registry(
+        self,
+    ) -> dict[type[Any], Callable[[Any], dict[str, Any]]]:
         return self._json_class_encoder_registry
 
     @property
@@ -177,15 +171,11 @@ class RegistryBundle(RegistryBundleBase):
         self,
         metric_clss: dict[type[Metric], int | None],
         runner_clss: dict[type[Runner], int | None],
-        # pyre-fixme[24]: Generic type `type` expects 1 type parameter, use
-        #  `typing.Type` to avoid runtime subscripting errors.
         json_encoder_registry: dict[
-            type, Callable[[Any], dict[str, Any]]
+            type[Any], Callable[[Any], dict[str, Any]]
         ] = CORE_ENCODER_REGISTRY,
-        # pyre-fixme[24]: Generic type `type` expects 1 type parameter, use
-        #  `typing.Type` to avoid runtime subscripting errors.
         json_class_encoder_registry: dict[
-            type, Callable[[Any], dict[str, Any]]
+            type[Any], Callable[[Any], dict[str, Any]]
         ] = CORE_CLASS_ENCODER_REGISTRY,
         json_decoder_registry: TDecoderRegistry = CORE_DECODER_REGISTRY,
         json_class_decoder_registry: dict[

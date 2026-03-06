@@ -31,23 +31,17 @@ from ax.storage.utils import stable_hash
 CORE_RUNNER_REGISTRY: dict[type[Runner], int] = {SyntheticRunner: 0}
 
 
-# pyre-fixme[3]: Return annotation cannot contain `Any`.
 def register_runner(
     runner_cls: type[Runner],
     runner_registry: dict[type[Runner], int] = CORE_RUNNER_REGISTRY,
-    # pyre-fixme[2]: Parameter annotation cannot contain `Any`.
-    # pyre-fixme[24]: Generic type `type` expects 1 type parameter, use
-    #  `typing.Type` to avoid runtime subscripting errors.
     encoder_registry: dict[
-        type, Callable[[Any], dict[str, Any]]
+        type[Any], Callable[[Any], dict[str, Any]]
     ] = CORE_ENCODER_REGISTRY,
     decoder_registry: TDecoderRegistry = CORE_DECODER_REGISTRY,
     val: int | None = None,
-    # pyre-fixme[24]: Generic type `type` expects 1 type parameter, use `typing.Type` to
-    #  avoid runtime subscripting errors.
 ) -> tuple[
     dict[type[Runner], int],
-    dict[type, Callable[[Any], dict[str, Any]]],
+    dict[type[Any], Callable[[Any], dict[str, Any]]],
     TDecoderRegistry,
 ]:
     """Add a custom runner class to the SQA and JSON registries.
@@ -62,22 +56,16 @@ def register_runner(
     return new_runner_registry, new_encoder_registry, new_decoder_registry
 
 
-# pyre-fixme[3]: Return annotation cannot contain `Any`.
 def register_runners(
     runner_clss: dict[type[Runner], int | None],
     runner_registry: dict[type[Runner], int] = CORE_RUNNER_REGISTRY,
-    # pyre-fixme[2]: Parameter annotation cannot contain `Any`.
-    # pyre-fixme[24]: Generic type `type` expects 1 type parameter, use
-    #  `typing.Type` to avoid runtime subscripting errors.
     encoder_registry: dict[
-        type, Callable[[Any], dict[str, Any]]
+        type[Any], Callable[[Any], dict[str, Any]]
     ] = CORE_ENCODER_REGISTRY,
     decoder_registry: TDecoderRegistry = CORE_DECODER_REGISTRY,
-    # pyre-fixme[24]: Generic type `type` expects 1 type parameter, use `typing.Type` to
-    #  avoid runtime subscripting errors.
 ) -> tuple[
     dict[type[Runner], int],
-    dict[type, Callable[[Any], dict[str, Any]]],
+    dict[type[Any], Callable[[Any], dict[str, Any]]],
     TDecoderRegistry,
 ]:
     """Add custom runner classes to the SQA and JSON registries.

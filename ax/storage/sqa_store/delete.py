@@ -6,12 +6,13 @@
 # pyre-strict
 
 from logging import Logger
+from typing import cast
 
 from ax.core.experiment import Experiment
 from ax.generation_strategy.generation_strategy import GenerationStrategy
 from ax.storage.sqa_store.db import session_scope
 from ax.storage.sqa_store.decoder import Decoder
-from ax.storage.sqa_store.sqa_classes import SQAExperiment
+from ax.storage.sqa_store.sqa_classes import SQAExperiment, SQAGenerationStrategy
 from ax.storage.sqa_store.sqa_config import SQAConfig
 from ax.utils.common.logger import get_logger
 
@@ -61,12 +62,13 @@ def delete_generation_strategy(
     exp_sqa_class = decoder.config.class_to_sqa_class[Experiment]
     gs_sqa_class = decoder.config.class_to_sqa_class[GenerationStrategy]
     # get the generation strategy's db_id
+    gs_sqa_class_typed = cast(type[SQAGenerationStrategy], gs_sqa_class)
+    exp_sqa_class_typed = cast(type[SQAExperiment], exp_sqa_class)
     with session_scope() as session:
         sqa_gs_ids = (
-            session.query(gs_sqa_class.id)  # pyre-ignore[16]
-            .join(exp_sqa_class.generation_strategy)  # pyre-ignore[16]
-            # pyre-fixme[16]: `SQABase` has no attribute `name`.
-            .filter(exp_sqa_class.name == exp_name)
+            session.query(gs_sqa_class_typed.id)
+            .join(exp_sqa_class_typed.generation_strategy)
+            .filter(exp_sqa_class_typed.name == exp_name)
             .all()
         )
 
@@ -84,8 +86,8 @@ def delete_generation_strategy(
     # delete generation strategy
     with session_scope() as session:
         gs_list = (
-            session.query(gs_sqa_class)
-            .filter(gs_sqa_class.id.in_([id[0] for id in sqa_gs_ids]))
+            session.query(gs_sqa_class_typed)
+            .filter(gs_sqa_class_typed.id.in_([id[0] for id in sqa_gs_ids]))
             .all()
         )
         for gs in gs_list:

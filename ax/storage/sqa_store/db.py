@@ -33,7 +33,7 @@ MEDIUMTEXT_BYTES: int = 2**24 - 1
 LONGTEXT_BYTES: int = 2**32 - 1
 
 # global database variables
-SESSION_FACTORY: Session | None = None
+SESSION_FACTORY: scoped_session | None = None
 
 # set this to false to prevent SQLAlchemy for automatically expiring objects
 # on commit, which essentially makes them unusable outside of a session
@@ -235,7 +235,6 @@ def get_session() -> Session:
     if SESSION_FACTORY is None:
         init_engine_and_session_factory()
     assert SESSION_FACTORY is not None
-    # pyre-fixme[29]: `Session` is not a function.
     return SESSION_FACTORY()
 
 

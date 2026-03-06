@@ -30,27 +30,24 @@ class JSONEncodedObject(TypeDecorator):
 
     def __init__(
         self,
-        # pyre-fixme[2]: Parameter annotation cannot be `Any`.
-        object_pairs_hook: Any = None,
+        object_pairs_hook: type[Any] | None = None,
         *args: list[Any],
         **kwargs: dict[Any, Any],
     ) -> None:
-        # pyre-fixme[4]: Attribute annotation cannot be `Any`.
-        self.object_pairs_hook: Any = object_pairs_hook
+        self.object_pairs_hook: type[Any] | None = object_pairs_hook
         super().__init__(*args, **kwargs)
 
-    # pyre-fixme[2]: Parameter annotation cannot be `Any`.
     def process_bind_param(self, value: Any, dialect: Any) -> str | None:
         if value is not None:
             return json.dumps(value)
         else:
             return None
 
-    # pyre-fixme[3]: Return annotation cannot be `Any`.
-    # pyre-fixme[2]: Parameter annotation cannot be `Any`.
     def process_result_value(self, value: Any, dialect: Any) -> Any:
         if value is not None:
             try:  # TODO T61331534: revert this; just a hotfix for AutoML
+                # pyre-fixme[6]: `object_pairs_hook` expects a callable but
+                #  `type[Any] | None` is stored; compatible at runtime.
                 return json.loads(value, object_pairs_hook=self.object_pairs_hook)
             except JSONDecodeError:
                 return None
@@ -65,8 +62,8 @@ class JSONEncodedText(JSONEncodedObject):
 
     """
 
-    # pyre-fixme[15]: `impl` overrides attribute defined in `JSONEncodedObject`
-    #  inconsistently.
+    # pyre-fixme[15]: `impl` overrides attribute in `JSONEncodedObject` with
+    #  incompatible type; SQLAlchemy allows broader `impl` types at runtime.
     impl = Text
 
 
@@ -78,29 +75,25 @@ class JSONEncodedMediumText(JSONEncodedObject):
 
     """
 
-    # pyre-fixme[15]: `impl` overrides attribute defined in `JSONEncodedObject`
-    #  inconsistently.
+    # pyre-fixme[15]: `impl` overrides attribute in `JSONEncodedObject` with
+    #  incompatible type; SQLAlchemy allows broader `impl` types at runtime.
     impl = Text(MEDIUMTEXT_BYTES)
 
 
 class JSONEncodedLongText(JSONEncodedObject):
-    """Class for JSON-encoding objects in SQLAlchemy, backed by MEDIUMTEXT
+    """Class for JSON-encoding objects in SQLAlchemy, backed by LONGTEXT
     (MySQL).
 
     See description in JSONEncodedObject.
 
     """
 
-    # pyre-fixme[15]: `impl` overrides attribute defined in `JSONEncodedObject`
-    #  inconsistently.
+    # pyre-fixme[15]: `impl` overrides attribute in `JSONEncodedObject` with
+    #  incompatible type; SQLAlchemy allows broader `impl` types at runtime.
     impl = Text(LONGTEXT_BYTES)
 
 
-# pyre-fixme[5]: Global expression must be annotated.
-JSONEncodedList = MutableList.as_mutable(JSONEncodedObject)
-# pyre-fixme[5]: Global expression must be annotated.
-JSONEncodedDict = MutableDict.as_mutable(JSONEncodedObject)
-# pyre-fixme[5]: Global expression must be annotated.
-JSONEncodedTextDict = MutableDict.as_mutable(JSONEncodedText)
-# pyre-fixme[5]: Global expression must be annotated.
-JSONEncodedLongTextDict = MutableDict.as_mutable(JSONEncodedLongText)
+JSONEncodedList: TypeDecorator = MutableList.as_mutable(JSONEncodedObject)
+JSONEncodedDict: TypeDecorator = MutableDict.as_mutable(JSONEncodedObject)
+JSONEncodedTextDict: TypeDecorator = MutableDict.as_mutable(JSONEncodedText)
+JSONEncodedLongTextDict: TypeDecorator = MutableDict.as_mutable(JSONEncodedLongText)

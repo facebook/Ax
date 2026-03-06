@@ -50,17 +50,13 @@ CORE_METRIC_REGISTRY: dict[type[Metric], int] = {
 
 def register_metrics(
     metric_clss: dict[type[Metric], int | None],
-    # pyre-fixme[24]: Generic type `type` expects 1 type parameter, use
-    #  `typing.Type` to avoid runtime subscripting errors.
     encoder_registry: dict[
-        type, Callable[[Any], dict[str, Any]]
+        type[Any], Callable[[Any], dict[str, Any]]
     ] = CORE_ENCODER_REGISTRY,
     decoder_registry: TDecoderRegistry = CORE_DECODER_REGISTRY,
-    # pyre-fixme[24]: Generic type `type` expects 1 type parameter, use `typing.Type` to
-    #  avoid runtime subscripting errors.
 ) -> tuple[
     dict[type[Metric], int],
-    dict[type, Callable[[Any], dict[str, Any]]],
+    dict[type[Any], Callable[[Any], dict[str, Any]]],
     TDecoderRegistry,
 ]:
     """Add custom metric classes to the SQA and JSON registries.
