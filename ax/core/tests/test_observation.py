@@ -36,21 +36,18 @@ from pyre_extensions import assert_is_instance, none_throws
 class ObservationsTest(TestCase):
     def test_ObservationFeatures(self) -> None:
         t = np.datetime64("now")
+        obsf = ObservationFeatures(
+            parameters={"x": 0, "y": "a"},
+            trial_index=2,
+            start_time=t,  # pyre-ignore[6]: datetime64 vs Timestamp.
+            end_time=t,  # pyre-ignore[6]: datetime64 vs Timestamp.
+        )
         attrs = {
             "parameters": {"x": 0, "y": "a"},
             "trial_index": 2,
             "start_time": t,
             "end_time": t,
         }
-        # pyre-fixme[6]: For 1st param expected `Dict[str, Union[None, bool, float,
-        #  int, str]]` but got `Union[Dict[str, Union[int, str]], int, datetime64]`.
-        # pyre-fixme[6]: For 1st param expected `Optional[Dict[str, typing.Any]]`
-        #  but got `Union[Dict[str, Union[int, str]], int, datetime64]`.
-        # pyre-fixme[6]: For 1st param expected `Optional[int64]` but got
-        #  `Union[Dict[str, Union[int, str]], int, datetime64]`.
-        # pyre-fixme[6]: For 1st param expected `Optional[Timestamp]` but got
-        #  `Union[Dict[str, Union[int, str]], int, datetime64]`.
-        obsf = ObservationFeatures(**attrs)
         for k, v in attrs.items():
             self.assertEqual(getattr(obsf, k), v)
         printstr = (
@@ -58,29 +55,21 @@ class ObservationsTest(TestCase):
             f"start_time={t}, end_time={t})"
         )
         self.assertEqual(repr(obsf), printstr)
-        # pyre-fixme[6]: For 1st param expected `Dict[str, Union[None, bool, float,
-        #  int, str]]` but got `Union[Dict[str, Union[int, str]], int, datetime64]`.
-        # pyre-fixme[6]: For 1st param expected `Optional[Dict[str, typing.Any]]`
-        #  but got `Union[Dict[str, Union[int, str]], int, datetime64]`.
-        # pyre-fixme[6]: For 1st param expected `Optional[int64]` but got
-        #  `Union[Dict[str, Union[int, str]], int, datetime64]`.
-        # pyre-fixme[6]: For 1st param expected `Optional[Timestamp]` but got
-        #  `Union[Dict[str, Union[int, str]], int, datetime64]`.
-        obsf2 = ObservationFeatures(**attrs)
+        obsf2 = ObservationFeatures(
+            parameters={"x": 0, "y": "a"},
+            trial_index=2,
+            start_time=t,  # pyre-ignore[6]: datetime64 vs Timestamp.
+            end_time=t,  # pyre-ignore[6]: datetime64 vs Timestamp.
+        )
         self.assertEqual(hash(obsf), hash(obsf2))
         a = {obsf, obsf2}
         self.assertEqual(len(a), 1)
         self.assertEqual(obsf, obsf2)
-        attrs.pop("trial_index")
-        # pyre-fixme[6]: For 1st param expected `Dict[str, Union[None, bool, float,
-        #  int, str]]` but got `Union[Dict[str, Union[int, str]], int, datetime64]`.
-        # pyre-fixme[6]: For 1st param expected `Optional[Dict[str, typing.Any]]`
-        #  but got `Union[Dict[str, Union[int, str]], int, datetime64]`.
-        # pyre-fixme[6]: For 1st param expected `Optional[int64]` but got
-        #  `Union[Dict[str, Union[int, str]], int, datetime64]`.
-        # pyre-fixme[6]: For 1st param expected `Optional[Timestamp]` but got
-        #  `Union[Dict[str, Union[int, str]], int, datetime64]`.
-        obsf3 = ObservationFeatures(**attrs)
+        obsf3 = ObservationFeatures(
+            parameters={"x": 0, "y": "a"},
+            start_time=t,  # pyre-ignore[6]: datetime64 vs Timestamp.
+            end_time=t,  # pyre-ignore[6]: datetime64 vs Timestamp.
+        )
         self.assertNotEqual(obsf, obsf3)
         self.assertFalse(obsf == 1)
 
@@ -105,12 +94,9 @@ class ObservationsTest(TestCase):
         self.assertEqual(obsf.trial_index, 3)
 
     def test_UpdateFeatures(self) -> None:
-        parameters = {"x": 0, "y": "a"}
-        new_parameters = {"z": "foo"}
+        parameters: TParameterization = {"x": 0, "y": "a"}
+        new_parameters: TParameterization = {"z": "foo"}
 
-        # pyre-fixme[6]: For 1st param expected `Dict[str, Union[None, bool, float,
-        #  int, str]]` but got `Dict[str, Union[int, str]]`.
-        # pyre-fixme[6]: For 2nd param expected `Optional[int64]` but got `int`.
         obsf = ObservationFeatures(parameters=parameters, trial_index=3)
 
         # Ensure None trial_index doesn't override existing value
@@ -119,8 +105,6 @@ class ObservationsTest(TestCase):
 
         # Test override
         new_obsf = ObservationFeatures(
-            # pyre-fixme[6]: For 1st param expected `Dict[str, Union[None, bool,
-            #  float, int, str]]` but got `Dict[str, str]`.
             parameters=new_parameters,
             trial_index=4,
             start_time=pd.Timestamp("2005-02-25"),
@@ -133,16 +117,19 @@ class ObservationsTest(TestCase):
         self.assertEqual(obsf.end_time, pd.Timestamp("2005-02-26"))
 
     def test_ObservationData(self) -> None:
+        metric_signatures = ["a", "b"]
+        means = np.array([4.0, 5.0])
+        covariance = np.array([[1.0, 4.0], [3.0, 6.0]])
+        obsd = ObservationData(
+            metric_signatures=metric_signatures,
+            means=means,
+            covariance=covariance,
+        )
         attrs = {
-            "metric_signatures": ["a", "b"],
-            "means": np.array([4.0, 5.0]),
-            "covariance": np.array([[1.0, 4.0], [3.0, 6.0]]),
+            "metric_signatures": metric_signatures,
+            "means": means,
+            "covariance": covariance,
         }
-        # pyre-fixme[6]: For 1st param expected `List[str]` but got
-        #  `Union[List[str], ndarray]`.
-        # pyre-fixme[6]: For 1st param expected `ndarray` but got `Union[List[str],
-        #  ndarray]`.
-        obsd = ObservationData(**attrs)
         self.assertEqual(obsd.metric_signatures, attrs["metric_signatures"])
         self.assertTrue(np.array_equal(obsd.means, attrs["means"]))
         self.assertTrue(np.array_equal(obsd.covariance, attrs["covariance"]))
@@ -258,19 +245,18 @@ class ObservationsTest(TestCase):
             },
         ]
         arms = {
-            # pyre-fixme[6]: For 1st param expected `Optional[str]` but got
-            #  `Union[Dict[str, Union[int, str]], float, str]`.
-            # pyre-fixme[6]: For 2nd param expected `Dict[str, Union[None, bool,
-            #  float, int, str]]` but got `Union[Dict[str, Union[int, str]], float,
-            #  str]`.
-            obs["arm_name"]: Arm(name=obs["arm_name"], parameters=obs["parameters"])
+            assert_is_instance(obs["arm_name"], str): Arm(
+                name=assert_is_instance(obs["arm_name"], str),
+                parameters=assert_is_instance(obs["parameters"], dict),
+            )
             for obs in truth
         }
         experiment = Mock()
         experiment._trial_indices_by_status = {status: set() for status in TrialStatus}
         trials = {
             obs["trial_index"]: Trial(
-                experiment, GeneratorRun(arms=[arms[obs["arm_name"]]])
+                experiment,
+                GeneratorRun(arms=[arms[assert_is_instance(obs["arm_name"], str)]]),
             )
             for obs in truth
         }
@@ -375,8 +361,7 @@ class ObservationsTest(TestCase):
         arms = [
             Arm(
                 name=assert_is_instance(obs["arm_name"], str),
-                # pyre-fixme[6]: For 2nd param expected `Dict[str, Union[None, bool,...
-                parameters=obs["parameters"],
+                parameters=assert_is_instance(obs["parameters"], dict),
             )
             for obs in truth
         ]
@@ -419,10 +404,20 @@ class ObservationsTest(TestCase):
             self.assertEqual(obs.features.trial_index, t["trial_index"])
             self.assertEqual(obs.data.metric_signatures, [t["metric_name"]])
             self.assertEqual(obs.data.metric_signatures, [t["metric_signature"]])
-            # pyre-fixme[6]: For 2nd argument expected `Union[_SupportsArray[dtype[ty...
-            self.assertTrue(np.array_equal(obs.data.means, t["mean_t"]))
-            # pyre-fixme[6]: For 2nd argument expected `Union[_SupportsArray[dtype[ty...
-            self.assertTrue(np.array_equal(obs.data.covariance, t["covariance_t"]))
+            self.assertTrue(
+                np.array_equal(
+                    obs.data.means,
+                    # pyre-ignore[6]: numpy stubs type mismatch.
+                    assert_is_instance(t["mean_t"], np.ndarray),
+                )
+            )
+            self.assertTrue(
+                np.array_equal(
+                    obs.data.covariance,
+                    # pyre-ignore[6]: numpy stubs type mismatch.
+                    assert_is_instance(t["covariance_t"], np.ndarray),
+                )
+            )
             self.assertEqual(obs.arm_name, t["arm_name"])
             self.assertEqual(obs.features.metadata, {"step": t["step"]})
 
@@ -514,37 +509,28 @@ class ObservationsTest(TestCase):
             },
         ]
         arms = {
-            # pyre-fixme[6]: For 1st param expected `Optional[str]` but got
-            #  `Union[Dict[str, Union[float, str]], Dict[str, Union[int, str]], float,
-            #  ndarray, str]`.
-            # pyre-fixme[6]: For 2nd param expected `Dict[str, Union[None, bool,
-            #  float, int, str]]` but got `Union[Dict[str, Union[float, str]],
-            #  Dict[str, Union[int, str]], float, ndarray, str]`.
-            obs["arm_name"]: Arm(name=obs["arm_name"], parameters=obs["parameters"])
+            assert_is_instance(obs["arm_name"], str): Arm(
+                name=assert_is_instance(obs["arm_name"], str),
+                parameters=assert_is_instance(obs["parameters"], dict),
+            )
             for obs in truth
         }
         experiment = Mock()
         experiment._trial_indices_by_status = {status: set() for status in TrialStatus}
-        trials = {
-            obs["trial_index"]: (
-                Trial(experiment, GeneratorRun(arms=[arms[obs["arm_name"]]]))
+        trials: dict[int, Trial | BatchTrial] = {
+            assert_is_instance(obs["trial_index"], int): (
+                Trial(
+                    experiment,
+                    GeneratorRun(arms=[arms[assert_is_instance(obs["arm_name"], str)]]),
+                )
             )
             for obs in truth[:-1]
-            # pyre-fixme[16]: Item `Dict` of `Union[Dict[str, typing.Union[float,
-            #  str]], Dict[str, typing.Union[int, str]], float, ndarray, str]` has no
-            #  attribute `startswith`.
-            if not obs["arm_name"].startswith("2")
+            if not assert_is_instance(obs["arm_name"], str).startswith("2")
         }
         batch = BatchTrial(experiment, GeneratorRun(arms=[arms["2_0"], arms["2_1"]]))
-        # pyre-fixme[6]: For 1st param expected
-        #  `SupportsKeysAndGetItem[Union[Dict[str, Union[float, str]], Dict[str,
-        #  Union[int, str]], float, ndarray, str], Trial]` but got `Dict[int,
-        #  BatchTrial]`.
-        trials.update({2: batch})
-        # pyre-fixme[16]: Optional type has no attribute `mark_abandoned`.
-        trials.get(1).mark_abandoned()
-        # pyre-fixme[16]: Optional type has no attribute `mark_arm_abandoned`.
-        trials.get(2).mark_arm_abandoned(arm_name="2_1")
+        trials[2] = batch
+        none_throws(trials.get(1)).mark_abandoned()
+        assert_is_instance(trials.get(2), BatchTrial).mark_arm_abandoned(arm_name="2_1")
         type(experiment).arms_by_name = PropertyMock(return_value=arms)
         type(experiment).trials = PropertyMock(return_value=trials)
         type(experiment).metrics = PropertyMock(
@@ -627,19 +613,18 @@ class ObservationsTest(TestCase):
             },
         ]
         arms = {
-            # pyre-fixme[6]: For 1st param expected `Optional[str]` but got
-            #  `Union[None, Dict[str, Union[int, str]], float, str]`.
-            # pyre-fixme[6]: For 2nd param expected `Dict[str, Union[None, bool,
-            #  float, int, str]]` but got `Union[None, Dict[str, Union[int, str]],
-            #  float, str]`.
-            obs["arm_name"]: Arm(name=obs["arm_name"], parameters=obs["parameters"])
+            assert_is_instance(obs["arm_name"], str): Arm(
+                name=assert_is_instance(obs["arm_name"], str),
+                parameters=assert_is_instance(obs["parameters"], dict),
+            )
             for obs in truth
         }
         experiment = Mock()
         experiment._trial_indices_by_status = {status: set() for status in TrialStatus}
         trials = {
             obs["trial_index"]: Trial(
-                experiment, GeneratorRun(arms=[arms[obs["arm_name"]]])
+                experiment,
+                GeneratorRun(arms=[arms[assert_is_instance(obs["arm_name"], str)]]),
             )
             for obs in truth
         }
@@ -789,11 +774,19 @@ class ObservationsTest(TestCase):
             self.assertEqual(
                 obs.data.metric_signatures, obs_truth["metric_signatures"][i]
             )
-            # pyre-fixme[6]: For 2nd argument expected `Union[_SupportsArray[dtype[ty...
-            self.assertTrue(np.array_equal(obs.data.means, obs_truth["means"][i]))
             self.assertTrue(
-                # pyre-fixme[6]: For 2nd argument expected `Union[_SupportsArray[dtyp...
-                np.array_equal(obs.data.covariance, obs_truth["covariance"][i])
+                np.array_equal(
+                    obs.data.means,
+                    # pyre-ignore[6]: numpy stubs type mismatch.
+                    assert_is_instance(obs_truth["means"][i], np.ndarray),
+                )
+            )
+            self.assertTrue(
+                np.array_equal(
+                    obs.data.covariance,
+                    # pyre-ignore[6]: numpy stubs type mismatch.
+                    assert_is_instance(obs_truth["covariance"][i], np.ndarray),
+                )
             )
             self.assertEqual(obs.arm_name, obs_truth["arm_name"][i])
             self.assertEqual(obs.arm_name, obs_truth["arm_name"][i])
@@ -875,12 +868,10 @@ class ObservationsTest(TestCase):
             },
         ]
         arms = {
-            # pyre-fixme[6]: For 1st param expected `Optional[str]` but got
-            #  `Union[Dict[str, Union[int, str]], float, str]`.
-            # pyre-fixme[6]: For 2nd param expected `Dict[str, Union[None, bool,
-            #  float, int, str]]` but got `Union[Dict[str, Union[int, str]], float,
-            #  str]`.
-            obs["arm_name"]: Arm(name=obs["arm_name"], parameters=obs["parameters"])
+            assert_is_instance(obs["arm_name"], str): Arm(
+                name=assert_is_instance(obs["arm_name"], str),
+                parameters=assert_is_instance(obs["parameters"], dict),
+            )
             for obs in truth
         }
         experiment = Mock()
@@ -889,9 +880,9 @@ class ObservationsTest(TestCase):
             obs["trial_index"]: Trial(
                 experiment,
                 GeneratorRun(
-                    arms=[arms[obs["arm_name"]]],
+                    arms=[arms[assert_is_instance(obs["arm_name"], str)]],
                     candidate_metadata_by_arm_signature={
-                        arms[obs["arm_name"]].signature: {
+                        arms[assert_is_instance(obs["arm_name"], str)].signature: {
                             SOME_METADATA_KEY: f"value_{obs['trial_index']}"
                         }
                     },
@@ -919,8 +910,7 @@ class ObservationsTest(TestCase):
         observations = observations_from_data(experiment, data)
         for observation in observations:
             self.assertEqual(
-                # pyre-fixme[16]: Optional type has no attribute `get`.
-                observation.features.metadata.get(SOME_METADATA_KEY),
+                none_throws(observation.features.metadata).get(SOME_METADATA_KEY),
                 f"value_{observation.features.trial_index}",
             )
 

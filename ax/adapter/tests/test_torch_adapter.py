@@ -632,7 +632,7 @@ class TorchAdapterTest(TestCase):
                 ordinal_features=[2],
                 discrete_choices={2: list(range(0, 11))},
                 task_features=[2] if use_task else [],
-                target_values={2: 0} if use_task else {},  # pyre-ignore
+                target_values={2: 0.0} if use_task else {},
             )
             converted_datasets, ordered_outcomes, _ = adapter._convert_experiment_data(
                 experiment_data=experiment_data,

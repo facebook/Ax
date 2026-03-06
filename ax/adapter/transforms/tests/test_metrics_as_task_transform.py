@@ -14,6 +14,7 @@ from ax.core.observation import Observation, ObservationData, ObservationFeature
 from ax.core.parameter import ChoiceParameter
 from ax.utils.common.testutils import TestCase
 from ax.utils.testing.core_stubs import get_search_space_for_range_values
+from pyre_extensions import assert_is_instance
 
 
 class MetricsAsTaskTransformTest(TestCase):
@@ -125,10 +126,10 @@ class MetricsAsTaskTransformTest(TestCase):
         self.assertEqual(len(new_ss.parameters), 3)
         new_param = new_ss.parameters["METRIC_TASK"]
         self.assertIsInstance(new_param, ChoiceParameter)
+        new_param_choice = assert_is_instance(new_param, ChoiceParameter)
         self.assertEqual(
-            # pyre-fixme[16]: `Parameter` has no attribute `values`.
-            new_param.values,
+            new_param_choice.values,
             ["TARGET", "metric1", "metric2"],
         )
-        self.assertTrue(new_param.is_task)  # pyre-ignore
+        self.assertTrue(new_param_choice.is_task)
         self.assertEqual(new_param.target_value, "TARGET")

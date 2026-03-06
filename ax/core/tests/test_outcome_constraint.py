@@ -253,8 +253,7 @@ class ScalarizedOutcomeConstraintTest(TestCase):
             )
 
         with self.assertRaises(NotImplementedError):
-            # pyre-fixme[7]: Expected `None` but got `Metric`.
-            return self.constraint.metric
+            self.constraint.metric
 
         with self.assertRaises(NotImplementedError):
             self.constraint.metric = self.metrics[0]
