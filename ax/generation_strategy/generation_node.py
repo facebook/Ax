@@ -179,12 +179,14 @@ class GenerationNode(SerializationMixin, SortableBase):
             )
         if len(generator_specs) > 1 and best_model_selector is None:
             raise UserInputError(MISSING_MODEL_SELECTOR_MESSAGE)
-        if trial_type is not None and (
-            trial_type != Keys.SHORT_RUN and trial_type != Keys.LONG_RUN
+        if trial_type is not None and trial_type not in (
+            Keys.SHORT_RUN,
+            Keys.LONG_RUN,
+            Keys.LILO_LABELING,
         ):
             raise NotImplementedError(
-                f"Trial type must be either {Keys.SHORT_RUN} or {Keys.LONG_RUN},"
-                f" got {trial_type}."
+                f"Trial type must be one of {Keys.SHORT_RUN}, {Keys.LONG_RUN},"
+                f" or {Keys.LILO_LABELING}, got {trial_type}."
             )
         # If possible, assign `_generator_spec_to_gen_from` right away, for use in
         # `__repr__`

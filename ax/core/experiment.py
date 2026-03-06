@@ -1880,11 +1880,9 @@ class Experiment(Base):
         """
         return (
             trial_type is None
-            # We temporarily allow "short run" and "long run" trial
-            # types in single-type experiments during development of
-            # a new ``GenerationStrategy`` that needs them.
             or trial_type == Keys.SHORT_RUN
             or trial_type == Keys.LONG_RUN
+            or trial_type == Keys.LILO_LABELING
         )
 
     def attach_trial(
