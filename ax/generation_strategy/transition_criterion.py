@@ -17,6 +17,8 @@ from ax.core.trial_status import TrialStatus
 from ax.core.utils import get_trial_indices_with_required_metrics
 from ax.exceptions.core import DataRequiredError, UserInputError
 from ax.exceptions.generation_strategy import MaxParallelismReachedException
+from ax.utils.common.constants import Keys
+from ax.utils.common.hash_utils import get_current_lilo_hash
 
 if TYPE_CHECKING:
     from ax.generation_strategy.generation_node import GenerationNode
@@ -642,6 +644,72 @@ class MinTrials(TrialBasedCriterion):
             continue_trial_generation=continue_trial_generation,
             count_only_trials_with_data=count_only_trials_with_data,
         )
+
+
+class MinTrialsWithLILOInputHashCheck(TrialBasedCriterion):
+    """Like ``MinTrials``, but only counts trials whose LILO input hash
+    matches the current experiment state.
+
+    LILO (Language-in-the-Loop) trials are stamped with a hash of the
+    experiment state (metric data + LLM messages) at labeling time.
+    When the experiment state changes (new data arrives, or the user updates
+    LLM messages), old labels become stale.  This criterion ensures that
+    the transition fires only when enough *fresh* labels exist — i.e.,
+    labels produced under the current experiment state.
+
+    Trials without a LILO input hash (e.g., Sobol or MBG trials) are always
+    counted, preserving backward compatibility with non-LILO workflows.
+
+    Args:
+        threshold: Minimum number of fresh trials required.
+        transition_to: The GenerationNode to transition to when met.
+        only_in_statuses: Only count trials with these statuses.
+        not_in_statuses: Exclude trials with these statuses.
+        use_all_trials_in_exp: Count all experiment trials, not just
+            those from the current node.
+        continue_trial_generation: Continue generating arms for the
+            same trial after transition.
+        count_only_trials_with_data: Only count trials that have data.
+    """
+
+    def num_contributing_to_threshold(
+        self,
+        experiment: Experiment,
+        trials_from_node: set[int],
+    ) -> int:
+        """Count trials toward threshold, excluding those with stale hashes.
+
+        First applies the standard status-based filtering from the base class,
+        then further filters to only trials whose LILO input hash matches
+        the current experiment state.
+        """
+        # Get the base count of candidate trial indices (status-filtered).
+        all_trials = self.all_trials_to_check(experiment)
+        if self.count_only_trials_with_data:
+            data_trial_indices = get_trial_indices_with_required_metrics(
+                experiment=experiment,
+                df=experiment.lookup_data().df,
+                require_data_for_all_metrics=False,
+            )
+            all_trials = all_trials.intersection(data_trial_indices)
+
+        if not bool(self.use_all_trials_in_exp):
+            all_trials = trials_from_node.intersection(all_trials)
+
+        # Further filter by LILO input hash freshness.
+        current_hash = get_current_lilo_hash(experiment)
+        if current_hash is None:
+            # No pairwise DerivedMetric found — fall back to plain count.
+            return len(all_trials)
+
+        fresh_count = 0
+        for idx in all_trials:
+            trial = experiment.trials[idx]
+            trial_hash = trial._properties.get(Keys.LILO_INPUT_HASH)
+            if trial_hash is None or trial_hash == current_hash:
+                fresh_count += 1
+
+        return fresh_count
 
 
 class AuxiliaryExperimentCheck(TransitionCriterion):
