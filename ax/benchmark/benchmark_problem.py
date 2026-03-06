@@ -10,6 +10,7 @@ from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, field
 
 from ax.benchmark.benchmark_metric import BenchmarkMapMetric, BenchmarkMetric
+from ax.benchmark.benchmark_runner import BenchmarkRunner
 from ax.benchmark.benchmark_step_runtime_function import TBenchmarkStepRuntimeFunction
 from ax.benchmark.benchmark_test_function import BenchmarkTestFunction
 from ax.benchmark.noise import GaussianNoise, Noise
@@ -107,6 +108,7 @@ class BenchmarkProblem(Base):
         dict[AuxiliaryExperimentPurpose, list[AuxiliaryExperiment]] | None
     ) = None
     tracking_metrics: list[Metric] | None = None
+    runner: BenchmarkRunner | None = None
 
     def __post_init__(self) -> None:
         # Handle backward compatibility for noise_std parameter
