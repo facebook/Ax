@@ -474,7 +474,6 @@ def _criterion_from_json(
         for key, value in object_json.items()
     }
     init_args = extract_init_args(args=decoded, class_=criterion_class)
-    # pyre-ignore[45]: Class passed is always a concrete subclass.
     return criterion_class(**init_args)
 
 

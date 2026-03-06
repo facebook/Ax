@@ -17,7 +17,7 @@ class IntTimestamp(TypeDecorator):
     cache_ok = True
 
     # pyre-fixme[15]: `process_bind_param` overrides method defined in
-    #  `TypeDecorator` inconsistently.
+    #  `TypeDecorator` inconsistently; returns `int | None` vs `str | None`.
     def process_bind_param(
         self, value: datetime.datetime | None, dialect: Dialect
     ) -> int | None:

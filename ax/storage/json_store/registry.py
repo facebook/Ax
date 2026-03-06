@@ -184,9 +184,7 @@ from gpytorch.mlls.marginal_log_likelihood import MarginalLogLikelihood
 from gpytorch.priors.torch_priors import GammaPrior, LogNormalPrior
 
 
-# pyre-fixme[24]: Generic type `type` expects 1 type parameter, use `typing.Type` to
-#  avoid runtime subscripting errors.
-CORE_ENCODER_REGISTRY: dict[type, Callable[[Any], dict[str, Any]]] = {
+CORE_ENCODER_REGISTRY: dict[type[Any], Callable[[Any], dict[str, Any]]] = {
     Arm: arm_to_dict,
     AuxiliaryExperiment: auxiliary_experiment_to_dict,
     AndEarlyStoppingStrategy: logical_early_stopping_strategy_to_dict,
@@ -269,9 +267,7 @@ CORE_ENCODER_REGISTRY: dict[type, Callable[[Any], dict[str, Any]]] = {
 # NOTE: Avoid putting a class along with its subclass in `CLASS_ENCODER_REGISTRY`.
 # The encoder iterates through this dictionary and uses the first superclass that
 # it finds, which might not be the intended superclass.
-# pyre-fixme[24]: Generic type `type` expects 1 type parameter, use `typing.Type` to
-#  avoid runtime subscripting errors.
-CORE_CLASS_ENCODER_REGISTRY: dict[type, Callable[[Any], dict[str, Any]]] = {
+CORE_CLASS_ENCODER_REGISTRY: dict[type[Any], Callable[[Any], dict[str, Any]]] = {
     Acquisition: botorch_modular_to_dict,  # Ax MBM component
     AcquisitionFunction: botorch_modular_to_dict,  # BoTorch component
     InputTransform: botorch_modular_to_dict,  # BoTorch input transform component

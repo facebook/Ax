@@ -12,7 +12,10 @@ from sqlalchemy.orm import defaultload, strategy_options
 from sqlalchemy.orm.attributes import InstrumentedAttribute
 
 
-GR_LARGE_MODEL_ATTRS: list[InstrumentedAttribute] = [  # pyre-ignore[9]
+# pyre-fixme[9]: `GR_LARGE_MODEL_ATTRS` is declared as `List[InstrumentedAttribute]`
+#  but SQLAlchemy class attributes are typed as `Column` in stubs; they are
+#  `InstrumentedAttribute` instances at runtime.
+GR_LARGE_MODEL_ATTRS: list[InstrumentedAttribute] = [
     SQAGeneratorRun.model_kwargs,
     SQAGeneratorRun.bridge_kwargs,
     SQAGeneratorRun.model_state_after_gen,

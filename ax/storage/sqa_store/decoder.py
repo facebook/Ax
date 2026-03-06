@@ -56,6 +56,7 @@ from ax.core.runner import Runner
 from ax.core.search_space import SearchSpace
 from ax.core.trial import Trial
 from ax.core.trial_status import TrialStatus
+from ax.core.types import TModelPredict, TModelPredictArm
 from ax.exceptions.storage import JSONDecodeError, SQADecodeError
 from ax.generation_strategy.generation_strategy import GenerationStrategy
 from ax.storage.json_store.decoder import _DEPRECATED_GENERATOR_KWARGS, object_from_json
@@ -135,7 +136,7 @@ class Decoder:
             return None
 
         try:
-            return enum(value).name  # pyre-ignore T29651755
+            return cast(type[Enum], enum)(value).name
         except ValueError:
             raise SQADecodeError(f"Value {value} is invalid for enum {enum}.")
 
@@ -304,7 +305,7 @@ class Decoder:
         )
 
         default_trial_type = none_throws(experiment_sqa.default_trial_type)
-        trial_type_to_runner = {
+        trial_type_to_runner: dict[str, Runner | None] = {
             none_throws(sqa_runner.trial_type): self.runner_from_sqa(sqa_runner)
             for sqa_runner in experiment_sqa.runners
         }
@@ -330,9 +331,8 @@ class Decoder:
             status_quo=status_quo,
             properties=properties,
         )
-        # pyre-ignore Imcompatible attribute type [8]: attribute _trial_type_to_runner
-        # has type Dict[str, Optional[Runner]] but is used as type
-        # Uniont[Dict[str, Optional[Runner]], Dict[str, None]]
+        # pyre-fixme[8]: `_trial_type_to_runner` expects `Dict[Optional[str],
+        #  Optional[Runner]]` but the dict built here uses `str` keys.
         experiment._trial_type_to_runner = trial_type_to_runner
         sqa_metric_dict = {metric.name: metric for metric in experiment_sqa.metrics}
         for tracking_metric in tracking_metrics:
@@ -730,8 +730,8 @@ class Decoder:
                 opt_config = None
                 search_space = None
 
-        best_arm_predictions = None
-        model_predictions = None
+        best_arm_predictions: tuple[Arm, TModelPredictArm | None] | None = None
+        model_predictions: TModelPredict | None = None
         if (
             generator_run_sqa.best_arm_parameters is not None
             and generator_run_sqa.best_arm_predictions is not None
@@ -740,15 +740,14 @@ class Decoder:
                 name=generator_run_sqa.best_arm_name,
                 parameters=none_throws(generator_run_sqa.best_arm_parameters),
             )
+            raw_predictions = none_throws(generator_run_sqa.best_arm_predictions)
             best_arm_predictions = (
                 best_arm,
-                tuple(none_throws(generator_run_sqa.best_arm_predictions)),
+                cast(TModelPredictArm, tuple(raw_predictions)),
             )
-        model_predictions = (
-            tuple(none_throws(generator_run_sqa.model_predictions))
-            if generator_run_sqa.model_predictions is not None
-            else None
-        )
+        if generator_run_sqa.model_predictions is not None:
+            raw_model_predictions = none_throws(generator_run_sqa.model_predictions)
+            model_predictions = cast(TModelPredict, tuple(raw_model_predictions))
 
         generator_run = GeneratorRun(
             arms=arms,
@@ -765,11 +764,7 @@ class Decoder:
                 if generator_run_sqa.gen_time is None
                 else float(generator_run_sqa.gen_time)
             ),
-            best_arm_predictions=best_arm_predictions,  # pyre-ignore[6]
-            # pyre-fixme[6]: Expected `Optional[Tuple[typing.Dict[str, List[float]],
-            #  typing.Dict[str, typing.Dict[str, List[float]]]]]` for 8th param but got
-            #  `Optional[typing.Tuple[Union[typing.Dict[str, List[float]],
-            #  typing.Dict[str, typing.Dict[str, List[float]]]], ...]]`.
+            best_arm_predictions=best_arm_predictions,
             model_predictions=model_predictions,
             generator_key=generator_run_sqa.model_key,
             generator_kwargs=(
@@ -933,7 +928,8 @@ class Decoder:
             decoder_registry=self.config.json_decoder_registry,
             class_decoder_registry=self.config.json_class_decoder_registry,
         )
-        # pyre-ignore[45]: Cannot instantiate abstract class `Runner`.
+        # pyre-fixme[45]: `runner_class` is always a concrete subclass at runtime,
+        #  but pyre sees `Runner` (abstract) from the reverse_runner_registry type.
         runner = runner_class(**args)
         runner.db_id = runner_sqa.id
         return runner
@@ -1012,21 +1008,11 @@ class Decoder:
         trial._time_staged = trial_sqa.time_staged
         trial._time_run_started = trial_sqa.time_run_started
         trial._status_reason = trial_sqa.abandoned_reason or trial_sqa.failed_reason
-        # pyre-fixme[9]: _run_metadata has type `Dict[str, Any]`; used as
-        #  `Optional[Dict[str, Any]]`.
-        # pyre-fixme[8]: Attribute has type `Dict[str, typing.Any]`; used as
-        #  `Optional[typing.Dict[Variable[_KT], Variable[_VT]]]`.
         trial._run_metadata = (
-            dict(trial_sqa.run_metadata) if trial_sqa.run_metadata is not None else None
+            dict(trial_sqa.run_metadata) if trial_sqa.run_metadata is not None else {}
         )
-        # pyre-fixme[9]: _run_metadata has type `Dict[str, Any]`; used as
-        #  `Optional[Dict[str, Any]]`.
-        # pyre-fixme[8]: Attribute has type `Dict[str, typing.Any]`; used as
-        #  `Optional[typing.Dict[Variable[_KT], Variable[_VT]]]`.
         trial._stop_metadata = (
-            dict(trial_sqa.stop_metadata)
-            if trial_sqa.stop_metadata is not None
-            else None
+            dict(trial_sqa.stop_metadata) if trial_sqa.stop_metadata is not None else {}
         )
         trial._num_arms_created = trial_sqa.num_arms_created
         trial._properties = dict(trial_sqa.properties or {})
