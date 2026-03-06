@@ -48,6 +48,7 @@ from ax.core.optimization_config import (
 )
 from ax.core.search_space import SearchSpace
 from ax.core.trial import BaseTrial, Trial
+from ax.core.trial_status import TrialStatus
 from ax.core.types import TParameterization, TParamValue
 from ax.core.utils import get_model_times
 from ax.early_stopping.strategies.base import BaseEarlyStoppingStrategy
@@ -161,6 +162,7 @@ def get_benchmark_runner(
 def get_oracle_experiment_from_params(
     problem: BenchmarkProblem,
     dict_of_dict_of_params: Mapping[int, Mapping[str, Mapping[str, TParamValue]]],
+    trial_statuses: Mapping[int, TrialStatus] | None = None,
 ) -> Experiment:
     """
     Get a new experiment with the same search space and optimization config
@@ -174,6 +176,12 @@ def get_oracle_experiment_from_params(
             config for generating an experiment.
         dict_of_dict_of_params: Keys are trial indices, values are Mappings
             (e.g. dicts) that map arm names to parameterizations.
+        trial_statuses: Optional mapping from trial indices to their statuses.
+            If provided, trials in oracle experiments will be set to the
+            specified status.
+            This helps preserve the trial status from the original experiment,
+            especially if we want to take `ABANDONED` trials into account.
+            If not provided, trials will be set to completed.
 
     Example:
         >>> get_oracle_experiment_from_params(
@@ -219,11 +227,33 @@ def get_oracle_experiment_from_params(
         trial = experiment.trials[trial_index]
         metadata = runner.run(trial=trial)
         trial.update_run_metadata(metadata=metadata)
-        trial.mark_completed()
+
+        # Determine the status for the trial in the oracle experiment.
+        # Mark ABANDONED and FAILED immediately (they don't require data).
+        # EARLY_STOPPED requires data, so mark as completed for now and
+        # defer the status change until after fetch_data().
+        if trial_statuses is not None:
+            status = trial_statuses[trial_index]
+        else:
+            status = TrialStatus.COMPLETED
+
+        if status == TrialStatus.ABANDONED:
+            trial.mark_abandoned()
+        elif status == TrialStatus.FAILED:
+            trial.mark_failed()
+        else:
+            trial.mark_completed()
 
     logger.setLevel(level=original_log_level)
 
     experiment.fetch_data()
+
+    # Apply EARLY_STOPPED status after data is available, since
+    # mark_early_stopped() requires data on the trial.
+    if trial_statuses is not None:
+        for trial_index, status in trial_statuses.items():
+            if status == TrialStatus.EARLY_STOPPED:
+                experiment.trials[trial_index].mark_early_stopped(unsafe=True)
     return experiment
 
 
@@ -342,14 +372,15 @@ def get_inference_trace(
 
 def get_is_feasible_trace(
     experiment: Experiment, optimization_config: OptimizationConfig
-) -> list[float]:
+) -> list[bool]:
     """Get a trace of feasibility for the experiment.
 
     For batch trials we return True if any arm in a given batch is feasible.
+    Trials without data (e.g. abandoned or failed) default to False.
     """
     df = experiment.lookup_data().df.copy()  # Let's not modify the original df
     if len(df) == 0:
-        return []
+        return [False] * len(experiment.trials)
     # Derelativize the optimization config if needed.
     optimization_config = derelativize_opt_config(
         optimization_config=optimization_config,
@@ -358,7 +389,11 @@ def get_is_feasible_trace(
     # Compute feasibility and return feasibility per group
     df = _prepare_data_for_trace(df=df, optimization_config=optimization_config)
     trial_grouped = df.groupby("trial_index")["feasible"]
-    return trial_grouped.any().tolist()
+    feasibility_by_trial = trial_grouped.any().to_dict()
+    return [
+        feasibility_by_trial.get(trial_index, False)
+        for trial_index in sorted(experiment.trials.keys())
+    ]
 
 
 def get_best_parameters(
@@ -455,8 +490,20 @@ def get_benchmark_result_from_experiment_and_gs(
         for new_trial_index, trials in enumerate(trial_completion_order)
     }
 
+    # Create trial_statuses mapping to preserve trial status in oracle experiment
+    trial_statuses = {
+        new_trial_index: (
+            experiment.trials[next(iter(old_trial_indices))].status
+            if len(old_trial_indices) == 1
+            else TrialStatus.COMPLETED
+        )
+        for new_trial_index, old_trial_indices in enumerate(trial_completion_order)
+    }
+
     actual_params_oracle_dummy_experiment = get_oracle_experiment_from_params(
-        problem=problem, dict_of_dict_of_params=dict_of_dict_of_params
+        problem=problem,
+        dict_of_dict_of_params=dict_of_dict_of_params,
+        trial_statuses=trial_statuses,
     )
     oracle_trace = np.array(
         get_trace(
