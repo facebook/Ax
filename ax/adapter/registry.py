@@ -56,6 +56,7 @@ from ax.generators.discrete.eb_ashr import EBAshr
 from ax.generators.discrete.eb_thompson import EmpiricalBayesThompsonSampler
 from ax.generators.discrete.full_factorial import FullFactorialGenerator
 from ax.generators.discrete.thompson import ThompsonSampler
+from ax.generators.random.in_sample import InSampleUniformGenerator
 from ax.generators.random.sobol import SobolGenerator
 from ax.generators.random.uniform import UniformGenerator
 from ax.generators.torch.botorch_modular.generator import (
@@ -213,6 +214,11 @@ GENERATOR_KEY_TO_GENERATOR_SETUP: dict[str, GeneratorSetup] = {
     "Uniform": GeneratorSetup(
         adapter_class=RandomAdapter,
         generator_class=UniformGenerator,
+        transforms=Cont_X_trans,
+    ),
+    "InSampleUniform": GeneratorSetup(
+        adapter_class=RandomAdapter,
+        generator_class=InSampleUniformGenerator,
         transforms=Cont_X_trans,
     ),
     "ST_MTGP": GeneratorSetup(
@@ -454,6 +460,7 @@ class Generators(GeneratorRegistryBase):
     EMPIRICAL_BAYES_THOMPSON = "EB"
     EB_ASHR = "EB_Ashr"
     UNIFORM = "Uniform"
+    IN_SAMPLE_UNIFORM = "InSampleUniform"
     ST_MTGP = "ST_MTGP"
     BO_MIXED = "BO_MIXED"
 
