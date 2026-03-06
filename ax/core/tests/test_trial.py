@@ -114,13 +114,12 @@ class TrialTest(TestCase):
 
     def test_adding_new_trials(self) -> None:
         new_arm = get_arms()[1]
-        cand_metadata = {new_arm.signature: {"a": "b"}}
+        cand_metadata: dict[str, dict[str, str] | None] = {
+            new_arm.signature: {"a": "b"}
+        }
         new_trial = self.experiment.new_trial(
             generator_run=GeneratorRun(
                 arms=[new_arm],
-                # pyre-fixme[6]: For 2nd param expected `Optional[Dict[str,
-                #  Optional[Dict[str, typing.Any]]]]` but got `Dict[str, Dict[str,
-                #  str]]`.
                 candidate_metadata_by_arm_signature=cand_metadata,
             )
         )
@@ -313,15 +312,13 @@ class TrialTest(TestCase):
         f"{BaseTrial.__module__}.{BaseTrial.__name__}.lookup_data",
         return_value=TEST_DATA,
     )
-    # pyre-fixme[3]: Return type must be annotated.
-    def test_objective_mean(self, _mock):
+    def test_objective_mean(self, _mock: Mock) -> None:
         self.assertEqual(self.trial.objective_mean, 1.0)
 
     @patch(
         f"{BaseTrial.__module__}.{BaseTrial.__name__}.lookup_data", return_value=Data()
     )
-    # pyre-fixme[3]: Return type must be annotated.
-    def test_objective_mean_empty_df(self, _mock):
+    def test_objective_mean_empty_df(self, _mock: Mock) -> None:
         with self.assertRaisesRegex(ValueError, "not yet in data for trial."):
             self.assertIsNone(self.trial.objective_mean)
 

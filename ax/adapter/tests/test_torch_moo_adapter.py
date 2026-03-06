@@ -322,8 +322,7 @@ class MultiObjectiveTorchAdapterTest(TestCase):
             )
             for trial in exp.trials.values():
                 trial.mark_running(no_runner_required=True).mark_completed()
-            # pyre-fixme[16]: Optional type has no attribute `metrics`.
-            metrics_dict = exp.optimization_config.metrics
+            metrics_dict = none_throws(exp.optimization_config).metrics
             # Objective thresholds and synthetic observations chosen to have closed-form
             # hypervolumes to test.
             objective_thresholds = [

@@ -23,6 +23,7 @@ from ax.core.search_space import SearchSpace
 from ax.exceptions.core import SearchSpaceExhausted
 from ax.generators.random.base import RandomGenerator
 from ax.generators.random.sobol import SobolGenerator
+from ax.generators.types import TConfig
 from ax.utils.common.testutils import TestCase
 from ax.utils.testing.core_stubs import (
     get_data,
@@ -45,7 +46,7 @@ class RandomAdapterTest(TestCase):
         ]
         self.search_space = SearchSpace(self.parameters, parameter_constraints)
         self.experiment = Experiment(search_space=self.search_space)
-        self.model_gen_options = {"option": "yes"}
+        self.model_gen_options: TConfig = {"option": "yes"}
 
     def test_fit(self) -> None:
         adapter = RandomAdapter(experiment=self.experiment, generator=RandomGenerator())
@@ -79,10 +80,6 @@ class RandomAdapterTest(TestCase):
                 pending_observations={},
                 fixed_features=ObservationFeatures({"z": 3.0}),
                 optimization_config=None,
-                # pyre-fixme[6]: For 6th param expected `Optional[Dict[str,
-                # Union[None, Dict[str, typing.Any], OptimizationConfig,
-                # AcquisitionFunction, float, int, str]]]` but got `Dict[str,
-                # str]`.
                 model_gen_options=self.model_gen_options,
             )
         gen_args = mock_gen.mock_calls[0][2]
@@ -129,10 +126,6 @@ class RandomAdapterTest(TestCase):
                 pending_observations={},
                 fixed_features=ObservationFeatures({}),
                 optimization_config=None,
-                # pyre-fixme[6]: For 6th param expected `Optional[Dict[str,
-                # Union[None, Dict[str, typing.Any], OptimizationConfig,
-                # AcquisitionFunction, float, int, str]]]` but got `Dict[str,
-                # str]`.
                 model_gen_options=self.model_gen_options,
             )
         gen_args = mock_gen.mock_calls[0][2]

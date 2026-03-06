@@ -18,6 +18,7 @@ from ax.exceptions.core import UserInputError
 from ax.utils.common.testutils import TestCase
 from ax.utils.testing.core_stubs import get_experiment_with_observations
 from pandas.testing import assert_frame_equal, assert_series_equal
+from pyre_extensions import assert_is_instance
 from scipy.special import expit, logit
 
 
@@ -107,16 +108,19 @@ class LogitTransformTest(TestCase):
     def test_TransformSearchSpace(self) -> None:
         ss2 = deepcopy(self.search_space)
         ss2 = self.t.transform_search_space(ss2)
-        # pyre-fixme[16]: `Parameter` has no attribute `lower`.
-        self.assertEqual(ss2.parameters["x"].lower, logit(0.9))
-        # pyre-fixme[16]: `Parameter` has no attribute `upper`.
-        self.assertEqual(ss2.parameters["x"].upper, logit(0.999))
+        self.assertEqual(
+            assert_is_instance(ss2.parameters["x"], RangeParameter).lower, logit(0.9)
+        )
+        self.assertEqual(
+            assert_is_instance(ss2.parameters["x"], RangeParameter).upper, logit(0.999)
+        )
         t2 = Logit(search_space=self.search_space_with_target)
         ss_target = deepcopy(self.search_space_with_target)
         t2.transform_search_space(ss_target)
         self.assertEqual(ss_target.parameters["x"].target_value, logit(0.123))
-        self.assertEqual(ss_target.parameters["x"].lower, logit(0.1))
-        self.assertEqual(ss_target.parameters["x"].upper, logit(0.3))
+        x_param = assert_is_instance(ss_target.parameters["x"], RangeParameter)
+        self.assertEqual(x_param.lower, logit(0.1))
+        self.assertEqual(x_param.upper, logit(0.3))
 
     def test_transform_experiment_data(self) -> None:
         parameterizations = [

@@ -18,6 +18,7 @@ from ax.core.metric import Metric
 from ax.core.objective import Objective
 from ax.core.observation import Observation, ObservationData, ObservationFeatures
 from ax.core.optimization_config import OptimizationConfig
+from ax.core.types import TParameterization
 from ax.utils.common.testutils import TestCase
 from ax.utils.testing.core_stubs import get_branin_experiment
 
@@ -66,10 +67,10 @@ class TransformsTest(TestCase):
         means = np.array([3.0, 4.0])
         metric_signatures = ["a", "b"]
         covariance = np.array([[1.0, 2.0], [3.0, 4.0]])
-        parameters = {"x": 1.0, "y": "cat"}
+        parameters: TParameterization = {"x": 1.0, "y": "cat"}
         arm_name = "armmy"
         observation = Observation(
-            features=ObservationFeatures(parameters=parameters),  # pyre-ignore
+            features=ObservationFeatures(parameters=parameters),
             data=ObservationData(
                 metric_signatures=metric_signatures, means=means, covariance=covariance
             ),

@@ -72,7 +72,7 @@ class IntRangeToChoiceTransformTest(TestCase):
                 "e", lower=3, upper=5, parameter_type=ParameterType.INT
             ),
         }
-        search_space = SearchSpace(parameters=parameters.values())  # pyre-ignore[6]
+        search_space = SearchSpace(parameters=list(parameters.values()))
 
         # Don't specify max_choices (should be set to inf)
         t = IntRangeToChoice(search_space=search_space)

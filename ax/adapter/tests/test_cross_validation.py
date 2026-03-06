@@ -9,6 +9,7 @@
 import warnings
 from collections.abc import Iterable
 from itertools import product
+from typing import cast
 from unittest import mock
 
 import numpy as np
@@ -70,6 +71,7 @@ from botorch.posteriors.gpytorch import GPyTorchPosterior
 from gpytorch.distributions import MultivariateNormal
 from linear_operator.operators import DiagLinearOperator
 from pandas import DataFrame
+from pyre_extensions import assert_is_instance
 
 # Number of in-design points created by _create_adapter_with_out_of_design_points()
 _OOD_ADAPTER_IN_DESIGN_COUNT = 3
@@ -78,9 +80,8 @@ _OOD_ADAPTER_IN_DESIGN_COUNT = 3
 class CrossValidationTest(TestCase):
     def setUp(self) -> None:
         super().setUp()
-        # pyre-ignore [9] Pyre is too picky with union types.
         parameterizations: list[TParameterization] = [
-            {"x": x} for x in [2.0, 2.0, 3.0, 4.0]
+            cast(TParameterization, {"x": x}) for x in [2.0, 2.0, 3.0, 4.0]
         ]
         means = [[2.0, 4.0], [3.0, 5.0], [7.0, 8.0], [9.0, 10.0]]
         sems = [[1.0, 2.0], [1.0, 2.0], [1.0, 2.0], [1.0, 2.0]]
@@ -894,29 +895,27 @@ class CrossValidationTest(TestCase):
         experiment = get_branin_experiment(with_batch=True, with_completed_batch=True)
 
         # Create adapter with SaasFullyBayesianSingleTaskGP
+        generator = BoTorchGenerator(
+            surrogate=Surrogate(
+                surrogate_spec=SurrogateSpec(
+                    model_configs=[
+                        ModelConfig(
+                            botorch_model_class=SaasFullyBayesianSingleTaskGP,
+                        )
+                    ],
+                ),
+            )
+        )
         adapter = TorchAdapter(
             experiment=experiment,
-            generator=BoTorchGenerator(
-                surrogate=Surrogate(
-                    surrogate_spec=SurrogateSpec(
-                        model_configs=[
-                            ModelConfig(
-                                botorch_model_class=SaasFullyBayesianSingleTaskGP,
-                            )
-                        ],
-                    ),
-                )
-            ),
+            generator=generator,
             transforms=[UnitX],
         )
 
         # We need to mock the MCMC fitting to avoid running actual NUTS sampling
         # which is very slow. Instead, we'll inject mock MCMC samples.
-        surrogate = adapter.generator.surrogate  # pyre-ignore[16]
-        model = surrogate.model
-
-        # Verify the model is a SaasFullyBayesianSingleTaskGP
-        self.assertIsInstance(model, SaasFullyBayesianSingleTaskGP)
+        surrogate = generator.surrogate
+        model = assert_is_instance(surrogate.model, SaasFullyBayesianSingleTaskGP)
 
         # Get training data shape info
         train_X = model.train_inputs[0]

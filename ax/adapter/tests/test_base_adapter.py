@@ -76,7 +76,7 @@ from ax.utils.testing.modeling_stubs import (
 from botorch.exceptions.warnings import InputDataWarning
 from botorch.models.utils.assorted import validate_input_scaling
 from pandas.testing import assert_frame_equal
-from pyre_extensions import none_throws
+from pyre_extensions import assert_is_instance, none_throws
 
 ADAPTER__GEN_PATH: str = "ax.adapter.base.Adapter._gen"
 
@@ -908,8 +908,14 @@ class BaseAdapterTest(TestCase):
             .index.get_level_values("arm_name")
         )
         self.assertEqual(set(ood_arms), {"status_quo", "custom"})
-        self.assertEqual(m.model_space.parameters["x1"].lower, -5.0)  # pyre-ignore[16]
-        self.assertEqual(m.model_space.parameters["x2"].upper, 15.0)  # pyre-ignore[16]
+        self.assertEqual(
+            assert_is_instance(m.model_space.parameters["x1"], RangeParameter).lower,
+            -5.0,
+        )
+        self.assertEqual(
+            assert_is_instance(m.model_space.parameters["x2"], RangeParameter).upper,
+            15.0,
+        )
         self.assertEqual(len(m.model_space.parameter_constraints), 1)
 
         # With expand model space, custom is not OOD, and model space is expanded
@@ -925,8 +931,14 @@ class BaseAdapterTest(TestCase):
             .index.get_level_values("arm_name")
         )
         self.assertEqual(set(ood_arms), {"status_quo"})
-        self.assertEqual(m.model_space.parameters["x1"].lower, -20.0)
-        self.assertEqual(m.model_space.parameters["x2"].upper, 18.0)
+        self.assertEqual(
+            assert_is_instance(m.model_space.parameters["x1"], RangeParameter).lower,
+            -20.0,
+        )
+        self.assertEqual(
+            assert_is_instance(m.model_space.parameters["x2"], RangeParameter).upper,
+            18.0,
+        )
         self.assertEqual(m.model_space.parameter_constraints, [])
 
         # With fill values, SQ is also in design, and x2 is further expanded
@@ -941,7 +953,10 @@ class BaseAdapterTest(TestCase):
                 transform_configs={"FillMissingParameters": {"fill_values": sq_vals}},
             )
         self.assertEqual(sum(m.training_in_design), 7)
-        self.assertEqual(m.model_space.parameters["x2"].upper, 20)
+        self.assertEqual(
+            assert_is_instance(m.model_space.parameters["x2"], RangeParameter).upper,
+            20,
+        )
         self.assertEqual(m.model_space.parameter_constraints, [])
 
         # Using parameter backfill values
@@ -955,7 +970,10 @@ class BaseAdapterTest(TestCase):
             search_space=ss,
         )
         self.assertEqual(sum(m.training_in_design), 7)
-        self.assertEqual(m.model_space.parameters["x2"].upper, 20)
+        self.assertEqual(
+            assert_is_instance(m.model_space.parameters["x2"], RangeParameter).upper,
+            20,
+        )
         self.assertEqual(m.model_space.parameter_constraints, [])
 
         # Check log scale expansion with OOD trial having parameter value == 0
@@ -992,12 +1010,12 @@ class BaseAdapterTest(TestCase):
 
         # Assert that the expanded model space did not include 0.0
         self.assertEqual(
-            m.model_space.parameters["x1"].lower,
+            assert_is_instance(m.model_space.parameters["x1"], RangeParameter).lower,
             0.0001,
         )
         # x2 model space should still be expanded
         self.assertEqual(
-            m.model_space.parameters["x2"].upper,
+            assert_is_instance(m.model_space.parameters["x2"], RangeParameter).upper,
             2.0,
         )
 

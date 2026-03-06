@@ -82,16 +82,12 @@ class ParameterConstraintTest(TestCase):
         self.assertEqual(str(self.constraint), self.constraint_repr)
 
     def test_Validate(self) -> None:
-        parameters = {"x": 4, "z": 3}
+        parameters: dict[str, float | int] = {"x": 4, "z": 3}
         with self.assertRaises(ValueError):
-            # pyre-fixme[6]: For 1st param expected `Dict[str, Union[float, int]]`
-            #  but got `Dict[str, int]`.
             self.constraint.check(parameters)
 
         # check slack constraint
         parameters = {"x": 4, "y": 1}
-        # pyre-fixme[6]: For 1st param expected `Dict[str, Union[float, int]]` but
-        #  got `Dict[str, int]`.
         self.assertTrue(self.constraint.check(parameters))
 
         # check tight constraint (within numerical tolerance)
