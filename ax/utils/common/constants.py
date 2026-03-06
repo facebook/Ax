@@ -64,6 +64,7 @@ class Keys(StrEnum):
     FRAC_RANDOM = "frac_random"
     FULL_PARAMETERIZATION = "full_parameterization"
     IMMUTABLE_SEARCH_SPACE_AND_OPT_CONF = "immutable_search_space_and_opt_config"
+    LILO_INPUT_HASH = "lilo_input_hash"
     LILO_LABELING = "lilo_labeling"
     LLM_MESSAGES = "llm_messages"
     LONG_RUN = "long_run"
