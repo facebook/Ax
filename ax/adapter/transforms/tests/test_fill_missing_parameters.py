@@ -8,11 +8,12 @@
 
 from copy import deepcopy
 
+import pandas as pd
 from ax.adapter.base import DataLoaderConfig
-from ax.adapter.data_utils import extract_experiment_data
+from ax.adapter.data_utils import ExperimentData, extract_experiment_data
 from ax.adapter.transforms.fill_missing_parameters import FillMissingParameters
 from ax.core.observation import ObservationFeatures
-from ax.core.parameter import ParameterType, RangeParameter
+from ax.core.parameter import DerivedParameter, ParameterType, RangeParameter
 from ax.core.search_space import SearchSpace
 from ax.utils.common.testutils import TestCase
 from ax.utils.testing.core_stubs import get_experiment_with_observations
@@ -172,3 +173,49 @@ class FillMissingParametersTransformTest(TestCase):
         ]
         result = t.transform_observation_features(deepcopy(observation_features))
         self.assertEqual(result, expected)
+
+    def test_transform_experiment_data_empty_with_derived_parameters(self) -> None:
+        """Test that transform_experiment_data works with empty data and
+        derived parameters. Regression test for a bug where
+        DataFrame.apply(func, axis=1) on an empty DataFrame returns an empty
+        DataFrame rather than an empty Series, causing a ValueError on column
+        assignment."""
+        search_space = SearchSpace(
+            parameters=[
+                RangeParameter(
+                    name="x",
+                    parameter_type=ParameterType.FLOAT,
+                    lower=0.0,
+                    upper=10.0,
+                ),
+                RangeParameter(
+                    name="y",
+                    parameter_type=ParameterType.FLOAT,
+                    lower=0.0,
+                    upper=10.0,
+                ),
+                DerivedParameter(
+                    name="z",
+                    parameter_type=ParameterType.FLOAT,
+                    expression_str="x + y",
+                ),
+            ]
+        )
+        # Construct empty ExperimentData with the right columns but no rows.
+        empty_arm_data = pd.DataFrame(
+            {
+                "x": pd.Series(dtype=float),
+                "y": pd.Series(dtype=float),
+                "metadata": pd.Series(dtype=object),
+            }
+        )
+        empty_observation_data = pd.DataFrame()
+        experiment_data = ExperimentData(
+            arm_data=empty_arm_data,
+            observation_data=empty_observation_data,
+        )
+        t = FillMissingParameters(search_space=search_space)
+        # This should not raise ValueError.
+        transformed_data = t.transform_experiment_data(experiment_data=experiment_data)
+        self.assertEqual(len(transformed_data.arm_data), 0)
+        self.assertIn("z", transformed_data.arm_data.columns)
