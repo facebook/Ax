@@ -212,11 +212,11 @@ class BatchTrialTest(TestCase):
                 self.experiment.trial_indices_by_status[TrialStatus.STAGED], {0}
             )
             self.assertTrue(
-                # pyre-fixme[6]: For 1st param expected `Iterable[object]` but got
-                #  `bool`.
-                all(len(idcs) == 0)
-                for status, idcs in self.experiment.trial_indices_by_status.items()
-                if status != TrialStatus.STAGED
+                all(
+                    len(idcs) == 0
+                    for status, idcs in self.experiment.trial_indices_by_status.items()
+                    if status != TrialStatus.STAGED
+                )
             )
             self.assertIsNotNone(self.batch.time_staged)
             self.assertTrue(self.batch.status.is_deployed)
@@ -240,11 +240,11 @@ class BatchTrialTest(TestCase):
                 self.experiment.trial_indices_by_status[TrialStatus.RUNNING], {0}
             )
             self.assertTrue(
-                # pyre-fixme[6]: For 1st param expected `Iterable[object]` but got
-                #  `bool`.
-                all(len(idcs) == 0)
-                for status, idcs in self.experiment.trial_indices_by_status.items()
-                if status != TrialStatus.RUNNING
+                all(
+                    len(idcs) == 0
+                    for status, idcs in self.experiment.trial_indices_by_status.items()
+                    if status != TrialStatus.RUNNING
+                )
             )
             self.assertIsNotNone(self.batch.time_run_started)
             self.assertTrue(self.batch.status.expecting_data)
@@ -261,11 +261,11 @@ class BatchTrialTest(TestCase):
                 self.experiment.trial_indices_by_status[TrialStatus.COMPLETED], {0}
             )
             self.assertTrue(
-                # pyre-fixme[6]: For 1st param expected `Iterable[object]` but got
-                #  `bool`.
-                all(len(idcs) == 0)
-                for status, idcs in self.experiment.trial_indices_by_status.items()
-                if status != TrialStatus.COMPLETED
+                all(
+                    len(idcs) == 0
+                    for status, idcs in self.experiment.trial_indices_by_status.items()
+                    if status != TrialStatus.COMPLETED
+                )
             )
             self.assertIsNotNone(self.batch.time_completed)
             self.assertTrue(self.batch.status.is_terminal)
@@ -296,11 +296,11 @@ class BatchTrialTest(TestCase):
                 self.experiment.trial_indices_by_status[TrialStatus.CANDIDATE], {0}
             )
             self.assertTrue(
-                # pyre-fixme[6]: For 1st param expected `Iterable[object]` but got
-                #  `bool`.
-                all(len(idcs) == 0)
-                for status, idcs in self.experiment.trial_indices_by_status.items()
-                if status != TrialStatus.CANDIDATE
+                all(
+                    len(idcs) == 0
+                    for status, idcs in self.experiment.trial_indices_by_status.items()
+                    if status != TrialStatus.CANDIDATE
+                )
             )
 
     def test_AbandonBatchTrial(self) -> None:
@@ -592,11 +592,9 @@ class BatchTrialTest(TestCase):
         # Check that if we add cand. metadata to gr_2, it will appear in cand.
         # metadata for the batch.
         gr_3 = get_generator_run2()
-        new_cand_metadata = {
+        new_cand_metadata: dict[str, dict[str, str] | None] | None = {
             a.signature: {"md_key": f"md_val_{a.signature}"} for a in gr_3.arms
         }
-        # pyre-fixme[8]: Attribute has type `Optional[Dict[str, Optional[Dict[str,
-        #  typing.Any]]]]`; used as `Dict[str, Dict[str, str]]`.
         gr_3._candidate_metadata_by_arm_signature = new_cand_metadata
         self.batch.add_generator_run(gr_3)
         gr_3 = self.batch._generator_runs[-1]

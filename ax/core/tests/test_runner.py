@@ -15,8 +15,7 @@ from ax.utils.testing.core_stubs import get_batch_trial, get_trial
 
 
 class DummyRunner(Runner):
-    # pyre-fixme[3]: Return type must be annotated.
-    def run(self, trial: BaseTrial):
+    def run(self, trial: BaseTrial) -> dict[str, str]:
         return {"metadatum": f"value_for_trial_{trial.index}"}
 
 

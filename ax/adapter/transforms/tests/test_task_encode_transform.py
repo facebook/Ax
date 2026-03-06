@@ -13,6 +13,7 @@ from ax.core.observation import ObservationFeatures
 from ax.core.parameter import ChoiceParameter, ParameterType, RangeParameter
 from ax.core.search_space import SearchSpace
 from ax.utils.common.testutils import TestCase
+from pyre_extensions import assert_is_instance
 
 
 class TaskChoiceToIntTaskChoiceTransformTest(TestCase):
@@ -73,8 +74,9 @@ class TaskChoiceToIntTaskChoiceTransformTest(TestCase):
         self.assertEqual(ss2.parameters["b"].parameter_type, ParameterType.FLOAT)
         self.assertEqual(ss2.parameters["c"].parameter_type, ParameterType.INT)
 
-        # pyre-fixme[16]: `Parameter` has no attribute `values`.
-        self.assertEqual(ss2.parameters["c"].values, [0, 1])
+        self.assertEqual(
+            assert_is_instance(ss2.parameters["c"], ChoiceParameter).values, [0, 1]
+        )
         self.assertEqual(ss2.parameters["c"].target_value, 0)
         self.assertEqual(ss2.parameters["c"].dependents, {0: ["b"]})
 

@@ -22,6 +22,7 @@ from ax.core.objective import Objective
 from ax.core.observation import ObservationFeatures
 from ax.core.optimization_config import OptimizationConfig
 from ax.core.outcome_constraint import OutcomeConstraint
+from ax.core.trial import Trial
 from ax.core.trial_status import TrialStatus
 from ax.core.types import ComparisonOp
 from ax.core.utils import (
@@ -51,7 +52,7 @@ from ax.utils.testing.core_stubs import (
     get_experiment,
     get_hierarchical_search_space_experiment,
 )
-from pyre_extensions import none_throws
+from pyre_extensions import assert_is_instance, none_throws
 
 
 class UtilsTest(TestCase):
@@ -1151,7 +1152,7 @@ class TestMetricAvailability(TestCase):
         )
         trial = exp.trials[0]
         trial.mark_running(no_runner_required=True)
-        arm_name = trial.arm.name  # pyre-ignore[16]
+        arm_name = none_throws(assert_is_instance(trial, Trial).arm).name
 
         # Both metrics present at various steps → COMPLETE.
         df_both = pd.DataFrame(
@@ -1183,7 +1184,7 @@ class TestMetricAvailability(TestCase):
         exp2.optimization_config = none_throws(exp.optimization_config)
         trial2 = exp2.trials[0]
         trial2.mark_running(no_runner_required=True)
-        arm_name2 = trial2.arm.name  # pyre-ignore[16]
+        arm_name2 = none_throws(assert_is_instance(trial2, Trial).arm).name
         df_partial = pd.DataFrame(
             [
                 {

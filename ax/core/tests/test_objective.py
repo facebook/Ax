@@ -64,8 +64,7 @@ class ObjectiveTest(TestCase):
 
     def test_MultiObjective(self) -> None:
         with self.assertRaises(NotImplementedError):
-            # pyre-fixme[7]: Expected `None` but got `Metric`.
-            return self.multi_objective.metric
+            self.multi_objective.metric
 
         self.assertEqual(self.multi_objective.metrics, list(self.metrics.values()))
         minimizes = [obj.minimize for obj in self.multi_objective.objectives]
@@ -106,8 +105,7 @@ class ObjectiveTest(TestCase):
 
     def test_ScalarizedObjective(self) -> None:
         with self.assertRaises(NotImplementedError):
-            # pyre-fixme[7]: Expected `None` but got `Metric`.
-            return self.scalarized_objective.metric
+            self.scalarized_objective.metric
 
         self.assertEqual(
             self.scalarized_objective.metrics, [self.metrics["m1"], self.metrics["m2"]]

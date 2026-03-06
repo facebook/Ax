@@ -17,6 +17,7 @@ from ax.utils.testing.core_stubs import (
     get_optimization_config,
     get_search_space,
 )
+from pyre_extensions import none_throws
 
 
 GENERATOR_RUN_STR = "GeneratorRun(3 arms, total weight 3.0)"
@@ -31,7 +32,7 @@ class GeneratorRunTest(TestCase):
         self.search_space = get_search_space()
 
         self.arms = get_arms()
-        self.weights = [2, 1, 1]
+        self.weights: list[float] = [2, 1, 1]
         self.unweighted_run = GeneratorRun(
             arms=self.arms,
             optimization_config=self.optimization_config,
@@ -42,8 +43,6 @@ class GeneratorRunTest(TestCase):
         )
         self.weighted_run = GeneratorRun(
             arms=self.arms,
-            # pyre-fixme[6]: For 2nd param expected `Optional[List[float]]` but got
-            #  `List[int]`.
             weights=self.weights,
             optimization_config=self.optimization_config,
             search_space=self.search_space,
@@ -56,13 +55,13 @@ class GeneratorRunTest(TestCase):
 
     def test_Init(self) -> None:
         self.assertEqual(
-            # pyre-fixme[16]: Optional type has no attribute `outcome_constraints`.
-            len(self.unweighted_run.optimization_config.outcome_constraints),
+            len(
+                none_throws(self.unweighted_run.optimization_config).outcome_constraints
+            ),
             len(self.optimization_config.outcome_constraints),
         )
         self.assertEqual(
-            # pyre-fixme[16]: Optional type has no attribute `parameters`.
-            len(self.unweighted_run.search_space.parameters),
+            len(none_throws(self.unweighted_run.search_space).parameters),
             len(self.search_space.parameters),
         )
         self.assertEqual(str(self.unweighted_run), GENERATOR_RUN_STR)
@@ -120,8 +119,6 @@ class GeneratorRunTest(TestCase):
         )
         run_no_model_predictions = GeneratorRun(
             arms=self.arms,
-            # pyre-fixme[6]: For 2nd param expected `Optional[List[float]]` but got
-            #  `List[int]`.
             weights=self.weights,
             optimization_config=get_optimization_config(),
             search_space=get_search_space(),
@@ -150,8 +147,6 @@ class GeneratorRunTest(TestCase):
     def test_BestArm(self) -> None:
         generator_run = GeneratorRun(
             arms=self.arms,
-            # pyre-fixme[6]: For 2nd param expected `Optional[List[float]]` but got
-            #  `List[int]`.
             weights=self.weights,
             optimization_config=get_optimization_config(),
             search_space=get_search_space(),
@@ -166,8 +161,6 @@ class GeneratorRunTest(TestCase):
         gm = {"hello": "world"}
         generator_run = GeneratorRun(
             arms=self.arms,
-            # pyre-fixme[6]: For 2nd param expected `Optional[List[float]]` but got
-            #  `List[int]`.
             weights=self.weights,
             optimization_config=get_optimization_config(),
             search_space=get_search_space(),
@@ -178,14 +171,10 @@ class GeneratorRunTest(TestCase):
     def test_Sortable(self) -> None:
         generator_run1 = GeneratorRun(
             arms=self.arms,
-            # pyre-fixme[6]: For 2nd param expected `Optional[List[float]]` but got
-            #  `List[int]`.
             weights=self.weights,
         )
         generator_run2 = GeneratorRun(
             arms=self.arms,
-            # pyre-fixme[6]: For 2nd param expected `Optional[List[float]]` but got
-            #  `List[int]`.
             weights=self.weights,
         )
         self.assertTrue(generator_run1 < generator_run2)

@@ -85,7 +85,6 @@ class TestAdapterUtils(TestCase):
             OutcomeConstraint(metric=Metric("m1"), op=ComparisonOp.LEQ, bound=0)
         ]
         res = extract_outcome_constraints(outcome_constraints, outcomes)
-        # pyre-fixme[16]: Optional type has no attribute `__getitem__`.
         self.assertEqual(res[0].shape, (1, 3))
         self.assertListEqual(list(res[0][0]), [1, 0, 0])
         self.assertEqual(res[1][0][0], 0)
@@ -137,10 +136,8 @@ class TestAdapterUtils(TestCase):
             outcomes=outcomes,
         )
         expected_obj_t_not_nan = np.array([2.0, 3.0, 4.0])
-        # pyre-fixme[16]: Optional type has no attribute `__getitem__`.
         self.assertTrue(np.array_equal(obj_t[:3], expected_obj_t_not_nan[:3]))
         self.assertTrue(np.isnan(obj_t[-1]))
-        # pyre-fixme[16]: Optional type has no attribute `shape`.
         self.assertEqual(obj_t.shape[0], 4)
 
         # Returns NaN for objectives without a threshold.

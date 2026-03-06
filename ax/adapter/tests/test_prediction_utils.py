@@ -83,14 +83,11 @@ class TestPredictionUtils(TestCase):
 
     @mock.patch("ax.adapter.random.RandomAdapter.predict")
     @mock.patch("ax.adapter.random.RandomAdapter")
-    # pyre-fixme[3]: Return type must be annotated.
     def test_predict_by_features_with_non_predicting_model(
         self,
-        # pyre-fixme[2]: Parameter must be annotated.
-        adapter_mock,
-        # pyre-fixme[2]: Parameter must be annotated.
-        predict_mock,
-    ):
+        adapter_mock: mock.MagicMock,
+        predict_mock: mock.MagicMock,
+    ) -> None:
         ax_client = _set_up_client_for_get_model_predictions_no_next_trial()
         _attach_completed_trials(ax_client)
 
