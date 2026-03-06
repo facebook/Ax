@@ -47,7 +47,10 @@ from botorch.acquisition.acquisition import AcquisitionFunction
 from botorch.acquisition.input_constructors import get_acqf_input_constructor
 from botorch.acquisition.knowledge_gradient import qKnowledgeGradient
 from botorch.acquisition.logei import qLogProbabilityOfFeasibility
-from botorch.acquisition.multioutput_acquisition import MultiOutputAcquisitionFunction
+from botorch.acquisition.multioutput_acquisition import (
+    MultiOutputAcquisitionFunction,
+    MultiOutputAcquisitionFunctionWrapper,
+)
 from botorch.acquisition.objective import MCAcquisitionObjective, PosteriorTransform
 from botorch.exceptions.errors import BotorchError, InputDataError
 from botorch.generation.sampling import SamplingStrategy
@@ -66,7 +69,7 @@ from botorch.optim.optimize_mixed import (
 )
 from botorch.optim.parameter_constraints import evaluate_feasibility
 from botorch.utils.constraints import get_outcome_constraint_transforms
-from pyre_extensions import none_throws
+from pyre_extensions import assert_is_instance, none_throws
 from torch import Tensor
 
 try:
@@ -816,18 +819,18 @@ class Acquisition(Base):
             )
         elif optimizer == "optimize_with_nsgaii":
             if optimize_with_nsgaii is not None:
-                # TODO: support post_processing_func
+                acqf = assert_is_instance(
+                    self.acqf, MultiOutputAcquisitionFunctionWrapper
+                )
                 candidates, acqf_values = optimize_with_nsgaii(
                     acq_function=self.acqf,
                     bounds=bounds,
                     q=n,
                     fixed_features=fixed_features,
-                    # We use pyre-ignore here to avoid a circular import.
-                    # pyre-ignore [6]: Incompatible parameter type [6]: In call `len`,
-                    # for 1st positional argument, expected
-                    # `pyre_extensions.PyreReadOnly[Sized]` but got `Union[Tensor,
-                    # Module]`.
-                    num_objectives=len(self.acqf.acqfs),
+                    inequality_constraints=inequality_constraints,
+                    num_objectives=len(acqf.acqfs),
+                    discrete_choices=discrete_choices if discrete_choices else None,
+                    post_processing_func=rounding_func,
                     **optimizer_options_with_defaults,
                 )
             else:
