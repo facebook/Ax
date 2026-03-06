@@ -419,10 +419,10 @@ def _get_experiment_id(experiment_name: str, config: SQAConfig) -> int | None:
     """Get DB ID of the experiment by the given name if its in DB,
     return None otherwise.
     """
-    exp_sqa_class = config.class_to_sqa_class[Experiment]
+    exp_sqa_class = cast(type[SQAExperiment], config.class_to_sqa_class[Experiment])
     with session_scope() as session:
         sqa_experiment_id = (
-            session.query(exp_sqa_class.id)  # pyre-ignore
+            session.query(exp_sqa_class.id)
             .filter_by(name=experiment_name)
             .one_or_none()
         )
@@ -522,11 +522,7 @@ def _load_generation_strategy_by_id(
         (
             _get_experiment_immutable_opt_config_and_search_space(
                 experiment_name=experiment.name,
-                # pyre-ignore Incompatible parameter type [6]: Expected
-                # `Type[SQAExperiment]` for 2nd parameter `exp_sqa_class`
-                # to call `_get_experiment_immutable_opt_config_and_search_space`
-                # but got `Type[ax.storage.sqa_store.db.SQABase]`.
-                exp_sqa_class=exp_sqa_class,
+                exp_sqa_class=cast(type[SQAExperiment], exp_sqa_class),
             )
         )
         if experiment is not None
@@ -553,13 +549,14 @@ def get_generation_strategy_id(experiment_name: str, decoder: Decoder) -> int | 
     """
     exp_sqa_class = decoder.config.class_to_sqa_class[Experiment]
     gs_sqa_class = decoder.config.class_to_sqa_class[GenerationStrategy]
+    gs_sqa_class_typed = cast(type[SQAGenerationStrategy], gs_sqa_class)
+    exp_sqa_class_typed = cast(type[SQAExperiment], exp_sqa_class)
     with session_scope() as session:
         sqa_gs_ids = (
-            session.query(gs_sqa_class.id)  # pyre-ignore[16]
-            .join(exp_sqa_class.generation_strategy)  # pyre-ignore[16]
-            # pyre-fixme[16]: `SQABase` has no attribute `name`.
-            .filter(exp_sqa_class.name == experiment_name)
-            .order_by(gs_sqa_class.id.desc())
+            session.query(gs_sqa_class_typed.id)
+            .join(exp_sqa_class_typed.generation_strategy)
+            .filter(exp_sqa_class_typed.name == experiment_name)
+            .order_by(gs_sqa_class_typed.id.desc())
             .all()
         )
 
@@ -649,10 +646,12 @@ def get_generator_runs_by_id(
     immutable_search_space_and_opt_config: bool = False,
 ) -> list[GeneratorRun]:
     """Bulk fetches generator runs by id."""
-    generator_run_sqa_class = decoder.config.class_to_sqa_class[GeneratorRun]
+    generator_run_sqa_class = cast(
+        type[SQAGeneratorRun], decoder.config.class_to_sqa_class[GeneratorRun]
+    )
     with session_scope() as session:
         query = session.query(generator_run_sqa_class).filter(
-            generator_run_sqa_class.id.in_(generator_run_ids)  # pyre-ignore[16]
+            generator_run_sqa_class.id.in_(generator_run_ids)
         )
         sqa_grs = query.all()
     return [

@@ -21,15 +21,11 @@ from ax.storage.json_store.registry import (
 def save_experiment(
     experiment: Experiment,
     filepath: str,
-    # pyre-fixme[24]: Generic type `type` expects 1 type parameter, use
-    #  `typing.Type` to avoid runtime subscripting errors.
     encoder_registry: dict[
-        type, Callable[[Any], dict[str, Any]]
+        type[Any], Callable[[Any], dict[str, Any]]
     ] = CORE_ENCODER_REGISTRY,
-    # pyre-fixme[24]: Generic type `type` expects 1 type parameter, use
-    #  `typing.Type` to avoid runtime subscripting errors.
     class_encoder_registry: dict[
-        type, Callable[[Any], dict[str, Any]]
+        type[Any], Callable[[Any], dict[str, Any]]
     ] = CORE_CLASS_ENCODER_REGISTRY,
 ) -> None:
     """Save experiment to file.

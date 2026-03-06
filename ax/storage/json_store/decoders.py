@@ -454,8 +454,9 @@ def choice_parameter_from_json(
     # JSON converts dictionary keys to strings. We need to convert them back.
     if dependents is not None:
         dependents = {
-            # pyre-ignore [6]: JSON keys are always strings
-            string_to_parameter_value(s=key, parameter_type=parameter_type): value
+            string_to_parameter_value(
+                s=assert_is_instance(key, str), parameter_type=parameter_type
+            ): value
             for key, value in dependents.items()
         }
 
@@ -499,8 +500,9 @@ def fixed_parameter_from_json(
     # JSON converts dictionary keys to strings. We need to convert them back.
     if dependents is not None:
         dependents = {
-            # pyre-ignore [6]: JSON keys are always strings
-            string_to_parameter_value(s=key, parameter_type=parameter_type): value
+            string_to_parameter_value(
+                s=assert_is_instance(key, str), parameter_type=parameter_type
+            ): value
             for key, value in dependents.items()
         }
 
