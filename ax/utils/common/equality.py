@@ -23,9 +23,7 @@ def equality_typechecker(eq_func: Callable) -> Callable:
     """
 
     # no type annotation for now; breaks sphinx-autodoc-typehints
-    # pyre-fixme[3]: Return type must be annotated.
-    # pyre-fixme[2]: Parameter must be annotated.
-    def _type_safe_equals(self, other):
+    def _type_safe_equals(self: Any, other: Any) -> bool:
         if not isinstance(other, self.__class__):
             return False
         return eq_func(self, other)
@@ -60,7 +58,6 @@ def same_elements(list1: list[Any], list2: list[Any]) -> bool:
     return all(matched)
 
 
-# pyre-fixme[2]: Parameter annotation cannot contain `Any`.
 def is_ax_equal(one_val: Any, other_val: Any) -> bool:
     """Check for equality of two values, handling lists, dicts, dfs, floats,
     dates, and numpy arrays. This method and ``same_elements`` function

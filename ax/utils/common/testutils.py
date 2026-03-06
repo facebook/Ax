@@ -20,11 +20,10 @@ import types
 import unittest
 import warnings
 from collections.abc import Callable, Generator
-from contextlib import AbstractContextManager
 from logging import Logger
 from pstats import Stats
 from types import FrameType
-from typing import Any, TypeVar, Union
+from typing import Any, cast, TypeVar, Union
 
 import numpy as np
 import torch
@@ -60,9 +59,7 @@ def _get_tb_lines(tb: types.TracebackType) -> list[tuple[str, int, str]]:
     return res
 
 
-# pyre-fixme[24]: Generic type `unittest.case._AssertRaisesContext` expects 1 type
-#  parameter.
-class _AssertRaisesContextOn(unittest.case._AssertRaisesContext):
+class _AssertRaisesContextOn(unittest.case._AssertRaisesContext[Exception]):
     """
     Attributes:
        lineno: the line number on which the error occurred
@@ -89,12 +86,10 @@ class _AssertRaisesContextOn(unittest.case._AssertRaisesContext):
             expected=expected, test_case=test_case, expected_regex=expected_regex
         )
 
-    # pyre-fixme[14]: `__exit__` overrides method defined in `_AssertRaisesContext`
-    #  inconsistently.
     def __exit__(
         self,
-        exc_type: type[Exception] | None,
-        exc_value: Exception | None,
+        exc_type: type[BaseException] | None,
+        exc_value: BaseException | None,
         tb: types.TracebackType | None,
     ) -> bool:
         """This is called when the context closes. If an exception was raised
@@ -110,10 +105,8 @@ class _AssertRaisesContextOn(unittest.case._AssertRaisesContext):
         self.filename, self.lineno, _ = frames[0]
         lines = [line for _, _, line in frames]
         if self._expected_line is not None and self._expected_line not in lines:
-            # pyre-ignore [16]: ... has no attribute `_raiseFailure`.
-            self._raiseFailure(
-                f"{self._expected_line!r} was not found in the traceback: {lines!r}"
-            )
+            msg = f"{self._expected_line!r} was not found in the traceback: {lines!r}"
+            raise self.test_case.failureException(msg)
 
         return True
 
@@ -420,12 +413,10 @@ class TestCase(fake_filesystem_unittest.TestCase):
         exc: type[Exception],
         line: str | None = None,
         regex: str | None = None,
-        # pyre-ignore[24]: Generic type `AbstractContextManager`
-        # expects 2 type parameters, received 1.
-    ) -> AbstractContextManager[None]:
+    ) -> _AssertRaisesContextOn:
         """Assert that an exception is raised on a specific line."""
         context = _AssertRaisesContextOn(exc, self, line, regex)
-        return context.handle("assertRaisesOn", [], {})
+        return cast(_AssertRaisesContextOn, context.handle("assertRaisesOn", [], {}))
 
     def assertDictsAlmostEqual(
         self, a: dict[str, Any], b: dict[str, Any], consider_nans_equal: bool = False
@@ -532,30 +523,21 @@ class TestCase(fake_filesystem_unittest.TestCase):
         cls._long_test_active_reason = None
 
     # This list is taken from the python standard library
-    # pyre-fixme[4]: Attribute must be annotated.
-    failUnlessEqual = assertEquals = _deprecate(unittest.TestCase.assertEqual)
-    # pyre-fixme[4]: Attribute must be annotated.
-    failIfEqual = assertNotEquals = _deprecate(unittest.TestCase.assertNotEqual)
-    # pyre-fixme[4]: Attribute must be annotated.
-    failUnlessAlmostEqual = assertAlmostEquals = _deprecate(
-        unittest.TestCase.assertAlmostEqual
-    )
-    # pyre-fixme[4]: Attribute must be annotated.
-    failIfAlmostEqual = assertNotAlmostEquals = _deprecate(
-        unittest.TestCase.assertNotAlmostEqual
-    )
-    # pyre-fixme[4]: Attribute must be annotated.
-    failUnless = assert_ = _deprecate(unittest.TestCase.assertTrue)
-    # pyre-fixme[4]: Attribute must be annotated.
-    failUnlessRaises = _deprecate(unittest.TestCase.assertRaises)
-    # pyre-fixme[4]: Attribute must be annotated.
-    failIf = _deprecate(unittest.TestCase.assertFalse)
-    # pyre-fixme[4]: Attribute must be annotated.
-    assertRaisesRegexp = _deprecate(unittest.TestCase.assertRaisesRegex)
-    # pyre-fixme[4]: Attribute must be annotated.
-    assertRegexpMatches = _deprecate(unittest.TestCase.assertRegex)
-    # pyre-fixme[4]: Attribute must be annotated.
-    assertNotRegexpMatches = _deprecate(unittest.TestCase.assertNotRegex)
+    failUnlessEqual: Callable = _deprecate(unittest.TestCase.assertEqual)
+    assertEquals: Callable = failUnlessEqual
+    failIfEqual: Callable = _deprecate(unittest.TestCase.assertNotEqual)
+    assertNotEquals: Callable = failIfEqual
+    failUnlessAlmostEqual: Callable = _deprecate(unittest.TestCase.assertAlmostEqual)
+    assertAlmostEquals: Callable = failUnlessAlmostEqual
+    failIfAlmostEqual: Callable = _deprecate(unittest.TestCase.assertNotAlmostEqual)
+    assertNotAlmostEquals: Callable = failIfAlmostEqual
+    failUnless: Callable = _deprecate(unittest.TestCase.assertTrue)
+    assert_: Callable = failUnless
+    failUnlessRaises: Callable = _deprecate(unittest.TestCase.assertRaises)
+    failIf: Callable = _deprecate(unittest.TestCase.assertFalse)
+    assertRaisesRegexp: Callable = _deprecate(unittest.TestCase.assertRaisesRegex)
+    assertRegexpMatches: Callable = _deprecate(unittest.TestCase.assertRegex)
+    assertNotRegexpMatches: Callable = _deprecate(unittest.TestCase.assertNotRegex)
 
     # Copied from BoTorch assertAllClose
     def assertAllClose(

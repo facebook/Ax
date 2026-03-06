@@ -12,7 +12,7 @@ import warnings
 from collections.abc import Callable, Iterable, Mapping, MutableMapping, Sequence
 from copy import deepcopy
 from logging import Logger
-from typing import Any, SupportsFloat, TYPE_CHECKING
+from typing import Any, cast, SupportsFloat, TYPE_CHECKING
 
 import numpy as np
 import numpy.typing as npt
@@ -135,8 +135,9 @@ def extract_search_space_digest(
         if isinstance(p, ChoiceParameter):
             if p.is_task:
                 task_features.append(i)
-                target_values[i] = assert_is_instance_of_tuple(
-                    p.target_value, (int, float)
+                target_values[i] = cast(
+                    TNumeric,
+                    assert_is_instance_of_tuple(p.target_value, (int, float)),
                 )
             elif p.is_ordered:
                 ordinal_features.append(i)
@@ -144,7 +145,8 @@ def extract_search_space_digest(
                 categorical_features.append(i)
             # at this point we can assume that values are numeric due to transforms
             numeric_values: list[TNumeric] = [
-                assert_is_instance_of_tuple(v, (int, float)) for v in p.values
+                cast(TNumeric, assert_is_instance_of_tuple(v, (int, float)))
+                for v in p.values
             ]
             discrete_choices[i] = numeric_values
             bounds.append((min(numeric_values), max(numeric_values)))
@@ -164,7 +166,10 @@ def extract_search_space_digest(
             raise ValueError(f"Unknown parameter type {type(p)}")
         if p.is_fidelity:
             fidelity_features.append(i)
-            target_values[i] = assert_is_instance_of_tuple(p.target_value, (int, float))
+            target_values[i] = cast(
+                TNumeric,
+                assert_is_instance_of_tuple(p.target_value, (int, float)),
+            )
 
     if search_space.is_hierarchical:
         hierarchical_dependencies = {}
@@ -172,7 +177,10 @@ def extract_search_space_digest(
         for p_name, p in search_space.parameters.items():
             if p.is_hierarchical:
                 hierarchical_dependencies[param_names.index(p_name)] = {
-                    assert_is_instance_of_tuple(parent_value, (int, float)): [
+                    cast(
+                        TNumeric,
+                        assert_is_instance_of_tuple(parent_value, (int, float)),
+                    ): [
                         param_names.index(activated_param)
                         for activated_param in activated_params
                     ]

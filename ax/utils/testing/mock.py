@@ -126,8 +126,7 @@ def mock_botorch_optimize(f: Callable) -> Callable:
     """Wraps `f` in `mock_botorch_optimize_context_manager` for use as a decorator."""
 
     @wraps(f)
-    # pyre-fixme[3]: Return type must be annotated.
-    def inner(*args: Any, **kwargs: Any):
+    def inner(*args: Any, **kwargs: Any) -> Any:
         with mock_botorch_optimize_context_manager():
             return f(*args, **kwargs)
 
@@ -155,8 +154,7 @@ def skip_fit_gpytorch_mll(f: Callable) -> Callable:
     """Wraps f in the skip_fit_gpytorch_mll_context_manager for use as a decorator."""
 
     @wraps(f)
-    # pyre-fixme[3]: Return type must be annotated.
-    def inner(*args: Any, **kwargs: Any):
+    def inner(*args: Any, **kwargs: Any) -> Any:
         with skip_fit_gpytorch_mll_context_manager():
             return f(*args, **kwargs)
 

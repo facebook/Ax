@@ -114,9 +114,7 @@ class Result(Generic[T, E], ABC):
         pass
 
     @abstractmethod
-    # pyre-ignore[46]: The type variable `Variable[T](covariant)` is covariant and
-    # cannot be a parameter type.
-    def unwrap_or(self, default: T) -> T:
+    def unwrap_or(self, default: U) -> T | U:
         """Returns the contained Ok value or a provided default."""
 
         pass
@@ -183,7 +181,7 @@ class Ok(Generic[T, E], Result[T, E]):
     def unwrap_err(self) -> NoReturn:
         raise RuntimeError(f"Tried to unwrap_err {self}.")
 
-    def unwrap_or(self, default: U) -> T:
+    def unwrap_or(self, default: U) -> T | U:
         return self._value
 
     def unwrap_or_else(self, op: Callable[[E], T]) -> T:
@@ -243,9 +241,7 @@ class Err(Generic[T, E], Result[T, E]):
     def unwrap_err(self) -> E:
         return self._value
 
-    # pyre-ignore[46]: The type variable `Variable[T](covariant)` is covariant and
-    # cannot be a parameter type.
-    def unwrap_or(self, default: T) -> T:
+    def unwrap_or(self, default: U) -> T | U:
         return default
 
     def unwrap_or_else(self, op: Callable[[E], T]) -> T:

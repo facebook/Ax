@@ -107,8 +107,7 @@ class GpDGSMGpMean:
             raise ValueError("Kernel type has to be specified to use derivative GP")
         self.num_mc_samples = num_mc_samples
         if input_qmc:
-            # pyre-fixme[4]: Attribute must be annotated.
-            self.input_mc_samples = (
+            self.input_mc_samples: torch.Tensor = (
                 draw_sobol_samples(bounds=bounds, n=num_mc_samples, q=1, seed=1234)
                 .squeeze(1)
                 .to(dtype)
@@ -321,10 +320,9 @@ class GpDGSMGpSampling(GpDGSMGpMean):
             samples_gradients = []
             for j in range(self.num_gp_samples):
                 torch.sum(samples[j]).backward(retain_graph=True)
-                samples_gradients.append(
-                    deepcopy(self.input_mc_samples.grad).unsqueeze(0)
-                )
-                self.input_mc_samples.grad.data.zero_()
+                grad = none_throws(self.input_mc_samples.grad)
+                samples_gradients.append(deepcopy(grad).unsqueeze(0))
+                grad.data.zero_()
             self.samples_gradients = torch.cat(samples_gradients, dim=0) * Y_scale
         if self.bootstrap:
             subset_size = 2

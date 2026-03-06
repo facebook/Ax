@@ -8,6 +8,7 @@
 
 
 import numpy as np
+import numpy.typing as npt
 import pandas as pd
 import scipy
 from ax.core.data import Data
@@ -152,7 +153,6 @@ def check_experiment_effects(
     return effective, ineffective_on_objectives, bounds_df
 
 
-# pyre-fixme[3]: Return type must be annotated.
 def ri_test_of_no_effect(
     means: list[float],
     sems: list[float],
@@ -160,36 +160,36 @@ def ri_test_of_no_effect(
     names: list[str],
     status_quo_name: str,
     M: int = 10000,
-):
-    # pyre-fixme[9]: means has type `List[float]`; used as `ndarray`.
-    means = np.array(means)
-    # pyre-fixme[9]: sems has type `List[float]`; used as `ndarray`.
-    sems = np.array(sems)
-    # pyre-fixme[9]: ns has type `List[int]`; used as `ndarray`.
-    ns = np.array(ns)
-    # pyre-fixme[9]: names has type `List[str]`; used as `ndarray`.
-    names = np.array(names)
-    if len(names) != len(means):
+) -> tuple[float, npt.NDArray, list[npt.NDArray]]:
+    means_arr = np.array(means)
+    sems_arr = np.array(sems)
+    ns_arr = np.array(ns)
+    names_arr = np.array(names)
+    if len(names_arr) != len(means_arr):
         raise ValueError("Length of means and names must be equal.")
-    K = len(means)
-    # pyre-fixme[58]: `/` is not supported for operand types `List[int]` and `Any`.
-    ps = ns / np.sum(ns)
-    vars = np.power(sems, 2) * np.array(ns)
-    mn = np.average(means, weights=ps)
+    K = len(means_arr)
+    ps = ns_arr / np.sum(ns_arr)
+    vars = np.power(sems_arr, 2) * ns_arr
+    mn = np.average(means_arr, weights=ps)
     E_vr = np.average(vars, weights=ps**2)
-    # pyre-fixme[58]: `-` is not supported for operand types `List[float]` and `Any`.
-    vr_E = np.average((means - mn) ** 2, weights=ps) * K / (K - 1)
+    vr_E = np.average((means_arr - mn) ** 2, weights=ps) * K / (K - 1)
     vr = E_vr + vr_E
-    z_stats = []
+    z_stats: list[npt.NDArray] = []
     p_value = 0.0
-    actual_z = estimate_largest_z(means, sems, names, status_quo_name=status_quo_name)
+    actual_z = estimate_largest_z(
+        means_arr, sems_arr, names_arr, status_quo_name=status_quo_name
+    )
     for _ in range(M):
-        # pyre-fixme[6]: For 1st argument expected `bool` but got `List[int]`.
-        b_mns = np.random.normal(loc=mn, scale=np.sqrt(vr / ns), size=K)
-        # pyre-fixme[6]: For 1st argument expected `bool` but got `List[int]`.
-        b_sems = np.random.normal(loc=np.sqrt(vr), scale=np.sqrt(vr / (2 * ns)), size=K)
-        b_sems /= np.sqrt(ns)
-        ri_arms = np.random.choice(names, K, replace=False)
+        # Generate standard normal samples and transform to desired distribution
+        # This avoids numpy type stub issues with array-valued loc/scale params
+        b_mns: npt.NDArray = np.asarray(mn) + np.sqrt(
+            np.asarray(vr) / ns_arr
+        ) * np.random.standard_normal(K)
+        b_sems: npt.NDArray = np.asarray(np.sqrt(vr)) + np.sqrt(
+            np.asarray(vr) / (2 * ns_arr)
+        ) * np.random.standard_normal(K)
+        b_sems /= np.sqrt(ns_arr)
+        ri_arms = np.random.choice(names_arr, K, replace=False)
         new_z = estimate_largest_z(
             b_mns, b_sems, ri_arms, status_quo_name=status_quo_name
         )
@@ -249,58 +249,44 @@ def no_effect_test_welch(
     dfd = (K**2 - 1) / (3 * H)
 
     f_stat = bg / wg
-    # pyre-ignore
-    p_value = 1 - scipy.stats.f.cdf(f_stat, dfn=K - 1, dfd=dfd)
+    p_value = float(1 - scipy.stats.f.cdf(f_stat, K - 1, dfd))
 
     return p_value, f_stat
 
 
-# pyre-fixme[3]: Return type must be annotated.
 def estimate_effect_bounds(
     means: list[float],
     sems: list[float],
     names: list[str],
     status_quo_name: str | None,
     alpha: float,
-):
-    # pyre-fixme[9]: means has type `List[float]`; used as `ndarray[typing.Any,
-    #  dtype[typing.Any]]`.
-    means = np.asarray(means)
-    # pyre-fixme[9]: sems has type `List[float]`; used as `ndarray[typing.Any,
-    #  dtype[typing.Any]]`.
-    sems = np.asarray(sems)
-    # pyre-fixme[9]: names has type `List[str]`; used as `ndarray[typing.Any,
-    #  dtype[typing.Any]]`.
-    names = np.asarray(names)
+) -> tuple[npt.NDArray, npt.NDArray]:
+    means_arr = np.asarray(means)
+    sems_arr = np.asarray(sems)
+    names_arr = np.asarray(names)
     if status_quo_name is not None:
-        # pyre-fixme[16]: `float` has no attribute `item`.
-        m_c = means[names == status_quo_name].item()
-        sem_c = sems[names == status_quo_name].item()
-        means_t = means[names != status_quo_name]
-        sems_t = sems[names != status_quo_name]
+        m_c = means_arr[names_arr == status_quo_name].item()
+        sem_c = sems_arr[names_arr == status_quo_name].item()
+        means_t = means_arr[names_arr != status_quo_name]
+        sems_t = sems_arr[names_arr != status_quo_name]
         fx, fx_sems = relativize(
             means_t=means_t, sems_t=sems_t, mean_c=m_c, sem_c=sem_c
         )
     else:
-        fx, fx_sems = means, sems
+        fx = np.array(means)
+        fx_sems = np.array(sems)
     z = norm.ppf(1 - alpha / 2)
-    # pyre-fixme[58]: `-` is not supported for operand types
-    #  `Union[np.ndarray[typing.Any, typing.Any], typing.List[float]]` and `float`.
-    # pyre-fixme[58]: `*` is not supported for operand types `float` and
-    #  `Union[np.ndarray[typing.Any, typing.Any], typing.List[float]]`.
     min_fx = fx - z * fx_sems
-    # pyre-fixme[58]: `+` is not supported for operand types
-    #  `Union[np.ndarray[typing.Any, typing.Any], typing.List[float]]` and `float`.
-    # pyre-fixme[58]: `*` is not supported for operand types `float` and
-    #  `Union[np.ndarray[typing.Any, typing.Any], typing.List[float]]`.
     max_fx = fx + z * fx_sems
     return np.min(min_fx), np.max(max_fx)
 
 
-# pyre-fixme[3]: Return type must be annotated.
 def estimate_largest_z(
-    means: list[float], sems: list[float], names: list[str], status_quo_name: str
-):
+    means: npt.NDArray,
+    sems: npt.NDArray,
+    names: npt.NDArray,
+    status_quo_name: str,
+) -> npt.NDArray:
     mn_sq = [mn for i, mn in enumerate(means) if names[i] == status_quo_name][0]
     sem_sq = [sm for i, sm in enumerate(sems) if names[i] == status_quo_name][0]
     arm_mns = [mn for i, mn in enumerate(means) if names[i] != status_quo_name]

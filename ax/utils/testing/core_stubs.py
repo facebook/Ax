@@ -1902,6 +1902,7 @@ def get_task_choice_parameter() -> ChoiceParameter:
 
 
 def get_hierarchical_choice_parameter(parameter_type: ParameterType) -> ChoiceParameter:
+    values: list[TParamValue]
     if parameter_type == ParameterType.BOOL:
         values = [True, False]
     elif parameter_type == ParameterType.INT:
@@ -1914,18 +1915,23 @@ def get_hierarchical_choice_parameter(parameter_type: ParameterType) -> ChoicePa
     return ChoiceParameter(
         name="x",
         parameter_type=parameter_type,
-        values=values,  # pyre-ignore [6]
+        values=values,
         is_ordered=True,
         dependents={values[0]: ["y"], values[1]: ["z"]},
     )
 
 
 def get_fixed_parameter(with_dependents: bool = False) -> FixedParameter:
+    key: TParamValue = True
+    dep_dict: dict[TParamValue, list[str]] = {key: ["y"]}
+    dependents: dict[TParamValue, list[str]] | None = (
+        dep_dict if with_dependents else None
+    )
     return FixedParameter(
         name="z",
         parameter_type=ParameterType.BOOL,
         value=True,
-        dependents={True: ["y"]} if with_dependents else None,  # pyre-ignore [6]
+        dependents=dependents,
     )
 
 
