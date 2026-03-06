@@ -8,9 +8,11 @@
 
 
 import numpy as np
+import pandas as pd
 import torch
 from ax.adapter.adapter_utils import (
     _get_adapter_training_data,
+    _get_fresh_pairwise_trial_indices,
     arm_to_np_array,
     can_map_to_binary,
     extract_objective_weight_matrix,
@@ -25,6 +27,9 @@ from ax.adapter.registry import Cont_X_trans, Y_trans
 from ax.adapter.torch import TorchAdapter
 from ax.adapter.transforms.choice_encode import ChoiceToNumericChoice
 from ax.core.arm import Arm
+from ax.core.data import Data
+from ax.core.derived_metric import DerivedMetric
+from ax.core.experiment import Experiment
 from ax.core.metric import Metric
 from ax.core.objective import MultiObjective, Objective, ScalarizedObjective
 from ax.core.optimization_config import MultiObjectiveOptimizationConfig
@@ -34,6 +39,8 @@ from ax.core.search_space import SearchSpace
 from ax.core.types import ComparisonOp
 from ax.exceptions.core import UserInputError
 from ax.generators.torch.botorch_modular.generator import BoTorchGenerator
+from ax.utils.common.constants import Keys
+from ax.utils.common.hash_utils import compute_lilo_input_hash
 from ax.utils.common.testutils import TestCase
 from ax.utils.testing.core_stubs import (
     get_experiment_with_observations,
@@ -555,3 +562,81 @@ class TestAdapterUtils(TestCase):
         )
         result = extract_objective_weight_matrix(multi, outcomes)
         np.testing.assert_array_equal(result, [[1.0, 0.0, 0.0], [0.0, 0.0, -1.0]])
+
+    def test_get_fresh_pairwise_trial_indices(self) -> None:
+        """Verify _get_fresh_pairwise_trial_indices hash-based filtering."""
+        search_space = get_search_space_for_range_values()
+        exp = Experiment(name="test", search_space=search_space)
+
+        # Register a DerivedMetric with pairwise name so the function can
+        # look up input_metric_names.
+        pairwise_metric = DerivedMetric(
+            name=Keys.PAIRWISE_PREFERENCE_QUERY.value,
+            input_metric_names=["latency"],
+        )
+        exp.add_tracking_metric(pairwise_metric)
+
+        # Helper to create trial data.
+        def _attach(
+            trial_index: int, arms: dict[str, float], exp: Experiment = exp
+        ) -> None:
+            rows = [
+                {
+                    "trial_index": trial_index,
+                    "arm_name": name,
+                    "metric_name": "latency",
+                    "metric_signature": "latency",
+                    "mean": val,
+                    "sem": 0.1,
+                }
+                for name, val in arms.items()
+            ]
+            exp.attach_data(Data(df=pd.DataFrame(rows)))
+
+        # Create two trials with data.
+        for i in range(2):
+            trial = exp.new_batch_trial()
+            trial.add_arm(Arm(name=f"{i}_0", parameters={"x": float(i)}))
+            trial.mark_running(no_runner_required=True)
+            trial.mark_completed()
+            _attach(i, {f"{i}_0": float(i + 1)})
+
+        with self.subTest("no_hashes_returns_none"):
+            # No trials have LILO_INPUT_HASH → not a LILO experiment.
+            result = _get_fresh_pairwise_trial_indices(exp)
+            self.assertIsNone(result)
+
+        # Stamp trial 0 with the current hash.
+        current_hash = compute_lilo_input_hash(exp, ["latency"])
+        exp.trials[0]._properties[Keys.LILO_INPUT_HASH] = current_hash
+
+        with self.subTest("fresh_hash_included"):
+            result = _get_fresh_pairwise_trial_indices(exp)
+            assert result is not None
+            self.assertIn(0, result)
+            # Trial 1 has no hash → always included.
+            self.assertIn(1, result)
+
+        # Stamp trial 1 with a stale hash.
+        exp.trials[1]._properties[Keys.LILO_INPUT_HASH] = "stale_hash_value"
+
+        with self.subTest("stale_hash_excluded"):
+            result = _get_fresh_pairwise_trial_indices(exp)
+            assert result is not None
+            self.assertIn(0, result)
+            self.assertNotIn(1, result)
+
+        with self.subTest("all_stale"):
+            # Make both hashes stale by adding new data.
+            trial2 = exp.new_batch_trial()
+            trial2.add_arm(Arm(name="2_0", parameters={"x": 10.0}))
+            trial2.mark_running(no_runner_required=True)
+            trial2.mark_completed()
+            _attach(2, {"2_0": 999.0})
+            # Now both trial 0 and trial 1 have stale hashes.
+            result = _get_fresh_pairwise_trial_indices(exp)
+            assert result is not None
+            # Trial 0 and 1 are stale, trial 2 has no hash → included.
+            self.assertNotIn(0, result)
+            self.assertNotIn(1, result)
+            self.assertIn(2, result)

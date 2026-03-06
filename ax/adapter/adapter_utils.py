@@ -44,6 +44,8 @@ from ax.generators.torch.botorch_moo_utils import (
     get_weighted_mc_objective_and_objective_thresholds,
     pareto_frontier_evaluator,
 )
+from ax.utils.common.constants import Keys
+from ax.utils.common.hash_utils import get_current_lilo_hash
 from ax.utils.common.logger import get_logger
 from ax.utils.common.typeutils import (
     assert_is_instance_of_tuple,
@@ -1268,6 +1270,50 @@ def process_contextual_datasets(
                 )
             )
     return contextual_datasets
+
+
+def _get_fresh_pairwise_trial_indices(
+    experiment: Experiment,
+) -> set[int] | None:
+    """Return trial indices whose pairwise labels match current experiment state.
+
+    LILO (Language-in-the-Loop) trials are stamped with a hash of the
+    experiment state (metric data + LLM messages) at labeling time.  When
+    the experiment state changes (new data, updated LLM messages), old labels
+    become stale and should be excluded from PairwiseGP model fitting.
+
+    Returns:
+        A set of trial indices whose LILO input hash matches the current
+        experiment state, or ``None`` if hash-based filtering is not
+        applicable (e.g., no trials have a LILO input hash — the experiment
+        uses BOPE or another non-LILO pairwise workflow).
+    """
+    # Collect trials that have been stamped with a LILO input hash.
+    stamped_trials = {
+        idx: trial
+        for idx, trial in experiment.trials.items()
+        if Keys.LILO_INPUT_HASH in trial._properties
+    }
+    if not stamped_trials:
+        # Not a LILO experiment — no filtering needed.
+        return None
+
+    current_hash = get_current_lilo_hash(experiment)
+    if current_hash is None:
+        return None
+
+    fresh_indices: set[int] = set()
+    for idx, trial in experiment.trials.items():
+        trial_hash = trial._properties.get(Keys.LILO_INPUT_HASH)
+        if trial_hash is None:
+            # Trial without hash (non-LILO trial) — always include.
+            fresh_indices.add(idx)
+        elif trial_hash == current_hash:
+            # Hash matches — labels are fresh.
+            fresh_indices.add(idx)
+        # else: stale hash — excluded.
+
+    return fresh_indices
 
 
 def prep_pairwise_data(
