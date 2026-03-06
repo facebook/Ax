@@ -262,12 +262,10 @@ class TestRetryDecorator(TestCase):
         instance methods.
         """
 
-        mock = Mock()
+        mock: Mock = Mock()
 
         @retry_on_exception(wrap_error_message_in="Wrapper error message")
-        # pyre-fixme[53]: Captured variable `mock` is not annotated.
-        # pyre-fixme[3]: Return type must be annotated.
-        def error_throwing_function():
+        def error_throwing_function() -> None:
             mock()
             raise RuntimeError("I failed")
 

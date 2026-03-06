@@ -35,6 +35,7 @@ from ax.core.experiment import Experiment
 from ax.core.experiment_status import ExperimentStatus
 from ax.core.generator_run import GeneratorRun
 from ax.core.metric import Metric
+from ax.core.multi_type_experiment import MultiTypeExperiment
 from ax.core.objective import MultiObjective, Objective, ScalarizedObjective
 from ax.core.optimization_config import (
     MultiObjectiveOptimizationConfig,
@@ -209,9 +210,8 @@ class SQAStoreTest(TestCase):
         init_engine_and_session_factory(url="sqlite://", force_init=True)
 
     def MockDBAPI(self) -> MagicMock:
-        connection = Mock()
+        connection: Mock = Mock()
 
-        # pyre-fixme[53]: Captured variable `connection` is not annotated.
         def connect(*args: Any, **kwargs: Any) -> Mock:
             return connection
 
@@ -447,10 +447,10 @@ class SQAStoreTest(TestCase):
             tracking_metrics=[Metric(name="tracking")],
             is_test=True,
             auxiliary_experiments_by_purpose={
-                # pyre-ignore[16]: `AuxiliaryExperimentPurpose` has no attribute
-                self.config.auxiliary_experiment_purpose_enum.PE_EXPERIMENT: [
-                    AuxiliaryExperiment(experiment=aux_experiment)
-                ]
+                cast(
+                    type[AuxiliaryExperimentPurpose],
+                    self.config.auxiliary_experiment_purpose_enum,
+                ).PE_EXPERIMENT: [AuxiliaryExperiment(experiment=aux_experiment)]
             },
         )
         self.assertIsNone(experiment_w_aux_exp.db_id)
@@ -474,8 +474,10 @@ class SQAStoreTest(TestCase):
         aux_exp_gs = get_generation_strategy()
         aux_exp.new_trial(aux_exp_gs.gen_single_trial(experiment=aux_exp))
         save_experiment(aux_exp, config=self.config)
-        # pyre-ignore[16]: `AuxiliaryExperimentPurpose` has no attribute
-        purpose = self.config.auxiliary_experiment_purpose_enum.PE_EXPERIMENT
+        purpose = cast(
+            type[AuxiliaryExperimentPurpose],
+            self.config.auxiliary_experiment_purpose_enum,
+        ).PE_EXPERIMENT
 
         target_exp = Experiment(
             name="test_experiment_w_aux_exp_in_SQAStoreTest_reduced_state",
@@ -531,10 +533,10 @@ class SQAStoreTest(TestCase):
             search_space=get_search_space(),
             is_test=True,
             auxiliary_experiments_by_purpose={
-                # pyre-ignore[16]: `AuxiliaryExperimentPurpose` has no attribute
-                self.config.auxiliary_experiment_purpose_enum.PE_EXPERIMENT: [
-                    AuxiliaryExperiment(experiment=aux_experiment)
-                ]
+                cast(
+                    type[AuxiliaryExperimentPurpose],
+                    self.config.auxiliary_experiment_purpose_enum,
+                ).PE_EXPERIMENT: [AuxiliaryExperiment(experiment=aux_experiment)]
             },
         )
         with self.assertRaisesRegex(SQAEncodeError, "that does not exist in"):
@@ -545,8 +547,10 @@ class SQAStoreTest(TestCase):
     ) -> None:
         exp1_name = "test_aux_exp_in_SQAStoreTest1"
         exp2_name = "test_aux_exp_in_SQAStoreTest2"
-        # pyre-ignore[16]: `AuxiliaryExperimentPurpose` has no attribute
-        exp_purpose = self.config.auxiliary_experiment_purpose_enum.PE_EXPERIMENT
+        exp_purpose = cast(
+            type[AuxiliaryExperimentPurpose],
+            self.config.auxiliary_experiment_purpose_enum,
+        ).PE_EXPERIMENT
 
         exp1 = Experiment(
             name=exp1_name,
@@ -796,7 +800,10 @@ class SQAStoreTest(TestCase):
         side_effect=Decoder(SQAConfig()).experiment_from_sqa,
     )
     def test_experiment_save_and_load_reduced_state(
-        self, _mock_exp_from_sqa, _mock_trial_from_sqa, _mock_gr_from_sqa
+        self,
+        _mock_exp_from_sqa: Mock,
+        _mock_trial_from_sqa: Mock,
+        _mock_gr_from_sqa: Mock,
     ) -> None:
         for skip_runners_and_metrics in [False, True]:
             # 1. No abandoned arms + no trials case, reduced state should be the
@@ -924,29 +931,28 @@ class SQAStoreTest(TestCase):
     def test_mt_experiment_save_and_load(self) -> None:
         experiment = get_multi_type_experiment(add_trials=True)
         save_experiment(experiment)
-        loaded_experiment = load_experiment(experiment.name)
+        loaded_experiment = assert_is_instance(
+            load_experiment(experiment.name), MultiTypeExperiment
+        )
         self.assertEqual(loaded_experiment.default_trial_type, "type1")
         self.assertEqual(len(loaded_experiment._trial_type_to_runner), 2)
-        # pyre-fixme[16]: `Experiment` has no attribute `metric_to_trial_type`.
         self.assertEqual(loaded_experiment.metric_to_trial_type["m1"], "type1")
         self.assertEqual(loaded_experiment.metric_to_trial_type["m2"], "type2")
-        # pyre-fixme[16]: `Experiment` has no attribute `_metric_to_canonical_name`.
         self.assertEqual(loaded_experiment._metric_to_canonical_name["m2"], "m1")
         self.assertEqual(len(loaded_experiment.trials), 2)
 
     def test_mt_experiment_save_and_load_skip_runners_and_metrics(self) -> None:
         experiment = get_multi_type_experiment(add_trials=True)
         save_experiment(experiment)
-        loaded_experiment = load_experiment(
-            experiment.name, skip_runners_and_metrics=True
+        loaded_experiment = assert_is_instance(
+            load_experiment(experiment.name, skip_runners_and_metrics=True),
+            MultiTypeExperiment,
         )
         self.assertEqual(loaded_experiment.default_trial_type, "type1")
         self.assertIsNone(loaded_experiment._trial_type_to_runner["type1"])
         self.assertIsNone(loaded_experiment._trial_type_to_runner["type2"])
-        # pyre-fixme[16]: `Experiment` has no attribute `metric_to_trial_type`.
         self.assertEqual(loaded_experiment.metric_to_trial_type["m1"], "type1")
         self.assertEqual(loaded_experiment.metric_to_trial_type["m2"], "type2")
-        # pyre-fixme[16]: `Experiment` has no attribute `_metric_to_canonical_name`.
         self.assertEqual(loaded_experiment._metric_to_canonical_name["m2"], "m1")
         self.assertEqual(len(loaded_experiment.trials), 2)
 
@@ -1640,10 +1646,7 @@ class SQAStoreTest(TestCase):
         experiment.optimization_config = optimization_config
         save_experiment(experiment)
         self.assertEqual(get_session().query(SQAMetric).count(), 7)
-        self.assertIsNotNone(
-            # pyre-fixme[16]: Optional type has no attribute `objective_thresholds`.
-            experiment.optimization_config.objective_thresholds[0].metric.db_id
-        )
+        self.assertIsNotNone(optimization_config.objective_thresholds[0].metric.db_id)
 
         # add outcome constraint
         outcome_constraint2 = OutcomeConstraint(
@@ -2197,8 +2200,7 @@ class SQAStoreTest(TestCase):
         save_generation_strategy(generation_strategy=generation_strategy)
         # Also try restoring this generation strategy by its ID in the DB.
         new_generation_strategy = load_generation_strategy_by_id(
-            # pyre-fixme[6]: For 1st param expected `int` but got `Optional[int]`.
-            gs_id=generation_strategy._db_id
+            gs_id=none_throws(generation_strategy._db_id)
         )
         # Some fields of the reloaded GS are not expected to be set (both will be
         # set during next model fitting call), so we unset them on the original GS as
@@ -2255,8 +2257,7 @@ class SQAStoreTest(TestCase):
         # Try restoring this generation strategy by its ID in the DB.
         save_generation_strategy(generation_strategy=generation_strategy)
         new_generation_strategy = load_generation_strategy_by_id(
-            # pyre-fixme[6]: For 1st param expected `int` but got `Optional[int]`.
-            gs_id=generation_strategy._db_id
+            gs_id=none_throws(generation_strategy._db_id)
         )
 
         # Some fields of the reloaded GS are not expected to be set (both will be
@@ -2701,13 +2702,12 @@ class SQAStoreTest(TestCase):
                 encoder=self.encoder,
                 decoder=self.decoder,
             )
-        # pyre-fixme[16]: Optional type has no attribute `db_id`.
-        self.assertIsNone(experiment.runner.db_id)
-        self.assertIsNotNone(experiment.runner)
-        # pyre-fixme[16]: `Runner` has no attribute `dummy_metadata`.
-        self.assertIsNone(experiment.runner.dummy_metadata)
+        runner = none_throws(experiment.runner)
+        self.assertIsNone(runner.db_id)
+        self.assertIsNotNone(runner)
+        self.assertIsNone(assert_is_instance(runner, SyntheticRunner).dummy_metadata)
         save_experiment(experiment=experiment)
-        old_runner_db_id = experiment.runner.db_id
+        old_runner_db_id = runner.db_id
         self.assertIsNotNone(old_runner_db_id)
         new_runner = get_synthetic_runner()
         # pyre-fixme[8]: Attribute has type `Optional[str]`; used as `Dict[str, str]`.
@@ -2721,9 +2721,9 @@ class SQAStoreTest(TestCase):
             decoder=self.decoder,
         )
         self.assertIsNotNone(new_runner.db_id)  # New runner should be added to DB.
-        self.assertEqual(experiment.runner.db_id, new_runner.db_id)
+        self.assertEqual(none_throws(experiment.runner).db_id, new_runner.db_id)
         loaded_experiment = load_experiment(experiment_name=experiment.name)
-        self.assertEqual(loaded_experiment.runner.db_id, new_runner.db_id)
+        self.assertEqual(none_throws(loaded_experiment.runner).db_id, new_runner.db_id)
 
     def test_experiment_validation(self) -> None:
         exp = get_experiment()
@@ -2810,9 +2810,9 @@ class SQAStoreTest(TestCase):
     )
     def test_immutable_search_space_and_opt_config_loading(
         self,
-        _mock_get_exp_sqa_imm_oc_ss,
-        _mock_get_gs_sqa_imm_oc_ss,
-        _mock_gr_from_sqa,
+        _mock_get_exp_sqa_imm_oc_ss: Mock,
+        _mock_get_gs_sqa_imm_oc_ss: Mock,
+        _mock_gr_from_sqa: Mock,
     ) -> None:
         experiment = get_experiment_with_batch_trial(constrain_search_space=False)
         experiment._properties = {Keys.IMMUTABLE_SEARCH_SPACE_AND_OPT_CONF: True}
@@ -2932,8 +2932,7 @@ class SQAStoreTest(TestCase):
         # loaded are non-null.
         save_experiment(exp)
         loaded_exp = load_experiment(exp.name)
-        # pyre-fixme[16]: Optional type has no attribute `generator_run`.
-        loaded_gr = loaded_exp.trials.get(0).generator_run
+        loaded_gr = assert_is_instance(loaded_exp.trials[0], Trial).generator_run
         for instrumented_attr in GR_LARGE_MODEL_ATTRS:
             python_attr = SQA_COL_TO_GR_ATTR[instrumented_attr.key]
             self.assertIsNotNone(getattr(loaded_gr, f"_{python_attr}"))
@@ -2948,7 +2947,9 @@ class SQAStoreTest(TestCase):
         # was not propagated to the DB.
         save_experiment(loaded_exp)
         newly_loaded_exp = load_experiment(exp.name)
-        newly_loaded_gr = newly_loaded_exp.trials.get(0).generator_run
+        newly_loaded_gr = assert_is_instance(
+            newly_loaded_exp.trials[0], Trial
+        ).generator_run
         for instrumented_attr in GR_LARGE_MODEL_ATTRS:
             python_attr = SQA_COL_TO_GR_ATTR[instrumented_attr.key]
             self.assertIsNotNone(getattr(newly_loaded_gr, f"_{python_attr}"))

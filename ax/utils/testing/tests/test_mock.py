@@ -40,7 +40,7 @@ class TestMock(TestCase):
         with mock_botorch_optimize_context_manager():
             gen_candidates_scipy(
                 initial_conditions=torch.tensor([[0.0]]),
-                acquisition_function=MockAcquisitionFunction(),  # pyre-ignore [6]
+                acquisition_function=MockAcquisitionFunction(),  # pyre-ignore[6]
             )
 
     def test_fully_bayesian_mocks(self) -> None:

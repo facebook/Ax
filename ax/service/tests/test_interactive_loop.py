@@ -9,13 +9,15 @@
 
 import functools
 import time
+from collections.abc import Callable, Sequence
 from logging import WARN
 from queue import Queue
 from threading import Event, Lock
+from typing import cast
 
 import numpy as np
 from ax.adapter.registry import Generators
-from ax.core.types import TEvaluationOutcome, TParameterization
+from ax.core.types import TEvaluationOutcome, TParameterization, TParamValue
 from ax.generation_strategy.generation_strategy import (
     GenerationStep,
     GenerationStrategy,
@@ -41,10 +43,9 @@ class TestInteractiveLoop(TestCase):
             ]
         )
         self.ax_client = AxClient(generation_strategy=generation_strategy)
-        self.ax_client.create_experiment(
-            name="hartmann_test_experiment",
-            # pyre-fixme[6]
-            parameters=[
+        parameters = cast(
+            list[dict[str, TParamValue | Sequence[TParamValue] | dict[str, list[str]]]],
+            [
                 {
                     "name": f"x{i}",
                     "type": "range",
@@ -52,6 +53,10 @@ class TestInteractiveLoop(TestCase):
                 }
                 for i in range(1, 7)
             ],
+        )
+        self.ax_client.create_experiment(
+            name="hartmann_test_experiment",
+            parameters=parameters,
             objectives={"hartmann6": ObjectiveProperties(minimize=True)},
             tracking_metric_names=["l2norm"],
         )
@@ -76,8 +81,10 @@ class TestInteractiveLoop(TestCase):
             ax_client=self.ax_client,
             num_trials=15,
             candidate_queue_maxsize=3,
-            # pyre-fixme[6]
-            elicitation_function=self._elicit,
+            elicitation_function=cast(
+                Callable[[tuple[TParameterization, int]], TEvaluationOutcome],
+                self._elicit,
+            ),
         )
 
         self.assertTrue(optimization_completed)
@@ -94,8 +101,10 @@ class TestInteractiveLoop(TestCase):
             ax_client=self.ax_client,
             num_trials=15,
             candidate_queue_maxsize=3,
-            # pyre-fixme[6]
-            elicitation_function=_aborted_elicit,
+            elicitation_function=cast(
+                Callable[[tuple[TParameterization, int]], TEvaluationOutcome],
+                _aborted_elicit,
+            ),
         )
         self.assertFalse(optimization_completed)
 
@@ -144,8 +153,10 @@ class TestInteractiveLoop(TestCase):
                 ax_client=self.ax_client,
                 num_trials=3,
                 candidate_queue_maxsize=3,
-                # pyre-fixme[6]
-                elicitation_function=_sleep_elicit,
+                elicitation_function=cast(
+                    Callable[[tuple[TParameterization, int]], TEvaluationOutcome],
+                    _sleep_elicit,
+                ),
             )
 
             # Assert sleep and retry warning is somewhere in the logs
