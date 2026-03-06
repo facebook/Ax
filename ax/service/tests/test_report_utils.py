@@ -9,7 +9,9 @@
 import itertools
 import logging
 from collections import namedtuple
+from collections.abc import Callable
 from logging import DEBUG, INFO, WARN
+from typing import Any
 from unittest import mock
 from unittest.mock import patch
 
@@ -265,8 +267,7 @@ class ReportUtilsTest(TestCase):
         with patch.object(Experiment, "lookup_data", lambda self: mock_results):
             df = exp_to_df(exp=exp)
         # all but two rows should have a metric value of NaN
-        # pyre-fixme[16]: `bool` has no attribute `sum`.
-        self.assertEqual(pd.isna(df[OBJECTIVE_NAME]).sum(), len(df.index) - 2)
+        self.assertEqual(df[OBJECTIVE_NAME].isna().sum(), len(df.index) - 2)
 
         # an experiment with more results than arms raises an error
         with (
@@ -369,16 +370,16 @@ class ReportUtilsTest(TestCase):
                 self.assertTrue(all(isinstance(plot, go.Figure) for plot in plots))
 
         # Raise an exception in one plot and make sure we generate the others
-        for plot_function, num_expected_plots in [
-            [_get_curve_plot_dropdown, 8],  # Not used
-            [_get_objective_trace_plot, 6],
-            [_objective_vs_true_objective_scatter, 7],
-            [_get_objective_v_param_plots, 6],
-            [_get_cross_validation_plots, 7],
-            [plot_feature_importance_by_feature_plotly, 6],
-        ]:
+        plot_test_cases: list[tuple[Callable[..., Any], int]] = [
+            (_get_curve_plot_dropdown, 8),  # Not used
+            (_get_objective_trace_plot, 6),
+            (_objective_vs_true_objective_scatter, 7),
+            (_get_objective_v_param_plots, 6),
+            (_get_cross_validation_plots, 7),
+            (plot_feature_importance_by_feature_plotly, 6),
+        ]
+        for plot_function, num_expected_plots in plot_test_cases:
             with mock.patch(
-                # pyre-ignore
                 f"ax.service.utils.report_utils.{plot_function.__name__}",
                 side_effect=Exception(),
             ):

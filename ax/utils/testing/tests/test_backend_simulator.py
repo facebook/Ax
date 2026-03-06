@@ -13,6 +13,7 @@ from ax.utils.common.logger import get_logger
 from ax.utils.common.testutils import TestCase
 from ax.utils.testing.backend_simulator import BackendSimulator, BackendSimulatorOptions
 from ax.utils.testing.utils_testing_stubs import get_backend_simulator_with_trials
+from pyre_extensions import none_throws
 
 
 class BackendSimulatorTest(TestCase):
@@ -123,8 +124,7 @@ class BackendSimulatorTest(TestCase):
             sim.lookup_trial_index_status(trial_index=2), TrialStatus.COMPLETED
         )
         self.assertEqual(
-            # pyre-fixme[16]: Optional type has no attribute `sim_completed_time`.
-            sim.get_sim_trial_by_index(trial_index=2).sim_completed_time,
+            none_throws(sim.get_sim_trial_by_index(trial_index=2)).sim_completed_time,
             2.0,
         )
         with self.assertRaisesRegex(ValueError, "Trial 100 not found in simulator"):

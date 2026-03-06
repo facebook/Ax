@@ -10,7 +10,9 @@ import random
 import string
 from unittest.mock import patch
 
+from ax.core.base_trial import BaseTrial
 from ax.core.experiment import Experiment
+from ax.core.trial import Trial
 from ax.core.trial_status import TrialStatus
 from ax.generation_strategy.generation_strategy import GenerationStrategy
 from ax.storage.sqa_store.db import init_test_engine_and_session_factory
@@ -32,6 +34,7 @@ from ax.storage.sqa_store.with_db_settings_base import (
 from ax.utils.common.testutils import TestCase
 from ax.utils.testing.core_stubs import DEFAULT_USER, get_experiment, get_generator_run
 from ax.utils.testing.modeling_stubs import get_generation_strategy
+from pyre_extensions import assert_is_instance
 
 
 class TestWithDBSettingsBase(TestCase):
@@ -260,8 +263,7 @@ class TestWithDBSettingsBase(TestCase):
             experiment.name, decoder=self.with_db_settings.db_settings.decoder
         )
         self.assertEqual(
-            # pyre-fixme[16]: Optional type has no attribute `status`.
-            loaded_experiment.trials.get(trial.index).status,
+            loaded_experiment.trials[trial.index].status,
             TrialStatus.CANDIDATE,
         )
         self.assertIsNotNone(trial.db_id)
@@ -294,17 +296,15 @@ class TestWithDBSettingsBase(TestCase):
             save_generation_strategy=True
         )
 
-        trials = [experiment.new_trial() for _ in range(5)]
+        trials: list[BaseTrial] = [experiment.new_trial() for _ in range(5)]
         grs = []
         for t in trials:
             gr = generation_strategy.gen_single_trial(experiment)
             grs.append(gr)
-            t.add_generator_run(gr)
+            assert_is_instance(t, Trial).add_generator_run(gr)
 
         self.with_db_settings._save_or_update_trials_and_generation_strategy_if_possible(  # noqa E501
             experiment=experiment,
-            # pyre-fixme[6]: For 2nd param expected `List[BaseTrial]` but got
-            #  `List[Trial]`.
             trials=trials,
             generation_strategy=generation_strategy,
             new_generator_runs=grs,
@@ -320,11 +320,11 @@ class TestWithDBSettingsBase(TestCase):
             for attr in GR_LARGE_MODEL_ATTRS:
                 # Map SQA column name to Python attribute name
                 python_attr_name = f"_{SQA_COL_TO_GR_ATTR[attr.key]}"
+                t = assert_is_instance(trial, Trial)
                 if idx < len(loaded_experiment.trials) - 1:
-                    # pyre-fixme[16]: `BaseTrial` has no attribute `generator_run`.
-                    self.assertIsNone(getattr(trial.generator_run, python_attr_name))
+                    self.assertIsNone(getattr(t.generator_run, python_attr_name))
                 else:
-                    self.assertIsNotNone(getattr(trial.generator_run, python_attr_name))
+                    self.assertIsNotNone(getattr(t.generator_run, python_attr_name))
 
         loaded_generation_strategy = _load_generation_strategy_by_experiment_name(
             experiment.name, decoder=self.with_db_settings.db_settings.decoder

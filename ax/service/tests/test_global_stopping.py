@@ -48,9 +48,7 @@ class TestGlobalStoppingIntegration(TestCase):
     def evaluate(self, parameters: TParameterization) -> dict[str, tuple[float, float]]:
         """Evaluates the parameters for branin experiment."""
         x = np.array([parameters.get(f"x{i + 1}") for i in range(2)])
-        # pyre-fixme[7]: Expected `Dict[str, Tuple[float, float]]` but got
-        #  `Dict[str, Tuple[Union[float, ndarray], float]]`.
-        return {"branin": (branin(x), 0.0)}
+        return {"branin": (float(branin(x)), 0.0)}
 
     def test_global_stopping_integration(self) -> None:
         """
@@ -69,7 +67,6 @@ class TestGlobalStoppingIntegration(TestCase):
             parameters, trial_index = ax_client.get_next_trial()
             ax_client.complete_trial(
                 trial_index=trial_index,
-                # pyre-fixme[6]: For 2nd param expected `Union[Dict[str, Union[Tuple[...
                 raw_data=self.evaluate(parameters),
             )
 
@@ -109,7 +106,6 @@ class TestGlobalStoppingIntegration(TestCase):
             parameters, trial_index = ax_client.get_next_trial()
             ax_client.complete_trial(
                 trial_index=trial_index,
-                # pyre-fixme[6]: For 2nd param expected `Union[Dict[str, Union[Tuple[...
                 raw_data=self.evaluate(parameters),
             )
 
@@ -117,7 +113,6 @@ class TestGlobalStoppingIntegration(TestCase):
         parameters, trial_index = ax_client.get_next_trial()
         ax_client.complete_trial(
             trial_index=trial_index,
-            # pyre-fixme[6]: For 2nd param expected `Union[Dict[str, Union[Tuple[Unio...
             raw_data=self.evaluate(parameters),
         )
         self.assertIsNotNone(parameters)

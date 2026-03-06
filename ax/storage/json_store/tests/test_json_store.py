@@ -11,8 +11,10 @@ import json
 import os
 import tempfile
 from collections import OrderedDict
+from collections.abc import Callable
 from functools import partial
 from math import nan
+from typing import Any
 
 import numpy as np
 import pandas as pd
@@ -51,6 +53,11 @@ from ax.exceptions.storage import JSONDecodeError, JSONEncodeError
 from ax.generation_strategy.center_generation_node import CenterGenerationNode
 from ax.generation_strategy.generation_node import GenerationNode, GenerationStep
 from ax.generation_strategy.generator_spec import GeneratorSpec
+from ax.generation_strategy.transition_criterion import (
+    MaxGenerationParallelism,
+    MaxTrialsAwaitingData,
+    MinTrials,
+)
 from ax.generators.torch.botorch_modular.kernels import ScaleMaternKernel
 from ax.generators.torch.botorch_modular.surrogate import Surrogate, SurrogateSpec
 from ax.generators.torch.botorch_modular.utils import ModelConfig
@@ -181,11 +188,10 @@ from botorch.models.transforms.input import Normalize
 from botorch.models.transforms.outcome import Standardize
 from botorch.sampling.normal import SobolQMCNormalSampler
 from gpytorch.mlls.exact_marginal_log_likelihood import ExactMarginalLogLikelihood
-from pyre_extensions import none_throws
+from pyre_extensions import assert_is_instance, none_throws
 
 
-# pyre-fixme[5]: Global expression must be annotated.
-TEST_CASES = [
+TEST_CASES: list[tuple[str, Callable[..., Any]]] = [
     ("AbandonedArm", get_abandoned_arm),
     (
         "AdditiveMapSaasSingleTaskGP",
@@ -1280,9 +1286,9 @@ class JSONStoreTest(TestCase):
             node = generation_node_from_json(json)
             self.assertEqual(len(node.transition_criteria), 0)
             self.assertEqual(len(node.pausing_criteria), 1)
-            blocking = node.pausing_criteria[0]
-            self.assertEqual(blocking.__class__.__name__, "MaxGenerationParallelism")
-            # pyre-ignore[16]: Attribute exists on MaxGenerationParallelism
+            blocking = assert_is_instance(
+                node.pausing_criteria[0], MaxGenerationParallelism
+            )
             self.assertEqual(blocking.threshold, 3)
 
         with self.subTest("MinTrials_with_block_gen_if_met_only"):
@@ -1319,8 +1325,9 @@ class JSONStoreTest(TestCase):
             node = generation_node_from_json(json)
             self.assertEqual(len(node.transition_criteria), 0)
             self.assertEqual(len(node.pausing_criteria), 1)
-            blocking = node.pausing_criteria[0]
-            self.assertEqual(blocking.__class__.__name__, "MaxTrialsAwaitingData")
+            blocking = assert_is_instance(
+                node.pausing_criteria[0], MaxTrialsAwaitingData
+            )
             self.assertEqual(blocking.threshold, 5)
 
         with self.subTest("MinTrials_with_block_gen_if_met_and_block_transition"):
@@ -1357,16 +1364,13 @@ class JSONStoreTest(TestCase):
             # Should have both
             self.assertEqual(len(node.transition_criteria), 1)
             self.assertEqual(len(node.pausing_criteria), 1)
-            tc = node.transition_criteria[0]
-            self.assertEqual(tc.__class__.__name__, "MinTrials")
-            # pyre-ignore[16]: Attribute exists on MinTrials
+            tc = assert_is_instance(node.transition_criteria[0], MinTrials)
             self.assertEqual(tc.threshold, 5)
             self.assertEqual(tc.transition_to, "next_node")
-            blocking = node.pausing_criteria[0]
-            self.assertEqual(blocking.__class__.__name__, "MaxTrialsAwaitingData")
-            # pyre-ignore[16]: threshold exists on MaxTrialsAwaitingData
+            blocking = assert_is_instance(
+                node.pausing_criteria[0], MaxTrialsAwaitingData
+            )
             self.assertEqual(blocking.threshold, 5)
-            # pyre-ignore[16]: use_all_trials_in_exp exists on MaxTrialsAwaitingData
             self.assertTrue(blocking.use_all_trials_in_exp)
 
     def test_SobolQMCNormalSampler(self) -> None:

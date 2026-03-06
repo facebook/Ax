@@ -6,63 +6,63 @@
 
 # pyre-strict
 
+from typing import Any
 from unittest.mock import Mock, patch
 
 import numpy as np
-import numpy.typing as npt
 from ax.adapter.registry import Generators
+from ax.core.types import TParameterization
 from ax.exceptions.core import UserInputError
 from ax.generation_strategy.generation_strategy import (
     GenerationStep,
     GenerationStrategy,
 )
+from ax.generators.random.sobol import SobolGenerator
 from ax.metrics.branin import branin
 from ax.service.managed_loop import OptimizationLoop, optimize
 from ax.utils.common.testutils import TestCase
 from ax.utils.testing.mock import mock_botorch_optimize
+from pyre_extensions import assert_is_instance, none_throws
 
 
 def _branin_evaluation_function(
-    # pyre-fixme[2]: Parameter must be annotated.
-    parameterization,
-    weight=None,  # pyre-fixme[2]: Parameter must be annotated.
-) -> dict[str, tuple[float | npt.NDArray, float]]:
+    parameterization: TParameterization,
+    weight: float | None = None,
+) -> dict[str, tuple[float, float]]:
     if any(param_name not in parameterization.keys() for param_name in ["x1", "x2"]):
         raise ValueError("Parametrization does not contain x1 or x2")
-    x1, x2 = parameterization["x1"], parameterization["x2"]
+    x1, x2 = float(parameterization["x1"]), float(parameterization["x2"])
     return {
-        "branin": (branin(x1, x2), 0.0),
-        "constrained_metric": (-branin(x1, x2), 0.0),
+        "branin": (float(branin(x1, x2)), 0.0),
+        "constrained_metric": (float(-branin(x1, x2)), 0.0),
     }
 
 
 def _branin_evaluation_function_v2(
-    # pyre-fixme[2]: Parameter must be annotated.
-    parameterization,
-    weight=None,  # pyre-fixme[2]: Parameter must be annotated.
-) -> tuple[float | npt.NDArray, float]:
+    parameterization: TParameterization,
+    weight: float | None = None,
+) -> tuple[float, float]:
     if any(param_name not in parameterization.keys() for param_name in ["x1", "x2"]):
         raise ValueError("Parametrization does not contain x1 or x2")
-    x1, x2 = parameterization["x1"], parameterization["x2"]
-    return (branin(x1, x2), 0.0)
+    x1, x2 = float(parameterization["x1"]), float(parameterization["x2"])
+    return (float(branin(x1, x2)), 0.0)
 
 
 def _branin_evaluation_function_with_unknown_sem(
-    # pyre-fixme[2]: Parameter must be annotated.
-    parameterization,
-    weight=None,  # pyre-fixme[2]: Parameter must be annotated.
-) -> tuple[float | npt.NDArray, None]:
+    parameterization: TParameterization,
+    weight: float | None = None,
+) -> tuple[float, None]:
     if any(param_name not in parameterization.keys() for param_name in ["x1", "x2"]):
         raise ValueError("Parametrization does not contain x1 or x2")
-    x1, x2 = parameterization["x1"], parameterization["x2"]
-    return (branin(x1, x2), None)
+    x1, x2 = float(parameterization["x1"]), float(parameterization["x2"])
+    return (float(branin(x1, x2)), None)
 
 
 class TestManagedLoop(TestCase):
     """Check functionality of optimization loop."""
 
     def test_with_evaluation_function_propagates_parameter_constraints(self) -> None:
-        kwargs = {
+        kwargs: dict[str, Any] = {
             "parameters": [
                 {
                     "name": "x1",
@@ -151,9 +151,7 @@ class TestManagedLoop(TestCase):
         bp, _ = loop.full_run().get_best_point()
         self.assertIn("x1", bp)
         self.assertIn("x2", bp)
-        # pyre-fixme[58]: `+` is not supported for operand types `Union[None, bool,
-        #  float, int, str]` and `Union[None, bool, float, int, str]`.
-        self.assertLessEqual(bp["x1"] + bp["x2"], 1.0 + 1e-8)
+        self.assertLessEqual(float(bp["x1"]) + float(bp["x2"]), 1.0 + 1e-8)
         with self.assertRaisesRegex(ValueError, "Optimization is complete"):
             loop.run_trial()
 
@@ -241,11 +239,8 @@ class TestManagedLoop(TestCase):
         self.assertIn("x2", bp)
         assert vals is not None
         self.assertIn("branin", vals[0])
-        # pyre-fixme[6]: For 2nd param expected `Union[Container[typing.Any],
-        #  Iterable[typing.Any]]` but got `Optional[Dict[str, Dict[str, float]]]`.
-        self.assertIn("branin", vals[1])
-        # pyre-fixme[16]: Optional type has no attribute `__getitem__`.
-        self.assertIn("branin", vals[1]["branin"])
+        self.assertIn("branin", none_throws(vals[1]))
+        self.assertIn("branin", none_throws(vals[1])["branin"])
         # Check that all total_trials * arms_per_trial * 2 metrics evaluations
         # are present in the dataframe.
         self.assertEqual(len(loop.experiment.fetch_data().df.index), 12)
@@ -270,11 +265,8 @@ class TestManagedLoop(TestCase):
         self.assertIn("x2", best)
         assert vals is not None
         self.assertIn("objective", vals[0])
-        # pyre-fixme[6]: For 2nd param expected `Union[Container[typing.Any],
-        #  Iterable[typing.Any]]` but got `Optional[Dict[str, Dict[str, float]]]`.
-        self.assertIn("objective", vals[1])
-        # pyre-fixme[16]: Optional type has no attribute `__getitem__`.
-        self.assertIn("objective", vals[1]["objective"])
+        self.assertIn("objective", none_throws(vals[1]))
+        self.assertIn("objective", none_throws(vals[1])["objective"])
 
     @patch(
         "ax.service.managed_loop."
@@ -301,11 +293,8 @@ class TestManagedLoop(TestCase):
         self.assertIn("x2", best)
         assert vals is not None
         self.assertIn("a", vals[0])
-        # pyre-fixme[6]: For 2nd param expected `Union[Container[typing.Any],
-        #  Iterable[typing.Any]]` but got `Optional[Dict[str, Dict[str, float]]]`.
-        self.assertIn("a", vals[1])
-        # pyre-fixme[16]: Optional type has no attribute `__getitem__`.
-        self.assertIn("a", vals[1]["a"])
+        self.assertIn("a", none_throws(vals[1]))
+        self.assertIn("a", none_throws(vals[1])["a"])
 
     @mock_botorch_optimize
     def test_optimize_unknown_sem(self) -> None:
@@ -327,11 +316,8 @@ class TestManagedLoop(TestCase):
         self.assertIn("x2", best)
         self.assertIsNotNone(vals)
         self.assertIn("objective", vals[0])
-        # pyre-fixme[6]: For 2nd param expected `Union[Container[typing.Any],
-        #  Iterable[typing.Any]]` but got `Optional[Dict[str, Dict[str, float]]]`.
-        self.assertIn("objective", vals[1])
-        # pyre-fixme[16]: Optional type has no attribute `__getitem__`.
-        self.assertIn("objective", vals[1]["objective"])
+        self.assertIn("objective", none_throws(vals[1]))
+        self.assertIn("objective", none_throws(vals[1])["objective"])
 
     def test_optimize_propagates_random_seed(self) -> None:
         """Tests optimization as a single call."""
@@ -347,8 +333,8 @@ class TestManagedLoop(TestCase):
             total_trials=5,
             random_seed=12345,
         )
-        # pyre-fixme[16]: Optional type has no attribute `model`.
-        self.assertEqual(12345, model.generator.seed)
+        generator = assert_is_instance(none_throws(model).generator, SobolGenerator)
+        self.assertEqual(12345, generator.seed)
 
     def test_optimize_search_space_exhausted(self) -> None:
         """Tests optimization as a single call."""
@@ -370,11 +356,8 @@ class TestManagedLoop(TestCase):
         self.assertIn("x2", best)
         self.assertIsNotNone(vals)
         self.assertIn("objective", vals[0])
-        # pyre-fixme[6]: For 2nd param expected `Union[Container[typing.Any],
-        #  Iterable[typing.Any]]` but got `Optional[Dict[str, Dict[str, float]]]`.
-        self.assertIn("objective", vals[1])
-        # pyre-fixme[16]: Optional type has no attribute `__getitem__`.
-        self.assertIn("objective", vals[1]["objective"])
+        self.assertIn("objective", none_throws(vals[1]))
+        self.assertIn("objective", none_throws(vals[1])["objective"])
 
     def test_custom_gs(self) -> None:
         """Managed loop with custom generation strategy"""
@@ -432,18 +415,14 @@ class TestManagedLoop(TestCase):
         self.assertIn("x2", best)
         self.assertIsNotNone(vals)
         self.assertIn("objective", vals[0])
-        # pyre-fixme[6]: For 2nd param expected `Union[Container[typing.Any],
-        #  Iterable[typing.Any]]` but got `Optional[Dict[str, Dict[str, float]]]`.
-        self.assertIn("objective", vals[1])
-        # pyre-fixme[16]: Optional type has no attribute `__getitem__`.
-        self.assertIn("objective", vals[1]["objective"])
+        self.assertIn("objective", none_throws(vals[1]))
+        self.assertIn("objective", none_throws(vals[1])["objective"])
 
     @patch(
         "ax.core.experiment.Experiment.new_trial",
         side_effect=RuntimeError("cholesky_cpu error - bad matrix"),
     )
-    # pyre-fixme[3]: Return type must be annotated.
-    def test_annotate_exception(self, _):
+    def test_annotate_exception(self, _: Mock) -> None:
         strategy0 = GenerationStrategy(
             name="Sobol",
             steps=[GenerationStep(generator=Generators.SOBOL, num_trials=-1)],

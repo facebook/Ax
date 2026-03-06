@@ -6,6 +6,7 @@
 
 # pyre-strict
 
+from collections.abc import Sequence
 from typing import Any
 
 from ax.core.metric import Metric
@@ -16,6 +17,7 @@ from ax.core.parameter import (
     ParameterType,
     RangeParameter,
 )
+from ax.core.types import TParamValue
 from ax.runners.synthetic import SyntheticRunner
 from ax.service.utils.instantiation import InstantiationBase
 from ax.utils.common.testutils import TestCase
@@ -332,7 +334,9 @@ class TestInstantiationtUtils(TestCase):
             _ = InstantiationBase.parameter_from_json(representation)
 
     def test_hss(self) -> None:
-        parameter_dicts = [
+        parameter_dicts: list[
+            dict[str, TParamValue | Sequence[TParamValue] | dict[str, list[str]]]
+        ] = [
             {
                 "name": "root",
                 "type": "fixed",
@@ -361,7 +365,6 @@ class TestInstantiationtUtils(TestCase):
             {"name": "another_int", "type": "fixed", "value": "2"},
         ]
         search_space = InstantiationBase.make_search_space(
-            # pyre-fixme[6]: For 1st param expected `List[Dict[str, Union[None, Dict[...
             parameters=parameter_dicts,
             parameter_constraints=[],
         )
