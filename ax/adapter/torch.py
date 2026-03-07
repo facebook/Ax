@@ -17,6 +17,7 @@ import numpy as np
 import numpy.typing as npt
 import torch
 from ax.adapter.adapter_utils import (
+    _get_fresh_pairwise_trial_indices,
     arm_to_np_array,
     array_to_observation_data,
     extract_objective_thresholds,
@@ -468,6 +469,26 @@ class TorchAdapter(Adapter):
                 Yvar = torch.from_numpy(sem).double().square().view(-1, 1)
             group_indices = torch.from_numpy(trial_indices_np[to_keep])
             if outcome == Keys.PAIRWISE_PREFERENCE_QUERY.value:
+                # Filter out stale LILO trials whose input hash no longer
+                # matches the current experiment state.
+                fresh_indices = _get_fresh_pairwise_trial_indices(
+                    experiment=self._experiment,
+                )
+                if fresh_indices is not None:
+                    fresh_mask = torch.tensor(
+                        [int(gi.item()) in fresh_indices for gi in group_indices],
+                        dtype=torch.bool,
+                    )
+                    X = X[fresh_mask]
+                    Y = Y[fresh_mask]
+                    group_indices = group_indices[fresh_mask]
+                    # Narrow the NaN-filtered to_keep mask further so
+                    # candidate_metadata stays aligned.
+                    to_keep_indices = np.where(to_keep)[0]
+                    fresh_mask_np = fresh_mask.numpy()
+                    to_keep = np.zeros_like(to_keep)
+                    to_keep[to_keep_indices[fresh_mask_np]] = True
+
                 dataset = prep_pairwise_data(
                     X=X.to(device=self.device),
                     Y=Y.to(dtype=torch.long, device=self.device),
