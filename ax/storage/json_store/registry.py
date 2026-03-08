@@ -82,6 +82,7 @@ from ax.generation_strategy.transition_criterion import (
     MaxGenerationParallelism,
     MaxTrialsAwaitingData,
     MinTrials,
+    MinTrialsWithLILOInputHashCheck,
     TransitionCriterion,
 )
 from ax.generators.torch.botorch_modular.acquisition import Acquisition
@@ -222,6 +223,7 @@ CORE_ENCODER_REGISTRY: dict[type[Any], Callable[[Any], dict[str, Any]]] = {
     MaxTrialsAwaitingData: pausing_criterion_to_dict,
     Metric: metric_to_dict,
     MinTrials: transition_criterion_to_dict,
+    MinTrialsWithLILOInputHashCheck: transition_criterion_to_dict,
     AuxiliaryExperimentCheck: transition_criterion_to_dict,
     GeneratorSpec: generator_spec_to_dict,
     MultiObjective: multi_objective_to_dict,
@@ -350,6 +352,7 @@ CORE_DECODER_REGISTRY: TDecoderRegistry = {
     "MaxTrialsAwaitingData": MaxTrialsAwaitingData,
     "Metric": Metric,
     "MinTrials": MinTrials,
+    "MinTrialsWithLILOInputHashCheck": MinTrialsWithLILOInputHashCheck,
     # DEPRECATED; backward compatibility for MinimumTrialsInStatus -> MinTrials
     "MinimumTrialsInStatus": MinTrials,
     "GeneratorRegistryBase": GeneratorRegistryBase,

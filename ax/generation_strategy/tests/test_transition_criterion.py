@@ -7,11 +7,15 @@
 
 
 from logging import Logger
+from unittest.mock import MagicMock
 
 import pandas as pd
 from ax.adapter.registry import Generators
+from ax.core.arm import Arm
 from ax.core.auxiliary import AuxiliaryExperiment, AuxiliaryExperimentPurpose
 from ax.core.data import Data
+from ax.core.derived_metric import DerivedMetric
+from ax.core.experiment import Experiment
 from ax.core.trial_status import TrialStatus
 from ax.exceptions.core import DataRequiredError, UserInputError
 from ax.exceptions.generation_strategy import MaxParallelismReachedException
@@ -28,7 +32,10 @@ from ax.generation_strategy.transition_criterion import (
     MaxGenerationParallelism,
     MaxTrialsAwaitingData,
     MinTrials,
+    MinTrialsWithLILOInputHashCheck,
 )
+from ax.utils.common.constants import Keys
+from ax.utils.common.hash_utils import compute_lilo_input_hash
 from ax.utils.common.logger import get_logger
 from ax.utils.common.testutils import TestCase
 from ax.utils.testing.core_stubs import (
@@ -39,6 +46,13 @@ from ax.utils.testing.core_stubs import (
 )
 
 logger: Logger = get_logger(__name__)
+
+
+def _mock_node(trials_from_node: set[int]) -> MagicMock:
+    """Create a mock GenerationNode with a specified trials_from_node set."""
+    node = MagicMock()
+    node.trials_from_node = trials_from_node
+    return node
 
 
 class TestTransitionCriterion(TestCase):
@@ -614,3 +628,93 @@ class TestPausingCriterion(TestCase):
                 experiment=self.experiment,
                 trials_from_node={0, 1, 2},
             )
+
+    def test_min_trials_with_lilo_input_hash_check(self) -> None:
+        """Verify MinTrialsWithLILOInputHashCheck counts only hash-fresh trials."""
+        exp = get_branin_experiment()
+
+        # Register a DerivedMetric with pairwise name.
+        pairwise_metric = DerivedMetric(
+            name=Keys.PAIRWISE_PREFERENCE_QUERY.value,
+            input_metric_names=["branin"],
+        )
+        exp.add_tracking_metric(pairwise_metric)
+
+        criterion = MinTrialsWithLILOInputHashCheck(
+            threshold=2,
+            transition_to="next_node",
+            only_in_statuses=[TrialStatus.COMPLETED],
+        )
+
+        # Helper to create and complete a trial with data.
+        def _add_trial(idx: int, exp: Experiment = exp) -> None:
+            trial = exp.new_batch_trial()
+            trial.add_arm(
+                Arm(name=f"{idx}_0", parameters={"x1": float(idx), "x2": 0.0})
+            )
+            trial.mark_running(no_runner_required=True)
+            trial.mark_completed()
+            exp.attach_data(
+                Data(
+                    df=pd.DataFrame(
+                        [
+                            {
+                                "trial_index": idx,
+                                "arm_name": f"{idx}_0",
+                                "metric_name": "branin",
+                                "metric_signature": "branin",
+                                "mean": float(idx),
+                                "sem": 0.1,
+                            }
+                        ]
+                    )
+                )
+            )
+
+        # Create 3 trials, stamp first 2 with current hash.
+        for i in range(3):
+            _add_trial(i)
+
+        current_hash = compute_lilo_input_hash(exp, ["branin"])
+        trials_from_node = {0, 1, 2}
+
+        with self.subTest("no_hashes_all_count"):
+            # No hash stamps → all counted (fallback behavior).
+            count = criterion.num_contributing_to_threshold(exp, trials_from_node)
+            self.assertEqual(count, 3)
+
+        # Stamp trials 0 and 1 with the current hash.
+        exp.trials[0]._properties[Keys.LILO_INPUT_HASH] = current_hash
+        exp.trials[1]._properties[Keys.LILO_INPUT_HASH] = current_hash
+
+        with self.subTest("fresh_hashes_count"):
+            count = criterion.num_contributing_to_threshold(exp, trials_from_node)
+            # Trials 0, 1 (fresh hash) + trial 2 (no hash → included).
+            self.assertEqual(count, 3)
+
+        # Make trial 1 stale.
+        exp.trials[1]._properties[Keys.LILO_INPUT_HASH] = "stale_hash"
+
+        with self.subTest("stale_hash_excluded"):
+            count = criterion.num_contributing_to_threshold(exp, trials_from_node)
+            # Trial 0 (fresh) + trial 2 (no hash) = 2. Trial 1 excluded.
+            self.assertEqual(count, 2)
+            self.assertTrue(criterion.is_met(exp, _mock_node(trials_from_node)))
+
+        # Make trial 0 stale too.
+        exp.trials[0]._properties[Keys.LILO_INPUT_HASH] = "another_stale"
+
+        with self.subTest("not_enough_fresh"):
+            count = criterion.num_contributing_to_threshold(exp, trials_from_node)
+            # Only trial 2 (no hash) counts.
+            self.assertEqual(count, 1)
+            self.assertFalse(criterion.is_met(exp, _mock_node(trials_from_node)))
+
+        with self.subTest("data_change_invalidates"):
+            # Add new data — changes the current hash, making ALL stamped
+            # trials stale.
+            _add_trial(3)
+            trials_from_node.add(3)
+            count = criterion.num_contributing_to_threshold(exp, trials_from_node)
+            # Trials 0, 1 stale. Trials 2, 3 have no hash → included.
+            self.assertEqual(count, 2)
