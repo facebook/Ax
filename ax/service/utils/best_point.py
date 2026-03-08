@@ -1219,6 +1219,7 @@ def get_trace(
 
     An iteration here refers to a completed or early-stopped (batch) trial.
     There will be one performance metric in the trace for each iteration.
+    Abandoned trials carry forward the last best value.
 
     Args:
         experiment: The experiment to get the trace for.
@@ -1278,12 +1279,37 @@ def get_trace(
     # Aggregate by trial, then. compute cumulative best
     objective = optimization_config.objective
     maximize = isinstance(objective, MultiObjective) or not objective.minimize
-    return _aggregate_and_cumulate_trace(
+    cumulative_value = _aggregate_and_cumulate_trace(
         df=value_by_arm_pull,
         by=["trial_index"],
         maximize=maximize,
         keep_order=False,  # sort by trial index
-    ).tolist()
+    )
+
+    compact_trace = cumulative_value.tolist()
+
+    # Expand trace to include ABANDONED trials with carry-forward values.
+    data_trial_indices = set(cumulative_value.index)
+    expanded_trace = []
+    compact_idx = 0
+    last_best_value = -float("inf") if maximize else float("inf")
+
+    for trial_index in sorted(experiment.trials.keys()):
+        trial = experiment.trials[trial_index]
+        if trial_index in data_trial_indices:
+            # Trial has data in compact trace
+            if compact_idx < len(compact_trace):
+                value = compact_trace[compact_idx]
+                expanded_trace.append(value)
+                last_best_value = value
+                compact_idx += 1
+            else:
+                # Should not happen, but handle gracefully
+                expanded_trace.append(last_best_value)
+        elif trial.status == TrialStatus.ABANDONED:
+            expanded_trace.append(last_best_value)
+
+    return expanded_trace
 
 
 def get_tensor_converter_adapter(
