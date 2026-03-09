@@ -14,7 +14,10 @@ from ax.core.auxiliary import AuxiliaryExperiment, AuxiliaryExperimentPurpose
 from ax.core.data import Data
 from ax.core.trial_status import TrialStatus
 from ax.exceptions.core import DataRequiredError, UserInputError
-from ax.exceptions.generation_strategy import MaxParallelismReachedException
+from ax.exceptions.generation_strategy import (
+    AxGenerationException,
+    MaxParallelismReachedException,
+)
 from ax.generation_strategy.generation_strategy import (
     GenerationNode,
     GenerationStep,
@@ -24,10 +27,13 @@ from ax.generation_strategy.generator_spec import GeneratorSpec
 from ax.generation_strategy.transition_criterion import (
     AutoTransitionAfterGen,
     AuxiliaryExperimentCheck,
+    count_trials_toward_threshold,
     IsSingleObjective,
     MaxGenerationParallelism,
     MaxTrialsAwaitingData,
     MinTrials,
+    MissingOptimizationConfigPausingCriterion,
+    StagedTrialsPausingCriterion,
 )
 from ax.utils.common.logger import get_logger
 from ax.utils.common.testutils import TestCase
@@ -572,7 +578,7 @@ class TestTransitionCriterion(TestCase):
             + "[<enum 'TrialStatus'>.EARLY_STOPPED], "
             + "'not_in_statuses': [<enum 'TrialStatus'>.FAILED], "
             + "'use_all_trials_in_exp': False, "
-            + "'count_only_trials_with_data': False})",
+            + "'count_only_trials_without_data': False})",
         )
         auto_transition = AutoTransitionAfterGen(transition_to="GenerationStep_2")
         self.assertEqual(
@@ -588,6 +594,9 @@ class TestPausingCriterion(TestCase):
     def setUp(self) -> None:
         super().setUp()
         self.experiment = get_branin_experiment()
+        self.sobol_generator_spec = GeneratorSpec(
+            generator_enum=Generators.SOBOL,
+        )
 
     def test_max_trials_awaiting_data(self) -> None:
         with self.subTest("default_not_in_statuses"):
@@ -613,4 +622,134 @@ class TestPausingCriterion(TestCase):
                 node_name="test",
                 experiment=self.experiment,
                 trials_from_node={0, 1, 2},
+            )
+
+    def test_count_only_trials_without_data_allows_when_trial_has_data(self) -> None:
+        """Test that count_only_trials_without_data=True allows generation
+        when running trials have data."""
+        trial = self.experiment.new_trial(
+            generator_run=Generators.SOBOL(experiment=self.experiment).gen(n=1)
+        )
+        trial.mark_running(no_runner_required=True)
+        self.experiment.attach_data(get_branin_data(trial_indices=[trial.index]))
+
+        criterion = MaxTrialsAwaitingData(
+            threshold=1,
+            only_in_statuses=[TrialStatus.RUNNING],
+            count_only_trials_without_data=True,
+            use_all_trials_in_exp=True,
+        )
+
+        self.assertEqual(
+            criterion.num_contributing_to_threshold(
+                experiment=self.experiment, trials_from_node=set()
+            ),
+            0,
+        )
+
+    def test_count_only_trials_without_data_blocks_when_trial_lacks_data(self) -> None:
+        """Test that count_only_trials_without_data=True blocks generation
+        when running trials lack data."""
+        trial = self.experiment.new_trial(
+            generator_run=Generators.SOBOL(experiment=self.experiment).gen(n=1)
+        )
+        trial.mark_running(no_runner_required=True)
+
+        criterion = MaxTrialsAwaitingData(
+            threshold=1,
+            only_in_statuses=[TrialStatus.RUNNING],
+            count_only_trials_without_data=True,
+            use_all_trials_in_exp=True,
+        )
+
+        self.assertEqual(
+            criterion.num_contributing_to_threshold(
+                experiment=self.experiment, trials_from_node=set()
+            ),
+            1,
+        )
+
+    def test_mutual_exclusivity_in_function(self) -> None:
+        """Test that count_only_trials_with_data and count_only_trials_without_data
+        cannot both be True in count_trials_toward_threshold."""
+        with self.assertRaises(UserInputError):
+            count_trials_toward_threshold(
+                experiment=self.experiment,
+                trials_from_node=set(),
+                count_only_trials_with_data=True,
+                count_only_trials_without_data=True,
+            )
+
+
+class TestStagedTrialsPausingCriterion(TestPausingCriterion):
+    def test_staged_trials_pausing_criterion(self) -> None:
+        gs = GenerationStrategy(
+            name="test",
+            nodes=[
+                GenerationNode(
+                    name="sobol",
+                    generator_specs=[self.sobol_generator_spec],
+                    pausing_criteria=[StagedTrialsPausingCriterion()],
+                ),
+            ],
+        )
+        gs.experiment = self.experiment
+        criterion = StagedTrialsPausingCriterion()
+
+        with self.subTest("no_staged_trials"):
+            self.assertFalse(criterion.is_met(self.experiment, gs._nodes[0]))
+
+        with self.subTest("with_staged_trials"):
+            trial = self.experiment.new_trial(
+                generator_run=Generators.SOBOL(experiment=self.experiment).gen(n=1)
+            )
+            trial.mark_staged()
+            self.assertTrue(criterion.is_met(self.experiment, gs._nodes[0]))
+
+    def test_error_message_includes_indices(self) -> None:
+        trial = self.experiment.new_trial(
+            generator_run=Generators.SOBOL(experiment=self.experiment).gen(n=1)
+        )
+        trial.mark_staged()
+
+        criterion = StagedTrialsPausingCriterion()
+        with self.assertRaises(AxGenerationException) as cm:
+            criterion.block_continued_generation_error(
+                node_name="test", experiment=self.experiment, trials_from_node=set()
+            )
+        self.assertIn("indices: 0", str(cm.exception))
+
+
+class TestMissingOptimizationConfigPausingCriterion(TestPausingCriterion):
+    def test_optconfig_pausing_criterion(self) -> None:
+        gs = GenerationStrategy(
+            name="test",
+            nodes=[
+                GenerationNode(
+                    name="sobol",
+                    generator_specs=[self.sobol_generator_spec],
+                    pausing_criteria=[MissingOptimizationConfigPausingCriterion()],
+                ),
+            ],
+        )
+        gs.experiment = self.experiment
+        criterion = MissingOptimizationConfigPausingCriterion()
+
+        with self.subTest("with_opt_config"):
+            self.assertFalse(criterion.is_met(self.experiment, gs._nodes[0]))
+
+        with self.subTest("without_opt_config"):
+            self.experiment._optimization_config = None
+            self.assertTrue(criterion.is_met(self.experiment, gs._nodes[0]))
+
+        with self.subTest("block_error_message"):
+            with self.assertRaises(AxGenerationException) as cm:
+                criterion.block_continued_generation_error(
+                    node_name="test",
+                    experiment=self.experiment,
+                    trials_from_node=set(),
+                )
+            self.assertIn(
+                "does not currently have an optimization config set",
+                str(cm.exception),
             )

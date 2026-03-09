@@ -39,6 +39,7 @@ from ax.core.utils import (
 from ax.early_stopping.strategies import BaseEarlyStoppingStrategy
 from ax.exceptions.core import (
     AxError,
+    DataRequiredError,
     OptimizationComplete,
     UnsupportedError,
     UserInputError,
@@ -51,7 +52,13 @@ from ax.generation_strategy.generation_strategy import (
     GenerationStrategy,
 )
 from ax.generation_strategy.generator_spec import GeneratorSpec
-from ax.generation_strategy.transition_criterion import MaxGenerationParallelism
+from ax.generation_strategy.transition_criterion import (
+    MaxGenerationParallelism,
+    MaxTrialsAwaitingData,
+    MissingOptimizationConfigPausingCriterion,
+    PausingCriterion,
+    StagedTrialsPausingCriterion,
+)
 from ax.metrics.branin import BraninMetric
 from ax.metrics.branin_map import BraninTimestampMapMetric
 from ax.orchestration.orchestrator import (
@@ -108,6 +115,7 @@ from ax.utils.testing.core_stubs import (
     get_branin_experiment_with_timestamp_map_metric,
     get_branin_metric,
     get_branin_multi_objective_optimization_config,
+    get_branin_outcome_constraint,
     get_branin_search_space,
     get_generator_run,
     get_map_metric,
@@ -3091,3 +3099,152 @@ class TestAxOrchestratorMultiTypeExperiment(TestAxOrchestrator):
             get_branin_metric(), trial_type="type1"
         )
         super().test_generate_candidates_does_not_generate_if_missing_opt_config()
+
+
+class TestGenerationBlockingCriteriaOrchestrator(TestCase):
+    """E2E tests for blocking criteria at Orchestrator level."""
+
+    def setUp(self) -> None:
+        super().setUp()
+        self.sobol_generator_spec = GeneratorSpec(generator_enum=Generators.SOBOL)
+        self.experiment = get_branin_experiment()
+        self.experiment.runner = InfinitePollRunner()
+
+    def _create_orchestrator(
+        self,
+        experiment: Experiment | None = None,
+        pausing_criteria: list[PausingCriterion] | None = None,
+    ) -> Orchestrator:
+        """Helper to create Orchestrator with given pausing criteria."""
+        return Orchestrator(
+            experiment=experiment or self.experiment,
+            generation_strategy=GenerationStrategy(
+                name="test",
+                nodes=[
+                    GenerationNode(
+                        name="sobol",
+                        generator_specs=[self.sobol_generator_spec],
+                        pausing_criteria=pausing_criteria or [],
+                    ),
+                ],
+            ),
+            options=OrchestratorOptions(),
+        )
+
+    def _assert_generation_blocked(
+        self,
+        new_trials: list[BaseTrial],
+        err: Exception | None,
+        expected_error_type: type[Exception],
+        expected_message_substring: str | None = None,
+    ) -> None:
+        """Assert that generation was blocked with expected error."""
+        self.assertEqual(len(new_trials), 0)
+        self.assertIsInstance(err, expected_error_type)
+        if expected_message_substring:
+            self.assertIn(expected_message_substring, str(err).lower())
+
+    def test_staged_trials_pauses_generation(self) -> None:
+        orchestrator = self._create_orchestrator(
+            pausing_criteria=[StagedTrialsPausingCriterion()]
+        )
+
+        new_trials, _ = orchestrator.generate_candidates(num_trials=1)
+        new_trials[0].mark_staged()
+
+        new_trials, err = orchestrator.generate_candidates(num_trials=1)
+        self._assert_generation_blocked(
+            new_trials, err, AxGenerationException, "staged trials"
+        )
+
+    def test_missing_opt_config_pauses_generation(self) -> None:
+        experiment = get_branin_experiment(has_optimization_config=False)
+        experiment.runner = InfinitePollRunner()
+        experiment.add_tracking_metric(get_branin_metric())
+        orchestrator = self._create_orchestrator(
+            experiment=experiment,
+            pausing_criteria=[MissingOptimizationConfigPausingCriterion()],
+        )
+
+        new_trials, err = orchestrator.generate_candidates(num_trials=1)
+        self._assert_generation_blocked(
+            new_trials, err, AxGenerationException, "optimization config"
+        )
+
+    def test_generation_blocked_with_missing_metrics(self) -> None:
+        """Verifies MaxTrialsAwaitingData blocks when trial is missing required
+        metrics.
+        """
+        self.experiment.optimization_config.outcome_constraints = [
+            get_branin_outcome_constraint(name="constraint")
+        ]
+        orchestrator = self._create_orchestrator(
+            pausing_criteria=[
+                MaxTrialsAwaitingData(
+                    threshold=1,
+                    only_in_statuses=[TrialStatus.RUNNING],
+                ),
+            ]
+        )
+
+        new_trials, _ = orchestrator.generate_candidates(num_trials=1)
+        trial = new_trials[0]
+        trial.mark_running(no_runner_required=True)
+        trial.fetch_data(metrics=[self.experiment.metrics["constraint"]])
+
+        new_trials, err = orchestrator.generate_candidates(num_trials=1)
+        self._assert_generation_blocked(new_trials, err, DataRequiredError)
+
+    def test_generation_proceeds_with_abandoned_arm(self) -> None:
+        """Verifies abandoned arms are filtered out and don't block generation."""
+        orchestrator = Orchestrator(
+            experiment=self.experiment,
+            generation_strategy=GenerationStrategy(
+                name="test",
+                nodes=[
+                    GenerationNode(
+                        name="sobol",
+                        generator_specs=[self.sobol_generator_spec],
+                        pausing_criteria=[
+                            MaxTrialsAwaitingData(
+                                threshold=2,
+                                only_in_statuses=[TrialStatus.RUNNING],
+                            ),
+                        ],
+                    ),
+                ],
+            ),
+            options=OrchestratorOptions(
+                trial_type=TrialType.BATCH_TRIAL,
+                batch_size=2,
+            ),
+        )
+
+        new_trials, _ = orchestrator.generate_candidates(num_trials=1)
+        trial = new_trials[0]
+        trial.mark_running(no_runner_required=True)
+        trial.fetch_data()
+        arm_name = trial.lookup_data().df["arm_name"].iloc[0]
+        trial.mark_arm_abandoned(arm_name)
+
+        new_trials, err = orchestrator.generate_candidates(num_trials=1)
+        self.assertEqual(len(new_trials), 1)
+        self.assertIsNone(err)
+
+    def test_generation_blocked_when_trial_has_no_data(self) -> None:
+        """Verifies MaxTrialsAwaitingData blocks when trials have no data."""
+        orchestrator = self._create_orchestrator(
+            pausing_criteria=[
+                MaxTrialsAwaitingData(
+                    threshold=1,
+                    only_in_statuses=[TrialStatus.RUNNING],
+                ),
+            ]
+        )
+
+        new_trials, _ = orchestrator.generate_candidates(num_trials=1)
+        trial = new_trials[0]
+        trial.mark_running(no_runner_required=True)
+
+        new_trials, err = orchestrator.generate_candidates(num_trials=1)
+        self._assert_generation_blocked(new_trials, err, DataRequiredError)

@@ -516,7 +516,12 @@ def pausing_criterion_from_json(
     decoder_registry: TDecoderRegistry = CORE_DECODER_REGISTRY,
     class_decoder_registry: TClassDecoderRegistry = CORE_CLASS_DECODER_REGISTRY,
 ) -> PausingCriterion:
-    """Load PausingCriterion from JSON."""
+    """Load PausingCriterion from JSON.
+
+    Note: deprecated/unknown JSON keys (e.g. ``count_only_trials_with_data``)
+    are silently dropped by ``extract_init_args`` inside ``_criterion_from_json``,
+    so no explicit deletion is needed here.
+    """
     return _criterion_from_json(
         criterion_class=pausing_criterion_class,
         object_json=object_json,
