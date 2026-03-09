@@ -151,7 +151,7 @@ class UtilityProgressionAnalysis(Analysis):
             subtitle = (
                 "Shows the hypervolume of the Pareto frontier achieved so far across "
                 f"completed trials. {_TRACE_INDEX_EXPLANATION} The y-axis shows "
-                "cumulative best hypervolume—only improvements, so flat "
+                "cumulative best hypervolume -- only improvements, so flat "
                 "segments indicate trials that didn't improve the frontier. "
                 "Hypervolume measures the volume of objective space dominated by the "
                 f"Pareto frontier. "
