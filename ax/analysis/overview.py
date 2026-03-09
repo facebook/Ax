@@ -5,6 +5,7 @@
 
 # pyre-strict
 
+from collections.abc import Callable
 from typing import Any, final
 
 from ax.adapter.base import Adapter
@@ -116,6 +117,7 @@ class OverviewAnalysis(Analysis):
         tier_metadata: dict[str, Any] | None = None,
         model_fit_threshold: float | None = None,
         sqa_config: Any = None,
+        create_diff_paste_callable: Callable[[str, str, str], str] | None = None,
     ) -> None:
         super().__init__()
         self.can_generate = can_generate
@@ -127,6 +129,7 @@ class OverviewAnalysis(Analysis):
         self.tier_metadata = tier_metadata
         self.model_fit_threshold = model_fit_threshold
         self.sqa_config = sqa_config
+        self.create_diff_paste_callable = create_diff_paste_callable
 
     @override
     def validate_applicable_state(
@@ -232,7 +235,10 @@ class OverviewAnalysis(Analysis):
             if not has_batch_trials
             else None,
             BaselineImprovementAnalysis() if not has_batch_trials else None,
-            TransferLearningAnalysis(config=self.sqa_config),
+            TransferLearningAnalysis(
+                config=self.sqa_config,
+                create_diff_paste_callable=self.create_diff_paste_callable,
+            ),
             *[
                 SearchSpaceAnalysis(trial_index=trial.index)
                 for trial in candidate_trials
