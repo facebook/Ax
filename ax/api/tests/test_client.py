@@ -23,7 +23,6 @@ from ax.api.configs import (
 from ax.api.protocols.metric import IMetric
 from ax.api.protocols.runner import IRunner
 from ax.api.types import TParameterization
-from ax.core.analysis_card import AnalysisCard
 from ax.core.data import Data
 from ax.core.experiment import Experiment
 from ax.core.map_metric import MapMetric
@@ -1280,12 +1279,7 @@ class TestClient(TestCase):
         self.assertEqual(cards[0].title, "ParallelCoordinatesPlot Error")
         self.assertEqual(
             cards[0].subtitle,
-            "AnalysisNotApplicableStateError encountered while computing "
-            "ParallelCoordinatesPlot.",
-        )
-        self.assertIn(
-            "Experiment has no trials",
-            assert_is_instance(cards[0], AnalysisCard).blob,
+            "AnalysisNotApplicableStateError: Experiment has no trials.",
         )
 
         for trial_index, _ in client.get_next_trials(max_trials=1).items():
