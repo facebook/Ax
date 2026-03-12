@@ -51,7 +51,9 @@ def mock_botorch_optimize_context_manager(
     def minimal_fit_fully_bayesian(*args: Any, **kwargs: Any) -> None:
         fit_fully_bayesian_model_nuts(*args, **_get_minimal_mcmc_kwargs(**kwargs))
 
-    def minimal_mixed_optimizer(*args: Any, **kwargs: Any) -> tuple[Tensor, Tensor]:
+    def minimal_mixed_optimizer(
+        *args: Any, **kwargs: Any
+    ) -> tuple[Tensor, Tensor | None]:
         # BoTorch's `mock_optimize_context_manager` also has some mocks for this,
         # but the full set of mocks applied here cannot be covered by that.
         kwargs["raw_samples"] = 2
