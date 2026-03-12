@@ -206,10 +206,18 @@ def error_card_from_analysis_e(
     analysis_name = analysis_e.analysis.__class__.__name__
     exception_name = analysis_e.exception.__class__.__name__
 
+    # Include the exception message in the subtitle if available, so users can
+    # see the reasoning in the error card.
+    subtitle = (
+        f"{exception_name}: {exception_message}"
+        if (exception_message := str(analysis_e.exception))
+        else f"{exception_name} encountered while computing {analysis_name}."
+    )
+
     return ErrorAnalysisCard(
         name=analysis_name,
         title=f"{analysis_name} Error",
-        subtitle=f"{exception_name} encountered while computing {analysis_name}.",
+        subtitle=subtitle,
         df=pd.DataFrame(),
         blob=analysis_e.tb_str() or "",
     )
