@@ -12,6 +12,7 @@ from typing import Any, cast
 
 from ax.adapter.transforms.base import Transform
 from ax.core import Experiment, ObservationFeatures
+from ax.core.analysis_card import AnalysisCard, AnalysisCardGroup
 from ax.core.arm import Arm
 from ax.core.auxiliary import AuxiliaryExperiment
 from ax.core.batch_trial import BatchTrial
@@ -76,6 +77,31 @@ from botorch.sampling.base import MCSampler
 from botorch.utils.types import _DefaultType
 from pyre_extensions import assert_is_instance
 from torch import Tensor
+
+
+def analysis_card_to_dict(card: AnalysisCard) -> dict[str, Any]:
+    """Convert Ax analysis card to a dictionary."""
+    return {
+        "__type": card.__class__.__name__,
+        "name": card.name,
+        "title": card.title,
+        "subtitle": card.subtitle,
+        "df": card.df,
+        "blob": card.blob,
+        "timestamp": card._timestamp,
+    }
+
+
+def analysis_card_group_to_dict(group: AnalysisCardGroup) -> dict[str, Any]:
+    """Convert Ax analysis card group to a dictionary."""
+    return {
+        "__type": "AnalysisCardGroup",
+        "name": group.name,
+        "title": group.title,
+        "subtitle": group.subtitle,
+        "children": group.children,
+        "timestamp": group._timestamp,
+    }
 
 
 def experiment_to_dict(experiment: Experiment) -> dict[str, Any]:
