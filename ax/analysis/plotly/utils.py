@@ -19,10 +19,8 @@ from plotly import express as px
 
 MAX_LABEL_LEN: int = 50
 
-# Because normal distributions have long tails, every arm has a non-zero
-# probability of violating the constraint. But below a certain threshold, we
-# consider probability of violation to be negligible.
-MINIMUM_CONTRAINT_VIOLATION_THRESHOLD = 0.01
+# Minimum p_feasible to mark an arm as infeasible
+MINIMUM_P_FEASIBLE = 0.1
 
 # Z-score for 95% confidence interval
 Z_SCORE_95_CI = 1.96
@@ -74,6 +72,10 @@ MAX_HOVER_LABEL_LEN: int = 300
 
 SINGLE_CANDIDATE_TRIAL_LEGEND: str = "Candidate Trial"
 MULTIPLE_CANDIDATE_TRIALS_LEGEND: str = "Candidate Trials"
+
+INFEASIBLE_OUTLINE_COLOR: str = "red"
+INFEASIBLE_OUTLINE_WIDTH: float = 2.0
+INFEASIBLE_LEGEND_NAME: str = "Likely Infeasible"
 
 
 def get_scatter_point_color(
@@ -153,7 +155,7 @@ def get_arm_tooltip(
         ]
     )
 
-    if row["p_feasible_mean"] < MINIMUM_CONTRAINT_VIOLATION_THRESHOLD:
+    if row["p_feasible_mean"] < MINIMUM_P_FEASIBLE:
         constraints_warning_str = "[Warning] This arm is likely infeasible"
     else:
         constraints_warning_str = ""
