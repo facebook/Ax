@@ -82,6 +82,8 @@ from ax.generation_strategy.transition_criterion import (
     MaxGenerationParallelism,
     MaxTrialsAwaitingData,
     MinTrials,
+    MissingOptimizationConfigPausingCriterion,
+    StagedTrialsPausingCriterion,
     TransitionCriterion,
 )
 from ax.generators.torch.botorch_modular.acquisition import Acquisition
@@ -220,6 +222,8 @@ CORE_ENCODER_REGISTRY: dict[type[Any], Callable[[Any], dict[str, Any]]] = {
     MapMetric: metric_to_dict,
     MaxGenerationParallelism: pausing_criterion_to_dict,
     MaxTrialsAwaitingData: pausing_criterion_to_dict,
+    MissingOptimizationConfigPausingCriterion: pausing_criterion_to_dict,
+    StagedTrialsPausingCriterion: pausing_criterion_to_dict,
     Metric: metric_to_dict,
     MinTrials: transition_criterion_to_dict,
     AuxiliaryExperimentCheck: transition_criterion_to_dict,
@@ -348,6 +352,9 @@ CORE_DECODER_REGISTRY: TDecoderRegistry = {
     "MaxTrials": MinTrials,
     "MaxGenerationParallelism": MaxGenerationParallelism,
     "MaxTrialsAwaitingData": MaxTrialsAwaitingData,
+    "MissingOptimizationConfigPausingCriterion": (
+        MissingOptimizationConfigPausingCriterion
+    ),
     "Metric": Metric,
     "MinTrials": MinTrials,
     # DEPRECATED; backward compatibility for MinimumTrialsInStatus -> MinTrials
@@ -397,6 +404,7 @@ CORE_DECODER_REGISTRY: TDecoderRegistry = {
     "Surrogate": Surrogate,
     "SurrogateMetric": BenchmarkMetric,  # DEPRECATED; backward compatibility
     "SobolQMCNormalSampler": SobolQMCNormalSampler,
+    "StagedTrialsPausingCriterion": StagedTrialsPausingCriterion,
     "SyntheticRunner": SyntheticRunner,
     "SurrogateSpec": SurrogateSpec,
     "Trial": Trial,

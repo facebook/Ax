@@ -57,6 +57,8 @@ from ax.generation_strategy.transition_criterion import (
     MaxGenerationParallelism,
     MaxTrialsAwaitingData,
     MinTrials,
+    MissingOptimizationConfigPausingCriterion,
+    StagedTrialsPausingCriterion,
 )
 from ax.generators.torch.botorch_modular.kernels import ScaleMaternKernel
 from ax.generators.torch.botorch_modular.surrogate import Surrogate, SurrogateSpec
@@ -69,6 +71,7 @@ from ax.storage.json_store.decoder import (
     generation_strategy_from_json,
     generator_spec_from_json,
     object_from_json,
+    pausing_criterion_from_json,
 )
 from ax.storage.json_store.decoders import (
     botorch_component_from_json,
@@ -81,6 +84,7 @@ from ax.storage.json_store.encoders import (
     botorch_modular_to_dict,
     choice_parameter_to_dict,
     metric_to_dict,
+    pausing_criterion_to_dict,
     runner_to_dict,
 )
 from ax.storage.json_store.load import load_experiment
@@ -1372,6 +1376,72 @@ class JSONStoreTest(TestCase):
             )
             self.assertEqual(blocking.threshold, 5)
             self.assertTrue(blocking.use_all_trials_in_exp)
+
+    def test_pausing_criterion_backward_compat(self) -> None:
+        """Test that deprecated/unknown JSON keys are silently dropped
+        when deserializing pausing criteria (handled by extract_init_args
+        inside _criterion_from_json)."""
+        with self.subTest("deprecated_count_only_trials_with_data_is_ignored"):
+            # Old-format JSON that includes the removed
+            # count_only_trials_with_data field.
+            json_blob = {
+                "__type": "MaxTrialsAwaitingData",
+                "threshold": 3,
+                "only_in_statuses": [
+                    {"__type": "TrialStatus", "name": "RUNNING"},
+                ],
+                "not_in_statuses": [
+                    {"__type": "TrialStatus", "name": "FAILED"},
+                    {"__type": "TrialStatus", "name": "ABANDONED"},
+                ],
+                "use_all_trials_in_exp": True,
+                "count_only_trials_with_data": False,
+            }
+            result = assert_is_instance(
+                pausing_criterion_from_json(
+                    pausing_criterion_class=MaxTrialsAwaitingData,
+                    object_json=json_blob,
+                ),
+                MaxTrialsAwaitingData,
+            )
+            self.assertEqual(result.threshold, 3)
+            self.assertTrue(result.use_all_trials_in_exp)
+            self.assertFalse(result.count_only_trials_without_data)
+
+        with self.subTest("StagedTrialsPausingCriterion_roundtrip"):
+            criterion = StagedTrialsPausingCriterion()
+            json_blob = pausing_criterion_to_dict(criterion)
+            loaded = pausing_criterion_from_json(
+                pausing_criterion_class=StagedTrialsPausingCriterion,
+                object_json={k: v for k, v in json_blob.items() if k != "__type"},
+            )
+            self.assertEqual(criterion, loaded)
+
+        with self.subTest("MissingOptimizationConfigPausingCriterion_roundtrip"):
+            criterion = MissingOptimizationConfigPausingCriterion()
+            json_blob = pausing_criterion_to_dict(criterion)
+            loaded = pausing_criterion_from_json(
+                pausing_criterion_class=MissingOptimizationConfigPausingCriterion,
+                object_json={k: v for k, v in json_blob.items() if k != "__type"},
+            )
+            self.assertEqual(criterion, loaded)
+
+        with self.subTest("MaxTrialsAwaitingData_with_count_only_trials_without_data"):
+            criterion = MaxTrialsAwaitingData(
+                threshold=1,
+                use_all_trials_in_exp=True,
+                count_only_trials_without_data=True,
+            )
+            json_blob = pausing_criterion_to_dict(criterion)
+            loaded = assert_is_instance(
+                pausing_criterion_from_json(
+                    pausing_criterion_class=MaxTrialsAwaitingData,
+                    object_json={k: v for k, v in json_blob.items() if k != "__type"},
+                ),
+                MaxTrialsAwaitingData,
+            )
+            self.assertEqual(criterion, loaded)
+            self.assertTrue(loaded.count_only_trials_without_data)
 
     def test_SobolQMCNormalSampler(self) -> None:
         # This fails default equality checks, so testing it separately.
