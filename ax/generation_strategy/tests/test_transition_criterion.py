@@ -7,11 +7,15 @@
 
 
 from logging import Logger
+from unittest.mock import MagicMock
 
 import pandas as pd
 from ax.adapter.registry import Generators
+from ax.core.arm import Arm
 from ax.core.auxiliary import AuxiliaryExperiment, AuxiliaryExperimentPurpose
 from ax.core.data import Data
+from ax.core.derived_metric import DerivedMetric
+from ax.core.experiment import Experiment
 from ax.core.trial_status import TrialStatus
 from ax.exceptions.core import DataRequiredError, UserInputError
 from ax.exceptions.generation_strategy import MaxParallelismReachedException
@@ -24,11 +28,14 @@ from ax.generation_strategy.generator_spec import GeneratorSpec
 from ax.generation_strategy.transition_criterion import (
     AutoTransitionAfterGen,
     AuxiliaryExperimentCheck,
+    FreshLILOLabelCheck,
     IsSingleObjective,
     MaxGenerationParallelism,
     MaxTrialsAwaitingData,
     MinTrials,
 )
+from ax.utils.common.constants import Keys
+from ax.utils.common.hash_utils import compute_lilo_input_hash
 from ax.utils.common.logger import get_logger
 from ax.utils.common.testutils import TestCase
 from ax.utils.testing.core_stubs import (
@@ -39,6 +46,13 @@ from ax.utils.testing.core_stubs import (
 )
 
 logger: Logger = get_logger(__name__)
+
+
+def _mock_node(trials_from_node: set[int]) -> MagicMock:
+    """Create a mock GenerationNode with a specified trials_from_node set."""
+    node = MagicMock()
+    node.trials_from_node = trials_from_node
+    return node
 
 
 class TestTransitionCriterion(TestCase):
@@ -614,3 +628,189 @@ class TestPausingCriterion(TestCase):
                 experiment=self.experiment,
                 trials_from_node={0, 1, 2},
             )
+
+    def test_fresh_lilo_label_check(self) -> None:
+        """Verify FreshLILOLabelCheck counts only hash-fresh trials."""
+        exp = get_branin_experiment()
+
+        # Register a DerivedMetric with pairwise name.
+        pairwise_metric = DerivedMetric(
+            name=Keys.PAIRWISE_PREFERENCE_QUERY.value,
+            input_metric_names=["branin"],
+        )
+        exp.add_tracking_metric(pairwise_metric)
+
+        criterion = FreshLILOLabelCheck(
+            threshold=2,
+            transition_to="next_node",
+            only_in_statuses=[TrialStatus.COMPLETED],
+        )
+
+        # Helper to create and complete a trial with data.
+        def _add_trial(idx: int, exp: Experiment = exp) -> None:
+            trial = exp.new_batch_trial()
+            trial.add_arm(
+                Arm(name=f"{idx}_0", parameters={"x1": float(idx), "x2": 0.0})
+            )
+            trial.mark_running(no_runner_required=True)
+            trial.mark_completed()
+            exp.attach_data(
+                Data(
+                    df=pd.DataFrame(
+                        [
+                            {
+                                "trial_index": idx,
+                                "arm_name": f"{idx}_0",
+                                "metric_name": "branin",
+                                "metric_signature": "branin",
+                                "mean": float(idx),
+                                "sem": 0.1,
+                            }
+                        ]
+                    )
+                )
+            )
+
+        # Create 3 trials, stamp first 2 with current hash.
+        for i in range(3):
+            _add_trial(i)
+
+        current_hash = compute_lilo_input_hash(exp, ["branin"])
+        trials_from_node = {0, 1, 2}
+
+        with self.subTest("no_hashes_none_count"):
+            # No hash stamps → no trials counted (only LILO trials with
+            # a matching hash contribute).
+            count = criterion.num_contributing_to_threshold(exp, trials_from_node)
+            self.assertEqual(count, 0)
+
+        # Stamp trials 0 and 1 with the current hash.
+        exp.trials[0]._properties[Keys.LILO_INPUT_HASH] = current_hash
+        exp.trials[1]._properties[Keys.LILO_INPUT_HASH] = current_hash
+
+        with self.subTest("fresh_hashes_count"):
+            count = criterion.num_contributing_to_threshold(exp, trials_from_node)
+            # Trials 0, 1 (fresh hash). Trial 2 (no hash → excluded).
+            self.assertEqual(count, 2)
+
+        # Make trial 1 stale.
+        exp.trials[1]._properties[Keys.LILO_INPUT_HASH] = "stale_hash"
+
+        with self.subTest("stale_hash_excluded"):
+            count = criterion.num_contributing_to_threshold(exp, trials_from_node)
+            # Trial 0 (fresh). Trial 1 (stale) and trial 2 (no hash) excluded.
+            self.assertEqual(count, 1)
+            self.assertFalse(criterion.is_met(exp, _mock_node(trials_from_node)))
+
+        # Make trial 0 stale too.
+        exp.trials[0]._properties[Keys.LILO_INPUT_HASH] = "another_stale"
+
+        with self.subTest("not_enough_fresh"):
+            count = criterion.num_contributing_to_threshold(exp, trials_from_node)
+            # All stamped trials are stale, trial 2 has no hash → 0.
+            self.assertEqual(count, 0)
+            self.assertFalse(criterion.is_met(exp, _mock_node(trials_from_node)))
+
+        with self.subTest("data_change_invalidates"):
+            # Add new data — changes the current hash, making ALL stamped
+            # trials stale.
+            _add_trial(3)
+            trials_from_node.add(3)
+            count = criterion.num_contributing_to_threshold(exp, trials_from_node)
+            # Trials 0, 1 stale. Trials 2, 3 have no hash → excluded.
+            self.assertEqual(count, 0)
+
+    def test_fresh_lilo_label_check_require_sufficient(self) -> None:
+        """Verify require_sufficient flag controls is_met direction."""
+        exp = get_branin_experiment()
+
+        pairwise_metric = DerivedMetric(
+            name=Keys.PAIRWISE_PREFERENCE_QUERY.value,
+            input_metric_names=["branin"],
+        )
+        exp.add_tracking_metric(pairwise_metric)
+
+        # Create 2 completed trials with data.
+        for i in range(2):
+            trial = exp.new_batch_trial()
+            trial.add_arm(Arm(name=f"{i}_0", parameters={"x1": float(i), "x2": 0.0}))
+            trial.mark_running(no_runner_required=True)
+            trial.mark_completed()
+            exp.attach_data(
+                Data(
+                    df=pd.DataFrame(
+                        [
+                            {
+                                "trial_index": i,
+                                "arm_name": f"{i}_0",
+                                "metric_name": "branin",
+                                "metric_signature": "branin",
+                                "mean": float(i),
+                                "sem": 0.1,
+                            }
+                        ]
+                    )
+                )
+            )
+
+        current_hash = compute_lilo_input_hash(exp, ["branin"])
+        # Stamp both trials as fresh.
+        exp.trials[0]._properties[Keys.LILO_INPUT_HASH] = current_hash
+        exp.trials[1]._properties[Keys.LILO_INPUT_HASH] = current_hash
+        trials_from_node = {0, 1}
+
+        sufficient = FreshLILOLabelCheck(
+            threshold=2,
+            transition_to="MBG",
+            require_sufficient=True,
+            only_in_statuses=[TrialStatus.COMPLETED],
+        )
+        insufficient = FreshLILOLabelCheck(
+            threshold=2,
+            transition_to="LILO",
+            require_sufficient=False,
+            only_in_statuses=[TrialStatus.COMPLETED],
+        )
+
+        with self.subTest("sufficient_met_when_enough_fresh"):
+            # 2 fresh >= threshold 2 → require_sufficient=True is met.
+            self.assertTrue(sufficient.is_met(exp, _mock_node(trials_from_node)))
+
+        with self.subTest("insufficient_not_met_when_enough_fresh"):
+            # 2 fresh >= threshold 2 → require_sufficient=False is NOT met.
+            self.assertFalse(insufficient.is_met(exp, _mock_node(trials_from_node)))
+
+        # Make trial 0 stale → only 1 fresh trial.
+        exp.trials[0]._properties[Keys.LILO_INPUT_HASH] = "stale"
+
+        with self.subTest("sufficient_not_met_when_stale"):
+            # 1 fresh < threshold 2 → require_sufficient=True is NOT met.
+            self.assertFalse(sufficient.is_met(exp, _mock_node(trials_from_node)))
+
+        with self.subTest("insufficient_met_when_stale"):
+            # 1 fresh < threshold 2 → require_sufficient=False IS met.
+            self.assertTrue(insufficient.is_met(exp, _mock_node(trials_from_node)))
+
+    def test_fresh_lilo_label_check_non_lilo_fallback(self) -> None:
+        """Non-LILO experiment: require_sufficient=True always met,
+        require_sufficient=False never met."""
+        exp = get_branin_experiment()
+        # No pairwise DerivedMetric registered — non-LILO experiment.
+        trials_from_node: set[int] = set()
+
+        sufficient = FreshLILOLabelCheck(
+            threshold=32,
+            transition_to="MBG",
+            require_sufficient=True,
+        )
+        insufficient = FreshLILOLabelCheck(
+            threshold=32,
+            transition_to="LILO",
+            require_sufficient=False,
+        )
+
+        with self.subTest("non_lilo_sufficient_always_met"):
+            self.assertTrue(sufficient.is_met(exp, _mock_node(trials_from_node)))
+
+        with self.subTest("non_lilo_insufficient_never_met"):
+            self.assertFalse(insufficient.is_met(exp, _mock_node(trials_from_node)))
