@@ -10,7 +10,6 @@ from copy import deepcopy
 from datetime import datetime, timedelta
 from unittest.mock import patch
 
-import numpy as np
 import pandas as pd
 from ax.core.arm import Arm
 from ax.core.batch_trial import BatchTrial
@@ -28,11 +27,8 @@ from ax.core.types import ComparisonOp
 from ax.core.utils import (
     _maybe_update_trial_status_to_complete,
     batch_trial_only,
-    best_feasible_objective,
     compute_metric_availability,
     extract_pending_observations,
-    get_missing_metrics,
-    get_missing_metrics_by_name,
     get_model_times,
     get_model_trace_of_times,
     get_pending_observation_features,
@@ -40,7 +36,6 @@ from ax.core.utils import (
     get_target_trial_index,
     is_bandit_experiment,
     MetricAvailability,
-    MissingMetrics,
 )
 from ax.exceptions.core import AxError
 from ax.utils.common.constants import Keys
@@ -95,119 +90,10 @@ class UtilsTest(TestCase):
             trial_index=self.hss_trial.index,
             metadata=self.hss_cand_metadata,
         )
-        self.df = pd.DataFrame(
-            [
-                {
-                    "arm_name": "0_0",
-                    "mean": 2.0,
-                    "sem": 0.2,
-                    "trial_index": 1,
-                    "metric_name": "a",
-                    "start_time": "2018-01-01",
-                    "end_time": "2018-01-02",
-                    "metric_signature": "a",
-                },
-                {
-                    "arm_name": "0_0",
-                    "mean": 1.8,
-                    "sem": 0.3,
-                    "trial_index": 1,
-                    "metric_name": "b",
-                    "start_time": "2018-01-01",
-                    "end_time": "2018-01-02",
-                    "metric_signature": "b",
-                },
-                {
-                    "arm_name": "0_1",
-                    "mean": float("nan"),
-                    "sem": float("nan"),
-                    "trial_index": 1,
-                    "metric_name": "a",
-                    "start_time": "2018-01-01",
-                    "end_time": "2018-01-02",
-                    "metric_signature": "a",
-                },
-                {
-                    "arm_name": "0_1",
-                    "mean": 3.7,
-                    "sem": 0.5,
-                    "trial_index": 1,
-                    "metric_name": "b",
-                    "start_time": "2018-01-01",
-                    "end_time": "2018-01-02",
-                    "metric_signature": "b",
-                },
-                {
-                    "arm_name": "0_2",
-                    "mean": 0.5,
-                    "sem": None,
-                    "trial_index": 1,
-                    "metric_name": "a",
-                    "start_time": "2018-01-01",
-                    "end_time": "2018-01-02",
-                    "metric_signature": "a",
-                },
-                {
-                    "arm_name": "0_2",
-                    "mean": float("nan"),
-                    "sem": float("nan"),
-                    "trial_index": 1,
-                    "metric_name": "b",
-                    "start_time": "2018-01-01",
-                    "end_time": "2018-01-02",
-                    "metric_signature": "b",
-                },
-                {
-                    "arm_name": "0_2",
-                    "mean": float("nan"),
-                    "sem": float("nan"),
-                    "trial_index": 1,
-                    "metric_name": "c",
-                    "start_time": "2018-01-01",
-                    "end_time": "2018-01-02",
-                    "metric_signature": "c",
-                },
-            ]
-        )
-
-        self.data = Data(df=self.df)
-
-        self.optimization_config = OptimizationConfig(
-            objective=Objective(metric=Metric(name="a"), minimize=False),
-            outcome_constraints=[
-                OutcomeConstraint(
-                    metric=Metric(name="b"),
-                    op=ComparisonOp.GEQ,
-                    bound=0,
-                    relative=False,
-                )
-            ],
-        )
         self.batch_experiment = get_branin_experiment(with_completed_trial=False)
         self.batch_experiment.status_quo = Arm(
             name="status_quo", parameters={"x1": 0.0, "x2": 0.0}
         )
-
-    def test_get_missing_metrics_by_name(self) -> None:
-        expected = {"a": {("0_1", 1)}, "b": {("0_2", 1)}}
-        actual = get_missing_metrics_by_name(self.data, ["a", "b"])
-        self.assertEqual(actual, expected)
-
-    def test_get_missing_metrics(self) -> None:
-        expected = MissingMetrics(
-            {"a": {("0_1", 1)}},
-            {"b": {("0_2", 1)}},
-            {"c": {("0_0", 1), ("0_1", 1), ("0_2", 1)}},
-        )
-        actual = get_missing_metrics(self.data, self.optimization_config)
-        self.assertEqual(actual, expected)
-
-    def test_best_feasible_objective(self) -> None:
-        bfo = best_feasible_objective(
-            self.optimization_config,
-            values={"a": np.array([1.0, 3.0, 2.0]), "b": np.array([0.0, -1.0, 0.0])},
-        )
-        self.assertEqual(list(bfo), [1.0, 1.0, 2.0])
 
     def test_get_model_times(self) -> None:
         exp = get_branin_experiment(num_trial=2)
