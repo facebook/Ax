@@ -24,8 +24,12 @@ from ax.analysis.plotly.utils import (
     get_arm_tooltip,
     get_trial_statuses_with_fallback,
     get_trial_trace_name,
+    INFEASIBLE_LEGEND_NAME,
+    INFEASIBLE_OUTLINE_COLOR,
+    INFEASIBLE_OUTLINE_WIDTH,
     LEGEND_POSITION,
     MARGIN_REDUCUTION,
+    MINIMUM_P_FEASIBLE,
     MULTIPLE_CANDIDATE_TRIALS_LEGEND,
     SINGLE_CANDIDATE_TRIAL_LEGEND,
     trial_index_to_color,
@@ -521,6 +525,33 @@ def _prepare_figure(
                 legendgroup="candidate_trials",
             )
         )
+
+    # Add toggle-able infeasible indicators if any arms are infeasible
+    infeasible_df = df[df["p_feasible_mean"] < MINIMUM_P_FEASIBLE]
+    if not infeasible_df.empty:
+        mean_x = infeasible_df[f"{x_metric_name}_mean"]
+        mean_y = infeasible_df[f"{y_metric_name}_mean"]
+        valid = ~(mean_x.isna() & mean_y.isna())
+        if valid.any():
+            figure.add_trace(
+                go.Scatter(
+                    x=mean_x[valid],
+                    y=mean_y[valid],
+                    mode="markers",
+                    marker={
+                        "color": "rgba(0,0,0,0)",
+                        "size": 10,
+                        "line": {
+                            "color": INFEASIBLE_OUTLINE_COLOR,
+                            "width": INFEASIBLE_OUTLINE_WIDTH,
+                        },
+                    },
+                    name=INFEASIBLE_LEGEND_NAME,
+                    showlegend=True,
+                    hoverinfo="skip",
+                    legendgroup="infeasible",
+                )
+            )
 
     # Add horizontal and vertical lines for the status quo.
     if "status_quo" in df["arm_name"].values:

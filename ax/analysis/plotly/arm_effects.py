@@ -17,9 +17,13 @@ from ax.analysis.plotly.utils import (
     get_arm_tooltip,
     get_trial_statuses_with_fallback,
     get_trial_trace_name,
+    INFEASIBLE_LEGEND_NAME,
+    INFEASIBLE_OUTLINE_COLOR,
+    INFEASIBLE_OUTLINE_WIDTH,
     LEGEND_BASE_OFFSET,
     LEGEND_POSITION,
     MARGIN_REDUCUTION,
+    MINIMUM_P_FEASIBLE,
     MULTIPLE_CANDIDATE_TRIALS_LEGEND,
     SINGLE_CANDIDATE_TRIAL_LEGEND,
     trial_index_to_color,
@@ -491,6 +495,32 @@ def _prepare_figure(
                 showlegend=True,
                 hoverinfo="skip",
                 legendgroup="candidate_trials",
+            )
+        )
+
+    # Add toggle-able infeasible indicators if any arms are infeasible
+    infeasible_df = df[df["p_feasible_mean"] < MINIMUM_P_FEASIBLE]
+    infeasible_df = infeasible_df[~infeasible_df[f"{metric_name}_mean"].isna()]
+    if is_relative and status_quo_arm_name is not None:
+        infeasible_df = infeasible_df[infeasible_df["arm_name"] != status_quo_arm_name]
+    if not infeasible_df.empty:
+        figure.add_trace(
+            go.Scatter(
+                x=infeasible_df["x_key_order"],
+                y=infeasible_df[f"{metric_name}_mean"],
+                mode="markers",
+                marker={
+                    "color": "rgba(0,0,0,0)",
+                    "size": 10,
+                    "line": {
+                        "color": INFEASIBLE_OUTLINE_COLOR,
+                        "width": INFEASIBLE_OUTLINE_WIDTH,
+                    },
+                },
+                name=INFEASIBLE_LEGEND_NAME,
+                showlegend=True,
+                hoverinfo="skip",
+                legendgroup="infeasible",
             )
         )
 

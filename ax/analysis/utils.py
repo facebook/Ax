@@ -174,6 +174,7 @@ def prepare_arm_data(
     target_trial_index = get_target_trial_index(
         experiment=experiment,
     )
+
     if use_model_predictions:
         if adapter is None:
             raise UserInputError(
@@ -302,6 +303,27 @@ def prepare_arm_data(
         ):
             df = df[df["trial_index"] != target_trial_index]
 
+    # Drop extra metric columns that were included for p_feasible computation
+    # but are not part of the requested metric_names.
+    requested_metric_cols = {
+        f"{m}_{suffix}" for m in metric_names for suffix in ("mean", "sem")
+    }
+    non_metric_cols = {
+        "trial_index",
+        "arm_name",
+        "trial_status",
+        "status_reason",
+        "generation_node",
+        "p_feasible_mean",
+        "p_feasible_sem",
+    }
+    # Also keep any per-constraint p_feasible columns
+    keep_cols = non_metric_cols | requested_metric_cols
+    cols_to_keep = [
+        c for c in df.columns if c in keep_cols or c.startswith("p_feasible_")
+    ]
+    df = df[cols_to_keep]
+
     return df
 
 
@@ -394,6 +416,11 @@ def _prepare_modeled_arm_data(
             for _, arm in predictable_pairs
         ]
     )
+
+    # Extract all predicted metrics (not just requested ones) so that constraint
+    # metrics are available for _prepare_p_feasible even when they differ from
+    # the plotted metrics.
+    all_predicted_metrics = list(predictions[0].keys()) if predictions[0] else []
     records = [
         *[
             {
@@ -403,12 +430,12 @@ def _prepare_modeled_arm_data(
                 else f"{Keys.UNNAMED_ARM.value}_{i}",
                 **{
                     f"{metric_name}_mean": predictions[0][metric_name][i]
-                    for metric_name in metric_names
+                    for metric_name in all_predicted_metrics
                 },
                 **{
                     f"{metric_name}_sem": predictions[1][metric_name][metric_name][i]
                     ** 0.5
-                    for metric_name in metric_names
+                    for metric_name in all_predicted_metrics
                 },
             }
             for i in range(len(predictable_pairs))
@@ -419,8 +446,10 @@ def _prepare_modeled_arm_data(
                 "arm_name": unpredictable_pairs[i][1].name
                 if unpredictable_pairs[i][1].has_name
                 else f"{Keys.UNNAMED_ARM.value}_{i}",
-                **{f"{metric_name}_mean": None for metric_name in metric_names},
-                **{f"{metric_name}_sem": None for metric_name in metric_names},
+                **{
+                    f"{metric_name}_mean": None for metric_name in all_predicted_metrics
+                },
+                **{f"{metric_name}_sem": None for metric_name in all_predicted_metrics},
             }
             for i in range(len(unpredictable_pairs))
         ],
@@ -483,13 +512,17 @@ def _prepare_raw_arm_data(
         ).df
 
     records = []
+    # Extract all available metrics (not just requested ones) so that constraint
+    # metrics are available for _prepare_p_feasible even when they differ from
+    # the plotted metrics.
+    all_data_metrics = sorted(data_df["metric_name"].unique().tolist())
     for trial in trials:
         for arm in trial.arms:
             # Extract (mean, sem) pairs for each metric when available, otherwise set to
             # None.
             means = {}
             sems = {}
-            for metric_name in metric_names:
+            for metric_name in all_data_metrics:
                 mask = (
                     (data_df["trial_index"] == trial.index)
                     & (data_df["arm_name"] == arm.name)
@@ -509,11 +542,11 @@ def _prepare_raw_arm_data(
                     "arm_name": arm.name,
                     **{
                         f"{metric_name}_mean": means[metric_name]
-                        for metric_name in metric_names
+                        for metric_name in all_data_metrics
                     },
                     **{
                         f"{metric_name}_sem": sems[metric_name]
-                        for metric_name in metric_names
+                        for metric_name in all_data_metrics
                     },
                 }
             )
@@ -912,7 +945,12 @@ def _get_status_quo_df(
 
         # Use the raw status quo effects if no model predictions are available
         # (ex. if the status quo had None in its parameters).
-        if not mask.any() or df[mask].isna().any().any():
+        # Only check the requested metric columns for NaN, not all columns,
+        # since extra columns (e.g. constraint metrics) may legitimately be NaN.
+        requested_cols = [
+            f"{m}_{suffix}" for m in metric_names for suffix in ("mean", "sem")
+        ]
+        if not mask.any() or df.loc[mask, requested_cols].isna().any().any():
             raw_df = _prepare_raw_arm_data(
                 metric_names=metric_names,
                 experiment=experiment,
@@ -963,13 +1001,12 @@ def _get_status_quo_df(
             row["trial_index"] = trial_idx
             status_quo_rows.append(row)
 
-        status_quo_df = pd.DataFrame(status_quo_rows)[
-            [
-                "trial_index",
-                *[f"{name}_mean" for name in metric_names],
-                *[f"{name}_sem" for name in metric_names],
-            ]
+        # Include all _mean and _sem columns so constraint metrics are
+        # available for _prepare_p_feasible relativization.
+        all_metric_cols = [
+            col for col in df.columns if col.endswith("_mean") or col.endswith("_sem")
         ]
+        status_quo_df = pd.DataFrame(status_quo_rows)[["trial_index", *all_metric_cols]]
     return status_quo_df
 
 
