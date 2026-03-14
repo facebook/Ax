@@ -14,6 +14,10 @@ import torch
 from ax.adapter.base import DataLoaderConfig
 from ax.adapter.registry import GeneratorRegistryBase, Generators
 from ax.adapter.transforms.base import Transform
+from ax.analysis.graphviz.graphviz_analysis import GraphvizAnalysisCard
+from ax.analysis.healthcheck.healthcheck_analysis import HealthcheckAnalysisCard
+from ax.analysis.markdown.markdown_analysis import MarkdownAnalysisCard
+from ax.analysis.plotly.plotly_analysis import PlotlyAnalysisCard
 from ax.benchmark.benchmark_method import BenchmarkMethod
 from ax.benchmark.benchmark_metric import (
     BenchmarkMapMetric,
@@ -24,6 +28,7 @@ from ax.benchmark.benchmark_metric import (
 from ax.benchmark.benchmark_result import AggregatedBenchmarkResult, BenchmarkResult
 from ax.benchmark.benchmark_trial_metadata import BenchmarkTrialMetadata
 from ax.core import Experiment, ObservationFeatures
+from ax.core.analysis_card import AnalysisCard, AnalysisCardGroup, ErrorAnalysisCard
 from ax.core.arm import Arm
 from ax.core.auxiliary import AuxiliaryExperiment, AuxiliaryExperimentPurpose
 from ax.core.batch_trial import AbandonedArm, BatchTrial
@@ -116,6 +121,8 @@ from ax.storage.json_store.decoders import (
     transform_type_from_json,
 )
 from ax.storage.json_store.encoders import (
+    analysis_card_group_to_dict,
+    analysis_card_to_dict,
     arm_to_dict,
     auxiliary_experiment_to_dict,
     backend_simulator_to_dict,
@@ -186,6 +193,8 @@ from gpytorch.priors.torch_priors import GammaPrior, LogNormalPrior
 
 
 CORE_ENCODER_REGISTRY: dict[type[Any], Callable[[Any], dict[str, Any]]] = {
+    AnalysisCard: analysis_card_to_dict,
+    AnalysisCardGroup: analysis_card_group_to_dict,
     Arm: arm_to_dict,
     AuxiliaryExperiment: auxiliary_experiment_to_dict,
     AndEarlyStoppingStrategy: logical_early_stopping_strategy_to_dict,
@@ -204,21 +213,25 @@ CORE_ENCODER_REGISTRY: dict[type[Any], Callable[[Any], dict[str, Any]]] = {
     Data: data_to_dict,
     ExpressionDerivedMetric: metric_to_dict,
     DerivedParameter: derived_parameter_to_dict,
+    ErrorAnalysisCard: analysis_card_to_dict,
     Experiment: experiment_to_dict,
     FactorialMetric: metric_to_dict,
     FixedParameter: fixed_parameter_to_dict,
     GammaPrior: botorch_component_to_dict,
+    GraphvizAnalysisCard: analysis_card_to_dict,
     GenerationStep: generation_node_to_dict,
     GenerationNode: generation_node_to_dict,
     GenerationStrategy: generation_strategy_to_dict,
     GeneratorRun: generator_run_to_dict,
     Hartmann6Metric: metric_to_dict,
+    HealthcheckAnalysisCard: analysis_card_to_dict,
     ImprovementGlobalStoppingStrategy: improvement_global_stopping_strategy_to_dict,
     Interval: botorch_component_to_dict,
     IsSingleObjective: transition_criterion_to_dict,
     L2NormMetric: metric_to_dict,
     LogNormalPrior: botorch_component_to_dict,
     MapMetric: metric_to_dict,
+    MarkdownAnalysisCard: analysis_card_to_dict,
     MaxGenerationParallelism: pausing_criterion_to_dict,
     MaxTrialsAwaitingData: pausing_criterion_to_dict,
     Metric: metric_to_dict,
@@ -232,6 +245,7 @@ CORE_ENCODER_REGISTRY: dict[type[Any], Callable[[Any], dict[str, Any]]] = {
     Normalize: botorch_component_to_dict,
     FilterFeatures: botorch_component_to_dict,
     PercentileEarlyStoppingStrategy: percentile_early_stopping_strategy_to_dict,
+    PlotlyAnalysisCard: analysis_card_to_dict,
     SklearnMetric: metric_to_dict,
     ChemistryMetric: metric_to_dict,
     NegativeBraninMetric: metric_to_dict,
@@ -285,6 +299,8 @@ CORE_CLASS_ENCODER_REGISTRY: dict[type[Any], Callable[[Any], dict[str, Any]]] = 
 # splattable inputs to the resultant class, not just Types with kwarg inits.
 CORE_DECODER_REGISTRY: TDecoderRegistry = {
     "AbandonedArm": AbandonedArm,
+    "AnalysisCard": AnalysisCard,
+    "AnalysisCardGroup": AnalysisCardGroup,
     "AndEarlyStoppingStrategy": AndEarlyStoppingStrategy,
     "AutoTransitionAfterGen": AutoTransitionAfterGen,
     "AuxiliaryExperiment": AuxiliaryExperiment,
@@ -320,12 +336,14 @@ CORE_DECODER_REGISTRY: TDecoderRegistry = {
     "ExpressionDerivedMetric": ExpressionDerivedMetric,
     "DerivedParameter": DerivedParameter,
     "DomainType": DomainType,
+    "ErrorAnalysisCard": ErrorAnalysisCard,
     "Experiment": Experiment,
     "ExperimentStatus": ExperimentStatus,
     "FactorialMetric": FactorialMetric,
     "FilterFeatures": FilterFeatures,
     "FixedParameter": fixed_parameter_from_json,
     "GammaPrior": GammaPrior,
+    "GraphvizAnalysisCard": GraphvizAnalysisCard,
     "GenerationNode": GenerationNode,
     "GenerationStrategy": GenerationStrategy,
     "GenerationStep": GenerationStep,
@@ -333,6 +351,7 @@ CORE_DECODER_REGISTRY: TDecoderRegistry = {
     "Generators": Generators,
     "GeneratorSpec": GeneratorSpec,
     "Hartmann6Metric": Hartmann6Metric,
+    "HealthcheckAnalysisCard": HealthcheckAnalysisCard,
     "HierarchicalSearchSpace": HierarchicalSearchSpace,
     "ImprovementGlobalStoppingStrategy": ImprovementGlobalStoppingStrategy,
     "InputConstructorPurpose": InputConstructorPurpose,
@@ -347,6 +366,7 @@ CORE_DECODER_REGISTRY: TDecoderRegistry = {
     "LogNormalPrior": LogNormalPrior,
     "MapData": Data,
     "MapMetric": MapMetric,
+    "MarkdownAnalysisCard": MarkdownAnalysisCard,
     "MaxTrials": MinTrials,
     "MaxGenerationParallelism": MaxGenerationParallelism,
     "MaxTrialsAwaitingData": MaxTrialsAwaitingData,
@@ -385,6 +405,7 @@ CORE_DECODER_REGISTRY: TDecoderRegistry = {
     "PurePosixPath": pathlib_from_json,
     "PureWindowsPath": pathlib_from_json,
     "PercentileEarlyStoppingStrategy": percentile_early_stopping_strategy_from_json,
+    "PlotlyAnalysisCard": PlotlyAnalysisCard,
     "RangeParameter": RangeParameter,
     "ReductionCriterion": ReductionCriterion,
     "Round": Round,

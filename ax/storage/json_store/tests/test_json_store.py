@@ -24,6 +24,10 @@ from ax.adapter.registry import Generators
 from ax.adapter.transforms.base import Transform
 from ax.adapter.transforms.log import Log
 from ax.adapter.transforms.one_hot import OneHot
+from ax.analysis.graphviz.graphviz_analysis import GraphvizAnalysisCard
+from ax.analysis.healthcheck.healthcheck_analysis import HealthcheckAnalysisCard
+from ax.analysis.markdown.markdown_analysis import MarkdownAnalysisCard
+from ax.analysis.plotly.plotly_analysis import PlotlyAnalysisCard
 from ax.benchmark.methods.sobol import get_sobol_benchmark_method
 from ax.benchmark.testing.benchmark_stubs import (
     get_aggregated_benchmark_result,
@@ -33,6 +37,7 @@ from ax.benchmark.testing.benchmark_stubs import (
     get_benchmark_result,
     get_benchmark_time_varying_metric,
 )
+from ax.core.analysis_card import AnalysisCard, AnalysisCardGroup, ErrorAnalysisCard
 from ax.core.auxiliary import AuxiliaryExperimentPurpose
 from ax.core.data import Data
 from ax.core.generator_run import GeneratorRun
@@ -406,6 +411,90 @@ TEST_CASES: list[tuple[str, Callable[..., Any]]] = [
     ("ThresholdEarlyStoppingStrategy", get_threshold_early_stopping_strategy),
     ("Trial", get_trial),
     ("WinsorizationConfig", get_winsorization_config),
+    (
+        "AnalysisCard",
+        lambda: AnalysisCard(
+            name="TestAnalysis",
+            title="Test",
+            subtitle="subtitle",
+            df=pd.DataFrame({"a": [1, 2]}),
+            blob="blob_str",
+        ),
+    ),
+    (
+        "ErrorAnalysisCard",
+        lambda: ErrorAnalysisCard(
+            name="TestError",
+            title="Error",
+            subtitle="err subtitle",
+            df=pd.DataFrame(),
+            blob="error details",
+        ),
+    ),
+    (
+        "PlotlyAnalysisCard",
+        lambda: PlotlyAnalysisCard(
+            name="TestPlotly",
+            title="Plot",
+            subtitle="plot subtitle",
+            df=pd.DataFrame({"x": [1]}),
+            blob="{}",
+        ),
+    ),
+    (
+        "MarkdownAnalysisCard",
+        lambda: MarkdownAnalysisCard(
+            name="TestMd",
+            title="MD",
+            subtitle="md subtitle",
+            df=pd.DataFrame(),
+            blob="# Hello",
+        ),
+    ),
+    (
+        "HealthcheckAnalysisCard",
+        lambda: HealthcheckAnalysisCard(
+            name="TestHC",
+            title="HC",
+            subtitle="hc subtitle",
+            df=pd.DataFrame(),
+            blob='{"status": 0}',
+        ),
+    ),
+    (
+        "GraphvizAnalysisCard",
+        lambda: GraphvizAnalysisCard(
+            name="TestGV",
+            title="GV",
+            subtitle="gv subtitle",
+            df=pd.DataFrame(),
+            blob="digraph {}",
+        ),
+    ),
+    (
+        "AnalysisCardGroup",
+        lambda: AnalysisCardGroup(
+            name="TestGroup",
+            title="Group",
+            subtitle="group subtitle",
+            children=[
+                AnalysisCard(
+                    name="Child",
+                    title="C1",
+                    subtitle="s1",
+                    df=pd.DataFrame({"a": [1]}),
+                    blob="b1",
+                ),
+                MarkdownAnalysisCard(
+                    name="Child2",
+                    title="C2",
+                    subtitle="s2",
+                    df=pd.DataFrame(),
+                    blob="# md",
+                ),
+            ],
+        ),
+    ),
 ]
 
 
