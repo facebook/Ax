@@ -1054,7 +1054,6 @@ class Experiment(Base):
         ]
 
         results: dict[int, dict[str, MetricFetchResult]] = {}
-        contains_new_data = False
 
         # Phase 1: Fetch all base (non-derived) metrics first.
         if base_metrics:
@@ -1064,14 +1063,16 @@ class Experiment(Base):
                 **kwargs,
             )
             results = base_results
-            contains_new_data = base_new
 
-            # Attach base metric results to the cache BEFORE fetching derived
-            # metrics so they can access base data via lookup_data().
-            if base_new and derived_metrics:
+            # Attach base metric results to the cache so derived metrics
+            # can access base data via lookup_data(), and so base data is
+            # persisted even when there are no derived metrics.
+            if base_new:
                 self._try_attach_fetch_results(base_results)
 
         # Phase 2: Fetch derived metrics (they look up base data from cache).
+        # Base data is already attached above, so we only need to attach
+        # derived results here.
         if derived_metrics:
             derived_results, derived_new = self._fetch_metrics_by_class(
                 trials=trials,
@@ -1080,11 +1081,8 @@ class Experiment(Base):
             )
             for trial_index, trial_metrics in derived_results.items():
                 results.setdefault(trial_index, {}).update(trial_metrics)
-            contains_new_data = contains_new_data or derived_new
-
-        # Attach all results (base + derived).
-        if contains_new_data:
-            self._try_attach_fetch_results(results)
+            if derived_new:
+                self._try_attach_fetch_results(derived_results)
 
         return results
 
