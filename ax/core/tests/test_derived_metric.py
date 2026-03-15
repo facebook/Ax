@@ -265,11 +265,15 @@ class DerivedMetricTest(TestCase):
         result = metric.fetch_trial_data(exp.trials[0])
         self.assertIsInstance(result, Ok)
         df = none_throws(result.ok).df
-        # SQ arm should be excluded from output.
-        self.assertEqual(set(df["arm_name"].unique()), {"arm1"})
+        # SQ arm should be included with zero-valued inputs (sum=0).
+        self.assertEqual(set(df["arm_name"].unique()), {"sq", "arm1"})
+        sq_row = df[df["arm_name"] == "sq"]
+        # SQ: inputs are zero after relativization, sum(0,0) = 0.
+        self.assertAlmostEqual(sq_row["mean"].iloc[0], 0.0)
+        arm1_row = df[df["arm_name"] == "arm1"]
         # arm1 relativized (as_percent=True):
         # a=(15-10)/10=50%, b=(30-20)/20=50%; sum=100.0
-        self.assertAlmostEqual(df["mean"].iloc[0], 100.0)
+        self.assertAlmostEqual(arm1_row["mean"].iloc[0], 100.0)
 
         with self.subTest("no_status_quo"):
             exp_no_sq = Experiment(name="no_sq", search_space=get_branin_search_space())
@@ -698,12 +702,13 @@ class ExpressionDerivedMetricTest(TestCase):
     # ------------------------------------------------------------------
 
     def test_relativize_inputs(self) -> None:
-        """Relativized fetch: correct computation, SQ excluded, multi-arm.
+        """Relativized fetch: correct computation, SQ included, multi-arm.
         Also verifies that relativize_inputs=False (default) includes SQ
         and uses raw values."""
         # SQ: a=10, b=4.
-        # arm_1: a=15, b=8 → a_rel=0.5, b_rel=1.0 → a/b = 0.5
-        # arm_2: a=20, b=6 → a_rel=1.0, b_rel=0.5 → a/b = 2.0
+        # arm_1: a=15, b=8 → a_rel=50%, b_rel=100% → a+b = 150
+        # arm_2: a=20, b=6 → a_rel=100%, b_rel=50% → a+b = 150
+        # SQ: a_rel=0, b_rel=0 → a+b = 0
         exp = self._batch_experiment_with_sq(
             sq_values={"a": 10.0, "b": 4.0},
             arm_values={
@@ -712,19 +717,46 @@ class ExpressionDerivedMetricTest(TestCase):
             },
         )
         metric = ExpressionDerivedMetric(
-            name="ratio_rel",
+            name="sum_rel",
             input_metric_names=["a", "b"],
-            expression_str="a / b",
+            expression_str="a + b",
             relativize_inputs=True,
         )
         result = metric.fetch_trial_data(exp.trials[0])
         self.assertIsInstance(result, Ok)
         df = none_throws(result.ok).df.sort_values("arm_name").reset_index(drop=True)
-        self.assertEqual(len(df), 2)
-        self.assertNotIn("status_quo", df["arm_name"].values)
-        self.assertAlmostEqual(df.loc[0, "mean"], 0.5, places=10)
-        self.assertAlmostEqual(df.loc[1, "mean"], 2.0, places=10)
+        # SQ is included: 3 rows (arm_1, arm_2, status_quo).
+        self.assertEqual(len(df), 3)
+        self.assertIn("status_quo", df["arm_name"].values)
+        arm1_row = df[df["arm_name"] == "arm_1"]
+        arm2_row = df[df["arm_name"] == "arm_2"]
+        sq_row = df[df["arm_name"] == "status_quo"]
+        self.assertAlmostEqual(arm1_row["mean"].iloc[0], 150.0, places=10)
+        self.assertAlmostEqual(arm2_row["mean"].iloc[0], 150.0, places=10)
+        # SQ: zero-valued inputs → a+b = 0.
+        self.assertAlmostEqual(sq_row["mean"].iloc[0], 0.0, places=10)
         self.assertTrue(df["sem"].isna().all())
+
+        with self.subTest("sq_evaluates_expression_on_zeros"):
+            # exp(0) = 1, verifying the expression is evaluated (not
+            # hardcoded to 0) on the SQ arm's zero-valued inputs.
+            exp2 = self._batch_experiment_with_sq(
+                sq_values={"a": 10.0},
+                arm_values={"arm_1": {"a": 15.0}},
+            )
+            metric2 = ExpressionDerivedMetric(
+                name="exp_a",
+                input_metric_names=["a"],
+                expression_str="exp(a)",
+                relativize_inputs=True,
+            )
+            result2 = metric2.fetch_trial_data(exp2.trials[0])
+            self.assertIsInstance(result2, Ok)
+            df2 = none_throws(result2.ok).df
+            sq_row2 = df2[df2["arm_name"] == "status_quo"]
+            self.assertEqual(len(sq_row2), 1)
+            # exp(0) = 1.0
+            self.assertAlmostEqual(sq_row2["mean"].iloc[0], 1.0, places=10)
 
         with self.subTest("not_applied_by_default"):
             exp = self._batch_experiment_with_sq(
