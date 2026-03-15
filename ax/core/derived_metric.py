@@ -318,8 +318,9 @@ class DerivedMetric(Metric):
         properly transform both means and SEMs.
 
         When ``relativize_inputs`` is ``False``, returns ``arm_data``
-        unchanged.  When ``True``, the status quo arm is excluded from
-        the returned dict (its relativized values are zero by definition).
+        unchanged.  When ``True``, the status quo arm is included with
+        zero-valued inputs so the expression can be evaluated on it
+        (e.g., ``exp(0)=1``).
         """
         if not self._relativize_inputs:
             return arm_data
@@ -342,8 +343,24 @@ class DerivedMetric(Metric):
         # different SQ metric values (non-stationarity).
         relativized: dict[str, pd.DataFrame] = {}
         for arm_name, arm_df in arm_data.items():
-            # Skip the SQ arm itself — its relativized values are zero.
+            # SQ relativized against itself is trivially zero for all inputs.
+            # Include it so _compute_derived_values can evaluate the expression
+            # on zeros (e.g., exp(0)=1, a+b=0).
             if arm_name == sq_name:
+                sq_rel_rows: list[dict[str, Any]] = []
+                status_quo_trial_index = int(arm_df["trial_index"].iloc[0])
+                for metric_name in self._input_metric_names:
+                    sq_rel_rows.append(
+                        {
+                            "trial_index": status_quo_trial_index,
+                            "arm_name": sq_name,
+                            "metric_name": metric_name,
+                            "metric_signature": metric_name,
+                            "mean": 0.0,
+                            "sem": 0.0,
+                        }
+                    )
+                relativized[sq_name] = pd.DataFrame(sq_rel_rows)
                 continue
 
             # Determine this arm's source trial_index from its data.
@@ -467,8 +484,8 @@ class DerivedMetric(Metric):
         if isinstance(arm_data_result, MetricFetchE):
             return Err(arm_data_result)
 
-        # After relativization, arm_data may be empty (e.g., a SQ-only trial
-        # where all arms were excluded).  Return empty data, not an error.
+        # After relativization, arm_data may be empty (e.g., a trial with
+        # no arms).  Return empty data, not an error.
         if not arm_data_result:
             return Ok(value=Data())
 
@@ -651,7 +668,8 @@ class ExpressionDerivedMetric(DerivedMetric):
         """Evaluate the expression for each arm using pre-collected data.
 
         When ``relativize_inputs`` is ``True``, the base class has already
-        relativized the ``mean`` values and excluded the status quo arm.
+        relativized the ``mean`` values.  The status quo arm is included
+        with zero-valued inputs.
         """
         result_rows: list[dict[str, Any]] = []
 
