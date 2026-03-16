@@ -26,6 +26,19 @@ class HealthcheckAnalysisCard(AnalysisCard):
     def is_passing(self) -> bool:
         return self.get_status() in (HealthcheckStatus.PASS, HealthcheckStatus.INFO)
 
+    def is_user_facing(self) -> bool:
+        """Returns True if this card should be displayed to users.
+
+        User-facing cards:
+        - FAIL: Critical issues blocking the experiment
+        - WARNING: Potential issues that can lead to issues in the future
+        - INFO: Informational context and feature upsells
+
+        Hidden cards:
+        - PASS: No issues, nothing noteworthy to display
+        """
+        return self.get_status() != HealthcheckStatus.PASS
+
     def get_aditional_attrs(self) -> dict[str, str | int | float | bool]:
         return json.loads(self.blob)
 
