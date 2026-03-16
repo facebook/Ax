@@ -219,7 +219,7 @@ def _prepare_data(
 
     arm_dfs = []
     for arm in plot_data.in_sample.values():
-        arm_df = pd.DataFrame(arm.parameters, index=[arm.name])
+        arm_df = pd.DataFrame(arm.parameters, index=pd.Index([arm.name]))
         arm_df["mean"] = arm.y_hat[metric]
         arm_df["sem"] = arm.se_hat[metric]
         arm_dfs.append(arm_df)
