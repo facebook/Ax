@@ -265,10 +265,11 @@ class OverviewAnalysis(Analysis):
             if analyis is not None
         ]
 
-        non_passing_health_checks = [
+        user_facing_health_check_cards = [
             card
             for card in health_check_cards
-            if (isinstance(card, HealthcheckAnalysisCard) and not card.is_passing())
+            if isinstance(card, HealthcheckAnalysisCard)
+            and card.is_user_facing()
             or isinstance(card, ErrorAnalysisCard)
         ]
 
@@ -277,9 +278,9 @@ class OverviewAnalysis(Analysis):
                 name="HealthchecksAnalysis",
                 title=HEALTH_CHECK_CARDGROUP_TITLE,
                 subtitle=HEALTH_CHECK_CARDGROUP_SUBTITLE,
-                children=non_passing_health_checks,
+                children=user_facing_health_check_cards,
             )
-            if len(non_passing_health_checks) > 0
+            if len(user_facing_health_check_cards) > 0
             else None
         )
 
