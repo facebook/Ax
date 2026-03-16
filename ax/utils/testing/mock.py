@@ -142,7 +142,8 @@ def skip_fit_gpytorch_mll_context_manager() -> Generator[None, None, None]:
     This should only be used to speed up slow tests.
     """
     with mock.patch(
-        "botorch.fit.FitGPyTorchMLL", side_effect=lambda *args, **kwargs: args[0]
+        "ax.generators.torch.botorch_modular.utils.fit_gpytorch_mll",
+        side_effect=lambda mll, **kwargs: mll.eval(),
     ) as mock_fit:
         yield
     if mock_fit.call_count < 1:
