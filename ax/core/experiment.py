@@ -35,8 +35,11 @@ from ax.core.experiment_status import ExperimentStatus
 from ax.core.generator_run import GeneratorRun
 from ax.core.llm_provider import LLMMessage
 from ax.core.metric import Metric, MetricFetchE, MetricFetchResult
-from ax.core.objective import MultiObjective
-from ax.core.optimization_config import ObjectiveThreshold, OptimizationConfig
+from ax.core.objective import Objective
+from ax.core.optimization_config import (
+    MultiObjectiveOptimizationConfig,
+    OptimizationConfig,
+)
 from ax.core.parameter import DerivedParameter, Parameter
 from ax.core.runner import Runner
 from ax.core.search_space import SearchSpace
@@ -93,7 +96,7 @@ class Experiment(Base):
         search_space: SearchSpace,
         name: str | None = None,
         optimization_config: OptimizationConfig | None = None,
-        tracking_metrics: list[Metric] | None = None,
+        metrics: Sequence[Metric] | None = None,
         runner: Runner | None = None,
         status_quo: Arm | None = None,
         description: str | None = None,
@@ -104,6 +107,7 @@ class Experiment(Base):
         auxiliary_experiments_by_purpose: None
         | (dict[AuxiliaryExperimentPurpose, list[AuxiliaryExperiment]]) = None,
         default_trial_type: str | None = None,
+        tracking_metrics: list[Metric] | None = None,
     ) -> None:
         """Inits Experiment.
 
@@ -111,7 +115,6 @@ class Experiment(Base):
             search_space: Search space of the experiment.
             name: Name of the experiment.
             optimization_config: Optimization config of the experiment.
-            tracking_metrics: Additional tracking metrics not used for optimization.
             runner: Default runner used for trials on this experiment.
             status_quo: Arm representing existing "control" arm.
             description: Description of the experiment.
@@ -126,6 +129,7 @@ class Experiment(Base):
             default_data_type: Deprecated and ignored.
             auxiliary_experiments_by_purpose: Dictionary of auxiliary experiments
                 for different purposes (e.g., transfer learning).
+            tracking_metrics: Deprecated. Use ``metrics`` directly instead.
         """
         if default_data_type is not None:
             warnings.warn(
@@ -145,7 +149,7 @@ class Experiment(Base):
         self.data: Data = Data()
         self._experiment_type: str | None = experiment_type
         self._optimization_config: OptimizationConfig | None = None
-        self._tracking_metrics: dict[str, Metric] = {}
+        self._metrics: dict[str, Metric] = {}
         self._time_created: datetime = datetime.now()
         self._status: ExperimentStatus | None = None
         self._trials: dict[int, BaseTrial] = {}
@@ -188,11 +192,28 @@ class Experiment(Base):
             ) in self._initial_auxiliary_experiments_by_purpose.items()
         }
 
-        self.add_tracking_metrics(tracking_metrics or [])
+        # Attach metrics from both tracking_metrics and metrics, preferring metrics if
+        # a naming collision occurs.
+        for m in [*(tracking_metrics or []), *(metrics or [])]:
+            self._metrics[m.name] = m
 
         # call setters defined below
         self.status_quo = status_quo
         if optimization_config is not None:
+            # Auto-register placeholder Metric objects for any optimization
+            # config metric names not already on the experiment. The
+            # ``optimization_config`` setter (below) validates that every
+            # referenced metric name exists in ``self._metrics``, so
+            # placeholders are needed here to satisfy that check. These
+            # placeholders are later replaced in two ways:
+            #   1. During SQA decoding, the decoder overwrites them with
+            #      properly typed metrics from the database
+            #      (see ``sqa_store/decoder.py``).
+            #   2. Any call to ``add_metric`` or ``update_metric`` with a
+            #      real Metric of the same name will overwrite a placeholder.
+            for name in optimization_config.metric_names:
+                if name not in self._metrics:
+                    self._metrics[name] = Metric(name=name)
             self.optimization_config = optimization_config
 
         # Keyed on tuple[trial_index, metric_name].
@@ -549,21 +570,13 @@ class Experiment(Base):
                 f"`{Keys.IMMUTABLE_SEARCH_SPACE_AND_OPT_CONF.value}` "
                 "property that is set to `True` on this experiment."
             )
-        for metric_name in optimization_config.metrics.keys():
-            if metric_name in self._tracking_metrics:
-                self.remove_tracking_metric(metric_name)
-        # add metrics from the previous optimization config that are not in the new
-        # optimization config as tracking metrics
-        prev_optimization_config = self._optimization_config
+        for metric_name in optimization_config.metric_names:
+            if metric_name not in self._metrics:
+                raise ValueError(
+                    f"Metric '{metric_name}' referenced in optimization config "
+                    "but not found on experiment. Add it first with add_metric()."
+                )
         self._optimization_config = optimization_config
-        if prev_optimization_config is not None:
-            metrics_to_track = (
-                set(prev_optimization_config.metrics.keys())
-                - set(optimization_config.metrics.keys())
-                - {Keys.DEFAULT_OBJECTIVE_NAME.value}  # remove default objective
-            )
-            for metric_name in metrics_to_track:
-                self.add_tracking_metric(prev_optimization_config.metrics[metric_name])
 
     @property
     def is_moo_problem(self) -> bool:
@@ -702,20 +715,14 @@ class Experiment(Base):
         opt_config = self.optimization_config
         if opt_config is not None:
             opt_lines: list[str] = ["### Optimization Config"]
+
             objective = opt_config.objective
-            if isinstance(objective, MultiObjective):
-                for obj in objective.objectives:
-                    direction = "minimize" if obj.minimize else "maximize"
-                    opt_lines.append(f"- Objective: {direction} `{obj.metric.name}`")
-            else:
-                direction = "minimize" if objective.minimize else "maximize"
-                opt_lines.append(f"- Objective: {direction} `{objective.metric.name}`")
+            for metric_name, weight in objective.metric_weights:
+                direction = "minimize" if weight < 0 else "maximize"
+                opt_lines.append(f"- Objective: {direction} `{metric_name}`")
+
             for constraint in opt_config.outcome_constraints:
-                op_str = "<=" if constraint.op == ComparisonOp.LEQ else ">="
-                opt_lines.append(
-                    f"- Constraint: `{constraint.metric.name}` "
-                    f"{op_str} {constraint.bound}"
-                )
+                opt_lines.append(f"- Constraint: `{constraint.expression}` ")
             sections.append("\n".join(opt_lines))
 
         # Trial data
@@ -790,77 +797,131 @@ class Experiment(Base):
 
     @property
     def tracking_metrics(self) -> list[Metric]:
-        return list(self._tracking_metrics.values())
+        """Metrics that are tracked but not part of the optimization config."""
+        if self._optimization_config is None:
+            return list(self._metrics.values())
+        opt_metric_names = self._optimization_config.metric_names
+        return [m for name, m in self._metrics.items() if name not in opt_metric_names]
 
-    def add_tracking_metric(self, metric: Metric) -> Self:
+    @property
+    def optimization_config_metrics(self) -> list[Metric]:
+        """Metrics that are part of the optimization config."""
+        if self._optimization_config is None:
+            return []
+        opt_metric_names = self._optimization_config.metric_names
+        return self.get_metrics(metric_names=list(opt_metric_names))
+
+    def get_metric(self, name: str) -> Metric:
+        """Get a single Metric by name.
+
+        Args:
+            name: The name of the metric to retrieve.
+
+        Returns:
+            The Metric object with the given name.
+
+        Raises:
+            KeyError: If no metric with the given name exists.
+        """
+        if name not in self._metrics:
+            raise KeyError(
+                f"Metric '{name}' not found. Available: {list(self._metrics.keys())}"
+            )
+        return self._metrics[name]
+
+    def add_metric(self, metric: Metric) -> Self:
         """Add a new metric to the experiment.
+
+        Metrics that are not referenced by the experiment's optimization config
+        (i.e. not part of an objective or outcome constraint) are automatically
+        treated as tracking metrics.
 
         Args:
             metric: Metric to be added.
         """
-        if metric.name in self._tracking_metrics:
+        if metric.name in self._metrics:
             raise ValueError(
                 f"Metric `{metric.name}` already defined on experiment. "
-                "Use `update_tracking_metric` to update an existing metric definition."
+                "Use `update_metric` to update an existing metric definition."
             )
-
-        optimization_config = self.optimization_config
-        if optimization_config and metric.name in optimization_config.metrics:
-            raise ValueError(
-                f"Metric `{metric.name}` already present in experiment's "
-                "OptimizationConfig. Set a new OptimizationConfig without this metric "
-                "before adding it to tracking metrics."
-            )
-
-        self._tracking_metrics[metric.name] = metric
+        self._metrics[metric.name] = metric
         return self
 
-    def add_tracking_metrics(self, metrics: list[Metric]) -> Self:
-        """Add a list of new metrics to the experiment.
+    def add_tracking_metric(self, metric: Metric) -> Self:
+        """*Deprecated.* Use ``add_metric`` instead."""
+        warnings.warn(
+            "add_tracking_metric is deprecated. Use add_metric instead.",
+            DeprecationWarning,
+            stacklevel=2,
+        )
+        return self.add_metric(metric)
 
-        If any of the metrics are already defined on the experiment,
-        we raise an error and don't add any of them to the experiment
-
-        Args:
-            metrics: Metrics to be added.
-        """
-        # Before setting any metrics, we validate none are already on
-        # the experiment
+    def add_tracking_metrics(self, metrics: list[Metric]) -> Experiment:
+        """*Deprecated.* Use ``add_metric`` instead."""
+        warnings.warn(
+            "add_tracking_metrics is deprecated. Use add_metric instead.",
+            DeprecationWarning,
+            stacklevel=2,
+        )
         for metric in metrics:
-            self.add_tracking_metric(metric)
+            self.add_metric(metric)
         return self
 
-    def update_tracking_metric(self, metric: Metric) -> Self:
+    def update_metric(self, metric: Metric) -> Self:
         """Redefine a metric that already exists on the experiment.
 
         Args:
             metric: New metric definition.
         """
-        if metric.name not in self._tracking_metrics:
+        if metric.name not in self._metrics:
             raise ValueError(f"Metric `{metric.name}` doesn't exist on experiment.")
-
-        self._tracking_metrics[metric.name] = metric
+        self._metrics[metric.name] = metric
         return self
 
-    def remove_tracking_metric(self, metric_name: str) -> Self:
-        """Remove a metric that already exists on the experiment.
+    def update_tracking_metric(self, metric: Metric) -> Experiment:
+        """*Deprecated.* Use ``update_metric`` instead."""
+        warnings.warn(
+            "update_tracking_metric is deprecated. Use update_metric instead.",
+            DeprecationWarning,
+            stacklevel=2,
+        )
+        return self.update_metric(metric)
+
+    def remove_metric(self, metric_name: str) -> Self:
+        """Remove a metric from the experiment.
 
         Args:
             metric_name: Unique name of metric to remove.
-        """
-        if metric_name not in self._tracking_metrics:
-            raise ValueError(f"Metric `{metric_name}` doesn't exist on experiment.")
 
-        del self._tracking_metrics[metric_name]
+        Raises:
+            ValueError: If the metric is referenced by the optimization config.
+        """
+        if metric_name not in self._metrics:
+            raise ValueError(f"Metric `{metric_name}` doesn't exist on experiment.")
+        if (
+            self._optimization_config is not None
+            and metric_name in self._optimization_config.metric_names
+        ):
+            raise ValueError(
+                f"Metric `{metric_name}` is referenced by the optimization config "
+                "and cannot be removed. Update the optimization config first."
+            )
+        del self._metrics[metric_name]
         return self
+
+    def remove_tracking_metric(self, metric_name: str) -> Experiment:
+        """*Deprecated.* Use ``remove_metric`` instead."""
+        warnings.warn(
+            "remove_tracking_metric is deprecated. Use remove_metric instead.",
+            DeprecationWarning,
+            stacklevel=2,
+        )
+        return self.remove_metric(metric_name)
 
     @property
     def metrics(self) -> dict[str, Metric]:
         """The metrics attached to the experiment."""
-        optimization_config_metrics: dict[str, Metric] = {}
-        if self.optimization_config is not None:
-            optimization_config_metrics = self.optimization_config.metrics
-        return {**self._tracking_metrics, **optimization_config_metrics}
+        return dict(self._metrics)
 
     @property
     def signature_to_metric(self) -> dict[str, Metric]:
@@ -953,7 +1014,7 @@ class Experiment(Base):
             new_metric = metric
             for param_name, param_value in attributes_to_update.items():
                 setattr(new_metric, param_name, param_value)
-            self.metrics[metric.name] = new_metric
+            self._metrics[metric.name] = new_metric
         return
 
     def fetch_trials_data_results(
@@ -1376,7 +1437,7 @@ class Experiment(Base):
                     "Cannot find trials with data for optimization config metrics "
                     "because no optimization config has been defined."
                 )
-            metric_names = set(self.optimization_config.metrics.keys())
+            metric_names = self.optimization_config.metric_names
         else:
             metric_names = set(self.metrics.keys())
             if len(metric_names) == 0:
@@ -2053,8 +2114,8 @@ class Experiment(Base):
             else optimization_config
         )
         tracking_metrics = (
-            [m.clone() for m in self.tracking_metrics]
-            if (tracking_metrics is None and self.tracking_metrics is not None)
+            [m.clone() for m in self.metrics.values()]
+            if tracking_metrics is None
             else tracking_metrics
         )
 
@@ -2150,28 +2211,36 @@ class Experiment(Base):
             records[m.name] = m.summary_dict
         if self.optimization_config is not None:
             opt_config = self.optimization_config
-            if self.is_moo_problem:
-                multi_objective = assert_is_instance(
-                    opt_config.objective, MultiObjective
-                )
-                objectives = multi_objective.objectives
+            objective = opt_config.objective
+            if objective.is_multi_objective:
+                parts = [p.strip() for p in objective.expression.split(",")]
+                sub_objectives = [Objective(expression=part) for part in parts]
             else:
-                objectives = [opt_config.objective]
-            for objective in objectives:
-                records[objective.metric.name][METRIC_DF_COLNAMES["goal"]] = (
-                    "minimize" if objective.minimize else "maximize"
-                )
+                sub_objectives = [objective]
+            for sub_obj in sub_objectives:
+                obj_name = sub_obj.metric_names[0]
+                if obj_name in records:
+                    records[obj_name][METRIC_DF_COLNAMES["goal"]] = (
+                        "minimize" if sub_obj.minimize else "maximize"
+                    )
+
+            objective_threshold_names: set[str] = set()
+            if isinstance(opt_config, MultiObjectiveOptimizationConfig):
+                objective_threshold_names = {
+                    ot.metric_names[0] for ot in opt_config.objective_thresholds
+                }
 
             for constraint in opt_config.all_constraints:
-                if not isinstance(constraint, ObjectiveThreshold):
-                    records[constraint.metric.name][METRIC_DF_COLNAMES["goal"]] = (
-                        "constrain"
-                    )
+                c_name = constraint.metric_names[0]
+                if c_name not in objective_threshold_names:
+                    if c_name in records:
+                        records[c_name][METRIC_DF_COLNAMES["goal"]] = "constrain"
                 op = ">= " if constraint.op == ComparisonOp.GEQ else "<= "
                 relative = "%" if constraint.relative else ""
-                records[constraint.metric.name][METRIC_DF_COLNAMES["bound"]] = (
-                    f"{op}{constraint.bound}{relative}"
-                )
+                if c_name in records:
+                    records[c_name][METRIC_DF_COLNAMES["bound"]] = (
+                        f"{op}{constraint.bound}{relative}"
+                    )
 
         for metric in self.tracking_metrics or []:
             records[metric.name][METRIC_DF_COLNAMES["goal"]] = "track"

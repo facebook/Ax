@@ -89,6 +89,7 @@ def replay_experiment(
         optimization_config=optimization_config,
         search_space=dummy_search_space,
         runner=runner,
+        metrics=[replay_metric],
     )
 
     # Setup a Orchestrator with a dummy gs to replay the historical experiment

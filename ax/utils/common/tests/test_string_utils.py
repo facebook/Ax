@@ -63,5 +63,8 @@ class StringUtilsTest(TestCase):
         # Test that E in scientific notation is not flagged (it's not an identifier)
         self.assertEqual(sanitize_name("1E5 + 2.3E-4"), "1E5 + 2.3E-4")
 
-        # Test that math functions are not flagged
-        self.assertEqual(sanitize_name("sin(1) + cos(2)"), "sin(1) + cos(2)")
+        # Test that parens and equals are preserved (not sanitized).
+        self.assertEqual(
+            sanitize_name("sin(1) + cos(2)"),
+            "sin(1) + cos(2)",
+        )

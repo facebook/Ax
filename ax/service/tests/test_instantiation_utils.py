@@ -9,7 +9,6 @@
 from collections.abc import Sequence
 from typing import Any
 
-from ax.core.metric import Metric
 from ax.core.optimization_config import MultiObjectiveOptimizationConfig
 from ax.core.parameter import (
     ChoiceParameter,
@@ -197,16 +196,16 @@ class TestInstantiationtUtils(TestCase):
             parameters=[{"name": "x", "type": "range", "bounds": [0, 1]}],
             tracking_metric_names=None,
         )
-        self.assertDictEqual(experiment._tracking_metrics, {})
+        self.assertEqual(experiment.tracking_metrics, [])
 
         metrics_names = ["metric_1", "metric_2"]
         experiment = InstantiationBase.make_experiment(
             parameters=[{"name": "x", "type": "range", "bounds": [0, 1]}],
             tracking_metric_names=metrics_names,
         )
-        self.assertDictEqual(
-            experiment._tracking_metrics,
-            {metric_name: Metric(name=metric_name) for metric_name in metrics_names},
+        self.assertCountEqual(
+            [m.name for m in experiment.tracking_metrics],
+            metrics_names,
         )
 
     def test_make_objectives(self) -> None:
@@ -219,10 +218,10 @@ class TestInstantiationtUtils(TestCase):
         objectives = InstantiationBase.make_objectives(
             {"branin": "minimize", "currin": "maximize"}
         )
-        branin_metric = [o.minimize for o in objectives if o.metric.name == "branin"]
-        self.assertTrue(branin_metric[0])
-        currin_metric = [o.minimize for o in objectives if o.metric.name == "currin"]
-        self.assertFalse(currin_metric[0])
+        branin_obj = [o for o in objectives if o.metric_names[0] == "branin"]
+        self.assertTrue(branin_obj[0].minimize)
+        currin_obj = [o for o in objectives if o.metric_names[0] == "currin"]
+        self.assertFalse(currin_obj[0].minimize)
 
     def test_make_optimization_config(self) -> None:
         objectives = {"branin": "minimize", "currin": "maximize"}
@@ -243,7 +242,7 @@ class TestInstantiationtUtils(TestCase):
                 outcome_constraints=[],
                 status_quo_defined=False,
             )
-            self.assertEqual(len(multi_optimization_config.objective.metrics), 2)
+            self.assertEqual(len(multi_optimization_config.objective.metric_names), 2)
             self.assertEqual(
                 len(
                     assert_is_instance(
@@ -260,7 +259,7 @@ class TestInstantiationtUtils(TestCase):
                 outcome_constraints=[],
                 status_quo_defined=False,
             )
-            self.assertEqual(len(multi_optimization_config.objective.metrics), 2)
+            self.assertEqual(len(multi_optimization_config.objective.metric_names), 2)
             self.assertEqual(
                 len(
                     assert_is_instance(
@@ -279,9 +278,11 @@ class TestInstantiationtUtils(TestCase):
                 outcome_constraints=[],
                 status_quo_defined=False,
             )
-            self.assertEqual(single_optimization_config.objective.metric.name, "branin")
             self.assertEqual(
-                single_optimization_config.objective.metric.signature, "branin"
+                single_optimization_config.objective.metric_names[0], "branin"
+            )
+            self.assertEqual(
+                single_optimization_config.objective.metric_names[0], "branin"
             )
 
     def test_single_valued_choice_to_fixed_param_conversion(self) -> None:

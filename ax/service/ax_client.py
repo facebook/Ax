@@ -27,13 +27,18 @@ from ax.core.evaluations_to_data import raw_evaluations_to_data
 from ax.core.experiment import Experiment
 from ax.core.generator_run import GeneratorRun
 from ax.core.multi_type_experiment import MultiTypeExperiment
-from ax.core.objective import MultiObjective, Objective
+from ax.core.objective import Objective
 from ax.core.observation import ObservationFeatures
 from ax.core.parameter import RangeParameter
 from ax.core.runner import Runner
 from ax.core.trial import Trial
 from ax.core.trial_status import TrialStatus
-from ax.core.types import TEvaluationOutcome, TParameterization, TParamValue
+from ax.core.types import (
+    ComparisonOp,
+    TEvaluationOutcome,
+    TParameterization,
+    TParamValue,
+)
 from ax.early_stopping.strategies import BaseEarlyStoppingStrategy
 from ax.early_stopping.utils import estimate_early_stopping_savings
 from ax.exceptions.constants import CHOLESKY_ERROR_ANNOTATION
@@ -414,6 +419,32 @@ class AxClient(AnalysisBase, BestPointMixin, InstantiationBase):
             metric_definitions=metric_definitions,
         )
         if optimization_config:
+            # Build lower_is_better map from the optimization config so
+            # that auto-registered metrics carry the correct directionality.
+            lower_is_better_map: dict[str, bool] = {}
+            for mn, weight in optimization_config.objective.metric_weights:
+                lower_is_better_map[mn] = weight < 0
+            for constraint in optimization_config.outcome_constraints:
+                for mn, _ in constraint.metric_weights:
+                    if mn not in lower_is_better_map:
+                        lower_is_better_map[mn] = constraint.op is ComparisonOp.LEQ
+
+            # Auto-register metrics not yet on the experiment, using
+            # metric_definitions to preserve metric types and properties.
+            # For existing metrics, update lower_is_better to match the
+            # new optimization config.
+            for metric_name in optimization_config.metric_names:
+                if metric_name not in self.experiment.metrics:
+                    metric = self._make_metric(
+                        name=metric_name,
+                        metric_definitions=metric_definitions,
+                        lower_is_better=lower_is_better_map.get(metric_name),
+                    )
+                    self.experiment.add_metric(metric)
+                elif metric_name in lower_is_better_map:
+                    self.experiment.metrics[
+                        metric_name
+                    ].lower_is_better = lower_is_better_map[metric_name]
             self.experiment.optimization_config = optimization_config
             self._save_experiment_to_db_if_possible(
                 experiment=self.experiment,
@@ -1009,7 +1040,7 @@ class AxClient(AnalysisBase, BestPointMixin, InstantiationBase):
             raise ValueError("Cannot generate plot as there are no trials.")
 
         objective = self.objective
-        if isinstance(objective, MultiObjective):
+        if objective.is_multi_objective:
             raise UnsupportedError(
                 "`get_optimization_trace` is not supported "
                 "for multi-objective experiments"
@@ -1085,7 +1116,7 @@ class AxClient(AnalysisBase, BestPointMixin, InstantiationBase):
             )
 
         if not metric_name:
-            if isinstance(self.objective, MultiObjective):
+            if self.objective.is_multi_objective:
                 raise UnsupportedError(
                     "`get_contour_plot` requires a `metric_name` "
                     "for multi-objective experiments"
@@ -1527,17 +1558,17 @@ class AxClient(AnalysisBase, BestPointMixin, InstantiationBase):
     def objective_name(self) -> str:
         """Returns the name of the objective in this optimization."""
         objective = self.objective
-        if isinstance(objective, MultiObjective):
+        if objective.is_multi_objective:
             raise UnsupportedError(
                 "Multi-objective experiments contain multiple objectives"
             )
-        return objective.metric.name
+        return objective.metric_names[0]
 
     @property
     def objective_names(self) -> list[str]:
         """Returns the name of the objective in this optimization."""
         objective = self.objective
-        return [m.name for m in objective.metrics]
+        return list(objective.metric_names)
 
     @property
     def metric_definitions(self) -> dict[str, dict[str, Any]]:
@@ -1781,7 +1812,7 @@ class AxClient(AnalysisBase, BestPointMixin, InstantiationBase):
             trial_index=trial_index,
             metric_name_to_signature=metric_name_to_signature,
         )
-        required_metrics = set(opt_config.metrics.keys())
+        required_metrics = opt_config.metric_names
         provided_metrics = data.metric_names
         missing_metrics = required_metrics - provided_metrics
         return not missing_metrics

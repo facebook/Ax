@@ -18,6 +18,7 @@ from ax.adapter.adapter_utils import (
 from ax.adapter.registry import Generators
 from ax.core.arm import Arm
 from ax.core.evaluations_to_data import raw_evaluations_to_data
+from ax.core.experiment import Experiment
 from ax.core.generator_run import GeneratorRun
 from ax.core.metric import Metric
 from ax.core.objective import MultiObjective, Objective
@@ -27,6 +28,7 @@ from ax.core.outcome_constraint import (
     OutcomeConstraint,
     ScalarizedOutcomeConstraint,
 )
+from ax.core.search_space import SearchSpace
 from ax.core.types import ComparisonOp
 from ax.core.utils import get_pending_observation_features
 from ax.utils.common.constants import Keys
@@ -78,13 +80,17 @@ class TestAdapterUtils(TestCase):
 
     def test_extract_outcome_constraints(self) -> None:
         outcomes = ["m1", "m2", "m3"]
+        experiment = Experiment(
+            search_space=SearchSpace(parameters=[]),
+            tracking_metrics=[Metric(name) for name in outcomes],
+        )
         # pass no outcome constraints
-        self.assertIsNone(extract_outcome_constraints([], outcomes))
+        self.assertIsNone(extract_outcome_constraints([], outcomes, experiment))
 
         outcome_constraints = [
             OutcomeConstraint(metric=Metric("m1"), op=ComparisonOp.LEQ, bound=0)
         ]
-        res = extract_outcome_constraints(outcome_constraints, outcomes)
+        res = extract_outcome_constraints(outcome_constraints, outcomes, experiment)
         self.assertEqual(res[0].shape, (1, 3))
         self.assertListEqual(list(res[0][0]), [1, 0, 0])
         self.assertEqual(res[1][0][0], 0)
@@ -98,7 +104,7 @@ class TestAdapterUtils(TestCase):
                 bound=1,
             ),
         ]
-        res = extract_outcome_constraints(outcome_constraints, outcomes)
+        res = extract_outcome_constraints(outcome_constraints, outcomes, experiment)
         self.assertEqual(res[0].shape, (2, 3))
         self.assertListEqual(list(res[0][0]), [1, 0, 0])
         self.assertListEqual(list(res[0][1]), [0, -0.5, -0.5])
@@ -107,6 +113,10 @@ class TestAdapterUtils(TestCase):
 
     def test_extract_objective_thresholds(self) -> None:
         outcomes = ["m1", "m2", "m3", "m4"]
+        experiment = Experiment(
+            search_space=SearchSpace(parameters=[]),
+            tracking_metrics=[Metric(name) for name in outcomes],
+        )
         objective = MultiObjective(
             objectives=[
                 Objective(metric=Metric(name), minimize=False) for name in outcomes[:3]
@@ -125,7 +135,10 @@ class TestAdapterUtils(TestCase):
         # None of no thresholds
         self.assertIsNone(
             extract_objective_thresholds(
-                objective_thresholds=[], objective=objective, outcomes=outcomes
+                objective_thresholds=[],
+                objective=objective,
+                outcomes=outcomes,
+                experiment=experiment,
             )
         )
 
@@ -134,6 +147,7 @@ class TestAdapterUtils(TestCase):
             objective_thresholds=objective_thresholds,
             objective=objective,
             outcomes=outcomes,
+            experiment=experiment,
         )
         expected_obj_t_not_nan = np.array([2.0, 3.0, 4.0])
         self.assertTrue(np.array_equal(obj_t[:3], expected_obj_t_not_nan[:3]))
@@ -145,17 +159,19 @@ class TestAdapterUtils(TestCase):
             objective_thresholds=objective_thresholds[:2],
             objective=objective,
             outcomes=outcomes,
+            experiment=experiment,
         )
         self.assertTrue(np.array_equal(obj_t[:2], expected_obj_t_not_nan[:2]))
         self.assertTrue(np.isnan(obj_t[-2:]).all())
 
         # Fails if a threshold does not have a corresponding metric.
-        objective2 = Objective(Metric("m1"), minimize=False)
+        objective2 = Objective(expression="m1")
         with self.assertRaisesRegex(ValueError, "corresponding metrics"):
             extract_objective_thresholds(
                 objective_thresholds=objective_thresholds,
                 objective=objective2,
                 outcomes=outcomes,
+                experiment=experiment,
             )
 
         # Works with a single objective, single threshold
@@ -163,6 +179,7 @@ class TestAdapterUtils(TestCase):
             objective_thresholds=objective_thresholds[:1],
             objective=objective2,
             outcomes=outcomes,
+            experiment=experiment,
         )
         self.assertEqual(obj_t[0], 2.0)
         self.assertTrue(np.all(np.isnan(obj_t[1:])))
@@ -177,6 +194,7 @@ class TestAdapterUtils(TestCase):
                 objective_thresholds=objective_thresholds,
                 objective=objective,
                 outcomes=outcomes,
+                experiment=experiment,
             )
         objective_thresholds[2] = ObjectiveThreshold(
             metric=Metric("m3"), op=ComparisonOp.LEQ, bound=3, relative=True
@@ -186,6 +204,7 @@ class TestAdapterUtils(TestCase):
                 objective_thresholds=objective_thresholds,
                 objective=objective,
                 outcomes=outcomes,
+                experiment=experiment,
             )
 
     def test_observation_data_to_array(self) -> None:

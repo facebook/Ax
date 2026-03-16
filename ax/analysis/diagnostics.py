@@ -70,7 +70,7 @@ class DiagnosticAnalysis(Analysis):
             metric_names = list(experiment.metrics.keys())
         else:
             # Extract all metric names from the OptimizationConfig.
-            metric_names = [*none_throws(experiment.optimization_config).metrics.keys()]
+            metric_names = [*none_throws(experiment.optimization_config).metric_names]
 
         is_bandit = generation_strategy and is_bandit_experiment(
             generation_strategy_name=generation_strategy.name

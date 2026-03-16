@@ -151,8 +151,10 @@ class MultiTypeExperimentTest(TestCase):
         self.assertDictEqual(
             self.experiment._metric_to_trial_type, {"m1": "type1", "m2": "type2"}
         )
+        m3 = BraninMetric("m3", ["x1", "x2"])
+        self.experiment.add_tracking_metric(m3)
         self.experiment.optimization_config = OptimizationConfig(
-            Objective(BraninMetric("m3", ["x1", "x2"]), minimize=True)
+            Objective(metric=m3, minimize=True)
         )
         self.assertDictEqual(
             self.experiment._metric_to_trial_type,

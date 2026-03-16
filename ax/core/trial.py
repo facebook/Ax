@@ -197,7 +197,7 @@ class Trial(BaseTrial):
             raise ValueError(
                 "Experiment optimization config (and thus the objective) is not set."
             )
-        return self.get_metric_mean(metric_name=opt_config.objective.metric.name)
+        return self.get_metric_mean(metric_name=opt_config.objective.metric_names[0])
 
     def get_metric_mean(self, metric_name: str) -> float:
         """Metric mean for the arm attached to this trial, retrieved from the

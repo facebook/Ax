@@ -18,7 +18,7 @@ from ax.core.optimization_config import (
     MultiObjectiveOptimizationConfig,
     OptimizationConfig,
 )
-from ax.core.outcome_constraint import ScalarizedOutcomeConstraint
+from ax.core.outcome_constraint import OutcomeConstraint, ScalarizedOutcomeConstraint
 from ax.core.trial_status import DEFAULT_ANALYSIS_STATUSES, TrialStatus
 from ax.core.types import ComparisonOp
 from ax.utils.common.testutils import TestCase
@@ -43,9 +43,11 @@ class TestObjectivePFeasibleFrontierPlot(TestCase):
             objective=Objective(metric=self.experiment.metrics["branin_a"]),
             outcome_constraints=self.experiment.optimization_config.outcome_constraints,
         )
-        oc = none_throws(self.experiment.optimization_config).outcome_constraints[0]
-        oc.bound = 10.0
-        oc.op = ComparisonOp.LEQ
+        opt_config = none_throws(self.experiment.optimization_config)
+        oc = opt_config.outcome_constraints[0]
+        opt_config.outcome_constraints[0] = OutcomeConstraint(
+            expression=f"{oc.metric_names[0]} <= 10.0",
+        )
 
     def test_trial_statuses_behavior(self) -> None:
         # When neither trial_statuses nor trial_index is provided,

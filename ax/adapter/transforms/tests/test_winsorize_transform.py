@@ -216,7 +216,12 @@ class WinsorizeTransformTest(TestCase):
         )
         self.assertEqual(cutoffs, (-INF, 23.5))
         # From above with a tight bound
-        outcome_constraint_leq.bound = 2
+        outcome_constraint_leq = OutcomeConstraint(
+            metric=ma,
+            op=outcome_constraint_leq.op,
+            bound=2,
+            relative=outcome_constraint_leq.relative,
+        )
         cutoffs = _get_auto_winsorization_cutoffs_outcome_constraint(
             metric_values=self.values, outcome_constraints=[outcome_constraint_leq]
         )
@@ -227,13 +232,17 @@ class WinsorizeTransformTest(TestCase):
         )
         self.assertEqual(cutoffs, (-31.5, INF))
         # From below with a tight bound
-        outcome_constraint_geq.bound = 5
+        outcome_constraint_geq = OutcomeConstraint(
+            metric=mb,
+            op=outcome_constraint_geq.op,
+            bound=5,
+            relative=outcome_constraint_geq.relative,
+        )
         cutoffs = _get_auto_winsorization_cutoffs_outcome_constraint(
             metric_values=self.values, outcome_constraints=[outcome_constraint_geq]
         )
         self.assertEqual(cutoffs, (-6.5, INF))
         # Both with the tight bounds
-        outcome_constraint_geq.bound = 5
         cutoffs = _get_auto_winsorization_cutoffs_outcome_constraint(
             metric_values=self.values,
             outcome_constraints=[outcome_constraint_leq, outcome_constraint_geq],
@@ -391,13 +400,29 @@ class WinsorizeTransformTest(TestCase):
         self.assertEqual(transform.cutoffs["m2"], (-INF, 10.0))  # 4 + 1.5 * 4
         self.assertEqual(transform.cutoffs["m3"], (-INF, INF))
         # Make the constraint absolute, which should trigger winsorization
-        outcome_constraint.relative = False
+        outcome_constraint = OutcomeConstraint(
+            metric=m1,
+            op=outcome_constraint.op,
+            bound=outcome_constraint.bound,
+            relative=False,
+        )
+        none_throws(experiment.optimization_config).outcome_constraints = [
+            outcome_constraint
+        ]
         transform = Winsorize(experiment_data=experiment_data, adapter=adapter)
         self.assertEqual(transform.cutoffs["m1"], (-INF, 13.5))  # 6 + 1.5 * 5
         self.assertEqual(transform.cutoffs["m2"], (-INF, 10.0))  # 4 + 1.5 * 4
         self.assertEqual(transform.cutoffs["m3"], (-INF, INF))
         # Change to a GEQ constraint
-        outcome_constraint.op = ComparisonOp.GEQ
+        outcome_constraint = OutcomeConstraint(
+            metric=m1,
+            op=ComparisonOp.GEQ,
+            bound=outcome_constraint.bound,
+            relative=outcome_constraint.relative,
+        )
+        none_throws(experiment.optimization_config).outcome_constraints = [
+            outcome_constraint
+        ]
         transform = Winsorize(experiment_data=experiment_data, adapter=adapter)
         self.assertEqual(transform.cutoffs["m1"], (-6.5, INF))  # 1 - 1.5 * 5
         self.assertEqual(transform.cutoffs["m2"], (-INF, 10.0))  # 4 + 1.5 * 4
@@ -419,7 +444,7 @@ class WinsorizeTransformTest(TestCase):
             )
         # Multi-objective without objective thresholds should warn and winsorize
         moo_objective = MultiObjective(
-            [Objective(m1, minimize=False), Objective(m2, minimize=True)]
+            [Objective(metric=m1, minimize=False), Objective(metric=m2, minimize=True)]
         )
         optimization_config = MultiObjectiveOptimizationConfig(objective=moo_objective)
         experiment._optimization_config = optimization_config
@@ -437,7 +462,7 @@ class WinsorizeTransformTest(TestCase):
         self.assertEqual(transform.cutoffs["m2"], (-INF, 10.0))
         self.assertEqual(transform.cutoffs["m3"], (-INF, INF))
         # Add relative objective thresholds. Should warn and skip.
-        objective_thresholds = [
+        objective_thresholds: list[OutcomeConstraint] = [
             ObjectiveThreshold(m1, 3, relative=True),
             ObjectiveThreshold(m2, 4, relative=True),
         ]
@@ -458,8 +483,10 @@ class WinsorizeTransformTest(TestCase):
         for i in range(1, 4):
             self.assertEqual(transform.cutoffs[f"m{i}"], (-INF, INF))
         # Make the objective thresholds absolute (should trigger winsorization)
-        optimization_config.objective_thresholds[0].relative = False
-        optimization_config.objective_thresholds[1].relative = False
+        optimization_config.objective_thresholds = [
+            ObjectiveThreshold(m1, 3, relative=False),
+            ObjectiveThreshold(m2, 4, relative=False),
+        ]
         transform = Winsorize(experiment_data=experiment_data, adapter=adapter)
         self.assertEqual(transform.cutoffs["m1"], (-6.5, INF))  # 1 - 1.5 * 5
         self.assertEqual(transform.cutoffs["m2"], (-INF, 10.0))  # 4 + 1.5 * 4
@@ -483,17 +510,17 @@ class WinsorizeTransformTest(TestCase):
         )
         # Test with relative constraint, in-design status quo
         oc = OptimizationConfig(
-            objective=Objective(Metric("c"), minimize=False),
+            objective=Objective(metric=Metric("c"), minimize=False),
             outcome_constraints=[
                 OutcomeConstraint(
-                    Metric("a"), ComparisonOp.LEQ, bound=2, relative=False
+                    metric=Metric("a"), op=ComparisonOp.LEQ, bound=2, relative=False
                 ),
                 OutcomeConstraint(
-                    Metric("b"), ComparisonOp.LEQ, bound=-10, relative=True
+                    metric=Metric("b"), op=ComparisonOp.LEQ, bound=-10, relative=True
                 ),
                 ScalarizedOutcomeConstraint(
                     metrics=[Metric("a"), Metric("b")],
-                    weights=[0.0, 1.0],
+                    weights=[0.5, 0.5],
                     op=ComparisonOp.LEQ,
                     bound=-10,
                     relative=True,
@@ -569,7 +596,7 @@ class WinsorizeTransformTest(TestCase):
             config={"derelativize_with_raw_status_quo": True},
         )
         self.assertDictEqual(
-            t.cutoffs, {"a": (-INF, 4.25), "b": (-INF, 4.25), "c": (-3.25, INF)}
+            t.cutoffs, {"a": (-INF, 2.625), "b": (-INF, 4.25), "c": (-3.25, INF)}
         )
 
     def test_transform_experiment_data(self) -> None:

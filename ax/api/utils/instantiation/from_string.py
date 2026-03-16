@@ -7,27 +7,13 @@
 
 from collections.abc import Sequence
 
-from ax.core.map_metric import MapMetric
-from ax.core.objective import MultiObjective, Objective, ScalarizedObjective
+from ax.core.objective import Objective
 from ax.core.optimization_config import (
     MultiObjectiveOptimizationConfig,
     OptimizationConfig,
 )
-from ax.core.outcome_constraint import (
-    ComparisonOp,
-    ObjectiveThreshold,
-    OutcomeConstraint,
-    ScalarizedOutcomeConstraint,
-)
+from ax.core.outcome_constraint import OutcomeConstraint
 from ax.exceptions.core import UserInputError
-from ax.utils.common.string_utils import sanitize_name, unsanitize_name
-from ax.utils.common.sympy import extract_coefficient_dict_from_inequality
-from pyre_extensions import assert_is_instance, none_throws
-from sympy.core.add import Add
-from sympy.core.expr import Expr
-from sympy.core.mul import Mul
-from sympy.core.symbol import Symbol
-from sympy.core.sympify import sympify
 
 
 def optimization_config_from_string(
@@ -40,34 +26,25 @@ def optimization_config_from_string(
     the multi-objective case where they will be converted to objective thresholds.
     """
 
-    objective = parse_objective(objective_str=objective_str)
+    objective = Objective(expression=objective_str)
 
-    if outcome_constraint_strs is not None:
-        outcome_constraints = [
-            parse_outcome_constraint(constraint_str=constraint_str)
-            for constraint_str in outcome_constraint_strs
-        ]
-    else:
-        outcome_constraints = None
+    outcome_constraints: list[OutcomeConstraint] | None = (
+        [OutcomeConstraint(expression=s) for s in outcome_constraint_strs]
+        if outcome_constraint_strs is not None
+        else None
+    )
 
-    if isinstance(objective, MultiObjective):
+    if objective.is_multi_objective:
         # Convert OutcomeConstraints to ObjectiveThresholds if relevant
-        objective_metric_names = {metric.name for metric in objective.metrics}
+        objective_metric_names = set(objective.metric_names)
         true_outcome_constraints = []
-        objective_thresholds: list[ObjectiveThreshold] = []
+        objective_thresholds: list[OutcomeConstraint] = []
         for outcome_constraint in outcome_constraints or []:
             if (
-                not isinstance(outcome_constraint, ScalarizedOutcomeConstraint)
-                and outcome_constraint.metric.name in objective_metric_names
+                len(outcome_constraint.metric_names) == 1
+                and outcome_constraint.metric_names[0] in objective_metric_names
             ):
-                objective_thresholds.append(
-                    ObjectiveThreshold(
-                        metric=outcome_constraint.metric,
-                        bound=outcome_constraint.bound,
-                        relative=outcome_constraint.relative,
-                        op=outcome_constraint.op,
-                    )
-                )
+                objective_thresholds.append(outcome_constraint)
             else:
                 true_outcome_constraints.append(outcome_constraint)
 
@@ -78,9 +55,9 @@ def optimization_config_from_string(
         )
 
     # Ensure that outcome constraints are not placed on the objective metric
-    objective_metric_names = {metric.name for metric in objective.metrics}
+    objective_metric_names = set(objective.metric_names)
     for outcome_constraint in outcome_constraints or []:
-        if outcome_constraint.metric.name in objective_metric_names:
+        if outcome_constraint.metric_names[0] in objective_metric_names:
             raise UserInputError(
                 "Outcome constraints may not be placed on the objective metric "
                 f"except in the multi-objective case, found {objective_str} and "
@@ -91,128 +68,3 @@ def optimization_config_from_string(
         objective=objective,
         outcome_constraints=outcome_constraints,
     )
-
-
-def parse_objective(objective_str: str) -> Objective:
-    """
-    Parse an objective string into an Objective object using SymPy.
-
-    Currently only supports linear objectives of the form "a * x + b * y" and tuples of
-    linear objectives.
-    """
-    # Parse the objective string into a SymPy expression
-    expression = sympify(sanitize_name(objective_str))
-
-    if isinstance(expression, tuple):  # Multi-objective
-        return MultiObjective(
-            objectives=[
-                _create_single_objective(expression=term) for term in expression
-            ]
-        )
-
-    return _create_single_objective(expression=assert_is_instance(expression, Expr))
-
-
-def parse_outcome_constraint(constraint_str: str) -> OutcomeConstraint:
-    """
-    Parse an outcome constraint string into an OutcomeConstraint object using SymPy.
-    Currently only supports linear constraints of the form "a * x + b * y >= k" or
-    "a * x + b * y <= k".
-
-    To indicate a relative constraint (i.e. performance relative to some baseline)
-    multiply your bound by "baseline". For example "qps >= 0.95 * baseline" will
-    constrain such that the QPS is at least 95% of the baseline arm's QPS.
-    """
-    coefficient_dict = extract_coefficient_dict_from_inequality(
-        inequality_str=constraint_str
-    )
-
-    # Iterate through the coefficients to extract the parameter names and weights and
-    # the bound
-    constraint_dict: dict[str, float] = {}
-    bound = 0
-    is_relative = False
-    for term, coefficient in coefficient_dict.items():
-        if term.is_symbol:
-            if term.name == "baseline":
-                # Invert because we are "moving" the bound to the right hand side
-                bound = -1 * coefficient
-                is_relative = True
-            else:
-                constraint_dict[term.name] = coefficient
-        elif term.is_number:
-            # Invert because we are "moving" the bound to the right hand side
-            bound = -1 * coefficient
-        else:
-            raise UserInputError(
-                f"Only linear outcome constraints are supported, found {constraint_str}"
-            )
-
-    if len(constraint_dict) == 1:
-        term, coefficient = next(iter(constraint_dict.items()))
-
-        return OutcomeConstraint(
-            metric=MapMetric(name=unsanitize_name(term)),
-            op=ComparisonOp.LEQ if coefficient > 0 else ComparisonOp.GEQ,
-            bound=bound / coefficient,
-            relative=is_relative,
-        )
-
-    names, coefficients = zip(*constraint_dict.items())
-    return ScalarizedOutcomeConstraint(
-        metrics=[MapMetric(name=unsanitize_name(name)) for name in names],
-        op=ComparisonOp.LEQ,
-        weights=[*coefficients],
-        bound=bound,
-        relative=is_relative,
-    )
-
-
-def _create_single_objective(expression: Expr) -> Objective:
-    """
-    Create an Objective or ScalarizedObjective from a linear SymPy expression.
-
-    All expressions are assumed to represent maximization objectives.
-    """
-
-    # If the expression is a just a Symbol it represents a single metric objective
-    if isinstance(expression, Symbol):
-        return Objective(
-            metric=MapMetric(
-                name=unsanitize_name(str(expression.name)), lower_is_better=False
-            ),
-            minimize=False,
-        )
-
-    # If the expression is a Mul it likely represents a single metric objective but
-    # some additional validation is required
-    if isinstance(expression, Mul):
-        symbol, *other_symbols = expression.free_symbols
-        if len(other_symbols) > 0:
-            raise UserInputError(
-                f"Only linear objectives are supported, found {expression}."
-            )
-
-        # Since the objectives 1 * loss and 2 * loss are equivalent, we can just use
-        # the sign from the coefficient rather than its value
-        minimize = bool(
-            none_throws(expression.as_coefficient(assert_is_instance(symbol, Expr))) < 0
-        )
-
-        return Objective(
-            metric=MapMetric(
-                name=unsanitize_name(str(symbol)), lower_is_better=minimize
-            ),
-            minimize=minimize,
-        )
-
-    # If the expression is an Add it represents a scalarized objective
-    elif isinstance(expression, Add):
-        names, coefficients = zip(*expression.as_coefficients_dict().items())
-        return ScalarizedObjective(
-            metrics=[MapMetric(name=unsanitize_name(str(name))) for name in names],
-            weights=[float(coefficient) for coefficient in coefficients],
-            minimize=False,
-        )
-
-    raise UserInputError(f"Only linear objectives are supported, found {expression}.")

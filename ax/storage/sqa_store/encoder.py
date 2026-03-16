@@ -165,11 +165,12 @@ class Encoder:
         """
 
         optimization_metrics = self.optimization_config_to_sqa(
-            experiment.optimization_config
+            experiment.optimization_config,
+            experiment_metrics=experiment._metrics,
         )
 
         tracking_metrics = []
-        for metric in experiment._tracking_metrics.values():
+        for metric in experiment.tracking_metrics:
             tracking_metrics.append(self.metric_to_sqa(metric))
 
         parameters, parameter_constraints = self.search_space_to_sqa(
@@ -184,7 +185,10 @@ class Encoder:
 
         trials = []
         for trial in experiment.trials.values():
-            trial_sqa = self.trial_to_sqa(trial=trial)
+            trial_sqa = self.trial_to_sqa(
+                trial=trial,
+                experiment_metrics=experiment._metrics,
+            )
             trials.append(trial_sqa)
 
         experiment_data = self.experiment_data_to_sqa(experiment=experiment)
@@ -438,35 +442,53 @@ class Encoder:
             for (metric, weight) in zip(metrics, weights)
         }
 
-    def objective_to_sqa(self, objective: Objective) -> SQAMetric:
+    def objective_to_sqa(
+        self,
+        objective: Objective,
+        experiment_metrics: dict[str, Metric] | None = None,
+    ) -> SQAMetric:
         """Convert Ax Objective to SQLAlchemy."""
-        if isinstance(objective, ScalarizedObjective):
-            objective_sqa = self.scalarized_objective_to_sqa(objective)
+        if objective.is_scalarized_objective or isinstance(
+            objective, ScalarizedObjective
+        ):
+            objective_sqa = self.scalarized_objective_to_sqa(
+                objective, experiment_metrics=experiment_metrics
+            )
 
-        elif isinstance(objective, MultiObjective):
-            objective_sqa = self.multi_objective_to_sqa(objective)
+        elif objective.is_multi_objective or isinstance(objective, MultiObjective):
+            objective_sqa = self.multi_objective_to_sqa(
+                objective, experiment_metrics=experiment_metrics
+            )
 
         else:
-            metric_type, properties = self.get_metric_type_and_properties(
-                metric=objective.metric
+            metric_name = objective.metric_names[0]
+            metric = (
+                experiment_metrics.get(metric_name, Metric(name=metric_name))
+                if experiment_metrics
+                else Metric(name=metric_name)
             )
+            metric_type, properties = self.get_metric_type_and_properties(metric=metric)
             metric_class = cast(SQAMetric, self.config.class_to_sqa_class[Metric])
             objective_sqa = (
                 metric_class(  # pyre-ignore[29]: `SQAMetric` is not a function.
-                    id=objective.metric.db_id,
-                    name=objective.metric.name,
-                    signature=objective.metric.signature,
+                    id=objective.db_id,
+                    name=metric.name,
+                    signature=metric.signature,
                     metric_type=metric_type,
                     intent=MetricIntent.OBJECTIVE,
                     minimize=objective.minimize,
                     properties=properties,
-                    lower_is_better=objective.metric.lower_is_better,
+                    lower_is_better=metric.lower_is_better,
                 )
             )
 
         return assert_is_instance(objective_sqa, SQAMetric)
 
-    def multi_objective_to_sqa(self, multi_objective: MultiObjective) -> SQAMetric:
+    def multi_objective_to_sqa(
+        self,
+        multi_objective: Objective,
+        experiment_metrics: dict[str, Metric] | None = None,
+    ) -> SQAMetric:
         """Convert Ax Multi Objective to SQLAlchemy.
 
         Returns: A parent `SQAMetric`, whose children are the `SQAMetric`-s
@@ -476,21 +498,26 @@ class Encoder:
         # Constructing children SQAMetric classes (these are the real metrics in
         # the `MultiObjective`).
         children_objectives = []
-        for objective in multi_objective.objectives:
-            objective_cls = cast(SQAMetric, self.config.class_to_sqa_class[Metric])
-            type_and_properties = self.get_metric_type_and_properties(
-                metric=objective.metric
+        metric_weights_dict = dict(multi_objective.metric_weights)
+        for metric_name in multi_objective.metric_names:
+            metric = (
+                experiment_metrics.get(metric_name, Metric(name=metric_name))
+                if experiment_metrics
+                else Metric(name=metric_name)
             )
+            objective_cls = cast(SQAMetric, self.config.class_to_sqa_class[Metric])
+            type_and_properties = self.get_metric_type_and_properties(metric=metric)
+            weight = metric_weights_dict.get(metric_name, 1.0)
             children_objectives.append(
                 objective_cls(  # pyre-ignore[29]: `SQAMetric` is not a func.
-                    id=objective.metric.db_id,
-                    name=objective.metric.name,
-                    signature=objective.metric.signature,
+                    id=None,
+                    name=metric.name,
+                    signature=metric.signature,
                     metric_type=type_and_properties[0],
                     intent=MetricIntent.OBJECTIVE,
-                    minimize=objective.minimize,
+                    minimize=weight < 0,
                     properties=type_and_properties[1],
-                    lower_is_better=objective.metric.lower_is_better,
+                    lower_is_better=metric.lower_is_better,
                 )
             )
 
@@ -511,9 +538,10 @@ class Encoder:
 
     def preference_objective_to_sqa(
         self,
-        multi_objective: MultiObjective,
+        multi_objective: Objective,
         preference_profile_name: str,
         expect_relativized_outcomes: bool,
+        experiment_metrics: dict[str, Metric] | None = None,
     ) -> SQAMetric:
         """Convert Ax PreferenceOptimizationConfig objective to SQLAlchemy.
 
@@ -527,21 +555,26 @@ class Encoder:
         # Constructing children SQAMetric classes (these are the real metrics in
         # the `MultiObjective`).
         children_objectives = []
-        for objective in multi_objective.objectives:
-            objective_cls = cast(SQAMetric, self.config.class_to_sqa_class[Metric])
-            type_and_properties = self.get_metric_type_and_properties(
-                metric=objective.metric
+        metric_weights_dict = dict(multi_objective.metric_weights)
+        for metric_name in multi_objective.metric_names:
+            metric = (
+                experiment_metrics.get(metric_name, Metric(name=metric_name))
+                if experiment_metrics
+                else Metric(name=metric_name)
             )
+            objective_cls = cast(SQAMetric, self.config.class_to_sqa_class[Metric])
+            type_and_properties = self.get_metric_type_and_properties(metric=metric)
+            weight = metric_weights_dict.get(metric_name, 1.0)
             children_objectives.append(
                 objective_cls(  # pyre-ignore[29]: `SQAMetric` is not a func.
-                    id=objective.metric.db_id,
-                    name=objective.metric.name,
-                    signature=objective.metric.signature,
+                    id=None,
+                    name=metric.name,
+                    signature=metric.signature,
                     metric_type=type_and_properties[0],
                     intent=MetricIntent.OBJECTIVE,
-                    minimize=objective.minimize,
+                    minimize=weight < 0,
                     properties=type_and_properties[1],
-                    lower_is_better=objective.metric.lower_is_better,
+                    lower_is_better=metric.lower_is_better,
                 )
             )
 
@@ -567,41 +600,61 @@ class Encoder:
         )
         return parent_metric
 
-    def scalarized_objective_to_sqa(self, objective: ScalarizedObjective) -> SQAMetric:
+    def scalarized_objective_to_sqa(
+        self,
+        objective: Objective,
+        experiment_metrics: dict[str, Metric] | None = None,
+    ) -> SQAMetric:
         """Convert Ax Scalarized Objective to SQLAlchemy.
 
         Returns: A parent `SQAMetric`, whose children are the `SQAMetric`-s
             corresponding to `metrics` attribute of `ScalarizedObjective`.
             NOTE: The parent is used as a placeholder for storage purposes.
         """
-        metrics, weights = objective.metrics, objective.weights
-        if (not (metrics and weights)) or len(metrics) != len(weights):
+        metric_weights = objective.metric_weights
+        if not metric_weights:
             raise SQAEncodeError(
                 "Metrics and weights in scalarized objective "
                 "must be lists of equal length."
             )
-        metrics_by_name = self.get_children_metrics_by_name(
-            metrics=metrics, weights=weights
+
+        # Infer minimize from effective weights: if all weights are <= 0 (with
+        # at least one < 0), the objective was constructed with minimize=True.
+        minimize = all(w <= 0 for _, w in metric_weights) and any(
+            w < 0 for _, w in metric_weights
         )
 
         # Constructing children SQAMetric classes (these are the real metrics in
         # the `ScalarizedObjective`).
         children_metrics = []
-        for metric_name in metrics_by_name:
-            m, w, metric_cls, type_and_properties = metrics_by_name[metric_name]
+        for metric_name, w in metric_weights:
+            metric = (
+                experiment_metrics.get(metric_name, Metric(name=metric_name))
+                if experiment_metrics
+                else Metric(name=metric_name)
+            )
+            metric_cls = cast(SQAMetric, self.config.class_to_sqa_class[Metric])
+            type_and_properties = self.get_metric_type_and_properties(metric=metric)
             children_metrics.append(
                 metric_cls(  # pyre-ignore[29]: `SQAMetric` is not a function.
-                    id=m.db_id,
+                    id=None,
                     name=metric_name,
-                    signature=m.signature,
+                    signature=metric.signature,
                     metric_type=type_and_properties[0],
                     intent=MetricIntent.OBJECTIVE,
-                    minimize=objective.minimize,
+                    minimize=minimize,
                     properties=type_and_properties[1],
-                    lower_is_better=m.lower_is_better,
+                    lower_is_better=metric.lower_is_better,
                     scalarized_objective_weight=w,
                 )
             )
+
+        # For plain Objective instances (not deprecated ScalarizedObjective
+        # subclass), store the original expression so it can be restored
+        # losslessly during decoding.
+        parent_properties: dict[str, Any] = {}
+        if type(objective) is Objective:
+            parent_properties["expression"] = objective.expression
 
         # Constructing a parent SQAMetric class
         parent_metric_cls = cast(SQAMetric, self.config.class_to_sqa_class[Metric])
@@ -610,28 +663,38 @@ class Encoder:
             name="scalarized_objective",
             metric_type=self.config.metric_registry[Metric],
             intent=MetricIntent.SCALARIZED_OBJECTIVE,
-            minimize=objective.minimize,
-            lower_is_better=objective.minimize,
+            minimize=minimize,
+            lower_is_better=minimize,
             scalarized_objective_children_metrics=children_metrics,
             signature="scalarized_objective",
+            properties=parent_properties,
         )
         return parent_metric
 
     def outcome_constraint_to_sqa(
-        self, outcome_constraint: OutcomeConstraint
+        self,
+        outcome_constraint: OutcomeConstraint,
+        experiment_metrics: dict[str, Metric] | None = None,
     ) -> SQAMetric:
         """Convert Ax OutcomeConstraint to SQLAlchemy."""
         if isinstance(outcome_constraint, ScalarizedOutcomeConstraint):
-            return self.scalarized_outcome_constraint_to_sqa(outcome_constraint)
+            return self.scalarized_outcome_constraint_to_sqa(
+                outcome_constraint, experiment_metrics=experiment_metrics
+            )
 
-        metric = outcome_constraint.metric
+        metric_name = outcome_constraint.metric_names[0]
+        metric = (
+            experiment_metrics.get(metric_name, Metric(name=metric_name))
+            if experiment_metrics
+            else Metric(name=metric_name)
+        )
         metric_type, properties = self.get_metric_type_and_properties(metric=metric)
 
         # pyre-fixme: Expected `Base` for 1st...t `typing.Type[Metric]`.
         metric_class: SQAMetric = self.config.class_to_sqa_class[Metric]
         # pyre-fixme[29]: `SQAMetric` is not a function.
         constraint_sqa = metric_class(
-            id=metric.db_id,
+            id=outcome_constraint.db_id,
             name=metric.name,
             signature=metric.signature,
             metric_type=metric_type,
@@ -645,34 +708,38 @@ class Encoder:
         return constraint_sqa
 
     def scalarized_outcome_constraint_to_sqa(
-        self, outcome_constraint: ScalarizedOutcomeConstraint
+        self,
+        outcome_constraint: ScalarizedOutcomeConstraint,
+        experiment_metrics: dict[str, Metric] | None = None,
     ) -> SQAMetric:
         """Convert Ax Scalarized OutcomeConstraint to SQLAlchemy."""
-        metrics, weights = outcome_constraint.metrics, outcome_constraint.weights
-
-        if metrics is None or weights is None or len(metrics) != len(weights):
+        metric_weights = outcome_constraint.metric_weights
+        if not metric_weights:
             raise SQAEncodeError(
                 "Metrics and weights in scalarized OutcomeConstraint "
                 "must be lists of equal length."
             )
 
-        metrics_by_name = self.get_children_metrics_by_name(
-            metrics=metrics, weights=weights
-        )
         # Constructing children SQAMetric classes (these are the real metrics in
         # the `ScalarizedObjective`).
         children_metrics = []
-        for metric_name in metrics_by_name:
-            m, w, metric_cls, type_and_properties = metrics_by_name[metric_name]
+        for metric_name, w in metric_weights:
+            metric = (
+                experiment_metrics.get(metric_name, Metric(name=metric_name))
+                if experiment_metrics
+                else Metric(name=metric_name)
+            )
+            metric_cls = cast(SQAMetric, self.config.class_to_sqa_class[Metric])
+            type_and_properties = self.get_metric_type_and_properties(metric=metric)
             children_metrics.append(
                 metric_cls(  # pyre-ignore[29]: `SQAMetric` is not a function.
-                    id=m.db_id,
+                    id=None,
                     name=metric_name,
-                    signature=m.signature,
+                    signature=metric.signature,
                     metric_type=type_and_properties[0],
                     intent=MetricIntent.OUTCOME_CONSTRAINT,
                     properties=type_and_properties[1],
-                    lower_is_better=m.lower_is_better,
+                    lower_is_better=metric.lower_is_better,
                     scalarized_outcome_constraint_weight=w,
                     bound=outcome_constraint.bound,
                     op=outcome_constraint.op,
@@ -696,17 +763,24 @@ class Encoder:
         return parent_metric
 
     def objective_threshold_to_sqa(
-        self, objective_threshold: ObjectiveThreshold
+        self,
+        objective_threshold: ObjectiveThreshold,
+        experiment_metrics: dict[str, Metric] | None = None,
     ) -> SQAMetric:
         """Convert Ax OutcomeConstraint to SQLAlchemy."""
-        metric = objective_threshold.metric
+        metric_name = objective_threshold.metric_names[0]
+        metric = (
+            experiment_metrics.get(metric_name, Metric(name=metric_name))
+            if experiment_metrics
+            else Metric(name=metric_name)
+        )
         metric_type, properties = self.get_metric_type_and_properties(metric=metric)
 
         # pyre-fixme: Expected `Base` for 1st...t `typing.Type[Metric]`.
         metric_class: SQAMetric = self.config.class_to_sqa_class[Metric]
         # pyre-fixme[29]: `SQAMetric` is not a function.
         return metric_class(
-            id=metric.db_id,
+            id=objective_threshold.db_id,
             name=metric.name,
             signature=metric.signature,
             metric_type=metric_type,
@@ -719,7 +793,9 @@ class Encoder:
         )
 
     def optimization_config_to_sqa(
-        self, optimization_config: OptimizationConfig | None
+        self,
+        optimization_config: OptimizationConfig | None,
+        experiment_metrics: dict[str, Metric] | None = None,
     ) -> list[SQAMetric]:
         """Convert Ax OptimizationConfig to a list of SQLAlchemy Metrics."""
         if optimization_config is None:
@@ -730,7 +806,9 @@ class Encoder:
         # Handle PreferenceOptimizationConfig separately
         if isinstance(optimization_config, PreferenceOptimizationConfig):
             objective = optimization_config.objective
-            if not isinstance(objective, MultiObjective):
+            if not (
+                isinstance(objective, MultiObjective) or objective.is_multi_objective
+            ):
                 raise SQAEncodeError(
                     f"PreferenceOptimizationConfig requires a MultiObjective, "
                     f"got {type(objective).__name__}"
@@ -741,14 +819,19 @@ class Encoder:
                 expect_relativized_outcomes=(
                     optimization_config.expect_relativized_outcomes
                 ),
+                experiment_metrics=experiment_metrics,
             )
         else:
-            obj_sqa = self.objective_to_sqa(objective=optimization_config.objective)
+            obj_sqa = self.objective_to_sqa(
+                objective=optimization_config.objective,
+                experiment_metrics=experiment_metrics,
+            )
 
         metrics_sqa.append(obj_sqa)
         for constraint in optimization_config.outcome_constraints:
             constraint_sqa = self.outcome_constraint_to_sqa(
-                outcome_constraint=constraint
+                outcome_constraint=constraint,
+                experiment_metrics=experiment_metrics,
             )
             metrics_sqa.append(constraint_sqa)
         if isinstance(optimization_config, MultiObjectiveOptimizationConfig) and not (
@@ -756,7 +839,10 @@ class Encoder:
         ):
             for threshold in optimization_config.objective_thresholds:
                 threshold_sqa = self.objective_threshold_to_sqa(
-                    objective_threshold=threshold
+                    objective_threshold=assert_is_instance(
+                        threshold, ObjectiveThreshold
+                    ),
+                    experiment_metrics=experiment_metrics,
                 )
                 metrics_sqa.append(threshold_sqa)
         return metrics_sqa
@@ -789,6 +875,7 @@ class Encoder:
         generator_run: GeneratorRun,
         weight: float | None = None,
         reduced_state: bool = False,
+        experiment_metrics: dict[str, Metric] | None = None,
     ) -> SQAGeneratorRun:
         """Convert Ax GeneratorRun to SQLAlchemy.
 
@@ -801,7 +888,10 @@ class Encoder:
         for arm, arm_weight in generator_run.arm_weights.items():
             arms.append(self.arm_to_sqa(arm=arm, weight=arm_weight))
 
-        metrics = self.optimization_config_to_sqa(generator_run.optimization_config)
+        metrics = self.optimization_config_to_sqa(
+            generator_run.optimization_config,
+            experiment_metrics=experiment_metrics,
+        )
         parameters, parameter_constraints = self.search_space_to_sqa(
             generator_run.search_space
         )
@@ -968,7 +1058,10 @@ class Encoder:
         )
 
     def trial_to_sqa(
-        self, trial: BaseTrial, generator_run_reduced_state: bool = False
+        self,
+        trial: BaseTrial,
+        generator_run_reduced_state: bool = False,
+        experiment_metrics: dict[str, Metric] | None = None,
     ) -> SQATrial:
         """Convert Ax Trial to SQLAlchemy.
 
@@ -983,6 +1076,7 @@ class Encoder:
             gr_sqa = self.generator_run_to_sqa(
                 generator_run=none_throws(trial.generator_run),
                 reduced_state=generator_run_reduced_state,
+                experiment_metrics=experiment_metrics,
             )
             generator_runs.append(gr_sqa)
 
@@ -992,7 +1086,11 @@ class Encoder:
                     self.abandoned_arm_to_sqa(abandoned_arm=abandoned_arm)
                 )
             for gr in trial._generator_runs:
-                gr_sqa = self.generator_run_to_sqa(generator_run=gr, weight=1.0)
+                gr_sqa = self.generator_run_to_sqa(
+                    generator_run=gr,
+                    weight=1.0,
+                    experiment_metrics=experiment_metrics,
+                )
                 generator_runs.append(gr_sqa)
 
         # pyre-ignore[9]: Expected `Base` for 1st...ot `typing.Type[Trial]`.

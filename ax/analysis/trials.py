@@ -133,7 +133,7 @@ class TrialAnalysis(Analysis):
         if (optimization_config := experiment.optimization_config) is not None:
             objective_names = optimization_config.objective.metric_names
             constraint_names = [
-                constraint.metric.name
+                constraint.metric_names[0]
                 for constraint in optimization_config.outcome_constraints
             ]
 

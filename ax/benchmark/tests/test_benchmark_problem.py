@@ -6,7 +6,6 @@
 # pyre-strict
 
 
-from ax.benchmark.benchmark_metric import BenchmarkMetric
 from ax.benchmark.benchmark_problem import (
     BenchmarkProblem,
     get_continuous_search_space,
@@ -14,18 +13,16 @@ from ax.benchmark.benchmark_problem import (
     get_soo_opt_config,
 )
 from ax.benchmark.benchmark_test_functions.botorch_test import BoTorchTestFunction
-from ax.core.objective import MultiObjective, Objective, ScalarizedObjective
+from ax.core.objective import Objective
 from ax.core.optimization_config import (
     MultiObjectiveOptimizationConfig,
     OptimizationConfig,
 )
 from ax.core.outcome_constraint import OutcomeConstraint
 from ax.core.search_space import SearchSpace
-from ax.core.types import ComparisonOp
 from ax.utils.common.testutils import TestCase
 from botorch.test_functions.multi_objective import BraninCurrin
 from botorch.test_functions.synthetic import Branin
-from pyre_extensions import assert_is_instance
 
 
 class TestBenchmarkProblem(TestCase):
@@ -35,15 +32,15 @@ class TestBenchmarkProblem(TestCase):
         super().setUp()
 
     def test_mismatch_of_names_on_test_function_and_opt_config_raises(self) -> None:
-        objectives = [
-            Objective(metric=BenchmarkMetric(name, lower_is_better=True))
-            for name in ["Branin", "Currin"]
-        ]
         test_function = BoTorchTestFunction(
             botorch_problem=Branin(), outcome_names=["Branin"]
         )
         opt_config = MultiObjectiveOptimizationConfig(
-            objective=MultiObjective(objectives)
+            objective=Objective(expression="-Branin, -Currin"),
+            objective_thresholds=[
+                OutcomeConstraint(expression="Branin <= 0.0"),
+                OutcomeConstraint(expression="Currin <= 0.0"),
+            ],
         )
         with self.assertRaisesRegex(
             ValueError,
@@ -61,14 +58,10 @@ class TestBenchmarkProblem(TestCase):
                 baseline_value=0.0,
             )
 
-        opt_config = OptimizationConfig(
-            objective=objectives[0],
+        opt_config2 = OptimizationConfig(
+            objective=Objective(expression="-Branin"),
             outcome_constraints=[
-                OutcomeConstraint(
-                    BenchmarkMetric("c", lower_is_better=False),
-                    ComparisonOp.LEQ,
-                    0.0,
-                )
+                OutcomeConstraint(expression="c <= 0.0"),
             ],
         )
         with self.assertRaisesRegex(
@@ -79,7 +72,7 @@ class TestBenchmarkProblem(TestCase):
         ):
             BenchmarkProblem(
                 name="foo",
-                optimization_config=opt_config,
+                optimization_config=opt_config2,
                 num_trials=1,
                 optimal_value=0.0,
                 search_space=SearchSpace(parameters=[]),
@@ -89,13 +82,8 @@ class TestBenchmarkProblem(TestCase):
             )
 
     def test_missing_names_on_test_function_with_scalarized_objective(self) -> None:
-        objective = ScalarizedObjective(
-            metrics=[
-                BenchmarkMetric(name, lower_is_better=True)
-                for name in ["BraninCurrin_0", "BraninCurrin_missing"]
-            ],
-            weights=[1.0, 1.0],
-            minimize=True,
+        objective = Objective(
+            expression="-BraninCurrin_0 - BraninCurrin_missing",
         )
         test_function = BoTorchTestFunction(
             botorch_problem=BraninCurrin(),
@@ -119,57 +107,48 @@ class TestBenchmarkProblem(TestCase):
             )
 
     def test_get_soo_opt_config(self) -> None:
-        opt_config = get_soo_opt_config(
+        opt_config, metrics = get_soo_opt_config(
             outcome_names=["foo", "bar"],
             lower_is_better=False,
             observe_noise_sd=True,
         )
         self.assertIsInstance(opt_config.objective, Objective)
         self.assertEqual(len(opt_config.outcome_constraints), 1)
-        objective_metric = assert_is_instance(
-            opt_config.objective.metric, BenchmarkMetric
-        )
-        self.assertEqual(objective_metric.name, "foo")
-        self.assertEqual(objective_metric.signature, "foo")
-        self.assertEqual(objective_metric.observe_noise_sd, True)
-        self.assertEqual(objective_metric.lower_is_better, False)
-        constraint_metric = assert_is_instance(
-            opt_config.outcome_constraints[0].metric, BenchmarkMetric
-        )
-        self.assertEqual(constraint_metric.name, "bar")
-        self.assertEqual(constraint_metric.signature, "bar")
-        self.assertEqual(constraint_metric.observe_noise_sd, True)
-        self.assertEqual(constraint_metric.lower_is_better, False)
+        self.assertEqual(opt_config.objective.metric_names, ["foo"])
+        self.assertFalse(opt_config.objective.minimize)
+        self.assertEqual(opt_config.outcome_constraints[0].metric_names, ["bar"])
+        self.assertEqual(len(metrics), 2)
+        self.assertEqual(metrics[0].name, "foo")
+        self.assertEqual(metrics[1].name, "bar")
 
     def test_get_moo_opt_config(self) -> None:
-        opt_config = get_moo_opt_config(
+        opt_config, metrics = get_moo_opt_config(
             outcome_names=["foo", "bar", "baz", "pony"],
             ref_point=[3.0, 4.0],
             lower_is_better=False,
             observe_noise_sd=True,
             num_constraints=2,
         )
-        self.assertEqual(len(opt_config.objective.metrics), 2)
+        self.assertEqual(set(opt_config.objective.metric_names), {"foo", "bar"})
         self.assertEqual(len(opt_config.outcome_constraints), 2)
         self.assertEqual(opt_config.objective_thresholds[0].bound, 3.0)
-        objective_metrics = [
-            assert_is_instance(metric, BenchmarkMetric)
-            for metric in opt_config.objective.metrics
-        ]
-        self.assertEqual(len(objective_metrics), 2)
-        self.assertEqual(objective_metrics[0].name, "foo")
-        self.assertEqual(objective_metrics[0].observe_noise_sd, True)
-        self.assertEqual(objective_metrics[0].lower_is_better, False)
-        self.assertEqual(objective_metrics[1].name, "bar")
+        # Check objective metric names
+        objective_metric_names = opt_config.objective.metric_names
+        self.assertEqual(len(objective_metric_names), 2)
+        self.assertEqual(objective_metric_names[0], "foo")
+        self.assertEqual(objective_metric_names[1], "bar")
         # Check constraints
         self.assertEqual(len(opt_config.outcome_constraints), 2)
-        constraint_metrics = [
-            assert_is_instance(constraint.metric, BenchmarkMetric)
-            for constraint in opt_config.outcome_constraints
+        constraint_metric_names = [
+            c.metric_names[0] for c in opt_config.outcome_constraints
         ]
-        self.assertEqual(constraint_metrics[0].name, "baz")
-        self.assertEqual(constraint_metrics[0].observe_noise_sd, True)
-        self.assertEqual(constraint_metrics[0].lower_is_better, False)
+        self.assertEqual(constraint_metric_names[0], "baz")
+        # Check metrics
+        self.assertEqual(len(metrics), 4)
+        self.assertEqual(metrics[0].name, "foo")
+        self.assertEqual(metrics[1].name, "bar")
+        self.assertEqual(metrics[2].name, "baz")
+        self.assertEqual(metrics[3].name, "pony")
 
     def test_get_continuous_search_space(self) -> None:
         bounds = [(0.0, 1.0), (2.0, 3.0)]

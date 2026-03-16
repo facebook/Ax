@@ -221,13 +221,13 @@ class TestImprovementGlobalStoppingStrategy(TestCase):
         ]
         objective_thresholds = [
             ObjectiveThreshold(
-                metric=objectives[0].metric,
+                metric=Metric(name="m1"),
                 bound=0.1,
                 op=ComparisonOp.GEQ,
                 relative=False,
             ),
             ObjectiveThreshold(
-                metric=objectives[1].metric,
+                metric=Metric(name="m2"),
                 bound=0.2,
                 op=ComparisonOp.GEQ,
                 relative=False,
@@ -245,6 +245,8 @@ class TestImprovementGlobalStoppingStrategy(TestCase):
         optimization_config = MultiObjectiveOptimizationConfig(
             objective=MultiObjective(objectives),
             outcome_constraints=outcome_constraints,
+            # pyre-ignore[6]: ObjectiveThreshold is a subclass of OutcomeConstraint;
+            # list invariance prevents direct assignment.
             objective_thresholds=objective_thresholds,
         )
 
@@ -297,18 +299,16 @@ class TestImprovementGlobalStoppingStrategy(TestCase):
         gss = ImprovementGlobalStoppingStrategy(
             min_trials=3, window_size=3, improvement_bar=0.1
         )
-        objectives = assert_is_instance(
-            none_throws(exp.optimization_config).objective, MultiObjective
-        ).objectives
+        metric_names = list(none_throws(exp.optimization_config).objective.metric_names)
         custom_objective_thresholds = [
             ObjectiveThreshold(
-                metric=objectives[0].metric,
+                metric=exp.get_metric(metric_names[0]),
                 bound=-10,
                 op=ComparisonOp.GEQ,
                 relative=False,
             ),
             ObjectiveThreshold(
-                metric=objectives[1].metric,
+                metric=exp.get_metric(metric_names[1]),
                 bound=-10,
                 op=ComparisonOp.GEQ,
                 relative=False,

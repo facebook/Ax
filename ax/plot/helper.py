@@ -795,7 +795,7 @@ def infer_is_relative(
     if model._optimization_config:
         constraints = none_throws(model._optimization_config).outcome_constraints
         constraint_relativity = {
-            constraint.metric.signature: constraint.relative
+            constraint.metric_names[0]: constraint.relative
             for constraint in constraints
         }
     for metric in metrics:

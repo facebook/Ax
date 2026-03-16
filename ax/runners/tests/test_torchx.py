@@ -57,10 +57,9 @@ class TorchXRunnerTest(TestCase):
         ]
 
         self._minimize = True
+        self._metric = TorchXMetric(name="booth_eval")
         self._objective = Objective(
-            metric=TorchXMetric(
-                name="booth_eval",
-            ),
+            metric=self._metric,
             minimize=self._minimize,
         )
 
@@ -85,6 +84,7 @@ class TorchXRunnerTest(TestCase):
             runner=self._runner,
             is_test=True,
             properties={Keys.IMMUTABLE_SEARCH_SPACE_AND_OPT_CONF: True},
+            tracking_metrics=[self._metric],
         )
 
         orchestrator = Orchestrator(
@@ -116,6 +116,7 @@ class TorchXRunnerTest(TestCase):
             runner=self._runner,
             is_test=True,
             properties={Keys.IMMUTABLE_SEARCH_SPACE_AND_OPT_CONF: True},
+            tracking_metrics=[self._metric],
         )
         orchestrator = Orchestrator(
             experiment=experiment,
@@ -153,6 +154,7 @@ class TorchXRunnerTest(TestCase):
             runner=self._runner,
             is_test=True,
             properties={Keys.IMMUTABLE_SEARCH_SPACE_AND_OPT_CONF: True},
+            tracking_metrics=[self._metric],
         )
 
         orchestrator = Orchestrator(
@@ -185,6 +187,7 @@ class TorchXRunnerTest(TestCase):
             optimization_config=OptimizationConfig(objective=self._objective),
             runner=self._runner,
             is_test=True,
+            tracking_metrics=[self._metric],
         )
 
         with self.assertRaises(ValueError):

@@ -13,7 +13,7 @@ from typing import Any
 import torch
 from ax.adapter.registry import Generators
 from ax.adapter.transforms.log_y import LogY
-from ax.core.objective import MultiObjective
+from ax.core.objective import Objective
 from ax.core.optimization_config import MultiObjectiveOptimizationConfig
 from ax.generation_strategy.dispatch_utils import (
     _make_botorch_step,
@@ -166,7 +166,7 @@ class TestDispatchUtils(TestCase):
             )
         with self.subTest("MOO"):
             optimization_config = MultiObjectiveOptimizationConfig(
-                objective=MultiObjective(objectives=[])
+                objective=Objective(expression="branin_a, branin_b")
             )
             sobol_gpei = choose_generation_strategy_legacy(
                 search_space=get_branin_search_space(),
@@ -337,7 +337,7 @@ class TestDispatchUtils(TestCase):
             search_space = get_branin_search_space(with_choice_parameter=True)
             search_space.parameters["x2"]._is_ordered = False
             optimization_config = MultiObjectiveOptimizationConfig(
-                objective=MultiObjective(objectives=[])
+                objective=Objective(expression="branin_a, branin_b")
             )
             moo_mixed = choose_generation_strategy_legacy(
                 search_space=search_space,
@@ -409,7 +409,7 @@ class TestDispatchUtils(TestCase):
                 num_initialization_trials=3,
                 use_saasbo=True,
                 optimization_config=MultiObjectiveOptimizationConfig(
-                    objective=MultiObjective(objectives=[])
+                    objective=Objective(expression="branin_a, branin_b")
                 ),
             )
             self.assertEqual(

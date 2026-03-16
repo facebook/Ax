@@ -200,10 +200,9 @@ def get_observed_pareto_frontiers(
     adapter = get_tensor_converter_adapter(experiment=experiment, data=data)
     pareto_observations = observed_pareto_frontier(adapter=adapter)
     # Convert to ParetoFrontierResults
-    objective_metric_names = {
-        metric.name
-        for metric in experiment.optimization_config.objective.metrics  # pyre-ignore
-    }
+    objective_metric_names = set(
+        experiment.optimization_config.objective.metric_names  # pyre-ignore
+    )
     obj_metr_list = sorted(objective_metric_names)
     pfr_means = {name: [] for name in obj_metr_list}
     pfr_sems = {name: [] for name in obj_metr_list}
@@ -221,8 +220,8 @@ def get_observed_pareto_frontiers(
     objective_thresholds = {}
     if experiment.optimization_config.objective_thresholds is not None:  # pyre-ignore
         for objth in experiment.optimization_config.objective_thresholds:
-            rel_objth[objth.metric.signature] = objth.relative
-            objective_thresholds[objth.metric.signature] = objth.bound
+            rel_objth[objth.metric_names[0]] = objth.relative
+            objective_thresholds[objth.metric_names[0]] = objth.bound
 
     # Identify which metrics should be relativized
     if rel in [True, False]:
@@ -492,10 +491,10 @@ def _validate_outcome_constraints(
     objective_metrics = [primary_objective.name, secondary_objective.name]
     if outcome_constraints is not None:
         for oc in outcome_constraints:
-            if oc.metric.signature in objective_metrics:
+            if oc.metric_names[0] in objective_metrics:
                 raise ValueError(
                     "Metric `{metric_name}` occurs in both outcome constraints "
-                    "and objectives".format(metric_name=oc.metric.signature)
+                    "and objectives".format(metric_name=oc.metric_names[0])
                 )
 
 

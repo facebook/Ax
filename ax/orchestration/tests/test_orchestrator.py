@@ -31,6 +31,7 @@ from ax.core.multi_type_experiment import MultiTypeExperiment
 from ax.core.objective import Objective
 from ax.core.observation import ObservationFeatures
 from ax.core.optimization_config import OptimizationConfig
+from ax.core.outcome_constraint import OutcomeConstraint
 from ax.core.runner import Runner
 from ax.core.utils import (
     extract_pending_observations,
@@ -322,7 +323,7 @@ class TestAxOrchestrator(TestCase):
         self.branin_experiment_no_impl_runner_or_metrics._optimization_config = None
         with self.assertRaisesRegex(
             UnsupportedError,
-            "`Orchestrator` requires that `experiment.metrics` not be None.",
+            "do not implement fetching logic",
         ):
             Orchestrator(
                 experiment=self.branin_experiment_no_impl_runner_or_metrics,
@@ -1547,7 +1548,7 @@ class TestAxOrchestrator(TestCase):
         # results as expected, but only much deeper in the stack.
         # Python <3.14: "'branin_a' is not in list"
         # Python 3.14+: "list.index(x): x not in list"
-        with self.assertRaisesRegex(ValueError, "not in list"):
+        with self.assertRaisesRegex(KeyError, "not found"):
             orchestrator.get_pareto_optimal_parameters(
                 optimization_config=get_branin_multi_objective_optimization_config(
                     has_objective_thresholds=True
@@ -1562,6 +1563,8 @@ class TestAxOrchestrator(TestCase):
         self.assertEqual(params, just_params_unmodeled)
 
     def test_get_best_trial_moo(self) -> None:
+        for name in ["branin_a", "branin_b"]:
+            self.branin_experiment.add_tracking_metric(get_branin_metric(name=name))
         self.branin_experiment.optimization_config = (
             get_branin_multi_objective_optimization_config()
         )
@@ -2124,6 +2127,8 @@ class TestAxOrchestrator(TestCase):
 
     def test_get_improvement_over_baseline_robustness_not_implemented(self) -> None:
         """Test edge cases for get_improvement_over_baseline"""
+        for name in ["branin_a", "branin_b"]:
+            self.branin_experiment.add_tracking_metric(get_branin_metric(name=name))
         self.branin_experiment.optimization_config = (
             get_branin_multi_objective_optimization_config()
         )
@@ -2716,9 +2721,15 @@ class TestAxOrchestrator(TestCase):
 
     def test_generate_candidates_does_not_generate_if_missing_data(self) -> None:
         # GIVEN a orchestrator that can't fetch data
+        custom_metric = CustomTestMetric(
+            name="custom_test_metric", test_attribute="test"
+        )
+        self.branin_experiment.add_tracking_metric(custom_metric)
         self.branin_experiment.optimization_config = OptimizationConfig(
             Objective(
-                CustomTestMetric(name="custom_test_metric", test_attribute="test"),
+                metric=CustomTestMetric(
+                    name="custom_test_metric", test_attribute="test"
+                ),
                 minimize=False,
             )
         )
@@ -2858,7 +2869,9 @@ class TestAxOrchestrator(TestCase):
         experiment = get_branin_experiment(
             with_status_quo=True, with_absolute_constraint=True
         )
-        experiment.optimization_config.outcome_constraints[0].bound = 100
+        none_throws(experiment.optimization_config).outcome_constraints[0] = (
+            OutcomeConstraint(expression="branin_e >= 100.0")
+        )
 
         status_quo_trial = experiment.new_trial()
         status_quo_trial.add_arm(experiment.status_quo)
@@ -2929,6 +2942,7 @@ class TestAxOrchestratorMultiTypeExperiment(TestAxOrchestrator):
         TestCase.setUp(self)
         self.branin_experiment = get_multi_type_experiment()
         self.branin_experiment.name = "branin_test_experiment"
+        self.branin_experiment.update_metric(BraninMetric("m1", ["x1", "x2"]))
         self.branin_experiment.optimization_config = OptimizationConfig(
             objective=Objective(metric=BraninMetric("m1", ["x1", "x2"]), minimize=True)
         )
@@ -2937,6 +2951,9 @@ class TestAxOrchestratorMultiTypeExperiment(TestAxOrchestrator):
         self.branin_experiment.update_runner(trial_type="type1", runner=self.runner)
 
         self.branin_timestamp_map_metric_experiment = get_multi_type_experiment()
+        self.branin_timestamp_map_metric_experiment.add_tracking_metric(
+            get_map_metric(name="branin_map")
+        )
         self.branin_timestamp_map_metric_experiment.optimization_config = (
             OptimizationConfig(
                 objective=Objective(
@@ -2951,7 +2968,7 @@ class TestAxOrchestratorMultiTypeExperiment(TestAxOrchestrator):
         self.branin_experiment_no_impl_runner_or_metrics = MultiTypeExperiment(
             search_space=get_branin_search_space(),
             optimization_config=OptimizationConfig(
-                Objective(Metric(name="branin"), minimize=True)
+                Objective(metric=Metric(name="branin"), minimize=True)
             ),
             default_trial_type="type1",
             default_runner=None,

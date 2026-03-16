@@ -8,6 +8,7 @@
 
 from collections import defaultdict
 from collections.abc import Callable
+from copy import deepcopy
 from enum import Enum
 from io import StringIO
 from logging import Logger
@@ -220,13 +221,16 @@ class Decoder:
         # `experiment_sqa.properties` is `sqlalchemy.ext.mutable.MutableDict`
         # so need to convert it to regular dict.
         properties = dict(experiment_sqa.properties or {})
-        opt_config, tracking_metrics = self.opt_config_and_tracking_metrics_from_sqa(
-            metrics_sqa=experiment_sqa.metrics,
-            pruning_target_parameterization=(
-                self._get_pruning_target_parameterization_from_experiment_properties(
-                    properties=properties
-                )
-            ),
+        pruning_target = (
+            self._get_pruning_target_parameterization_from_experiment_properties(
+                properties=properties
+            )
+        )
+        opt_config, _tracking_metrics, all_metrics = (
+            self.opt_config_and_tracking_metrics_from_sqa(
+                metrics_sqa=experiment_sqa.metrics,
+                pruning_target_parameterization=pruning_target,
+            )
         )
         search_space = self.search_space_from_sqa(
             parameters_sqa=experiment_sqa.parameters,
@@ -267,7 +271,7 @@ class Decoder:
             description=experiment_sqa.description,
             search_space=search_space,
             optimization_config=opt_config,
-            tracking_metrics=tracking_metrics,
+            tracking_metrics=all_metrics,
             runner=runner,
             status_quo=status_quo,
             is_test=experiment_sqa.is_test,
@@ -281,13 +285,16 @@ class Decoder:
     ) -> MultiTypeExperiment:
         """First step of conversion within experiment_from_sqa."""
         properties = dict(experiment_sqa.properties or {})
-        opt_config, tracking_metrics = self.opt_config_and_tracking_metrics_from_sqa(
-            metrics_sqa=experiment_sqa.metrics,
-            pruning_target_parameterization=(
-                self._get_pruning_target_parameterization_from_experiment_properties(
-                    properties=properties
-                )
-            ),
+        pruning_target = (
+            self._get_pruning_target_parameterization_from_experiment_properties(
+                properties=properties
+            )
+        )
+        opt_config, tracking_metrics, all_metrics = (
+            self.opt_config_and_tracking_metrics_from_sqa(
+                metrics_sqa=experiment_sqa.metrics,
+                pruning_target_parameterization=pruning_target,
+            )
         )
         search_space = self.search_space_from_sqa(
             parameters_sqa=experiment_sqa.parameters,
@@ -331,6 +338,16 @@ class Decoder:
             status_quo=status_quo,
             properties=properties,
         )
+        # Replace any placeholder Metric objects (created by __init__'s
+        # auto-registration for optimization config metric names) with the
+        # properly typed metrics decoded from the database (e.g. BraninMetric).
+        for metric in all_metrics:
+            if (
+                metric.name in experiment._metrics
+                and type(experiment._metrics[metric.name]) is Metric
+                and type(metric) is not Metric
+            ):
+                experiment._metrics[metric.name] = metric
         # pyre-fixme[8]: `_trial_type_to_runner` expects `Dict[Optional[str],
         #  Optional[Runner]]` but the dict built here uses `str` keys.
         experiment._trial_type_to_runner = trial_type_to_runner
@@ -601,32 +618,109 @@ class Decoder:
 
     def opt_config_and_tracking_metrics_from_sqa(
         self, metrics_sqa: list[SQAMetric], pruning_target_parameterization: Arm | None
-    ) -> tuple[OptimizationConfig | None, list[Metric]]:
+    ) -> tuple[OptimizationConfig | None, list[Metric], list[Metric]]:
         """Convert a list of SQLAlchemy Metrics to Ax OptimizationConfig
         and tracking metrics.
+
+        Returns:
+            A tuple of (optimization_config, tracking_metrics, all_metrics).
+            ``tracking_metrics`` contains only non-optimization metrics.
+            ``all_metrics`` contains all decoded Metric objects, including
+            those used in the optimization config, so the Experiment can
+            register the full metric types (e.g. BraninMetric) rather than
+            plain Metric placeholders.
         """
         objective = None
         objective_thresholds = []
         outcome_constraints = []
         tracking_metrics = []
         preference_objective_sqa = None
+        # Collect all decoded Metric objects (including those used in the
+        # optimization config) so the Experiment can register the real metric
+        # types (e.g. BraninMetric) rather than plain Metric placeholders.
+        all_metrics: list[Metric] = []
 
         for metric_sqa in metrics_sqa:
             if metric_sqa.intent == MetricIntent.PREFERENCE_OBJECTIVE:
                 preference_objective_sqa = metric_sqa
 
-            metric = self.metric_from_sqa(metric_sqa=metric_sqa)
-            if isinstance(metric, Objective):
-                objective = metric
-            elif isinstance(metric, ObjectiveThreshold):
-                objective_thresholds.append(metric)
-            elif isinstance(metric, OutcomeConstraint):
-                outcome_constraints.append(metric)
+            # Decode the raw Metric first (before wrapping in Objective etc.)
+            raw_metric = self._metric_from_sqa_util(metric_sqa)
+
+            result = self.metric_from_sqa(metric_sqa=metric_sqa)
+            if isinstance(result, Objective):
+                objective = result
+                # Collect metrics from the objective
+                if metric_sqa.intent in (
+                    MetricIntent.MULTI_OBJECTIVE,
+                    MetricIntent.PREFERENCE_OBJECTIVE,
+                    MetricIntent.SCALARIZED_OBJECTIVE,
+                ):
+                    # For multi/scalarized objectives, decode each child metric
+                    try:
+                        children_sqa = (
+                            metric_sqa.scalarized_objective_children_metrics or []
+                        )
+                    except DetachedInstanceError:
+                        children_sqa = _get_scalarized_objective_children_metrics(
+                            metric_sqa.id, self
+                        )
+                    # Apply skip_runners_and_metrics to children if set
+                    if metric_sqa.properties and metric_sqa.properties.get(
+                        "skip_runners_and_metrics"
+                    ):
+                        for child_sqa in children_sqa:
+                            child_sqa.metric_type = self.config.metric_registry[Metric]
+                    for child_sqa in children_sqa:
+                        child_metric = self._metric_from_sqa_util(child_sqa)
+                        # Clear db_id: child SQA rows have
+                        # scalarized_objective_id set (not experiment_id),
+                        # so their IDs must not leak into experiment._metrics
+                        # which are matched against experiment-level SQA rows.
+                        child_metric._db_id = None
+                        all_metrics.append(child_metric)
+                else:
+                    all_metrics.append(raw_metric)
+            elif isinstance(result, ObjectiveThreshold):
+                objective_thresholds.append(result)
+                all_metrics.append(raw_metric)
+            elif isinstance(result, OutcomeConstraint):
+                outcome_constraints.append(result)
+                if metric_sqa.intent == MetricIntent.SCALARIZED_OUTCOME_CONSTRAINT:
+                    # For scalarized outcome constraints, decode each child
+                    # metric rather than the parent placeholder.
+                    try:
+                        children_sqa = (
+                            metric_sqa.scalarized_outcome_constraint_children_metrics
+                            or []
+                        )
+                    except DetachedInstanceError:
+                        children_sqa = (
+                            _get_scalarized_outcome_constraint_children_metrics(
+                                metric_sqa.id, self
+                            )
+                        )
+                    if metric_sqa.properties and metric_sqa.properties.get(
+                        "skip_runners_and_metrics"
+                    ):
+                        for child_sqa in children_sqa:
+                            child_sqa.metric_type = self.config.metric_registry[Metric]
+                    for child_sqa in children_sqa:
+                        child_metric = self._metric_from_sqa_util(child_sqa)
+                        # Clear db_id: child SQA rows have
+                        # scalarized_outcome_constraint_id set (not
+                        # experiment_id), so their IDs must not leak into
+                        # experiment._metrics.
+                        child_metric._db_id = None
+                        all_metrics.append(child_metric)
+                else:
+                    all_metrics.append(raw_metric)
             else:
-                tracking_metrics.append(metric)
+                tracking_metrics.append(result)
+                all_metrics.append(raw_metric)
 
         if objective is None:
-            return None, tracking_metrics
+            return None, tracking_metrics, all_metrics
 
         if preference_objective_sqa is not None:
             if objective_thresholds:
@@ -658,7 +752,7 @@ class Decoder:
                 outcome_constraints=outcome_constraints,
                 pruning_target_parameterization=pruning_target_parameterization,
             )
-        return (optimization_config, tracking_metrics)
+        return (optimization_config, tracking_metrics, all_metrics)
 
     def arm_from_sqa(self, arm_sqa: SQAArm) -> Arm:
         """Convert SQLAlchemy Arm to Ax Arm."""
@@ -713,6 +807,7 @@ class Decoder:
                 (
                     opt_config,
                     tracking_metrics,
+                    _all_metrics,
                 ) = self.opt_config_and_tracking_metrics_from_sqa(
                     metrics_sqa=generator_run_sqa.metrics,
                     pruning_target_parameterization=None,
@@ -1137,7 +1232,7 @@ class Decoder:
 
         args = dict(
             object_from_json(
-                metric_sqa.properties,
+                deepcopy(metric_sqa.properties or {}),
                 decoder_registry=self.config.json_decoder_registry,
                 class_decoder_registry=self.config.json_class_decoder_registry,
             )
@@ -1205,6 +1300,14 @@ class Decoder:
                 "because minimize is None."
             )
 
+        # If the parent metric has an expression in its properties, use it
+        # directly to create an Objective (preserving the original expression).
+        parent_properties = parent_metric_sqa.properties or {}
+        if "expression" in parent_properties:
+            obj = Objective(expression=parent_properties["expression"])
+            obj.db_id = parent_metric_sqa.id
+            return obj
+
         metrics_sqa_children = self._get_and_process_children_metrics(
             parent_metric_sqa=parent_metric_sqa,
             children_attribute_name="scalarized_objective_children_metrics",
@@ -1242,12 +1345,14 @@ class Decoder:
                 "Cannot decode SQAMetric to OutcomeConstraint because "
                 "bound, op, or relative is None."
             )
-        return OutcomeConstraint(
+        oc = OutcomeConstraint(
             metric=metric,
             bound=float(none_throws(metric_sqa.bound)),
             op=none_throws(metric_sqa.op),
             relative=none_throws(metric_sqa.relative),
         )
+        oc.db_id = metric_sqa.id
+        return oc
 
     def _scalarized_outcome_constraint_from_sqa(
         self, metric: Metric, metric_sqa: SQAMetric
@@ -1311,9 +1416,7 @@ class Decoder:
             relative=relative,
             op=metric_sqa.op,
         )
-        # ObjectiveThreshold constructor clones the passed-in metric, which means
-        # the db id gets lost and so we need to reset it
-        ot.metric._db_id = metric.db_id
+        ot.db_id = metric_sqa.id
         return ot
 
     def _get_and_process_children_metrics(

@@ -96,6 +96,16 @@ class MultiTypeExperiment(Experiment):
             default_data_type=default_data_type,
         )
 
+        # Ensure tracking metrics are registered in _metric_to_trial_type.
+        # super().__init__ sets self._metrics directly, bypassing
+        # add_tracking_metric, so tracking metrics won't be in
+        # _metric_to_trial_type yet.
+        for m in tracking_metrics or []:
+            if m.name not in self._metric_to_trial_type:
+                self._metric_to_trial_type[m.name] = none_throws(
+                    self._default_trial_type
+                )
+
     def add_trial_type(self, trial_type: str, runner: Runner) -> Self:
         """Add a new trial_type to be supported by this experiment.
 
@@ -116,7 +126,7 @@ class MultiTypeExperiment(Experiment):
     def optimization_config(self, optimization_config: OptimizationConfig) -> None:
         # pyre-fixme[16]: `Optional` has no attribute `fset`.
         Experiment.optimization_config.fset(self, optimization_config)
-        for metric_name in optimization_config.metrics.keys():
+        for metric_name in optimization_config.metric_names:
             # Optimization config metrics are required to be the default trial type
             # currently. TODO: remove that restriction (T202797235)
             self._metric_to_trial_type[metric_name] = none_throws(
@@ -221,8 +231,8 @@ class MultiTypeExperiment(Experiment):
                 metric.name, self._default_trial_type
             )
         oc = self.optimization_config
-        oc_metrics = oc.metrics if oc else []
-        if metric.name in oc_metrics and trial_type != self._default_trial_type:
+        oc_metric_names = oc.metric_names if oc else set()
+        if metric.name in oc_metric_names and trial_type != self._default_trial_type:
             raise ValueError(
                 f"Metric `{metric.name}` must remain a "
                 f"`{self._default_trial_type}` metric because it is part of the "
@@ -239,11 +249,11 @@ class MultiTypeExperiment(Experiment):
 
     @copy_doc(Experiment.remove_tracking_metric)
     def remove_tracking_metric(self, metric_name: str) -> Self:
-        if metric_name not in self._tracking_metrics:
+        if metric_name not in self._metrics:
             raise ValueError(f"Metric `{metric_name}` doesn't exist on experiment.")
 
         # Required fields
-        del self._tracking_metrics[metric_name]
+        del self._metrics[metric_name]
         del self._metric_to_trial_type[metric_name]
 
         # Optional
@@ -302,7 +312,7 @@ class MultiTypeExperiment(Experiment):
         """
         opt_config_types = {
             metric_name: self.default_trial_type
-            for metric_name in self.optimization_config.metrics.keys()
+            for metric_name in self.optimization_config.metric_names
         }
         return {**opt_config_types, **self._metric_to_trial_type}
 

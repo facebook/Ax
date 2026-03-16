@@ -28,7 +28,7 @@ from ax.core.optimization_config import (
     MultiObjectiveOptimizationConfig,
     OptimizationConfig,
 )
-from ax.core.outcome_constraint import ObjectiveThreshold
+from ax.core.outcome_constraint import ObjectiveThreshold, OutcomeConstraint
 from ax.generators.torch.botorch_modular.generator import BoTorchGenerator
 from ax.generators.types import TConfig
 from ax.utils.common.testutils import TestCase
@@ -191,7 +191,12 @@ class LogYTransformTest(TestCase):
             ],
         )
         oc_tf = tf.transform_optimization_config(deepcopy(oc), None, None)
-        oc.outcome_constraints[0].bound = math.log(2.345)
+        oc.outcome_constraints[0] = OutcomeConstraint(
+            metric=m1,
+            op=oc.outcome_constraints[0].op,
+            bound=math.log(2.345),
+            relative=oc.outcome_constraints[0].relative,
+        )
         self.assertEqual(oc_tf, oc)
         # output constraint with a relative bound should fail
         oc = OptimizationConfig(
@@ -218,7 +223,7 @@ class LogYTransformTest(TestCase):
                 Objective(metric=m2, minimize=True),
             ],
         )
-        objective_thresholds = [
+        objective_thresholds: list[OutcomeConstraint] = [
             ObjectiveThreshold(metric=m1, bound=1.234, relative=False),
             ObjectiveThreshold(metric=m2, bound=3.456, relative=False),
         ]
@@ -228,7 +233,9 @@ class LogYTransformTest(TestCase):
         )
         tf = LogY(search_space=None, config={"metrics": ["m1"]})
         oc_tf = tf.transform_optimization_config(deepcopy(oc), None, None)
-        oc.objective_thresholds[0].bound = math.log(1.234)
+        oc.objective_thresholds[0] = ObjectiveThreshold(
+            metric=m1, bound=math.log(1.234), relative=False
+        )
         self.assertEqual(oc_tf, oc)
 
     def _base_test_transform_experiment_data(

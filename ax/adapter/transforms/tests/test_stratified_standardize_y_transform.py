@@ -27,7 +27,6 @@ from ax.utils.common.testutils import TestCase
 from ax.utils.testing.core_stubs import get_experiment_with_observations
 from pandas import DataFrame
 from pandas.testing import assert_frame_equal
-from pyre_extensions import assert_is_instance
 
 
 class StratifiedStandardizeYTransformTest(TestCase):
@@ -318,18 +317,16 @@ class StratifiedStandardizeYTransformTest(TestCase):
         oc = OptimizationConfig(objective=self.objective, outcome_constraints=cons2)
         fixed_features = ObservationFeatures({"z": "a"})
         oc = self.t.transform_optimization_config(oc, None, fixed_features)
-        cons_t = [
-            OutcomeConstraint(
-                metric=self.m1, op=ComparisonOp.GEQ, bound=1.0, relative=False
-            ),
-            OutcomeConstraint(
-                metric=self.m2,
-                op=ComparisonOp.LEQ,
-                bound=(3.5 - 5.0) / (sqrt(2) * 3),
-                relative=False,
-            ),
-        ]
-        self.assertTrue(oc.outcome_constraints == cons_t)
+        # Verify constraint values approximately (expression-string equality
+        # can fail due to floating-point formatting differences).
+        self.assertEqual(len(oc.outcome_constraints), 2)
+        c0, c1 = oc.outcome_constraints
+        self.assertEqual(c0.op, ComparisonOp.GEQ)
+        self.assertAlmostEqual(c0.bound, 1.0)
+        self.assertFalse(c0.relative)
+        self.assertEqual(c1.op, ComparisonOp.LEQ)
+        self.assertAlmostEqual(c1.bound, (3.5 - 5.0) / (sqrt(2) * 3))
+        self.assertFalse(c1.relative)
         self.assertTrue(oc.objective == self.objective)
 
         # No constraints
@@ -355,53 +352,39 @@ class StratifiedStandardizeYTransformTest(TestCase):
         cons2 = deepcopy(self.cons)
         oc = OptimizationConfig(objective=self.objective, outcome_constraints=cons2)
         fixed_features = ObservationFeatures({"z": "a"})
-        cons_t = [
-            OutcomeConstraint(
-                metric=self.m1, op=ComparisonOp.GEQ, bound=1.0, relative=False
-            ),
-            OutcomeConstraint(
-                metric=self.m2,
-                op=ComparisonOp.LEQ,
-                bound=(3.5 - 5.0) / (sqrt(2) * 3),
-                relative=False,
-            ),
-        ]
         cons2 = deepcopy(self.cons)
         oc = OptimizationConfig(objective=self.objective, outcome_constraints=cons2)
         oc = self.t2.transform_optimization_config(oc, None, fixed_features)
-        self.assertTrue(oc.outcome_constraints == cons_t)
+        # Verify constraint values approximately.
+        self.assertEqual(len(oc.outcome_constraints), 2)
+        c0, c1 = oc.outcome_constraints
+        self.assertEqual(c0.op, ComparisonOp.GEQ)
+        self.assertAlmostEqual(c0.bound, 1.0)
+        self.assertFalse(c0.relative)
+        self.assertEqual(c1.op, ComparisonOp.LEQ)
+        self.assertAlmostEqual(c1.bound, (3.5 - 5.0) / (sqrt(2) * 3))
+        self.assertFalse(c1.relative)
         self.assertTrue(oc.objective == self.objective)
         fixed_features = ObservationFeatures({"z": "c"})
         cons2 = deepcopy(self.cons)
         oc = OptimizationConfig(objective=self.objective, outcome_constraints=cons2)
         oc = self.t2.transform_optimization_config(oc, None, fixed_features)
-        cons_t2 = [
-            OutcomeConstraint(
-                metric=self.m1,
-                op=ComparisonOp.GEQ,
-                bound=(2.0 - self.t2.Ymean[("m1", 1)]) / self.t2.Ystd[("m1", 1)],
-                relative=False,
-            ),
-            OutcomeConstraint(
-                metric=self.m2,
-                op=ComparisonOp.LEQ,
-                bound=(3.5 - self.t2.Ymean[("m2", 1)]) / self.t2.Ystd[("m2", 1)],
-                relative=False,
-            ),
-        ]
-        self.assertEqual(oc.outcome_constraints, cons_t2)
+        # Verify constraint values approximately.
+        self.assertEqual(len(oc.outcome_constraints), 2)
+        c0, c1 = oc.outcome_constraints
+        self.assertEqual(c0.op, ComparisonOp.GEQ)
+        self.assertAlmostEqual(
+            c0.bound,
+            (2.0 - self.t2.Ymean[("m1", 1)]) / self.t2.Ystd[("m1", 1)],
+        )
+        self.assertFalse(c0.relative)
+        self.assertEqual(c1.op, ComparisonOp.LEQ)
+        self.assertAlmostEqual(
+            c1.bound,
+            (3.5 - self.t2.Ymean[("m2", 1)]) / self.t2.Ystd[("m2", 1)],
+        )
+        self.assertFalse(c1.relative)
         self.assertTrue(oc.objective == self.objective)
-        cons_t = [
-            OutcomeConstraint(
-                metric=self.m1, op=ComparisonOp.GEQ, bound=1.0, relative=False
-            ),
-            OutcomeConstraint(
-                metric=self.m2,
-                op=ComparisonOp.LEQ,
-                bound=(3.5 - 5.0) / (sqrt(2) * 3),
-                relative=False,
-            ),
-        ]
 
     def test_transform_experiment_data(self) -> None:
         transformed_data = self.t.transform_experiment_data(
@@ -470,11 +453,12 @@ class StratifiedStandardizeYTransformTest(TestCase):
                 adapter=None,
                 fixed_features=fixed_features,
             )
-            transformed_objective = assert_is_instance(
-                oc_transformed.objective, ScalarizedObjective
-            )
+            transformed_objective = oc_transformed.objective
             self.assertTrue(
-                np.allclose(transformed_objective.weights, expected_weights[strata])
+                np.allclose(
+                    [w for _, w in transformed_objective.metric_weights],
+                    expected_weights[strata],
+                )
             )
 
     def test_TransformAndUntransformScalarizedOutcomeConstraint(self) -> None:
@@ -500,20 +484,25 @@ class StratifiedStandardizeYTransformTest(TestCase):
         # For strata "a": mu_m1 = 1.0, mu_m2 = 5.0, std_m1 = 1.0, std_m2 = sqrt(2) * 3
         # new_bound = 10.0 - (1.0 * 1.0 + 2.0 * 5.0) = 10.0 - 11.0 = -1.0
         # new_weights = [1.0 * 1.0, 2.0 * sqrt(2) * 3]
-        transformed_constraint = assert_is_instance(
-            oc_transformed.outcome_constraints[0], ScalarizedOutcomeConstraint
-        )
+        transformed_constraint = oc_transformed.outcome_constraints[0]
         expected_bound = 10.0 - (1.0 * 1.0 + 2.0 * 5.0)
         expected_weights = [1.0 * 1.0, 2.0 * sqrt(2) * 3]
         self.assertAlmostEqual(transformed_constraint.bound, expected_bound)
-        self.assertTrue(np.allclose(transformed_constraint.weights, expected_weights))
+        self.assertTrue(
+            np.allclose(
+                [w for _, w in transformed_constraint.metric_weights], expected_weights
+            )
+        )
 
         # Untransform and verify round-trip recovers original values
         untransformed_constraints = self.t.untransform_outcome_constraints(
             oc_transformed.outcome_constraints, fixed_features
         )
-        untransformed_constraint = assert_is_instance(
-            untransformed_constraints[0], ScalarizedOutcomeConstraint
-        )
+        untransformed_constraint = untransformed_constraints[0]
         self.assertAlmostEqual(untransformed_constraint.bound, original_bound)
-        self.assertTrue(np.allclose(untransformed_constraint.weights, original_weights))
+        self.assertTrue(
+            np.allclose(
+                [w for _, w in untransformed_constraint.metric_weights],
+                original_weights,
+            )
+        )

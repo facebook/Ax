@@ -18,7 +18,7 @@ from ax.adapter.transforms.base import Transform
 from ax.adapter.transforms.utils import (
     derelativize_optimization_config_with_raw_status_quo,
 )
-from ax.core.objective import MultiObjective, ScalarizedObjective
+from ax.core.objective import ScalarizedObjective
 from ax.core.observation import ObservationData
 from ax.core.optimization_config import (
     MultiObjectiveOptimizationConfig,
@@ -214,11 +214,9 @@ def _get_cutoffs(
     if adapter is None or optimization_config is None:
         return DEFAULT_CUTOFFS
     relative_constraint_metrics = {
-        metric.name
+        name
         for oc in optimization_config.all_constraints
-        for metric in (
-            oc.metrics if isinstance(oc, ScalarizedOutcomeConstraint) else [oc.metric]
-        )
+        for name in oc.metric_names
         if oc.relative
     }
     if metric_signature in relative_constraint_metrics:
@@ -237,7 +235,7 @@ def _get_cutoffs(
         )
 
     # Non-objective metrics - obtain cutoffs from outcome_constraints.
-    if metric_signature not in optimization_config.objective.metric_signatures:
+    if metric_signature not in optimization_config.objective.metric_names:
         # Get all outcome constraints for `metric_signature`` that aren't scalarized.
         return _obtain_cutoffs_from_outcome_constraints(
             optimization_config=optimization_config,
@@ -250,14 +248,11 @@ def _get_cutoffs(
         objective = assert_is_instance(
             optimization_config.objective, ScalarizedObjective
         )
-        weight = [
-            w for m, w in objective.metric_weights if m.signature == metric_signature
-        ][0]
-        # Winsorize from above if the weight is positive and minimize is `True` or the
-        # weight is negative and minimize is `False`.
+        weight = [w for m, w in objective.metric_weights if m == metric_signature][0]
+        # metric_weights are sign-encoded: a negative weight means minimize.
         return _get_auto_winsorization_cutoffs_single_objective(
             metric_values=metric_values,
-            minimize=objective.minimize if weight >= 0 else not objective.minimize,
+            minimize=weight < 0,
         )
 
     # Single-objective
@@ -302,11 +297,10 @@ def _get_auto_winsorization_cutoffs_multi_objective(
             AxOptimizationWarning,
             stacklevel=3,
         )
-        objectives = assert_is_instance(optimization_config.objective, MultiObjective)
         minimize = [
-            objective.minimize
-            for objective in objectives.objectives
-            if objective.metric.signature == metric_signature
+            w < 0
+            for name, w in optimization_config.objective.metric_weights
+            if name == metric_signature
         ][0]
         return _get_auto_winsorization_cutoffs_single_objective(
             metric_values=metric_values,
@@ -323,7 +317,7 @@ def _obtain_cutoffs_from_outcome_constraints(
     # Check for scalarized outcome constraints for the given metric
     if any(
         isinstance(oc, ScalarizedOutcomeConstraint)
-        and metric_signature in [metric.signature for metric in oc.metrics]
+        and metric_signature in oc.metric_names
         for oc in optimization_config.outcome_constraints
     ):
         warnings.warn(
@@ -351,18 +345,18 @@ def _get_non_scalarized_outcome_constraints(
         oc
         for oc in optimization_config.outcome_constraints
         if not isinstance(oc, ScalarizedOutcomeConstraint)
-        and oc.metric.signature == metric_signature
+        and oc.metric_names[0] == metric_signature
     ]
 
 
 def _get_objective_threshold_from_moo_config(
     optimization_config: MultiObjectiveOptimizationConfig, metric_signature: str
-) -> list[ObjectiveThreshold]:
+) -> list[OutcomeConstraint]:
     """Get the non-relative objective threshold for a given metric."""
     return [
         ot
         for ot in optimization_config.objective_thresholds
-        if ot.metric.signature == metric_signature
+        if ot.metric_names[0] == metric_signature
     ]
 
 

@@ -6,6 +6,7 @@
 # pyre-strict
 
 from ax.benchmark.benchmark_problem import get_soo_opt_config
+from ax.core.metric import Metric
 from ax.core.optimization_config import OptimizationConfig
 from ax.core.parameter import ParameterType, RangeParameter
 from ax.core.search_space import SearchSpace
@@ -116,7 +117,7 @@ def get_lcbench_optimization_config(
     metric_name: str = DEFAULT_METRIC_NAME,
     observe_noise_sd: bool = False,
     use_map_metric: bool = False,
-) -> OptimizationConfig:
+) -> tuple[OptimizationConfig, list[Metric]]:
     return get_soo_opt_config(
         outcome_names=[metric_name],
         lower_is_better=False,

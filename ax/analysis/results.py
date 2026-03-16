@@ -95,10 +95,7 @@ class ResultsAnalysis(Analysis):
         if (optimization_config := experiment.optimization_config) is not None:
             objective_names = optimization_config.objective.metric_names
             for oc in optimization_config.outcome_constraints:
-                if isinstance(oc, ScalarizedOutcomeConstraint):
-                    constraint_names.extend([m.name for m in oc.metrics])
-                else:
-                    constraint_names.append(oc.metric.name)
+                constraint_names.extend(oc.metric_names)
 
         relevant_adapter = extract_relevant_adapter(
             experiment=experiment,

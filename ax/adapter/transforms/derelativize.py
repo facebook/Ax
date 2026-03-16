@@ -15,12 +15,17 @@ import numpy as np
 from ax.adapter.observation_utils import unwrap_observation_data
 from ax.adapter.transforms.base import Transform
 from ax.adapter.transforms.ivw import ivw_metric_merge
+from ax.core.experiment import Experiment
 from ax.core.observation import ObservationFeatures
-from ax.core.optimization_config import OptimizationConfig
+from ax.core.optimization_config import (
+    MultiObjectiveOptimizationConfig,
+    OptimizationConfig,
+)
 from ax.core.outcome_constraint import OutcomeConstraint, ScalarizedOutcomeConstraint
-from ax.core.types import TModelCov, TModelMean
+from ax.core.types import ComparisonOp, TModelCov, TModelMean
 from ax.exceptions.core import DataRequiredError
 from ax.utils.common.logger import get_logger
+from ax.utils.common.sympy import build_constraint_expression_str
 from pyre_extensions import none_throws
 
 
@@ -89,41 +94,46 @@ class Derelativize(Transform):
                 raw_f=raw_f,
                 pred_f=f,
                 pred_cov=cov,
+                experiment=adapter._experiment,
             )
         else:
             f = raw_f
 
         # Plug in the status quo value to each relative constraint.
-        for c in optimization_config.all_constraints:
+        # Build new constraint lists since constraints are immutable.
+        new_outcome_constraints = []
+        for c in optimization_config.outcome_constraints:
             if c.relative:
-                if isinstance(c, ScalarizedOutcomeConstraint):
-                    missing_metrics = {
-                        metric.signature
-                        for metric in c.metrics
-                        if metric.signature not in f
-                    }
-                    if len(missing_metrics) > 0:
-                        raise DataRequiredError(
-                            f"Status-quo metric value not yet available for metric(s) "
-                            f"{missing_metrics}."
-                        )
-                    # The sq_val of scalarized outcome is the weighted
-                    # sum of its component metrics
-                    sq_val = np.sum(
-                        [
-                            c.weights[i] * f[metric.signature][0]
-                            for i, metric in enumerate(c.metrics)
-                        ]
+                sq_val = _compute_sq_val(c, adapter, f)
+                new_bound = derelativize_bound(bound=c.bound, sq_val=sq_val)
+                new_expr = build_constraint_expression_str(
+                    metric_weights=c.metric_weights,
+                    op=">=" if c.op == ComparisonOp.GEQ else "<=",
+                    bound=new_bound,
+                    relative=False,
+                )
+                new_outcome_constraints.append(OutcomeConstraint(expression=new_expr))
+            else:
+                new_outcome_constraints.append(c)
+        optimization_config.outcome_constraints = new_outcome_constraints
+
+        if isinstance(optimization_config, MultiObjectiveOptimizationConfig):
+            new_thresholds = []
+            for c in optimization_config.objective_thresholds:
+                if c.relative:
+                    sq_val = _compute_sq_val(c, adapter, f)
+                    new_bound = derelativize_bound(bound=c.bound, sq_val=sq_val)
+                    new_expr = build_constraint_expression_str(
+                        metric_weights=c.metric_weights,
+                        op=">=" if c.op == ComparisonOp.GEQ else "<=",
+                        bound=new_bound,
+                        relative=False,
                     )
-                elif c.metric.signature in f:
-                    sq_val = f[c.metric.signature][0]
+                    new_thresholds.append(OutcomeConstraint(expression=new_expr))
                 else:
-                    raise DataRequiredError(
-                        f"Status-quo metric value not yet available for metric "
-                        f"{c.metric.name}."
-                    )
-                c.bound = derelativize_bound(bound=c.bound, sq_val=sq_val)
-                c.relative = False
+                    new_thresholds.append(c)
+            optimization_config.objective_thresholds = new_thresholds
+
         return optimization_config
 
     def untransform_outcome_constraints(
@@ -136,25 +146,68 @@ class Derelativize(Transform):
         return outcome_constraints
 
 
+def _compute_sq_val(
+    c: OutcomeConstraint,
+    adapter: adapter_module.base.Adapter,
+    f: TModelMean,
+) -> float:
+    """Compute the status quo value for a constraint.
+
+    For scalarized constraints, returns the weighted sum of component metric
+    status quo values. For single-metric constraints, returns the status quo
+    value for that metric.
+    """
+    if isinstance(c, ScalarizedOutcomeConstraint):
+        metrics = adapter._experiment.get_metrics(c.metric_names)
+        missing_metrics = {
+            metric.signature for metric in metrics if metric.signature not in f
+        }
+        if len(missing_metrics) > 0:
+            raise DataRequiredError(
+                f"Status-quo metric value not yet available for metric(s) "
+                f"{missing_metrics}."
+            )
+        # The sq_val of scalarized outcome is the weighted
+        # sum of its component metrics
+        return float(
+            np.sum(
+                [
+                    c.weights[i] * f[metric.signature][0]
+                    for i, metric in enumerate(metrics)
+                ]
+            )
+        )
+    else:
+        metric = adapter._experiment.get_metrics(c.metric_names)[0]
+        if metric.signature in f:
+            return f[metric.signature][0]
+        else:
+            raise DataRequiredError(
+                f"Status-quo metric value not yet available for metric "
+                f"{c.metric_names[0]}."
+            )
+
+
 def _warn_if_raw_sq_is_out_of_CI(
     optimization_config: OptimizationConfig,
     raw_f: TModelMean,
     pred_f: TModelMean,
     pred_cov: TModelCov,
+    experiment: Experiment,
 ) -> None:
     """Warn if the raw SQ values for relative constraint metrics deviate
     by more than 1.96 standard deviation from the predictions.
     """
     relative_metrics = {
-        oc.metric.signature
+        experiment.get_metric(oc.metric_names[0]).signature
         for oc in optimization_config.all_constraints
         if oc.relative and not isinstance(oc, ScalarizedOutcomeConstraint)
     }.union(
         {
-            metric.signature
+            experiment.get_metric(name).signature
             for oc in optimization_config.all_constraints
             if oc.relative and isinstance(oc, ScalarizedOutcomeConstraint)
-            for metric in oc.metrics
+            for name in oc.metric_names
         }
     )
     for metric_signature in relative_metrics:

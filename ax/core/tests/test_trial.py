@@ -41,11 +41,11 @@ TEST_DATA = Data(
         [
             {
                 "arm_name": "0_0",
-                "metric_name": get_objective().metric.name,
+                "metric_name": get_objective().metric_names[0],
                 "mean": 1.0,
                 "sem": 2.0,
                 "trial_index": 0,
-                "metric_signature": get_objective().metric.signature,
+                "metric_signature": get_objective().metric_names[0],
             }
         ]
     )
@@ -324,10 +324,10 @@ class TrialTest(TestCase):
 
     @patch(
         f"{BaseTrial.__module__}.{BaseTrial.__name__}.fetch_data_results",
-        return_value={get_objective().metric.signature: Ok(TEST_DATA)},
+        return_value={get_objective().metric_names[0]: Ok(TEST_DATA)},
     )
     def test_fetch_data_result(self, mock: Mock) -> None:
-        metric_name = get_objective().metric.name
+        metric_name = get_objective().metric_names[0]
         results = self.experiment.trials[0].fetch_data_results()
 
         self.assertTrue(results[metric_name].is_ok())

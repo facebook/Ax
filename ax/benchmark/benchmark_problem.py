@@ -15,18 +15,30 @@ from ax.benchmark.benchmark_test_function import BenchmarkTestFunction
 from ax.benchmark.noise import GaussianNoise, Noise
 from ax.core.auxiliary import AuxiliaryExperiment, AuxiliaryExperimentPurpose
 from ax.core.metric import Metric
-from ax.core.objective import MultiObjective, Objective, ScalarizedObjective
+from ax.core.objective import Objective
 from ax.core.optimization_config import (
     MultiObjectiveOptimizationConfig,
-    ObjectiveThreshold,
     OptimizationConfig,
 )
 from ax.core.outcome_constraint import OutcomeConstraint
 from ax.core.parameter import ChoiceParameter, ParameterType, RangeParameter
 from ax.core.search_space import SearchSpace
-from ax.core.types import ComparisonOp, TParamValue
+from ax.core.types import TParamValue
 from ax.exceptions.core import UserInputError
 from ax.utils.common.base import Base
+
+
+def _is_minimizing(objective: Objective) -> bool:
+    """Determine if an objective is minimizing.
+
+    Handles scalarized objectives by checking if all weights are negative
+    (which indicates minimization in the expression-based API).
+    """
+    if objective.is_scalarized_objective:
+        return all(w < 0 for _, w in objective.metric_weights)
+    if objective.is_multi_objective:
+        return all(w < 0 for _, w in objective.metric_weights)
+    return objective.minimize
 
 
 @dataclass(kw_only=True, repr=True)
@@ -107,6 +119,7 @@ class BenchmarkProblem(Base):
         dict[AuxiliaryExperimentPurpose, list[AuxiliaryExperiment]] | None
     ) = None
     tracking_metrics: list[Metric] | None = None
+    opt_config_metrics: list[Metric] = field(default_factory=list)
 
     def __post_init__(self) -> None:
         # Handle backward compatibility for noise_std parameter
@@ -142,7 +155,7 @@ class BenchmarkProblem(Base):
                     "The baseline value must be strictly less than the optimal "
                     "value for MOO problems. (These represent hypervolumes.)"
                 )
-        elif self.optimization_config.objective.minimize:
+        elif _is_minimizing(self.optimization_config.objective):
             if self.baseline_value <= self.optimal_value:
                 raise ValueError(
                     "The baseline value must be strictly greater than the optimal "
@@ -166,27 +179,25 @@ class BenchmarkProblem(Base):
                     "The worst feasible value must be provided for constrained "
                     "problems (got `None`)"
                 )
-            elif self.optimization_config.objective.minimize:
-                if self.optimal_value > self.worst_feasible_value:
+            else:
+                wfv = self.worst_feasible_value
+                if _is_minimizing(self.optimization_config.objective):
+                    if self.optimal_value > wfv:
+                        raise ValueError(
+                            "The worst feasible value must be greater than or "
+                            "equal to the optimal value for minimization "
+                            "problems."
+                        )
+                elif self.optimal_value < wfv:
                     raise ValueError(
-                        "The worst feasible value must be greater than or equal to "
-                        "the optimal value for minimization problems."
+                        "The worst feasible value must be less than or equal to "
+                        "the optimal value for maximization problems."
                     )
-            elif self.optimal_value < self.worst_feasible_value:
-                raise ValueError(
-                    "The worst feasible value must be less than or equal to "
-                    "the optimal value for maximization problems."
-                )
 
         # Validate that names on optimization config are contained in names on
         # test function
         objective = self.optimization_config.objective
-        if isinstance(objective, MultiObjective):
-            objective_names = {obj.metric.name for obj in objective.objectives}
-        elif isinstance(objective, ScalarizedObjective):
-            objective_names = {metric.name for metric in objective.metrics}
-        else:
-            objective_names = {objective.metric.name}
+        objective_names = set(objective.metric_names)
 
         test_function_names = set(self.test_function.outcome_names)
         missing = objective_names - test_function_names
@@ -198,7 +209,9 @@ class BenchmarkProblem(Base):
             )
 
         constraints = self.optimization_config.outcome_constraints
-        constraint_names = {c.metric.name for c in constraints}
+        constraint_names: set[str] = set()
+        for c in constraints:
+            constraint_names.update(c.metric_names)
         missing = constraint_names - test_function_names
         if len(missing) > 0:
             raise ValueError(
@@ -234,9 +247,10 @@ def _get_constraints(
     constraint_names: Sequence[str],
     observe_noise_sd: bool,
     use_map_metric: bool = False,
-) -> list[OutcomeConstraint]:
+) -> tuple[list[OutcomeConstraint], list[Metric]]:
     """
-    Create a list of ``OutcomeConstraint``s.
+    Create a list of ``OutcomeConstraint``s and corresponding
+    ``BenchmarkMetric``s.
 
     Args:
         constraint_names: Names of the constraints. One constraint will be
@@ -246,23 +260,22 @@ def _get_constraints(
             where only some of the outcomes have noise levels observed.
         use_map_metric: Whether to use a ``BenchmarkMapMetric``.
 
-
+    Returns:
+        A tuple of (outcome_constraints, metrics).
     """
     metric_cls = BenchmarkMapMetric if use_map_metric else BenchmarkMetric
-    outcome_constraints = [
-        OutcomeConstraint(
-            metric=metric_cls(
-                name=name,
-                lower_is_better=False,  # positive slack = feasible
-                observe_noise_sd=observe_noise_sd,
-            ),
-            op=ComparisonOp.GEQ,
-            bound=0.0,
-            relative=False,
+    metrics: list[Metric] = [
+        metric_cls(
+            name=name,
+            lower_is_better=False,  # positive slack = feasible
+            observe_noise_sd=observe_noise_sd,
         )
         for name in constraint_names
     ]
-    return outcome_constraints
+    outcome_constraints = [
+        OutcomeConstraint(expression=f"{name} >= 0.0") for name in constraint_names
+    ]
+    return outcome_constraints, metrics
 
 
 def get_soo_opt_config(
@@ -271,10 +284,10 @@ def get_soo_opt_config(
     lower_is_better: bool = True,
     observe_noise_sd: bool = False,
     use_map_metric: bool = False,
-) -> OptimizationConfig:
+) -> tuple[OptimizationConfig, list[Metric]]:
     """
     Create a single-objective ``OptimizationConfig``, potentially with
-    constraints.
+    constraints, along with the corresponding ``BenchmarkMetric``s.
 
     Args:
         outcome_names: Names of the outcomes. If ``outcome_names`` has more than
@@ -287,26 +300,29 @@ def get_soo_opt_config(
         observe_noise_sd: Whether the standard deviation of the observation
             noise is observed. Applies to all objective and constraints.
         use_map_metric: Whether to use a ``BenchmarkMapMetric``.
+
+    Returns:
+        A tuple of (OptimizationConfig, list of BenchmarkMetrics).
     """
     metric_cls = BenchmarkMapMetric if use_map_metric else BenchmarkMetric
-    objective = Objective(
-        metric=metric_cls(
-            name=outcome_names[0],
-            lower_is_better=lower_is_better,
-            observe_noise_sd=observe_noise_sd,
-        ),
-        minimize=lower_is_better,
+    obj_metric = metric_cls(
+        name=outcome_names[0],
+        lower_is_better=lower_is_better,
+        observe_noise_sd=observe_noise_sd,
     )
+    expression = f"-{outcome_names[0]}" if lower_is_better else outcome_names[0]
+    objective = Objective(expression=expression)
 
-    outcome_constraints = _get_constraints(
+    outcome_constraints, constraint_metrics = _get_constraints(
         constraint_names=outcome_names[1:],
         observe_noise_sd=observe_noise_sd,
         use_map_metric=use_map_metric,
     )
 
-    return OptimizationConfig(
+    config = OptimizationConfig(
         objective=objective, outcome_constraints=outcome_constraints
     )
+    return config, [obj_metric] + constraint_metrics
 
 
 def get_moo_opt_config(
@@ -317,9 +333,10 @@ def get_moo_opt_config(
     lower_is_better: bool = True,
     observe_noise_sd: bool = False,
     use_map_metric: bool = False,
-) -> MultiObjectiveOptimizationConfig:
+) -> tuple[MultiObjectiveOptimizationConfig, list[Metric]]:
     """
-    Create a ``MultiObjectiveOptimizationConfig``, potentially with constraints.
+    Create a ``MultiObjectiveOptimizationConfig``, potentially with
+    constraints, along with the corresponding ``BenchmarkMetric``s.
 
     Args:
         outcome_names: Names of the outcomes. If ``num_constraints`` is greater
@@ -338,6 +355,9 @@ def get_moo_opt_config(
             method, but could be.
         observe_noise_sd: Whether the standard deviation of the observation
         noise is observed. Applies to all objective and constraints.
+
+    Returns:
+        A tuple of (MultiObjectiveOptimizationConfig, list of BenchmarkMetrics).
     """
     n_objectives = len(outcome_names) - num_constraints
     metric_cls = BenchmarkMapMetric if use_map_metric else BenchmarkMetric
@@ -349,29 +369,42 @@ def get_moo_opt_config(
         )
         for i in range(n_objectives)
     ]
-    constraints = _get_constraints(
+    outcome_constraints, constraint_metrics = _get_constraints(
         constraint_names=outcome_names[n_objectives:],
         observe_noise_sd=observe_noise_sd,
     )
+
+    if n_objectives < 2:
+        raise ValueError(
+            "get_moo_opt_config requires at least 2 objectives. "
+            f"Got {n_objectives} objective(s) with {num_constraints} constraint(s) "
+            f"from {len(outcome_names)} outcome names."
+        )
+
+    # Build multi-objective expression: comma-separated, negated if lower_is_better
+    obj_expressions = []
+    for metric in objective_metrics:
+        if lower_is_better:
+            obj_expressions.append(f"-{metric.name}")
+        else:
+            obj_expressions.append(metric.name)
+    objective = Objective(expression=", ".join(obj_expressions))
+
+    # Build objective thresholds as OutcomeConstraints
+    objective_thresholds = []
+    for ref_p, metric in zip(ref_point, objective_metrics, strict=True):
+        if metric.lower_is_better:
+            expr = f"{metric.name} <= {ref_p}"
+        else:
+            expr = f"{metric.name} >= {ref_p}"
+        objective_thresholds.append(OutcomeConstraint(expression=expr))
+
     optimization_config = MultiObjectiveOptimizationConfig(
-        objective=MultiObjective(
-            objectives=[
-                Objective(metric=metric, minimize=lower_is_better)
-                for metric in objective_metrics
-            ]
-        ),
-        objective_thresholds=[
-            ObjectiveThreshold(
-                metric=metric,
-                bound=ref_p,
-                relative=False,
-                op=ComparisonOp.LEQ if metric.lower_is_better else ComparisonOp.GEQ,
-            )
-            for ref_p, metric in zip(ref_point, objective_metrics, strict=True)
-        ],
-        outcome_constraints=constraints,
+        objective=objective,
+        objective_thresholds=objective_thresholds,
+        outcome_constraints=outcome_constraints,
     )
-    return optimization_config
+    return optimization_config, objective_metrics + constraint_metrics
 
 
 def get_continuous_search_space(

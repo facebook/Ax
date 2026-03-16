@@ -18,7 +18,6 @@ import numpy as np
 import numpy.typing as npt
 from ax.adapter.data_utils import ExperimentData
 from ax.adapter.transforms.base import Transform
-from ax.core.objective import MultiObjective
 from ax.core.observation import Observation, ObservationData, ObservationFeatures
 from ax.core.optimization_config import (
     MultiObjectiveOptimizationConfig,
@@ -27,14 +26,31 @@ from ax.core.optimization_config import (
 )
 from ax.core.outcome_constraint import OutcomeConstraint
 from ax.core.search_space import SearchSpace
+from ax.core.types import ComparisonOp
 from ax.exceptions.core import DataRequiredError, UnsupportedError
 from ax.generators.types import TConfig
+from ax.utils.common.sympy import build_constraint_expression_str
 from ax.utils.stats.math_utils import relativize, unrelativize
 from pyre_extensions import none_throws
 
 if TYPE_CHECKING:
     # import as module to make sphinx-autodoc-typehints happy
     from ax import adapter as adapter_module  # noqa F401
+
+
+def _constraint_with_relative(
+    c: OutcomeConstraint, relative: bool
+) -> OutcomeConstraint:
+    """Create a new OutcomeConstraint identical to ``c`` but with a different
+    ``relative`` flag. Since OutcomeConstraint is immutable, we rebuild the
+    expression string with the desired relativity."""
+    new_expr = build_constraint_expression_str(
+        metric_weights=c.metric_weights,
+        op=">=" if c.op == ComparisonOp.GEQ else "<=",
+        bound=c.bound,
+        relative=relative,
+    )
+    return OutcomeConstraint(expression=new_expr)
 
 
 class BaseRelativize(Transform, ABC):
@@ -107,9 +123,6 @@ class BaseRelativize(Transform, ABC):
 
         """
         # Getting constraints
-        constraints = [
-            constraint.clone() for constraint in optimization_config.outcome_constraints
-        ]
         if not all(
             constraint.relative
             for constraint in optimization_config.outcome_constraints
@@ -117,13 +130,15 @@ class BaseRelativize(Transform, ABC):
             raise ValueError(
                 "All constraints must be relative to use the Relativize transform."
             )
-        for constraint in constraints:
-            constraint.relative = False
+        constraints = [
+            _constraint_with_relative(constraint, relative=False)
+            for constraint in optimization_config.outcome_constraints
+        ]
 
         if isinstance(optimization_config, PreferenceOptimizationConfig):
             objective = optimization_config.objective
-            assert isinstance(objective, MultiObjective), (
-                f"Expected MultiObjective, got {type(objective).__name__}"
+            assert objective.is_multi_objective, (
+                "Expected multi-objective, got single-objective"
             )
             new_optimization_config = optimization_config.clone_with_args(
                 objective=objective,
@@ -131,17 +146,16 @@ class BaseRelativize(Transform, ABC):
             )
         elif isinstance(optimization_config, MultiObjectiveOptimizationConfig):
             # Getting objective thresholds
-            obj_thresholds = [
-                obj_threshold.clone()
-                for obj_threshold in optimization_config.objective_thresholds
-            ]
-            for obj_threshold in obj_thresholds:
+            obj_thresholds = []
+            for obj_threshold in optimization_config.objective_thresholds:
                 if not obj_threshold.relative:
                     raise ValueError(
                         "All objective thresholds must be relative to use "
                         "the Relativize transform."
                     )
-                obj_threshold.relative = False
+                obj_thresholds.append(
+                    _constraint_with_relative(obj_threshold, relative=False)
+                )
 
             new_optimization_config = optimization_config.clone_with_args(
                 objective=optimization_config.objective,
@@ -160,9 +174,9 @@ class BaseRelativize(Transform, ABC):
         outcome_constraints: list[OutcomeConstraint],
         fixed_features: ObservationFeatures | None = None,
     ) -> list[OutcomeConstraint]:
-        for c in outcome_constraints:
-            c.relative = True
-        return outcome_constraints
+        return [
+            _constraint_with_relative(c, relative=True) for c in outcome_constraints
+        ]
 
     def transform_observations(
         self,

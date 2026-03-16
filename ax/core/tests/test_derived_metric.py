@@ -470,7 +470,7 @@ class DerivedMetricTest(TestCase):
                     )
                 ],
             ),
-            tracking_metrics=[Metric(name="base_a"), Metric(name="base_b")],
+            tracking_metrics=[Metric(name="base_a"), Metric(name="base_b"), derived],
         )
         self.assertIsInstance(experiment.metrics["total"], DerivedMetric)
 
@@ -923,7 +923,11 @@ class ExpressionDerivedMetricTest(TestCase):
                     )
                 ],
             ),
-            tracking_metrics=[Metric(name="base_a"), Metric(name="base_b")],
+            tracking_metrics=[
+                Metric(name="base_a"),
+                Metric(name="base_b"),
+                derived_ratio,
+            ],
         )
 
         for i in range(3):

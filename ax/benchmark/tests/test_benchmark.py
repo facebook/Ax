@@ -37,6 +37,7 @@ from ax.benchmark.benchmark import (
     run_optimization_with_orchestrator,
 )
 from ax.benchmark.benchmark_method import BenchmarkMethod
+from ax.benchmark.benchmark_metric import BenchmarkMetric
 from ax.benchmark.benchmark_problem import (
     BenchmarkProblem,
     get_continuous_search_space,
@@ -218,14 +219,18 @@ class TestBenchmark(TestCase):
         method = get_sobol_benchmark_method()
         problem = get_multi_objective_benchmark_problem()
         oc = problem.optimization_config
-        tracking_metric = (
-            assert_is_instance(oc.objective, MultiObjective).objectives[1].metric
+        # Get the second objective metric name to use as a tracking metric
+        tracking_metric_name = oc.objective.metric_names[1]
+        tracking_metric = BenchmarkMetric(
+            name=tracking_metric_name, lower_is_better=True
+        )
+        soo_opt_config, soo_opt_config_metrics = get_soo_opt_config(
+            outcome_names=[f"{problem.name}_0"], lower_is_better=True
         )
         problem = dataclasses.replace(
             problem,
-            optimization_config=get_soo_opt_config(
-                outcome_names=[f"{problem.name}_0"], lower_is_better=True
-            ),
+            optimization_config=soo_opt_config,
+            opt_config_metrics=soo_opt_config_metrics,
             tracking_metrics=[tracking_metric],
             baseline_value=3.0,
             optimal_value=Branin(negate=False).optimal_value,
@@ -1173,18 +1178,21 @@ class TestBenchmark(TestCase):
         test_function = IdentityTestFunction()
 
         with self.subTest("SOO, lower is better"):
-            opt_config = get_soo_opt_config(outcome_names=test_function.outcome_names)
+            opt_config, opt_config_metrics = get_soo_opt_config(
+                outcome_names=test_function.outcome_names
+            )
             result = compute_baseline_value_from_sobol(
                 optimization_config=opt_config,
                 search_space=search_space,
                 test_function=test_function,
                 n_repeats=1,
+                opt_config_metrics=opt_config_metrics,
             )
             self.assertEqual(result, 0)
 
         with self.subTest("SOO, Data with has_step_column=True"):
             map_test_function = IdentityTestFunction(n_steps=2)
-            map_opt_config = get_soo_opt_config(
+            map_opt_config, map_opt_config_metrics = get_soo_opt_config(
                 outcome_names=test_function.outcome_names, use_map_metric=True
             )
             result = compute_baseline_value_from_sobol(
@@ -1192,11 +1200,12 @@ class TestBenchmark(TestCase):
                 search_space=search_space,
                 test_function=map_test_function,
                 n_repeats=1,
+                opt_config_metrics=map_opt_config_metrics,
             )
             self.assertEqual(result, 0)
 
         with self.subTest("SOO, higher is better"):
-            opt_config = get_soo_opt_config(
+            opt_config, opt_config_metrics = get_soo_opt_config(
                 outcome_names=test_function.outcome_names, lower_is_better=False
             )
             result = compute_baseline_value_from_sobol(
@@ -1204,12 +1213,13 @@ class TestBenchmark(TestCase):
                 search_space=search_space,
                 test_function=test_function,
                 n_repeats=1,
+                opt_config_metrics=opt_config_metrics,
             )
             self.assertEqual(result, 4)
 
         moo_test_function = IdentityTestFunction(outcome_names=["foo", "bar"])
         with self.subTest("MOO"):
-            moo_opt_config = get_moo_opt_config(
+            moo_opt_config, moo_opt_config_metrics = get_moo_opt_config(
                 outcome_names=moo_test_function.outcome_names, ref_point=[5, 5]
             )
             result = compute_baseline_value_from_sobol(
@@ -1217,6 +1227,7 @@ class TestBenchmark(TestCase):
                 search_space=search_space,
                 test_function=moo_test_function,
                 n_repeats=1,
+                opt_config_metrics=moo_opt_config_metrics,
             )
             # (5-0) * (5-0)
             self.assertEqual(result, 25)
@@ -1391,12 +1402,15 @@ class TestBenchmark(TestCase):
         gs = get_sobol_generation_strategy()
 
         search_space = get_continuous_search_space(bounds=[(0, 1)])
-        moo_config = get_moo_opt_config(outcome_names=["a", "b"], ref_point=[0, 0])
+        moo_config, moo_metrics = get_moo_opt_config(
+            outcome_names=["a", "b"], ref_point=[0, 0]
+        )
         experiment = Experiment(
             name="test",
             is_test=True,
             search_space=search_space,
             optimization_config=moo_config,
+            tracking_metrics=moo_metrics,
         )
 
         with (
@@ -1407,7 +1421,7 @@ class TestBenchmark(TestCase):
         ):
             get_best_parameters(experiment=experiment, generation_strategy=gs)
 
-        soo_config = get_soo_opt_config(outcome_names=["a"])
+        soo_config, soo_metrics = get_soo_opt_config(outcome_names=["a"])
         with self.subTest("Empty experiment"):
             result = get_best_parameters(
                 experiment=experiment.clone_with(optimization_config=soo_config),
@@ -1453,20 +1467,22 @@ class TestBenchmark(TestCase):
 
     def test_worst_feasible_value_validation(self) -> None:
         """Test validation logic for worst_feasible_value in BenchmarkProblem."""
-        search_space = get_continuous_search_space(bounds=[(0, 1), (0, 1)])
-        test_function = IdentityTestFunction(outcome_names=["objective", "constraint"])
+        search_space = get_continuous_search_space(bounds=[(0, 1), (0, 1), (0, 1)])
+        moo_test_function = IdentityTestFunction(
+            outcome_names=["obj0", "obj1", "constraint"]
+        )
 
         # MOO with constraints - must be 0.0
-        moo_config = get_moo_opt_config(
-            outcome_names=["objective", "constraint"],
-            ref_point=[1.0],
+        moo_config, _moo_metrics = get_moo_opt_config(
+            outcome_names=["obj0", "obj1", "constraint"],
+            ref_point=[1.0, 1.0],
             num_constraints=1,
         )
         BenchmarkProblem(
             name="moo_valid",
             optimization_config=moo_config,
             search_space=search_space,
-            test_function=test_function,
+            test_function=moo_test_function,
             num_trials=4,
             baseline_value=5.0,
             optimal_value=10.0,
@@ -1477,7 +1493,7 @@ class TestBenchmark(TestCase):
                 name="moo_invalid",
                 optimization_config=moo_config,
                 search_space=search_space,
-                test_function=test_function,
+                test_function=moo_test_function,
                 num_trials=4,
                 baseline_value=5.0,
                 optimal_value=10.0,
@@ -1485,10 +1501,11 @@ class TestBenchmark(TestCase):
             )
 
         # SOO with constraints, `worst_feasible_value` must be provided
-        soo_min_config = get_soo_opt_config(
+        test_function = IdentityTestFunction(outcome_names=["objective", "constraint"])
+        soo_min_config, _soo_min_metrics = get_soo_opt_config(
             outcome_names=["objective", "constraint"], lower_is_better=True
         )
-        soo_max_config = get_soo_opt_config(
+        soo_max_config, _soo_max_metrics = get_soo_opt_config(
             outcome_names=["objective", "constraint"], lower_is_better=False
         )
         with self.assertRaisesRegex(
@@ -1551,7 +1568,9 @@ class TestBenchmark(TestCase):
         )
 
         # No constraints - validation skipped
-        no_constraint_config = get_soo_opt_config(outcome_names=["objective"])
+        no_constraint_config, _no_constraint_metrics = get_soo_opt_config(
+            outcome_names=["objective"]
+        )
         no_constraint_test_function = IdentityTestFunction(outcome_names=["objective"])
         BenchmarkProblem(
             name="no_constraints",

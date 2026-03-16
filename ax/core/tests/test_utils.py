@@ -264,7 +264,7 @@ class UtilsTest(TestCase):
                         }
                         for metric_name in none_throws(
                             experiment.optimization_config
-                        ).metrics
+                        ).metric_names
                     ]
                 )
             )
@@ -346,7 +346,7 @@ class UtilsTest(TestCase):
                     }
                     for metric_name in none_throws(
                         experiment.optimization_config
-                    ).metrics
+                    ).metric_names
                 ]
             )
         )
@@ -361,14 +361,14 @@ class UtilsTest(TestCase):
         # NOT be pending for any metric.
         pending = get_pending_observation_features(experiment)
         if pending is not None:
-            for metric_name in none_throws(experiment.optimization_config).metrics:
+            for metric_name in none_throws(experiment.optimization_config).metric_names:
                 self.assertNotIn(obs_feat, pending.get(metric_name, []))
 
         # get_pending_observation_features_based_on_trial_status:
         # COMPLETED+COMPLETE trial should NOT be pending.
         pending_status = get_pending_status(experiment)
         if pending_status is not None:
-            for metric_name in none_throws(experiment.optimization_config).metrics:
+            for metric_name in none_throws(experiment.optimization_config).metric_names:
                 self.assertNotIn(obs_feat, pending_status.get(metric_name, []))
 
     def test_get_pending_observation_features_multi_trial(self) -> None:
@@ -1025,6 +1025,8 @@ class TestMetricAvailability(TestCase):
             with_trial=True,
             with_completed_trial=False,
         )
+        exp.add_metric(Metric(name="metric_a"))
+        exp.add_metric(Metric(name="metric_b"))
         exp.optimization_config = OptimizationConfig(
             objective=Objective(metric=Metric(name="metric_a"), minimize=False),
             outcome_constraints=[
@@ -1067,6 +1069,8 @@ class TestMetricAvailability(TestCase):
             with_trial=True,
             with_completed_trial=False,
         )
+        exp2.add_metric(Metric(name="metric_a"))
+        exp2.add_metric(Metric(name="metric_b"))
         exp2.optimization_config = none_throws(exp.optimization_config)
         trial2 = exp2.trials[0]
         trial2.mark_running(no_runner_required=True)

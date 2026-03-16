@@ -17,7 +17,7 @@ from functools import partial
 from logging import Logger
 from math import prod
 from pathlib import Path
-from typing import Any, cast, Self
+from typing import Any, Self
 
 import numpy as np
 import pandas as pd
@@ -173,7 +173,7 @@ def get_experiment_with_map_data_type() -> Experiment:
         optimization_config=get_map_optimization_config(),
         status_quo=get_status_quo(),
         description="test description",
-        tracking_metrics=[MapMetric(name="tracking")],
+        tracking_metrics=[MapMetric(name="m1"), MapMetric(name="tracking")],
         is_test=True,
     )
     experiment._properties = {"owners": [DEFAULT_USER]}
@@ -262,15 +262,44 @@ def get_experiment_with_custom_runner_and_metric(
             outcome_constraint=has_outcome_constraint, relative=False
         )
 
+    # Build tracking_metrics with actual metric instances so the
+    # Experiment owns the real metric types.
+    experiment_tracking_metrics: list[Metric] = [
+        CustomTestMetric(name="custom_test_metric", test_attribute="test")
+    ]
+    if multi_objective:
+        experiment_tracking_metrics.extend(
+            [
+                CustomTestMetric(name="m1", test_attribute="test"),
+                CustomTestMetric(name="m3", test_attribute="test"),
+            ]
+        )
+        if has_outcome_constraint:
+            experiment_tracking_metrics.append(
+                Metric(name="m2"),
+            )
+    elif scalarized_objective:
+        experiment_tracking_metrics.extend(
+            [
+                CustomTestMetric(name="m1", test_attribute="test"),
+                CustomTestMetric(name="m3", test_attribute="test"),
+            ]
+        )
+        if has_outcome_constraint:
+            experiment_tracking_metrics.extend(
+                [
+                    CustomTestMetric(name="oc_m3", test_attribute="test"),
+                    CustomTestMetric(name="oc_m4", test_attribute="test"),
+                ]
+            )
+
     # Create experiment with custom runner and metric
     experiment = Experiment(
         name="test",
         search_space=get_search_space(constrain_search_space=constrain_search_space),
         optimization_config=optimization_config,
         description="test description",
-        tracking_metrics=[
-            CustomTestMetric(name="custom_test_metric", test_attribute="test")
-        ],
+        tracking_metrics=experiment_tracking_metrics,
         runner=CustomTestRunner(test_attribute="test"),
         is_test=True,
     )
@@ -348,6 +377,15 @@ def get_branin_experiment(
         else None
     )
 
+    # Build tracking_metrics with actual BraninMetric instances so the
+    # Experiment owns the real metric types (the optimization config only
+    # stores metric names, not Metric objects).
+    branin_tracking: list[Metric] = [get_branin_metric(name="branin")]
+    if with_relative_constraint:
+        branin_tracking.append(get_branin_metric(name="branin_d"))
+    if with_absolute_constraint:
+        branin_tracking.append(get_branin_metric(name="branin_e"))
+
     exp = Experiment(
         name="branin_test_experiment" if named else None,
         search_space=search_space,
@@ -360,6 +398,7 @@ def get_branin_experiment(
             if has_optimization_config or with_relative_constraint
             else None
         ),
+        tracking_metrics=branin_tracking,
         runner=SyntheticRunner(),
         is_test=True,
         status_quo=status_quo,
@@ -492,7 +531,7 @@ def get_branin_experiment_with_timestamp_map_metric(
         num_objectives = 2
         bounds = bounds or [99.0 for _ in range(num_objectives)]
         if has_objective_thresholds:
-            objective_thresholds = [
+            objective_thresholds: list[OutcomeConstraint] | None = [
                 ObjectiveThreshold(
                     metric=local_get_map_metric(name=f"branin_map_{m}"),
                     bound=bound,
@@ -516,6 +555,16 @@ def get_branin_experiment_with_timestamp_map_metric(
             Objective(metric=local_get_map_metric(f"branin_map_{m}"))
             for m in range(num_objectives)
         ]
+        # Add objective metrics so the Experiment owns the real metric types.
+        # pyre-ignore[6]: Covariance issue with list[T]
+        tracking_metrics.extend(
+            local_get_map_metric(f"branin_map_{m}") for m in range(num_objectives)
+        )
+        if with_outcome_constraint:
+            tracking_metrics.append(
+                # pyre-ignore[6]: Covariance issue with list[T]
+                BraninMetric(name="branin_constraint", param_names=["x1", "x2"])
+            )
         optimization_config = MultiObjectiveOptimizationConfig(
             objective=MultiObjective(objectives=objectives),
             objective_thresholds=objective_thresholds,
@@ -539,6 +588,12 @@ def get_branin_experiment_with_timestamp_map_metric(
             )
 
         tracking_metrics = [tracking_metric]
+        # Add objective metric so the Experiment owns the real metric type.
+        tracking_metrics.append(local_get_map_metric(name="branin_map"))
+        if with_outcome_constraint:
+            tracking_metrics.append(
+                BraninMetric(name="branin_constraint", param_names=["x1", "x2"])
+            )
 
     exp = Experiment(
         name=experiment_name,
@@ -546,7 +601,8 @@ def get_branin_experiment_with_timestamp_map_metric(
             with_choice_parameter=with_choice_parameter
         ),
         optimization_config=optimization_config,
-        tracking_metrics=cast(list[Metric], tracking_metrics),
+        # pyre-ignore[6] Covariance issue with list[T]
+        tracking_metrics=tracking_metrics,
         runner=SyntheticRunner(),
     )
     exp._properties = {"owners": [DEFAULT_USER]}
@@ -619,7 +675,9 @@ def get_test_map_data_experiment(
 def get_multi_type_experiment(
     add_trial_type: bool = True, add_trials: bool = False, num_arms: int = 10
 ) -> MultiTypeExperiment:
-    oc = OptimizationConfig(Objective(BraninMetric("m1", ["x1", "x2"]), minimize=True))
+    oc = OptimizationConfig(
+        Objective(metric=BraninMetric("m1", ["x1", "x2"]), minimize=True)
+    )
     experiment = MultiTypeExperiment(
         name="test_exp",
         search_space=get_branin_search_space(),
@@ -627,6 +685,7 @@ def get_multi_type_experiment(
         default_runner=SyntheticRunner(dummy_metadata="dummy1"),
         optimization_config=oc,
         status_quo=Arm(parameters={"x1": 0.0, "x2": 0.0}),
+        tracking_metrics=[BraninMetric("m1", ["x1", "x2"])],
     )
     experiment._properties = {"owners": [DEFAULT_USER]}
     experiment.add_trial_type(
@@ -669,7 +728,10 @@ def get_factorial_experiment(
         ),
         runner=SyntheticRunner(),
         is_test=True,
-        tracking_metrics=[get_factorial_metric("secondary_metric")],
+        tracking_metrics=[
+            get_factorial_metric(),
+            get_factorial_metric("secondary_metric"),
+        ],
     )
     exp._properties = {"owners": [DEFAULT_USER]}
 
@@ -751,7 +813,11 @@ def get_experiment_with_multi_objective() -> Experiment:
         optimization_config=optimization_config,
         description="test experiment with multi objective",
         runner=SyntheticRunner(),
-        tracking_metrics=[Metric(name="tracking")],
+        tracking_metrics=[
+            Metric(name="m1", lower_is_better=False),
+            Metric(name="m3", lower_is_better=True),
+            Metric(name="tracking"),
+        ],
         is_test=True,
     )
     exp._properties = {"owners": [DEFAULT_USER]}
@@ -809,6 +875,20 @@ def get_branin_experiment_with_multi_objective(
         if has_optimization_config
         else None
     )
+    # Build tracking_metrics with actual BraninMetric instances so the
+    # Experiment owns the real metric types (the optimization config only
+    # stores metric names, not Metric objects).
+    branin_tracking: list[Metric] = [
+        get_branin_metric(name="branin_a"),
+        get_branin_metric(name="branin_b"),
+    ]
+    if num_objectives == 3:
+        branin_tracking.append(get_branin_metric(name="branin_c"))
+    if with_relative_constraint:
+        branin_tracking.append(get_branin_metric(name="branin_d"))
+    if with_absolute_constraint:
+        branin_tracking.append(get_branin_metric(name="branin_e"))
+
     exp = Experiment(
         name="branin_test_experiment",
         search_space=get_branin_search_space(
@@ -818,6 +898,7 @@ def get_branin_experiment_with_multi_objective(
             with_derived_parameter=with_derived_parameter,
         ),
         optimization_config=optimization_config,
+        tracking_metrics=branin_tracking,
         runner=SyntheticRunner(),
         is_test=True,
     )
@@ -875,6 +956,16 @@ def get_branin_experiment_with_multi_objective(
 
 
 def get_branin_with_multi_task(with_multi_objective: bool = False) -> Experiment:
+    # Build tracking_metrics with actual BraninMetric instances so the
+    # Experiment owns the real metric types.
+    if with_multi_objective:
+        branin_tracking: list[Metric] = [
+            get_branin_metric(name="branin_a"),
+            get_branin_metric(name="branin_b"),
+        ]
+    else:
+        branin_tracking = [get_branin_metric(name="branin")]
+
     exp = Experiment(
         name="branin_test_experiment",
         search_space=get_branin_search_space(),
@@ -885,6 +976,7 @@ def get_branin_with_multi_task(with_multi_objective: bool = False) -> Experiment
             if with_multi_objective
             else get_branin_optimization_config()
         ),
+        tracking_metrics=branin_tracking,  # pyre-ignore[6] covariance
         runner=SyntheticRunner(),
         is_test=True,
     )
@@ -1015,6 +1107,7 @@ def get_experiment_with_observations(
                 signature_override="m2_sig" if signature_suffix else None,
             ),
         ]
+        tracking_metrics_from_opt_config = list(metrics)
         if scalarized:
             optimization_config = OptimizationConfig(
                 objective=ScalarizedObjective(metrics)
@@ -1022,6 +1115,16 @@ def get_experiment_with_observations(
             if constrained:
                 raise NotImplementedError
         else:
+            constraint_metric = (
+                Metric(
+                    name="m3",
+                    signature_override="m3_sig" if signature_suffix else None,
+                )
+                if constrained
+                else None
+            )
+            if constraint_metric is not None:
+                tracking_metrics_from_opt_config.append(constraint_metric)
             optimization_config = MultiObjectiveOptimizationConfig(
                 objective=MultiObjective(
                     objectives=[Objective(metric=metric) for metric in metrics]
@@ -1042,12 +1145,7 @@ def get_experiment_with_observations(
                 outcome_constraints=(
                     [
                         OutcomeConstraint(
-                            metric=Metric(
-                                name="m3",
-                                signature_override="m3_sig"
-                                if signature_suffix
-                                else None,
-                            ),
+                            metric=constraint_metric,
                             op=ComparisonOp.GEQ,
                             bound=0.0,
                             relative=False,
@@ -1060,19 +1158,23 @@ def get_experiment_with_observations(
     elif optimization_config is None:
         if scalarized:
             raise NotImplementedError
+        obj_metric = Metric(
+            name="m1",
+            signature_override="m1_sig" if signature_suffix else None,
+        )
         objective = Objective(
-            metric=Metric(
-                name="m1",
-                signature_override="m1_sig" if signature_suffix else None,
-            ),
+            metric=obj_metric,
             minimize=minimize,
         )
+        tracking_metrics_from_opt_config = [obj_metric]
         if constrained:
+            constraint_metric = Metric(
+                name="m2",
+                signature_override="m2_sig" if signature_suffix else None,
+            )
+            tracking_metrics_from_opt_config.append(constraint_metric)
             constraint = OutcomeConstraint(
-                metric=Metric(
-                    name="m2",
-                    signature_override="m2_sig" if signature_suffix else None,
-                ),
+                metric=constraint_metric,
                 op=ComparisonOp.GEQ,
                 bound=0.0,
                 relative=False,
@@ -1082,23 +1184,28 @@ def get_experiment_with_observations(
             )
         else:
             optimization_config = OptimizationConfig(objective=objective)
+    else:
+        tracking_metrics_from_opt_config = []
     search_space = search_space or get_search_space_for_range_values(min=0.0, max=1.0)
+    # Collect tracking metrics: include metrics from the optimization config
+    # (so their signature_override and lower_is_better are preserved on the
+    # experiment, rather than being replaced by plain Metric placeholders)
+    # plus any additional tracking metrics requested by the caller.
+    all_tracking_metrics = list(tracking_metrics_from_opt_config)
+    if with_tracking_metrics:
+        all_tracking_metrics.append(
+            Metric(
+                name=f"m{len(observations[0])}",
+                lower_is_better=False,
+                signature_override=f"m{len(observations[0])}_sig"
+                if signature_suffix
+                else None,
+            )
+        )
     exp = Experiment(
         search_space=search_space,
         optimization_config=optimization_config,
-        tracking_metrics=(
-            [
-                Metric(
-                    name=f"m{len(observations[0])}",
-                    lower_is_better=False,
-                    signature_override=f"m{len(observations[0])}_sig"
-                    if signature_suffix
-                    else None,
-                )
-            ]
-            if with_tracking_metrics
-            else None
-        ),
+        tracking_metrics=all_tracking_metrics or None,
         runner=SyntheticRunner(),
         is_test=True,
         status_quo=status_quo,
@@ -1187,6 +1294,9 @@ def get_high_dimensional_branin_experiment(
         name="high_dimensional_branin_experiment",
         search_space=search_space,
         optimization_config=optimization_config,
+        tracking_metrics=[
+            BraninMetric(name="objective", param_names=["x19", "x44"]),
+        ],
         runner=SyntheticRunner(),
         status_quo=Arm(sq_parameters) if with_status_quo else None,
     )
@@ -2194,7 +2304,7 @@ def get_multi_objective_optimization_config(
     outcome_constraints = (
         [get_outcome_constraint(relative=relative)] if outcome_constraint else []
     )
-    objective_thresholds = [
+    objective_thresholds: list[OutcomeConstraint] = [
         get_objective_threshold(metric_name="m1"),
         get_objective_threshold(metric_name="m3", comparison_op=ComparisonOp.LEQ),
     ]
@@ -2252,7 +2362,7 @@ def get_branin_multi_objective_optimization_config(
     _validate_num_outcomes(num_outcomes=num_objectives + num_constraint_outcomes)
     # minimum Branin value is 0.397887
     if has_objective_thresholds:
-        objective_thresholds = [
+        objective_thresholds: list[OutcomeConstraint] = [
             ObjectiveThreshold(
                 metric=get_branin_metric(name="branin_a"),
                 bound=10.0,

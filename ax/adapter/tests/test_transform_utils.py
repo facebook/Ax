@@ -33,5 +33,5 @@ class TransformUtilsTest(TestCase):
         expected_bound_values = {"m1": 0.9975, "m2": 1.995, "m3": 5.985}
         for oc in new_opt_config.all_constraints:
             self.assertFalse(oc.relative)
-            expected_bound_value = expected_bound_values[oc.metric.name]
+            expected_bound_value = expected_bound_values[oc.metric_names[0]]
             self.assertEqual(oc.bound, expected_bound_value)
