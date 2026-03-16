@@ -107,6 +107,16 @@ class DerivedMetric(Metric):
         self._relativize_inputs = relativize_inputs
         self._as_percent = as_percent
 
+    @classmethod
+    def is_available_while_running(cls) -> bool:
+        # Derived metrics should always attempt to compute from base data.
+        # If base data isn't available for running trials, fetch_trial_data
+        # will return empty data, which is handled gracefully.
+        # TODO: Ideally this would dynamically check whether all input metrics
+        # are available while running, but that requires experiment context
+        # that this classmethod doesn't have access to.
+        return True
+
     @property
     def input_metric_names(self) -> list[str]:
         """Names of metrics that this metric depends on."""
