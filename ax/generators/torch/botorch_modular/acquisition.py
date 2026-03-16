@@ -31,6 +31,7 @@ from ax.generators.torch.botorch_modular.surrogate import Surrogate
 from ax.generators.torch.botorch_modular.utils import (
     _fix_map_key_to_target,
     _objective_threshold_to_outcome_constraints,
+    validate_candidates,
 )
 from ax.generators.torch.botorch_moo_utils import infer_objective_thresholds
 from ax.generators.torch.utils import (
@@ -742,6 +743,17 @@ class Acquisition(Base):
                     X_avoid=X_observed,
                     **optimizer_options_with_defaults,
                 )
+                # Validate candidates before returning
+                validate_candidates(
+                    candidates=candidates,
+                    bounds=bounds,
+                    discrete_choices=ssd.discrete_choices
+                    if ssd.discrete_choices
+                    else None,
+                    inequality_constraints=inequality_constraints,
+                    feature_names=ssd.feature_names,
+                    task_features=ssd.task_features,
+                )
                 n_candidates = candidates.shape[0]
                 return (
                     candidates,
@@ -858,6 +870,16 @@ class Acquisition(Base):
                     inequality_constraints=inequality_constraints,
                     fixed_features=fixed_features,
                 )
+        # Validate candidates before returning
+        validate_candidates(
+            candidates=candidates,
+            bounds=bounds,
+            discrete_choices=discrete_choices if discrete_choices else None,
+            inequality_constraints=inequality_constraints,
+            feature_names=search_space_digest.feature_names,
+            task_features=search_space_digest.task_features,
+        )
+
         n_candidates = candidates.shape[0]
         return candidates, acqf_values, arm_weights[:n_candidates] * n_candidates / n
 
