@@ -35,14 +35,14 @@ from ax.core.batch_trial import BatchTrial
 from ax.core.data import Data
 from ax.core.experiment import Experiment
 from ax.core.generator_run import GeneratorRun
-from ax.core.objective import MultiObjective, Objective, ScalarizedObjective
+from ax.core.objective import Objective
 from ax.core.observation import ObservationFeatures
 from ax.core.optimization_config import (
     MultiObjectiveOptimizationConfig,
     OptimizationConfig,
     PreferenceOptimizationConfig,
 )
-from ax.core.outcome_constraint import ObjectiveThreshold, OutcomeConstraint
+from ax.core.outcome_constraint import _op_to_str, OutcomeConstraint
 from ax.core.trial import Trial
 from ax.core.types import ComparisonOp, TModelPredictArm, TParameterization
 from ax.exceptions.core import DataRequiredError, UnsupportedError, UserInputError
@@ -172,8 +172,10 @@ def get_best_raw_objective_point_with_trial_index(
         experiment=experiment,
     )
 
-    maximize = isinstance(optimization_config.objective, MultiObjective) or (
-        not optimization_config.objective.minimize
+    maximize = (
+        isinstance(optimization_config, MultiObjectiveOptimizationConfig)
+        or optimization_config.objective.is_scalarized_objective
+        or not optimization_config.objective.minimize
     )
     best_row_idx = (
         value_by_arm_pull["value"].idxmax()
@@ -303,12 +305,7 @@ def get_best_parameters_from_model_predictions_with_trial_index(
 
     # For ScalarizedObjective, check model fit for all component metrics
     # For regular Objective, check model fit for the single objective metric
-    if isinstance(optimization_config.objective, ScalarizedObjective):
-        objective_metric_names = [
-            metric.name for metric in optimization_config.objective.metrics
-        ]
-    else:
-        objective_metric_names = [optimization_config.objective.metric.name]
+    objective_metric_names = list(optimization_config.objective.metric_names)
 
     # If model fit is bad for any objective metric, use raw results
     bad_fit_objective_metrics = [
@@ -481,9 +478,11 @@ def get_pareto_optimal_parameters(
         )
     adapter = assert_is_instance(adapter, TorchAdapter)
 
-    objective_thresholds_override = None
+    objective_thresholds_override: list[OutcomeConstraint] | None = None
     # If objective thresholds are not specified in optimization config, infer them.
     if not moo_optimization_config.objective_thresholds:
+        # pyre-ignore[9]: ObjectiveThreshold is a subclass of OutcomeConstraint;
+        # list invariance prevents direct assignment.
         objective_thresholds_override = adapter.infer_objective_thresholds(
             search_space=experiment.search_space,
             optimization_config=optimization_config,
@@ -578,7 +577,7 @@ def is_row_feasible(
         upper_bound: pd.Series = upper_bound,
         name: pd.Series = name,
     ) -> pd.Series:
-        name_match_mask = name == oc.metric.name
+        name_match_mask = name == oc.metric_names[0]
         # Return True if metrics are different, or whether the confidence
         # interval is entirely not within the bound
         if oc.op == ComparisonOp.GEQ:
@@ -594,7 +593,7 @@ def is_row_feasible(
     # conclusively.
     has_missing_metric_mask = pd.Series([False] * len(df), index=df.index)
     constrained_metric_names = {
-        oc.metric.name for oc in optimization_config.all_constraints
+        oc.metric_names[0] for oc in optimization_config.all_constraints
     }
     for arm_name, arm_group in df.groupby("arm_name"):
         metrics_for_arm = set(arm_group["metric_name"].unique())
@@ -679,18 +678,28 @@ def get_values_of_outcomes_single_or_scalarized_objective(
     ... )
     np.array([2.0, inf])
     """
-    if isinstance(objective, MultiObjective):
+    if objective.is_multi_objective:
         raise ValueError(
             "MultiObjective is not supported. Use "
             "`get_hypervolume_of_outcomes_multi_objective`."
         )
-    if isinstance(objective, ScalarizedObjective):
-        value = df_wide[objective.metric_names].dot(objective.weights).to_numpy()
+    if objective.is_scalarized_objective:
+        value = (
+            df_wide[objective.metric_names]
+            .dot([w for _, w in objective.metric_weights])
+            .to_numpy()
+        )
     else:
-        value = df_wide[objective.metric.name].to_numpy()
+        value = df_wide[objective.metric_names[0]].to_numpy()
     value = value.astype(np.float64)
     infeasible_idx = np.where(~df_wide["feasible"])[0]
-    value[infeasible_idx] = float("inf") if objective.minimize else float("-inf")
+    # For scalarized objectives the expression is always formulated as
+    # "maximize", so infeasible values should be -inf.
+    if objective.is_scalarized_objective:
+        minimize = False
+    else:
+        minimize = objective.minimize
+    value[infeasible_idx] = float("inf") if minimize else float("-inf")
     return value
 
 
@@ -795,20 +804,19 @@ def get_hypervolume_trace_of_outcomes_multi_objective(
     ... )
     [0.0, 2.0, 0.0, 9.0]
     """
-    objective = assert_is_instance(optimization_config.objective, MultiObjective)
-    for obj in objective.objectives:
-        if obj.minimize:
-            df_wide[obj.metric.name] *= -1
+    objective = optimization_config.objective
+    for metric_name, weight in objective.metric_weights:
+        if weight < 0:  # minimize
+            df_wide[metric_name] *= -1
 
     objective_thresholds = []
     objective_thresholds_dict = {
-        threshold.metric.name: threshold
+        threshold.metric_names[0]: threshold
         for threshold in optimization_config.objective_thresholds
     }
     # First pass: collect explicit thresholds, mark missing ones with NaN.
     needs_inference = False
-    for obj in objective.objectives:
-        metric_name = obj.metric.name
+    for metric_name, weight in objective.metric_weights:
         if metric_name in objective_thresholds_dict:
             threshold = objective_thresholds_dict[metric_name]
             if threshold.relative:
@@ -820,7 +828,7 @@ def get_hypervolume_trace_of_outcomes_multi_objective(
             # Explicit thresholds are in the original metric space, so negate
             # for minimization objectives to match the negated data.
             bound = threshold.bound
-            objective_thresholds.append(-bound if obj.minimize else bound)
+            objective_thresholds.append(-bound if weight < 0 else bound)
         else:
             needs_inference = True
             objective_thresholds.append(float("nan"))
@@ -980,7 +988,7 @@ def _compute_trace_values(
     """
     objective = optimization_config.objective
     # MOO and *not* ScalarizedObjective
-    if isinstance(objective, MultiObjective):
+    if objective.is_multi_objective:
         maximize = True
         optimization_config = assert_is_instance(
             optimization_config, MultiObjectiveOptimizationConfig
@@ -993,7 +1001,11 @@ def _compute_trace_values(
             )
         )
     else:
-        maximize = not objective.minimize
+        if objective.is_scalarized_objective:
+            # Scalarized expressions are always in maximization convention
+            maximize = True
+        else:
+            maximize = not objective.minimize
         values = pd.Series(
             get_values_of_outcomes_single_or_scalarized_objective(
                 df_wide=df_wide, objective=objective
@@ -1028,7 +1040,7 @@ def _pivot_data_with_feasibility(
         where "feasible" indicates whether the observation satisfies all constraints.
     """
     # Get the metrics we need
-    metric_names = list(optimization_config.metrics.keys())
+    metric_names = list(optimization_config.metric_names)
     mask = df["metric_name"].isin(metric_names)
 
     # Transform to wide format with metric columns
@@ -1191,7 +1203,6 @@ def get_trace_by_arm_pull_from_data(
         optimization_config=optimization_config,
         use_cumulative_best=use_cumulative_best,
     )
-
     return df_wide[["trial_index", "arm_name", "value"]]
 
 
@@ -1202,7 +1213,6 @@ def get_trace(
 ) -> list[float]:
     """
     Compute the optimization trace at each iteration.
-
     Given an experiment and an optimization config, compute the performance
     at each iteration. For multi-objective, the performance is computed as
     the hypervolume. For single objective, the performance is computed as
@@ -1243,7 +1253,7 @@ def get_trace(
     # Get the names of the metrics in optimization config.
     metric_names = set(optimization_config.objective.metric_names)
     for cons in optimization_config.outcome_constraints:
-        metric_names.update({cons.metric.name})
+        metric_names.update(set(cons.metric_names))
     metric_names = list(metric_names)
 
     # Don't compute results for status quo data (for compatibility with legacy behavior)
@@ -1279,7 +1289,11 @@ def get_trace(
     )
     # Aggregate by trial, then. compute cumulative best
     objective = optimization_config.objective
-    maximize = isinstance(objective, MultiObjective) or not objective.minimize
+    maximize = (
+        isinstance(optimization_config, MultiObjectiveOptimizationConfig)
+        or objective.is_scalarized_objective
+        or not objective.minimize
+    )
     cumulative_value = _aggregate_and_cumulate_trace(
         df=value_by_arm_pull,
         by=["trial_index"],
@@ -1345,7 +1359,7 @@ def get_tensor_converter_adapter(
 
 def infer_reference_point_from_experiment(
     experiment: Experiment, data: Data
-) -> list[ObjectiveThreshold]:
+) -> list[OutcomeConstraint]:
     """This functions is a wrapper around ``infer_reference_point`` to find the nadir
     point from the pareto front of an experiment. Aside from converting experiment
     to tensors, this wrapper transforms back and forth the objectives of the experiment
@@ -1389,32 +1403,37 @@ def infer_reference_point_from_experiment(
         inferred_rp = deepcopy(opt_config.objective_thresholds)
     else:
         inferred_rp = []
-        for objective in assert_is_instance(
-            opt_config.objective, MultiObjective
-        ).objectives:
-            ot = ObjectiveThreshold(
-                metric=objective.metric,
-                bound=0.0,  # dummy value
-                op=ComparisonOp.LEQ if objective.minimize else ComparisonOp.GEQ,
+        for metric_name, weight in opt_config.objective.metric_weights:
+            minimize = weight < 0
+            op_str = "<=" if minimize else ">="
+            ot = OutcomeConstraint(
+                expression=f"{metric_name} {op_str} 0.0",
                 relative=False,
             )
             inferred_rp.append(ot)
+
+    processed_rp = []
     for ot in inferred_rp:
         # In the following, we find the index of the objective in
         # `objective_orders`. If there is an objective that does not exist
         # in `obs_data`, a ValueError is raised.
         try:
-            objective_index = objective_orders.index(ot.metric.signature)
+            objective_index = objective_orders.index(ot.metric_names[0])
         except ValueError:
             raise ValueError(
-                f"Metric {ot.metric.signature} does not exist in `obs_data`."
+                f"Metric {ot.metric_names[0]} does not exist in `obs_data`."
             )
 
+        # Note: Sympy interprets oo as infinity
         if ot.op == ComparisonOp.LEQ:
-            ot.bound = np.inf
+            processed_rp.append(
+                OutcomeConstraint(expression=f"{ot.metric_names[0]} <= oo")
+            )
             multiplier[objective_index] = -1
         else:
-            ot.bound = -np.inf
+            processed_rp.append(
+                OutcomeConstraint(expression=f"{ot.metric_names[0]} >= -oo")
+            )
             multiplier[objective_index] = 1
 
     # Finding the pareto frontier
@@ -1422,7 +1441,7 @@ def infer_reference_point_from_experiment(
         adapter=adapter,
         observation_features=obs_feats,
         observation_data=obs_data,
-        objective_thresholds=inferred_rp,
+        objective_thresholds=processed_rp,
         use_model_predictions=False,
     )
     if len(frontier_observations) == 0:
@@ -1445,7 +1464,7 @@ def infer_reference_point_from_experiment(
             adapter=adapter,
             observation_features=obs_feats,
             observation_data=obs_data,
-            objective_thresholds=inferred_rp,
+            objective_thresholds=processed_rp,
             use_model_predictions=False,
         )
         # restoring constraints
@@ -1482,16 +1501,17 @@ def infer_reference_point_from_experiment(
         x for (i, x) in enumerate(objective_orders) if multiplier[i] != 0
     ]
 
-    for obj_threshold in inferred_rp:
-        obj_threshold.bound = rp[
-            objective_orders_reduced.index(obj_threshold.metric.signature)
-        ].item()
-    return inferred_rp
+    return [
+        OutcomeConstraint(
+            expression=f"{obj_threshold.metric_names[0]} {_op_to_str(obj_threshold.op)} {rp[objective_orders_reduced.index(obj_threshold.metric_names[0])].item()}"  # noqa: E501
+        )
+        for obj_threshold in inferred_rp
+    ]
 
 
 def _get_objective_thresholds(
     optimization_config: MultiObjectiveOptimizationConfig,
-) -> list[ObjectiveThreshold]:
+) -> list[OutcomeConstraint]:
     """Get objective thresholds for an optimization config.
 
     This will return objective thresholds with dummy values if there are
@@ -1506,13 +1526,11 @@ def _get_objective_thresholds(
     if optimization_config.objective_thresholds is not None:
         return deepcopy(optimization_config.objective_thresholds)
     objective_thresholds = []
-    for objective in assert_is_instance(
-        optimization_config.objective, MultiObjective
-    ).objectives:
-        ot = ObjectiveThreshold(
-            metric=objective.metric,
-            bound=0.0,  # dummy value
-            op=ComparisonOp.LEQ if objective.minimize else ComparisonOp.GEQ,
+    for metric_name, weight in optimization_config.objective.metric_weights:
+        minimize = weight < 0
+        op_str = "<=" if minimize else ">="
+        ot = OutcomeConstraint(
+            expression=f"{metric_name} {op_str} 0.0",
             relative=False,
         )
         objective_thresholds.append(ot)

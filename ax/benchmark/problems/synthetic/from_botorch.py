@@ -235,7 +235,7 @@ def create_problem_from_botorch(
     )
 
     if isinstance(test_problem, MultiObjectiveTestProblem):
-        optimization_config = get_moo_opt_config(
+        optimization_config, opt_config_metrics = get_moo_opt_config(
             num_constraints=num_constraints,
             lower_is_better=lower_is_better,
             observe_noise_sd=observe_noise_sd,
@@ -244,7 +244,7 @@ def create_problem_from_botorch(
             use_map_metric=use_map_metric,
         )
     else:
-        optimization_config = get_soo_opt_config(
+        optimization_config, opt_config_metrics = get_soo_opt_config(
             outcome_names=test_function.outcome_names,
             lower_is_better=lower_is_better,
             observe_noise_sd=observe_noise_sd,
@@ -282,6 +282,7 @@ def create_problem_from_botorch(
         step_runtime_function=step_runtime_function,
         status_quo_params=status_quo_params,
         auxiliary_experiments_by_purpose=auxiliary_experiments_by_purpose,
+        opt_config_metrics=opt_config_metrics,
     )
 
 

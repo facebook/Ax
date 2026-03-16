@@ -117,7 +117,7 @@ class ConstraintsFeasibilityAnalysis(Analysis):
         ):
             optimization_config = none_throws(experiment.optimization_config)
             constraint_metric_names = [
-                outcome_constraint.metric.name
+                outcome_constraint.metric_names[0]
                 for outcome_constraint in optimization_config.outcome_constraints
             ]
 
@@ -185,7 +185,7 @@ class ConstraintsFeasibilityAnalysis(Analysis):
 
         arm_data = prepare_arm_data(
             experiment=experiment,
-            metric_names=[*optimization_config.metrics.keys()],
+            metric_names=[*optimization_config.metric_names],
             use_model_predictions=True,
             adapter=relevant_adapter,
             trial_statuses=[TrialStatus.COMPLETED, TrialStatus.RUNNING],
@@ -221,7 +221,7 @@ class ConstraintsFeasibilityAnalysis(Analysis):
             if isinstance(oc, ScalarizedOutcomeConstraint):
                 constraint_map[str(oc)] = oc
             else:
-                constraint_map[oc.metric.name] = oc
+                constraint_map[oc.metric_names[0]] = oc
 
         for col in p_feasible_cols:
             constraint_name = col.replace("p_feasible_", "")

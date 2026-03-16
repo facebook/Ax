@@ -26,6 +26,7 @@ from ax.core.optimization_config import (
     MultiObjectiveOptimizationConfig,
     PreferenceOptimizationConfig,
 )
+from ax.core.outcome_constraint import OutcomeConstraint
 from ax.core.parameter import ParameterType, RangeParameter
 from ax.core.search_space import SearchSpace
 from ax.core.trial import Trial
@@ -39,6 +40,7 @@ from ax.service.utils.best_point import (
 )
 from ax.service.utils.best_point_mixin import BestPointMixin
 from ax.utils.common.constants import Keys
+from ax.utils.common.sympy import build_constraint_expression_str
 from ax.utils.common.testutils import TestCase
 from ax.utils.testing.core_stubs import (
     get_experiment_with_batch_trial,
@@ -58,7 +60,7 @@ class TestBestPointMixin(TestCase):
 
         # Same experiment with maximize via new optimization config.
         opt_conf = none_throws(exp.optimization_config).clone()
-        opt_conf.objective.minimize = False
+        opt_conf.objective = Objective(expression=opt_conf.objective.metric_names[0])
         self.assertEqual(get_trace(exp, opt_conf), [11, 11, 11, 15, 15])
 
         with self.subTest("Single objective with constraints"):
@@ -113,8 +115,15 @@ class TestBestPointMixin(TestCase):
 
         # W/ relative constraints & status quo.
         exp.status_quo = Arm(parameters={"x": 0.5, "y": 0.5}, name="status_quo")
-        exp.optimization_config.outcome_constraints[0].bound = 1.0
-        exp.optimization_config.outcome_constraints[0].relative = True
+        c = none_throws(exp.optimization_config).outcome_constraints[0]
+        none_throws(exp.optimization_config).outcome_constraints[0] = OutcomeConstraint(
+            expression=build_constraint_expression_str(
+                metric_weights=c.metric_weights,
+                op=">=" if c.op == ComparisonOp.GEQ else "<=",
+                bound=1.0,
+                relative=True,
+            )
+        )
         # Fails if there's no data for status quo.
         with self.assertRaisesRegex(DataRequiredError, "relative constraint"):
             get_trace(exp)
@@ -148,7 +157,15 @@ class TestBestPointMixin(TestCase):
         # test batch trial
         exp = get_experiment_with_batch_trial(with_status_quo=False)
         trial = exp.trials[0]
-        exp.optimization_config.outcome_constraints[0].relative = False
+        c = none_throws(exp.optimization_config).outcome_constraints[0]
+        none_throws(exp.optimization_config).outcome_constraints[0] = OutcomeConstraint(
+            expression=build_constraint_expression_str(
+                metric_weights=c.metric_weights,
+                op=">=" if c.op == ComparisonOp.GEQ else "<=",
+                bound=c.bound,
+                relative=False,
+            )
+        )
         trial.mark_running(no_runner_required=True).mark_completed()
         df_dict = []
         for i, arm in enumerate(trial.arms):
@@ -417,7 +434,7 @@ class TestBestPointMixin(TestCase):
         self.assertEqual(get_best(exp), 5)
         # Same experiment with maximize via new optimization config.
         opt_conf = none_throws(exp.optimization_config).clone()
-        opt_conf.objective.minimize = False
+        opt_conf.objective = Objective(expression=opt_conf.objective.metric_names[0])
         self.assertEqual(get_best(exp, opt_conf), 15)
 
         # Scalarized.
@@ -629,10 +646,10 @@ class InferReferencePointFromExperimentTest(TestCase):
         # be [-0.35, 0.35].
         self.assertEqual(inferred_reference_point[0].op, ComparisonOp.LEQ)
         self.assertEqual(inferred_reference_point[0].bound, -0.35)
-        self.assertEqual(inferred_reference_point[0].metric.signature, "m1")
+        self.assertEqual(inferred_reference_point[0].metric_names[0], "m1")
         self.assertEqual(inferred_reference_point[1].op, ComparisonOp.GEQ)
         self.assertEqual(inferred_reference_point[1].bound, 0.35)
-        self.assertEqual(inferred_reference_point[1].metric.signature, "m2")
+        self.assertEqual(inferred_reference_point[1].metric_names[0], "m2")
 
         with mock.patch(
             "ax.service.utils.best_point.get_pareto_frontier_and_configs",
@@ -659,7 +676,15 @@ class InferReferencePointFromExperimentTest(TestCase):
         # TODO: Use experiment clone function once D50804778 is landed.
         experiment = copy.deepcopy(experiment)
         # Ensure that no observation is feasible.
-        experiment.optimization_config.outcome_constraints[0].bound = 1000.0
+        oc_metric_name = (
+            none_throws(experiment.optimization_config)
+            .outcome_constraints[0]
+            .metric_names[0]
+        )
+        none_throws(experiment.optimization_config).outcome_constraints[0] = (
+            OutcomeConstraint(expression=f"{oc_metric_name} >= 1000")
+        )
+
         experiments.append(experiment)
 
         for experiment in experiments:
@@ -680,10 +705,10 @@ class InferReferencePointFromExperimentTest(TestCase):
             # be [-0.35, 0.35].
             self.assertEqual(inferred_reference_point[0].op, ComparisonOp.LEQ)
             self.assertEqual(inferred_reference_point[0].bound, -0.35)
-            self.assertEqual(inferred_reference_point[0].metric.signature, "m1")
+            self.assertEqual(inferred_reference_point[0].metric_names[0], "m1")
             self.assertEqual(inferred_reference_point[1].op, ComparisonOp.GEQ)
             self.assertEqual(inferred_reference_point[1].bound, 0.35)
-            self.assertEqual(inferred_reference_point[1].metric.signature, "m2")
+            self.assertEqual(inferred_reference_point[1].metric_names[0], "m2")
 
     def test_infer_reference_point_from_experiment_shuffled_metrics(self) -> None:
         # Generating an experiment with given data.
@@ -760,10 +785,10 @@ class InferReferencePointFromExperimentTest(TestCase):
 
             self.assertEqual(inferred_reference_point[0].op, ComparisonOp.LEQ)
             self.assertEqual(inferred_reference_point[0].bound, -0.35)
-            self.assertEqual(inferred_reference_point[0].metric.signature, "m1")
+            self.assertEqual(inferred_reference_point[0].metric_names[0], "m1")
             self.assertEqual(inferred_reference_point[1].op, ComparisonOp.GEQ)
             self.assertEqual(inferred_reference_point[1].bound, 0.35)
-            self.assertEqual(inferred_reference_point[1].metric.signature, "m2")
+            self.assertEqual(inferred_reference_point[1].metric_names[0], "m2")
 
     def test_get_tensor_converter_adapter(self) -> None:
         # Test that it can convert experiments with different number of observations.

@@ -66,7 +66,7 @@ class TestAddExecutionViability(TestCase):
         )
         # Check that the last constraint is the feasibility constraint
         feasibility_constraint = new_opt_config.outcome_constraints[-1]
-        self.assertEqual(feasibility_constraint.metric.name, "execution_viable")
+        self.assertEqual(feasibility_constraint.metric_names[0], "execution_viable")
         self.assertEqual(feasibility_constraint.op, ComparisonOp.GEQ)
         self.assertEqual(feasibility_constraint.bound, 0.8)
         self.assertFalse(feasibility_constraint.relative)

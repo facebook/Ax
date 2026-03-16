@@ -12,27 +12,24 @@ from itertools import groupby
 from typing import Self
 
 from ax.core.arm import Arm
-from ax.core.metric import Metric
-from ax.core.objective import MultiObjective, Objective, ScalarizedObjective
+from ax.core.objective import Objective
 from ax.core.outcome_constraint import (
     ComparisonOp,
     ObjectiveThreshold,
     OutcomeConstraint,
-    ScalarizedOutcomeConstraint,
 )
 from ax.exceptions.core import UserInputError
 from ax.utils.common.base import Base
-from pyre_extensions import assert_is_instance
 
 
-TRefPoint = list[ObjectiveThreshold]
+TRefPoint = list[OutcomeConstraint]
 
 # Sentinels for default arguments when None is a valid input
-_NO_OUTCOME_CONSTRAINTS = [
-    OutcomeConstraint(Metric("placeholder", lower_is_better=True), ComparisonOp.GEQ, 0)
+_NO_OUTCOME_CONSTRAINTS: list[OutcomeConstraint] = [
+    OutcomeConstraint(expression="__placeholder__ >= 0")
 ]
-_NO_OBJECTIVE_THRESHOLDS = [
-    ObjectiveThreshold(Metric("placeholder", lower_is_better=True), 0)
+_NO_OBJECTIVE_THRESHOLDS: list[OutcomeConstraint] = [
+    OutcomeConstraint(expression="__placeholder__ >= 0")
 ]
 
 _NO_PRUNING_TARGET_PARAMETERIZATION = Arm(parameters={})
@@ -135,29 +132,25 @@ class OptimizationConfig(Base):
         return self._outcome_constraints
 
     @property
-    def metrics(self) -> dict[str, Metric]:
-        """Returns mapping of name to metric."""
-        constraint_metrics = {
-            oc.metric.name: oc.metric
-            for oc in self.all_constraints
-            if not isinstance(oc, ScalarizedOutcomeConstraint)
-        }
-        scalarized_constraint_metrics = {
-            metric.name: metric
-            for oc in self.all_constraints
-            if isinstance(oc, ScalarizedOutcomeConstraint)
-            for metric in oc.metrics
-        }
-        objective_metrics = {metric.name: metric for metric in self.objective.metrics}
-        return {
-            **constraint_metrics,
-            **scalarized_constraint_metrics,
-            **objective_metrics,
-        }
+    def objective_thresholds(self) -> list[OutcomeConstraint]:
+        """Get objective thresholds."""
+        return [
+            threshold
+            for threshold in self.outcome_constraints
+            if threshold.metric_names[0] in self.objective.metric_names
+        ]
+
+    @property
+    def metric_names(self) -> set[str]:
+        """All metric names referenced by the objective and constraints."""
+        names: set[str] = set(self.objective.metric_names)
+        for oc in self.all_constraints:
+            names.update(oc.metric_names)
+        return names
 
     @property
     def is_moo_problem(self) -> bool:
-        return self.objective is not None and isinstance(self.objective, MultiObjective)
+        return self.objective is not None and self.objective.is_multi_objective
 
     @property
     def is_bope_problem(self) -> bool:
@@ -195,55 +188,47 @@ class OptimizationConfig(Base):
             objective: Metric+direction to use for the optimization.
             outcome_constraints: Constraints to validate.
         """
-        if type(objective) is MultiObjective:
-            # Raise error on exact equality; `ScalarizedObjective` is OK
+        if objective.is_multi_objective:
+            # Raise error on multi-objective; `ScalarizedObjective` is OK
             raise ValueError(
                 "OptimizationConfig does not support MultiObjective. "
                 "Use MultiObjectiveOptimizationConfig instead."
             )
         outcome_constraints = outcome_constraints or []
-        unconstrainable_metrics = objective.get_unconstrainable_metrics()
+        unconstrainable_metric_names = objective.get_unconstrainable_metric_names()
         OptimizationConfig._validate_outcome_constraints(
-            unconstrainable_metrics=unconstrainable_metrics,
+            unconstrainable_metric_names=unconstrainable_metric_names,
             outcome_constraints=outcome_constraints,
         )
 
     @staticmethod
     def _validate_outcome_constraints(
-        unconstrainable_metrics: list[Metric],
+        unconstrainable_metric_names: list[str],
         outcome_constraints: list[OutcomeConstraint],
     ) -> None:
-        constraint_metric_map = {}
+        # Build a set of all metric names referenced in constraints
+        constraint_metric_names: set[str] = set()
         for oc in outcome_constraints:
-            if isinstance(oc, ScalarizedOutcomeConstraint):
-                for m in oc.metrics:
-                    constraint_metric_map[m.signature] = m.name
-            else:
-                constraint_metric_map[oc.metric.signature] = oc.metric.name
+            constraint_metric_names.update(oc.metric_names)
 
-        for metric in unconstrainable_metrics:
-            if metric.signature in constraint_metric_map:
+        for name in unconstrainable_metric_names:
+            if name in constraint_metric_names:
                 raise ValueError("Cannot constrain on objective metric.")
 
         def constraint_key(oc: OutcomeConstraint) -> str:
-            return (
-                str(oc)
-                if isinstance(oc, ScalarizedOutcomeConstraint)
-                else oc.metric.signature
-            )
+            # For multi-metric constraints, use the full string representation
+            # For single-metric, use the metric name
+            if len(oc.metric_names) > 1:
+                return str(oc)
+            return oc.metric_names[0]
 
         sorted_constraints = sorted(outcome_constraints, key=constraint_key)
-        for metric_signature, constraints_itr in groupby(
-            sorted_constraints, constraint_key
-        ):
+        for key, constraints_itr in groupby(sorted_constraints, constraint_key):
             constraints: list[OutcomeConstraint] = list(constraints_itr)
             constraints_len = len(constraints)
             if constraints_len == 2:
                 if constraints[0].op == constraints[1].op:
-                    raise ValueError(
-                        f"Duplicate outcome constraints "
-                        f"{constraint_metric_map[metric_signature]}"
-                    )
+                    raise ValueError(f"Duplicate outcome constraints {key}")
                 lower_bound_idx = 0 if constraints[0].op == ComparisonOp.GEQ else 1
                 upper_bound_idx = 1 - lower_bound_idx
                 lower_bound = constraints[lower_bound_idx].bound
@@ -251,14 +236,10 @@ class OptimizationConfig(Base):
                 if lower_bound >= upper_bound:
                     raise ValueError(
                         f"Lower bound {lower_bound} is >= upper bound "
-                        f"{upper_bound} for "
-                        f"{constraint_metric_map[metric_signature]}"
+                        f"{upper_bound} for {key}"
                     )
             elif constraints_len > 2:
-                raise ValueError(
-                    "Duplicate outcome constraints "
-                    f"{constraint_metric_map[metric_signature]}"
-                )
+                raise ValueError(f"Duplicate outcome constraints {key}")
 
     def __repr__(self) -> str:
         return (
@@ -288,9 +269,9 @@ class MultiObjectiveOptimizationConfig(OptimizationConfig):
 
     def __init__(
         self,
-        objective: MultiObjective | ScalarizedObjective,
+        objective: Objective,
         outcome_constraints: list[OutcomeConstraint] | None = None,
-        objective_thresholds: list[ObjectiveThreshold] | None = None,
+        objective_thresholds: list[OutcomeConstraint] | None = None,
         pruning_target_parameterization: Arm | None = None,
     ) -> None:
         """Inits MultiObjectiveOptimizationConfig.
@@ -323,18 +304,18 @@ class MultiObjectiveOptimizationConfig(OptimizationConfig):
             outcome_constraints=constraints,
             objective_thresholds=objective_thresholds,
         )
-        self._objective: MultiObjective | ScalarizedObjective = objective
+        self._objective: Objective = objective
         self._outcome_constraints: list[OutcomeConstraint] = constraints
-        self._objective_thresholds: list[ObjectiveThreshold] = objective_thresholds
+        self._objective_thresholds: list[OutcomeConstraint] = objective_thresholds
         self.pruning_target_parameterization = pruning_target_parameterization
 
     # pyre-fixme[14]: Inconsistent override.
     def clone_with_args(
         self,
-        objective: MultiObjective | ScalarizedObjective | None = None,
+        objective: Objective | None = None,
         outcome_constraints: None | (list[OutcomeConstraint]) = _NO_OUTCOME_CONSTRAINTS,
         objective_thresholds: None
-        | (list[ObjectiveThreshold]) = _NO_OBJECTIVE_THRESHOLDS,
+        | (list[OutcomeConstraint]) = _NO_OBJECTIVE_THRESHOLDS,
         pruning_target_parameterization: Arm
         | None = _NO_PRUNING_TARGET_PARAMETERIZATION,
     ) -> "MultiObjectiveOptimizationConfig":
@@ -363,12 +344,12 @@ class MultiObjectiveOptimizationConfig(OptimizationConfig):
         )
 
     @property
-    def objective(self) -> MultiObjective | ScalarizedObjective:
+    def objective(self) -> Objective:
         """Get objective."""
         return self._objective
 
     @objective.setter
-    def objective(self, objective: MultiObjective | ScalarizedObjective) -> None:
+    def objective(self, objective: Objective) -> None:
         """Set objective if not present in outcome constraints."""
         self._validate_transformed_optimization_config(
             objective=objective,
@@ -383,13 +364,13 @@ class MultiObjectiveOptimizationConfig(OptimizationConfig):
         return self.outcome_constraints + self.objective_thresholds
 
     @property
-    def objective_thresholds(self) -> list[ObjectiveThreshold]:
+    def objective_thresholds(self) -> list[OutcomeConstraint]:
         """Get objective thresholds."""
         return self._objective_thresholds
 
     @objective_thresholds.setter
     def objective_thresholds(
-        self, objective_thresholds: list[ObjectiveThreshold]
+        self, objective_thresholds: list[OutcomeConstraint]
     ) -> None:
         """Set outcome constraints if valid, else raise."""
         self._validate_transformed_optimization_config(
@@ -399,17 +380,17 @@ class MultiObjectiveOptimizationConfig(OptimizationConfig):
         self._objective_thresholds = objective_thresholds
 
     @property
-    def objective_thresholds_dict(self) -> dict[str, ObjectiveThreshold]:
+    def objective_thresholds_dict(self) -> dict[str, OutcomeConstraint]:
         """Get a mapping from objective metric name to the corresponding
         threshold.
         """
-        return {ot.metric.name: ot for ot in self._objective_thresholds}
+        return {ot.metric_names[0]: ot for ot in self._objective_thresholds}
 
     @staticmethod
     def _validate_transformed_optimization_config(
         objective: Objective,
         outcome_constraints: list[OutcomeConstraint] | None = None,
-        objective_thresholds: list[ObjectiveThreshold] | None = None,
+        objective_thresholds: list[OutcomeConstraint] | None = None,
     ) -> None:
         """Ensure outcome constraints are valid.
 
@@ -424,7 +405,7 @@ class MultiObjectiveOptimizationConfig(OptimizationConfig):
             outcome_constraints: Constraints to validate.
             objective_thresholds: Thresholds objectives must exceed.
         """
-        if not isinstance(objective, (MultiObjective, ScalarizedObjective)):
+        if not (objective.is_multi_objective or objective.is_scalarized_objective):
             raise TypeError(
                 "`MultiObjectiveOptimizationConfig` requires an objective "
                 "of type `MultiObjective` or `ScalarizedObjective`. "
@@ -433,18 +414,24 @@ class MultiObjectiveOptimizationConfig(OptimizationConfig):
             )
         outcome_constraints = outcome_constraints or []
         objective_thresholds = objective_thresholds or []
-        if isinstance(objective, MultiObjective):
-            objectives_by_signature = {
-                obj.metric.signature: obj for obj in objective.objectives
-            }
+        if objective.is_multi_objective:
+            # Build objectives_by_name by decomposing the multi-objective
+            # expression into sub-objectives
+            parts = [p.strip() for p in objective.expression.split(",")]
+            objectives_by_name: dict[str, Objective] = {}
+            for part in parts:
+                sub_obj = Objective(expression=part)
+                for name in sub_obj.metric_names:
+                    objectives_by_name[name] = sub_obj
+
             check_objective_thresholds_match_objectives(
-                objectives_by_signature=objectives_by_signature,
+                objectives_by_name=objectives_by_name,
                 objective_thresholds=objective_thresholds,
             )
 
-        unconstrainable_metrics = objective.get_unconstrainable_metrics()
+        unconstrainable_metric_names = objective.get_unconstrainable_metric_names()
         OptimizationConfig._validate_outcome_constraints(
-            unconstrainable_metrics=unconstrainable_metrics,
+            unconstrainable_metric_names=unconstrainable_metric_names,
             outcome_constraints=outcome_constraints,
         )
 
@@ -458,29 +445,28 @@ class MultiObjectiveOptimizationConfig(OptimizationConfig):
 
 
 def check_objective_thresholds_match_objectives(
-    objectives_by_signature: dict[str, Objective],
-    objective_thresholds: list[ObjectiveThreshold],
+    objectives_by_name: dict[str, Objective],
+    objective_thresholds: list[OutcomeConstraint],
 ) -> None:
     """Error if thresholds on objective_metrics bound from the wrong direction or
     if there is a mismatch between objective thresholds and objectives.
     """
-    obj_thresh_metrics = set()
+    obj_thresh_metrics: set[str] = set()
     for threshold in objective_thresholds:
-        th_metric_signature = threshold.metric.signature
-        th_metric_name = threshold.metric.name
-        if th_metric_signature not in objectives_by_signature:
+        th_metric_name = threshold.metric_names[0]
+        if th_metric_name not in objectives_by_name:
             raise UserInputError(
                 f"Objective threshold {threshold} is on metric '{th_metric_name}', "
                 f"but that metric is not among the objectives."
             )
-        if th_metric_signature in obj_thresh_metrics:
+        if th_metric_name in obj_thresh_metrics:
             raise UserInputError(
                 "More than one objective threshold specified for metric "
                 f"{th_metric_name}."
             )
-        obj_thresh_metrics.add(th_metric_signature)
+        obj_thresh_metrics.add(th_metric_name)
 
-        minimize = objectives_by_signature[th_metric_signature].minimize
+        minimize = objectives_by_name[th_metric_name].minimize
         bounded_above = threshold.op == ComparisonOp.LEQ
         is_aligned = minimize == bounded_above
         if not is_aligned:
@@ -495,7 +481,7 @@ def check_objective_thresholds_match_objectives(
 class PreferenceOptimizationConfig(MultiObjectiveOptimizationConfig):
     def __init__(
         self,
-        objective: MultiObjective,
+        objective: Objective,
         preference_profile_name: str,
         outcome_constraints: list[OutcomeConstraint] | None = None,
         expect_relativized_outcomes: bool = False,
@@ -529,6 +515,12 @@ class PreferenceOptimizationConfig(MultiObjectiveOptimizationConfig):
                 consideration, and if not, the parameter value will be replaced with
                 the corresponding value in the target arm.
         """
+        if not objective.is_multi_objective:
+            raise TypeError(
+                "`PreferenceOptimizationConfig` requires a multi-objective. "
+                "Use `OptimizationConfig` instead if using a "
+                "single-metric objective."
+            )
         if outcome_constraints:
             raise NotImplementedError(
                 "Outcome constraints are not yet supported in "
@@ -558,7 +550,7 @@ class PreferenceOptimizationConfig(MultiObjectiveOptimizationConfig):
     # pyre-ignore[14]: Inconsistent override.
     def clone_with_args(
         self,
-        objective: MultiObjective | None = None,
+        objective: Objective | None = None,
         preference_profile_name: str | None = None,
         outcome_constraints: list[OutcomeConstraint] | None = _NO_OUTCOME_CONSTRAINTS,
         expect_relativized_outcomes: bool | None = None,
@@ -566,11 +558,7 @@ class PreferenceOptimizationConfig(MultiObjectiveOptimizationConfig):
         | None = _NO_PRUNING_TARGET_PARAMETERIZATION,
     ) -> PreferenceOptimizationConfig:
         """Make a copy of this optimization config."""
-        objective = (
-            assert_is_instance(self.objective.clone(), MultiObjective)
-            if objective is None
-            else objective
-        )
+        objective = self.objective.clone() if objective is None else objective
 
         preference_profile_name = (
             self.preference_profile_name

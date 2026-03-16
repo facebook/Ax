@@ -23,6 +23,7 @@ from ax.adapter.factory import get_sobol
 from ax.adapter.registry import Cont_X_trans, ST_MTGP_trans, Y_trans
 from ax.adapter.torch import TorchAdapter
 from ax.core.metric import Metric
+from ax.core.objective import Objective
 from ax.core.observation import ObservationData, ObservationFeatures
 from ax.core.optimization_config import MultiObjectiveOptimizationConfig
 from ax.core.outcome_constraint import (
@@ -79,9 +80,9 @@ class MultiObjectiveTorchAdapterTest(TestCase):
         )
         for trial in exp.trials.values():
             trial.mark_running(no_runner_required=True).mark_completed()
-        metrics_dict = none_throws(exp.optimization_config).metrics
+        metrics_dict = exp.metrics
         objective_bound = 5.0
-        objective_thresholds = [
+        objective_thresholds: list[OutcomeConstraint] = [
             ObjectiveThreshold(
                 metric=metrics_dict[f"branin_{letter}"],
                 bound=objective_bound,
@@ -90,6 +91,13 @@ class MultiObjectiveTorchAdapterTest(TestCase):
             )
             for letter in "ab"
         ]
+        # Register any constraint metrics on the experiment before setting
+        # the optimization config.
+        if outcome_constraints is not None:
+            for oc in outcome_constraints:
+                for name in oc.metric_names:
+                    if name not in exp.metrics:
+                        exp.add_tracking_metric(Metric(name=name))
         exp.optimization_config = assert_is_instance(
             exp.optimization_config, MultiObjectiveOptimizationConfig
         ).clone_with_args(
@@ -243,7 +251,10 @@ class MultiObjectiveTorchAdapterTest(TestCase):
         The constraint won't come close to binding, so it shouldn't affect results.
         """
         constraint = OutcomeConstraint(
-            Metric(name="branin_c"), ComparisonOp.LEQ, bound=100.0, relative=False
+            metric=Metric(name="branin_c"),
+            op=ComparisonOp.LEQ,
+            bound=100.0,
+            relative=False,
         )
         for outcome_constraints in [None, [constraint]]:
             with self.subTest(outcome_constraints=outcome_constraints):
@@ -258,8 +269,8 @@ class MultiObjectiveTorchAdapterTest(TestCase):
         )
         for trial in exp.trials.values():
             trial.mark_running(no_runner_required=True).mark_completed()
-        metrics_dict = none_throws(exp.optimization_config).metrics
-        objective_thresholds = [
+        metrics_dict = exp.metrics
+        objective_thresholds: list[OutcomeConstraint] = [
             ObjectiveThreshold(
                 metric=metrics_dict[f"branin_{letter}"],
                 bound=5.0,
@@ -322,10 +333,11 @@ class MultiObjectiveTorchAdapterTest(TestCase):
             )
             for trial in exp.trials.values():
                 trial.mark_running(no_runner_required=True).mark_completed()
-            metrics_dict = none_throws(exp.optimization_config).metrics
+            # pyre-fixme[16]: Optional type has no attribute `metrics`.
+            metrics_dict = exp.metrics
             # Objective thresholds and synthetic observations chosen to have closed-form
             # hypervolumes to test.
-            objective_thresholds = [
+            objective_thresholds: list[OutcomeConstraint] = [
                 ObjectiveThreshold(
                     metric=metrics_dict["branin_a"],
                     bound=10.0,
@@ -354,7 +366,7 @@ class MultiObjectiveTorchAdapterTest(TestCase):
             exp.attach_data(
                 get_branin_data_multi_objective(
                     trial_indices=exp.trials.keys(),
-                    outcomes=list(optimization_config.metrics),
+                    outcomes=list(optimization_config.metric_names),
                 )
             )
             adapter = TorchAdapter(
@@ -447,7 +459,12 @@ class MultiObjectiveTorchAdapterTest(TestCase):
         param_constraints = [ParameterConstraint(inequality="x1 <= 10")]
         search_space.add_parameter_constraints(param_constraints)
         oc = none_throws(exp.optimization_config).clone()
-        oc.objective._objectives[0].minimize = True
+        # Set the first sub-objective to minimize (ensure negative sign).
+        sub_exprs = [s.strip() for s in oc.objective.expression.split(",")]
+        first = sub_exprs[0]
+        if not first.startswith("-"):
+            sub_exprs[0] = f"-{first}"
+        oc.objective = Objective(expression=", ".join(sub_exprs))
 
         for use_partial_thresholds in (False, True):
             if use_partial_thresholds:
@@ -455,7 +472,7 @@ class MultiObjectiveTorchAdapterTest(TestCase):
                     oc, MultiObjectiveOptimizationConfig
                 )._objective_thresholds = [
                     ObjectiveThreshold(
-                        metric=oc.objective.metrics[0],
+                        metric=Metric(name=oc.objective.metric_names[0]),
                         bound=2.0,
                         relative=False,
                         op=ComparisonOp.LEQ,
@@ -536,10 +553,10 @@ class MultiObjectiveTorchAdapterTest(TestCase):
                 self.assertTrue(
                     torch.equal(ckwargs["objective_weights"], expected_obj_weights)
                 )
-            self.assertEqual(obj_thresholds[0].metric.name, "branin_a")
-            self.assertEqual(obj_thresholds[1].metric.name, "branin_b")
-            self.assertEqual(obj_thresholds[0].metric.signature, "branin_a")
-            self.assertEqual(obj_thresholds[1].metric.signature, "branin_b")
+            self.assertEqual(obj_thresholds[0].metric_names[0], "branin_a")
+            self.assertEqual(obj_thresholds[1].metric_names[0], "branin_b")
+            self.assertEqual(obj_thresholds[0].metric_names[0], "branin_a")
+            self.assertEqual(obj_thresholds[1].metric_names[0], "branin_b")
             self.assertEqual(obj_thresholds[0].op, ComparisonOp.LEQ)
             self.assertEqual(obj_thresholds[1].op, ComparisonOp.LEQ)
             self.assertFalse(obj_thresholds[0].relative)
@@ -615,10 +632,10 @@ class MultiObjectiveTorchAdapterTest(TestCase):
             ckwargs = mock_get_X_pending_and_observed.call_args.kwargs
             self.assertEqual(ckwargs["fixed_features"], {2: 1.0})
             mock_untransform_objective_thresholds.assert_called_once()
-        self.assertEqual(obj_thresholds[0].metric.name, "branin_a")
-        self.assertEqual(obj_thresholds[1].metric.name, "branin_b")
-        self.assertEqual(obj_thresholds[0].metric.signature, "branin_a")
-        self.assertEqual(obj_thresholds[1].metric.signature, "branin_b")
+        self.assertEqual(obj_thresholds[0].metric_names[0], "branin_a")
+        self.assertEqual(obj_thresholds[1].metric_names[0], "branin_b")
+        self.assertEqual(obj_thresholds[0].metric_names[0], "branin_a")
+        self.assertEqual(obj_thresholds[1].metric_names[0], "branin_b")
         self.assertEqual(obj_thresholds[0].op, ComparisonOp.LEQ)
         self.assertEqual(obj_thresholds[1].op, ComparisonOp.LEQ)
         self.assertFalse(obj_thresholds[0].relative)
@@ -668,10 +685,10 @@ class MultiObjectiveTorchAdapterTest(TestCase):
             )
         mock_untransform.assert_called_once()
         self.assertEqual(wrapped_cast.call_count, 0)
-        self.assertEqual(obj_thresholds[0].metric.name, "branin_a")
-        self.assertEqual(obj_thresholds[1].metric.name, "branin_b")
-        self.assertEqual(obj_thresholds[0].metric.signature, "branin_a")
-        self.assertEqual(obj_thresholds[1].metric.signature, "branin_b")
+        self.assertEqual(obj_thresholds[0].metric_names[0], "branin_a")
+        self.assertEqual(obj_thresholds[1].metric_names[0], "branin_b")
+        self.assertEqual(obj_thresholds[0].metric_names[0], "branin_a")
+        self.assertEqual(obj_thresholds[1].metric_names[0], "branin_b")
         self.assertEqual(obj_thresholds[0].op, ComparisonOp.LEQ)
         self.assertEqual(obj_thresholds[1].op, ComparisonOp.LEQ)
         self.assertFalse(obj_thresholds[0].relative)
@@ -700,10 +717,10 @@ class MultiObjectiveTorchAdapterTest(TestCase):
             optimization_config=exp.optimization_config,
             fixed_features=None,
         )
-        self.assertEqual(obj_thresholds[0].metric.name, "branin_a")
-        self.assertEqual(obj_thresholds[1].metric.name, "branin_b")
-        self.assertEqual(obj_thresholds[0].metric.signature, "branin_a")
-        self.assertEqual(obj_thresholds[1].metric.signature, "branin_b")
+        self.assertEqual(obj_thresholds[0].metric_names[0], "branin_a")
+        self.assertEqual(obj_thresholds[1].metric_names[0], "branin_b")
+        self.assertEqual(obj_thresholds[0].metric_names[0], "branin_a")
+        self.assertEqual(obj_thresholds[1].metric_names[0], "branin_b")
         self.assertEqual(obj_thresholds[0].op, ComparisonOp.LEQ)
         self.assertEqual(obj_thresholds[1].op, ComparisonOp.LEQ)
         self.assertFalse(obj_thresholds[0].relative)

@@ -33,7 +33,7 @@ import numpy as np
 import numpy.typing as npt
 import pandas as pd
 from ax.benchmark.benchmark_method import BenchmarkMethod
-from ax.benchmark.benchmark_problem import BenchmarkProblem
+from ax.benchmark.benchmark_problem import _is_minimizing, BenchmarkProblem
 from ax.benchmark.benchmark_result import AggregatedBenchmarkResult, BenchmarkResult
 from ax.benchmark.benchmark_runner import BenchmarkRunner
 from ax.benchmark.benchmark_test_function import BenchmarkTestFunction
@@ -41,7 +41,7 @@ from ax.benchmark.methods.sobol import get_sobol_benchmark_method
 from ax.core.arm import Arm
 from ax.core.data import MAP_KEY
 from ax.core.experiment import Experiment
-from ax.core.objective import MultiObjective
+from ax.core.metric import Metric
 from ax.core.optimization_config import (
     MultiObjectiveOptimizationConfig,
     OptimizationConfig,
@@ -199,6 +199,7 @@ def get_oracle_experiment_from_params(
     experiment = Experiment(
         search_space=problem.search_space,
         optimization_config=problem.optimization_config,
+        tracking_metrics=(problem.opt_config_metrics or []),
     )
 
     # The test function produces ground-truth values; noise is handled by
@@ -644,7 +645,8 @@ def run_optimization_with_orchestrator(
         optimization_config=problem.optimization_config,
         runner=runner,
         status_quo=sq_arm,
-        tracking_metrics=problem.tracking_metrics,
+        tracking_metrics=(problem.opt_config_metrics or [])
+        + (problem.tracking_metrics or []),
         auxiliary_experiments_by_purpose=problem.auxiliary_experiments_by_purpose,
     )
 
@@ -740,6 +742,7 @@ def compute_baseline_value_from_sobol(
     test_function: BenchmarkTestFunction,
     target_fidelity_and_task: Mapping[str, TParamValue] | None = None,
     n_repeats: int = 50,
+    opt_config_metrics: list[Metric] | None = None,
 ) -> float:
     """
     Compute the `baseline_value` that will be assigned to
@@ -766,8 +769,8 @@ def compute_baseline_value_from_sobol(
 
     # set up a dummy problem so we can use `benchmark_replication`
     # MOO problems are always higher-is-better because they use hypervolume
-    higher_is_better = isinstance(optimization_config.objective, MultiObjective) or (
-        not optimization_config.objective.minimize
+    higher_is_better = optimization_config.objective.is_multi_objective or (
+        not _is_minimizing(optimization_config.objective)
     )
     dummy_problem = BenchmarkProblem(
         name="dummy",
@@ -781,6 +784,7 @@ def compute_baseline_value_from_sobol(
         baseline_value=0.0,
         search_space=search_space,
         target_fidelity_and_task=target_fidelity_and_task,
+        opt_config_metrics=opt_config_metrics or [],
     )
 
     values = np.full(n_repeats, np.nan)

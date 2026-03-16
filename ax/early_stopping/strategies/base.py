@@ -17,7 +17,6 @@ from ax.adapter.data_utils import _maybe_normalize_map_key
 from ax.core.batch_trial import BatchTrial
 from ax.core.data import Data, MAP_KEY
 from ax.core.experiment import Experiment
-from ax.core.objective import MultiObjective
 from ax.core.trial_status import TrialStatus
 from ax.early_stopping.utils import (
     _interval_boundary,
@@ -505,8 +504,8 @@ class BaseEarlyStoppingStrategy(ABC, Base):
         Args:
             experiment: The experiment containing the optimization config.
 
-        Returns: A dictionary mapping metric names to a Boolean indicating whether
-            the objective is being minimized.
+        Returns: A dictionary mapping metric signatures to a Boolean indicating
+            whether the objective is being minimized.
         """
         if self.metric_signatures is None:
             logger.debug(
@@ -516,15 +515,15 @@ class BaseEarlyStoppingStrategy(ABC, Base):
             )
             optimization_config = none_throws(experiment.optimization_config)
             objective = optimization_config.objective
-            objectives = (
-                objective.objectives
-                if isinstance(objective, MultiObjective)
-                else [objective]
-            )
             directions = {}
-            for objective in objectives:
-                metric_signature = objective.metric.signature
-                directions[metric_signature] = objective.minimize
+            if objective.is_multi_objective:
+                for name, weight in objective.metric_weights:
+                    metric = experiment.get_metric(name)
+                    directions[metric.signature] = weight < 0
+            else:
+                name = objective.metric_names[0]
+                metric = experiment.get_metric(name)
+                directions[metric.signature] = objective.minimize
 
         else:
             metric_signatures = list(self.metric_signatures)

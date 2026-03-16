@@ -477,6 +477,7 @@ class CrossValidationTest(TestCase):
         has_good_fit = has_good_opt_config_model_fit(
             optimization_config=optimization_config,
             assess_model_fit_result=assess_model_fit_result,
+            experiment=self.experiment,
         )
         self.assertFalse(has_good_fit)
 
@@ -484,14 +485,15 @@ class CrossValidationTest(TestCase):
         optimization_config = MultiObjectiveOptimizationConfig(
             objective=MultiObjective(
                 objectives=[
-                    Objective(Metric("m1"), minimize=False),
-                    Objective(Metric("m2"), minimize=False),
+                    Objective(metric=Metric("m1"), minimize=False),
+                    Objective(metric=Metric("m2"), minimize=False),
                 ]
             )
         )
         has_good_fit = has_good_opt_config_model_fit(
             optimization_config=optimization_config,
             assess_model_fit_result=assess_model_fit_result,
+            experiment=self.experiment,
         )
         self.assertFalse(has_good_fit)
 
@@ -505,6 +507,7 @@ class CrossValidationTest(TestCase):
         has_good_fit = has_good_opt_config_model_fit(
             optimization_config=optimization_config,
             assess_model_fit_result=assess_model_fit_result,
+            experiment=self.experiment,
         )
         self.assertFalse(has_good_fit)
 

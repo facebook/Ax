@@ -12,7 +12,7 @@ from collections.abc import Sequence
 import pandas as pd
 from ax.analysis.plotly.color_constants import BOTORCH_COLOR_SCALE, LIGHT_AX_BLUE
 from ax.core.experiment import Experiment
-from ax.core.objective import MultiObjective, ScalarizedObjective
+from ax.core.objective import ScalarizedObjective
 from ax.core.trial_status import DEFAULT_ANALYSIS_STATUSES, TrialStatus
 from ax.exceptions.core import UnsupportedError
 from plotly import express as px
@@ -208,7 +208,7 @@ def select_metric(experiment: Experiment) -> str:
             "Cannot infer metric to plot from Experiment without OptimizationConfig"
         )
     objective = experiment.optimization_config.objective
-    if isinstance(objective, MultiObjective):
+    if objective.is_multi_objective:
         raise UnsupportedError(
             "Cannot infer metric to plot from MultiObjective, please specify a metric"
         )
@@ -217,7 +217,7 @@ def select_metric(experiment: Experiment) -> str:
             "Cannot infer metric to plot from ScalarizedObjective, please "
             "specify a metric"
         )
-    return experiment.optimization_config.objective.metric.name
+    return experiment.optimization_config.objective.metric_names[0]
 
 
 def get_trial_statuses_with_fallback(

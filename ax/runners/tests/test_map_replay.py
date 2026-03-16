@@ -45,6 +45,7 @@ class MapReplayRunnerTest(TestCase):
                 )
             ),
             runner=runner,
+            tracking_metrics=[metric],
         )
         for _ in range(2):
             trial = experiment.new_trial()

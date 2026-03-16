@@ -19,7 +19,6 @@ from ax.analysis.plotly.plotly_analysis import (
 )
 from ax.analysis.utils import validate_experiment
 from ax.core.experiment import Experiment
-from ax.core.objective import ScalarizedObjective
 from ax.exceptions.core import ExperimentNotReadyError
 from ax.generation_strategy.generation_strategy import GenerationStrategy
 from ax.service.utils.best_point import get_trace
@@ -159,23 +158,22 @@ class UtilityProgressionAnalysis(Analysis):
             )
         else:
             objective = none_throws(opt_config).objective
-            minimize = objective.minimize
-            direction = "minimize" if minimize else "maximize"
 
             # Handle ScalarizedObjective vs regular Objective
-            if isinstance(objective, ScalarizedObjective):
+            if objective.is_scalarized_objective:
                 expression = objective.expression
                 y_label = f"Best Observed {expression}"
                 subtitle = (
                     f"Shows the best scalarized objective value (formula: "
-                    f"{expression}) achieved so far across completed trials "
-                    f"(objective is to {direction}). {_TRACE_INDEX_EXPLANATION} "
+                    f"{expression}) achieved so far across completed trials. "
+                    f"{_TRACE_INDEX_EXPLANATION} "
                     f"{_CUMULATIVE_BEST_EXPLANATION} "
                     f"{_INFEASIBLE_TRIALS_EXPLANATION}"
                 )
             else:
-                # Regular single-objective
-                objective_name = objective.metric.name
+                minimize = objective.minimize
+                direction = "minimize" if minimize else "maximize"
+                objective_name = objective.metric_names[0]
                 y_label = f"Best Observed {objective_name}"
                 subtitle = (
                     f"Shows the best {objective_name} value achieved so far across "

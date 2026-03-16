@@ -715,7 +715,7 @@ def multi_type_experiment_from_json(
 
     experiment = MultiTypeExperiment(**kwargs)
     for metric in tracking_metrics:
-        experiment._tracking_metrics[metric.name] = metric
+        experiment._metrics[metric.name] = metric
     experiment._metric_to_canonical_name = _metric_to_canonical_name
     experiment._metric_to_trial_type = _metric_to_trial_type
     experiment._trial_type_to_runner = _trial_type_to_runner
@@ -1445,10 +1445,13 @@ def objective_from_json(
 ) -> Objective:
     """Load an ``Objective`` from JSON in a backwards compatible way.
 
-    If both ``minimize`` and ``lower_is_better`` are specified but have conflicting
-    values, this will overwrite ``lower_is_better=minimize`` to resolve the conflict.
+    Supports two formats:
+    - New expression-based format: ``{"expression": "..."}``
+    - Legacy format: ``{"metric": {...}, "minimize": true/false}``
 
-    # TODO: Do we need to do this for scalarized objective as well?
+    For the legacy format, if both ``minimize`` and ``lower_is_better`` are
+    specified but have conflicting values, this will overwrite
+    ``lower_is_better=minimize`` to resolve the conflict.
     """
     input_args = {
         k: object_from_json(
@@ -1458,6 +1461,10 @@ def objective_from_json(
         )
         for k, v in object_json.items()
     }
+    # New expression-based format
+    if "expression" in input_args:
+        return Objective(expression=input_args["expression"])
+    # Legacy metric/minimize format
     metric = input_args.pop("metric")
     minimize = input_args.pop("minimize")
     if metric.lower_is_better is not None and metric.lower_is_better != minimize:

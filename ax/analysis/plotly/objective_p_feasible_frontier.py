@@ -211,7 +211,7 @@ class ObjectivePFeasibleFrontierPlot(Analysis):
 
         df = prepare_arm_data(
             experiment=experiment,
-            metric_names=[*optimization_config.metrics.keys()],
+            metric_names=[*optimization_config.metric_names],
             adapter=relevant_adapter,
             use_model_predictions=True,
             relativize=self.relativize,
@@ -220,7 +220,7 @@ class ObjectivePFeasibleFrontierPlot(Analysis):
             trial_statuses=self.trial_statuses,
         )
 
-        objective_name = optimization_config.objective.metric.name
+        objective_name = optimization_config.objective.metric_names[0]
 
         fig = _prepare_figure_scatter(
             df=df,

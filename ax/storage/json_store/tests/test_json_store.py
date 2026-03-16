@@ -1141,16 +1141,20 @@ class JSONStoreTest(TestCase):
     def test_objective_backwards_compatibility(self) -> None:
         # Test that we can load an objective that has conflicting
         # ``lower_is_better`` and ``minimize`` fields.
-        objective = get_objective(minimize=True)
-        objective.metric.lower_is_better = False  # for conflict!
-        objective_json = object_to_json(objective)
-        self.assertTrue(objective_json["minimize"])
-        self.assertFalse(objective_json["metric"]["lower_is_better"])
+        # In the old format, the metric had ``lower_is_better`` and the
+        # objective had ``minimize``. When they disagree, ``minimize`` wins.
+        objective_json = {
+            "__type": "Objective",
+            "metric": {
+                "__type": "Metric",
+                "name": "m1",
+                "lower_is_better": False,
+            },
+            "minimize": True,
+        }
         objective_loaded = object_from_json(objective_json)
         self.assertIsInstance(objective_loaded, Objective)
-        self.assertNotEqual(objective, objective_loaded)
         self.assertTrue(objective_loaded.minimize)
-        self.assertTrue(objective_loaded.metric.lower_is_better)
 
     def test_generation_step_backwards_compatibility(self) -> None:
         # Test that we can load a generation step with deprecated kwargs.

@@ -240,7 +240,12 @@ class PowerTransformYTest(TestCase):
             tf_bound = (
                 tf.power_transforms["m1"].transform(np.array(bound, ndmin=2)).item()
             )
-            oc_true.outcome_constraints[0].bound = tf_bound
+            oc_true.outcome_constraints[0] = OutcomeConstraint(
+                metric=m1,
+                op=oc_true.outcome_constraints[0].op,
+                bound=tf_bound,
+                relative=oc_true.outcome_constraints[0].relative,
+            )
             self.assertEqual(oc_tf, oc_true)
         # Check untransform of outcome constraint
         cons = tf.untransform_outcome_constraints(

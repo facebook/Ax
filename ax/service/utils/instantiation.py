@@ -501,7 +501,7 @@ class InstantiationBase:
                 f"Outcome constraint bound should be a float for '{representation}'."
             )
         return OutcomeConstraint(
-            cls._make_metric(
+            metric=cls._make_metric(
                 name=tokens[0],
                 for_opt_config=True,
                 metric_definitions=metric_definitions,
@@ -521,12 +521,11 @@ class InstantiationBase:
         oc = cls.outcome_constraint_from_str(
             representation, metric_definitions=metric_definitions
         )
-        return ObjectiveThreshold(
-            metric=oc.metric.clone(),
-            bound=oc.bound,
-            relative=oc.relative,
-            op=oc.op,
-        )
+        # Create an ObjectiveThreshold that shares the same expression string
+        # as the OutcomeConstraint, bypassing the deprecated __init__.
+        ot = ObjectiveThreshold.__new__(ObjectiveThreshold)
+        ot._expression_str = oc._expression_str
+        return ot
 
     @classmethod
     def make_objectives(
@@ -586,8 +585,10 @@ class InstantiationBase:
         objective_thresholds: list[str],
         status_quo_defined: bool,
         metric_definitions: dict[str, dict[str, Any]] | None = None,
-    ) -> list[ObjectiveThreshold]:
-        typed_objective_thresholds = (
+    ) -> list[OutcomeConstraint]:
+        # pyre-ignore[9]: ObjectiveThreshold is a subclass of OutcomeConstraint;
+        # list invariance prevents direct assignment.
+        typed_objective_thresholds: list[OutcomeConstraint] = (
             [
                 cls.objective_threshold_constraint_from_str(
                     c, metric_definitions=metric_definitions
@@ -610,7 +611,7 @@ class InstantiationBase:
     @staticmethod
     def optimization_config_from_objectives(
         objectives: list[Objective],
-        objective_thresholds: list[ObjectiveThreshold],
+        objective_thresholds: list[OutcomeConstraint],
         outcome_constraints: list[OutcomeConstraint],
     ) -> OptimizationConfig:
         """Parse objectives and constraints to define optimization config.
@@ -881,6 +882,32 @@ class InstantiationBase:
                 for metric_name in tracking_metric_names
             ]
         )
+
+        # Also create properly-typed metrics for optimization config metric
+        # names so they are registered with proper types and properties
+        # before the auto-registration in Experiment.__init__ fires.
+        if optimization_config is not None:
+            # Build lower_is_better map from the optimization config so
+            # that pre-registered metrics carry the correct directionality.
+            lower_is_better_map: dict[str, bool] = {}
+            for mn, weight in optimization_config.objective.metric_weights:
+                lower_is_better_map[mn] = weight < 0
+            for constraint in optimization_config.outcome_constraints:
+                for mn, _ in constraint.metric_weights:
+                    if mn not in lower_is_better_map:
+                        lower_is_better_map[mn] = constraint.op is ComparisonOp.LEQ
+
+            tracking_names = {m.name for m in (tracking_metrics or [])}
+            for metric_name in optimization_config.metric_names:
+                if metric_name not in tracking_names:
+                    opt_metric = cls._make_metric(
+                        name=metric_name,
+                        metric_definitions=metric_definitions,
+                        lower_is_better=lower_is_better_map.get(metric_name),
+                    )
+                    if tracking_metrics is None:
+                        tracking_metrics = []
+                    tracking_metrics.append(opt_metric)
 
         properties: dict[str, Any] = {}
 

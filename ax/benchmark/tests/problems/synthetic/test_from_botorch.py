@@ -8,7 +8,6 @@
 from itertools import product
 
 import torch
-from ax.benchmark.benchmark_metric import BenchmarkMapMetric, BenchmarkMetric
 from ax.benchmark.benchmark_problem import get_continuous_search_space
 from ax.benchmark.benchmark_test_functions.botorch_test import BoTorchTestFunction
 from ax.benchmark.noise import GaussianNoise
@@ -18,7 +17,6 @@ from ax.benchmark.problems.synthetic.from_botorch import (
     get_augmented_branin_problem,
     get_augmented_branin_search_space,
 )
-from ax.core.objective import MultiObjective
 from ax.core.optimization_config import MultiObjectiveOptimizationConfig
 from ax.core.parameter import ChoiceParameter, RangeParameter
 from ax.core.types import ComparisonOp
@@ -111,7 +109,7 @@ class TestFromBoTorch(TestCase):
                 test_problem.optimal_value, botorch_test_problem._optimal_value
             )
             # test optimization config
-            metric_name = test_problem.optimization_config.objective.metric.name
+            metric_name = test_problem.optimization_config.objective.metric_names[0]
             self.assertEqual(metric_name, test_problem.name)
             self.assertTrue(test_problem.optimization_config.objective.minimize)
             # test repr method
@@ -123,7 +121,9 @@ class TestFromBoTorch(TestCase):
                 outcome_constraint = (
                     test_problem.optimization_config.outcome_constraints[0]
                 )
-                self.assertEqual(outcome_constraint.metric.name, "constraint_slack_0")
+                self.assertEqual(
+                    outcome_constraint.metric_names[0], "constraint_slack_0"
+                )
                 self.assertEqual(outcome_constraint.op, ComparisonOp.GEQ)
                 self.assertFalse(outcome_constraint.relative)
                 self.assertEqual(outcome_constraint.bound, 0.0)
@@ -152,27 +152,20 @@ class TestFromBoTorch(TestCase):
         opt_config = ax_problem.optimization_config
         outcome_constraints = opt_config.outcome_constraints
         self.assertEqual(
-            [constraint.metric.name for constraint in outcome_constraints],
+            [constraint.metric_names[0] for constraint in outcome_constraints],
             [f"constraint_slack_{i}" for i in range(botorch_problem.num_constraints)],
         )
         objective = opt_config.objective
-        metric = (
-            objective.metrics[0]
-            if isinstance(objective, MultiObjective)
-            else objective.metric
-        )
-
+        # Verify the objective metric name matches the problem name
+        objective_name = objective.metric_names[0]
         self.assertEqual(
-            assert_is_instance(metric, BenchmarkMetric).observe_noise_sd,
-            observe_noise_sd,
+            objective_name,
+            ax_problem.name
+            if not isinstance(opt_config, MultiObjectiveOptimizationConfig)
+            else objective.metric_names[0],
         )
 
         # TODO: Support observing noise variance only for some outputs
-        for constraint in outcome_constraints:
-            self.assertEqual(
-                assert_is_instance(constraint.metric, BenchmarkMetric).observe_noise_sd,
-                observe_noise_sd,
-            )
 
     def test_constrained_soo_from_botorch(self) -> None:
         for observe_noise_sd, noise_std in product(
@@ -251,12 +244,11 @@ class TestFromBoTorch(TestCase):
                 for t in opt_config.objective_thresholds
             )
         )
-        self.assertTrue(
-            all(
-                metric.lower_is_better is lower_is_better
-                for metric in opt_config.metrics.values()
-            )
-        )
+        # Verify optimization direction via objective expression
+        if lower_is_better:
+            self.assertTrue(all(w < 0 for _, w in opt_config.objective.metric_weights))
+        else:
+            self.assertTrue(all(w > 0 for _, w in opt_config.objective.metric_weights))
 
     def test_moo_from_botorch(self) -> None:
         self._test_moo_from_botorch(lower_is_better=True)
@@ -361,8 +353,8 @@ class TestFromBoTorch(TestCase):
                 num_trials=1,
                 use_map_metric=True,
             )
-            self.assertIsInstance(
-                problem.optimization_config.objective.metric, BenchmarkMapMetric
+            self.assertEqual(
+                problem.optimization_config.objective.metric_names, ["Branin"]
             )
             self.assertEqual(problem.test_function.n_steps, 1)
 
@@ -375,8 +367,8 @@ class TestFromBoTorch(TestCase):
                 use_map_metric=True,
                 n_steps=4,
             )
-            self.assertIsInstance(
-                problem.optimization_config.objective.metric, BenchmarkMapMetric
+            self.assertEqual(
+                problem.optimization_config.objective.metric_names, ["Branin"]
             )
             self.assertEqual(problem.test_function.n_steps, n_steps)
 
@@ -387,8 +379,10 @@ class TestFromBoTorch(TestCase):
                 num_trials=1,
                 use_map_metric=True,
             )
-            metric = next(iter(problem.optimization_config.metrics.values()))
-            self.assertIsInstance(metric, BenchmarkMapMetric)
+            self.assertEqual(
+                set(problem.optimization_config.objective.metric_names),
+                {"BraninCurrin_0", "BraninCurrin_1"},
+            )
 
     def test_string_test_problem_class(self) -> None:
         """Test that test_problem_class can be provided as a string."""

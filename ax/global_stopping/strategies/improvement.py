@@ -16,7 +16,7 @@ from ax.core.optimization_config import (
     MultiObjectiveOptimizationConfig,
     OptimizationConfig,
 )
-from ax.core.outcome_constraint import ObjectiveThreshold
+from ax.core.outcome_constraint import OutcomeConstraint
 from ax.core.trial import Trial
 from ax.core.types import ComparisonOp
 from ax.exceptions.core import AxError
@@ -79,7 +79,7 @@ class ImprovementGlobalStoppingStrategy(BaseGlobalStoppingStrategy):
         self.window_size = window_size
         self.improvement_bar = improvement_bar
         self.hv_by_trial: dict[int, float] = {}
-        self._inferred_objective_thresholds: list[ObjectiveThreshold] | None = None
+        self._inferred_objective_thresholds: list[OutcomeConstraint] | None = None
 
     def __repr__(self) -> str:
         return super().__repr__() + (
@@ -93,7 +93,7 @@ class ImprovementGlobalStoppingStrategy(BaseGlobalStoppingStrategy):
         self,
         experiment: Experiment,
         trial_to_check: int | None = None,
-        objective_thresholds: list[ObjectiveThreshold] | None = None,
+        objective_thresholds: list[OutcomeConstraint] | None = None,
     ) -> tuple[bool, str]:
         """
         Check if the objective has improved significantly in the past
@@ -198,7 +198,7 @@ class ImprovementGlobalStoppingStrategy(BaseGlobalStoppingStrategy):
         self,
         experiment: Experiment,
         trial_to_check: int,
-        objective_thresholds: list[ObjectiveThreshold],
+        objective_thresholds: list[OutcomeConstraint],
     ) -> tuple[bool, str]:
         """
         This is the "should_stop_optimization" method of this class, specialized
@@ -362,7 +362,7 @@ def constraint_satisfaction(trial: BaseTrial) -> bool:
     df = trial.lookup_data().df
     for constraint in outcome_constraints:
         bound = constraint.bound
-        metric_name = constraint.metric.name
+        metric_name = constraint.metric_names[0]
         metric_data = df.loc[df["metric_name"] == metric_name]
         mean, sem = metric_data.iloc[0][["mean", "sem"]]
         if sem > 0.0:

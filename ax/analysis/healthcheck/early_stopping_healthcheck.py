@@ -404,7 +404,7 @@ class EarlyStoppingAnalysis(Analysis):
         default early stopping strategy is available.
         """
         opt_config = none_throws(experiment.optimization_config)
-        metric = next(iter(opt_config.objective.metrics))
+        metric = experiment.get_metric(opt_config.objective.metric_names[0])
         try:
             savings = estimate_hypothetical_early_stopping_savings(
                 experiment=experiment,
@@ -492,9 +492,7 @@ class EarlyStoppingAnalysis(Analysis):
 
         # Sort so that objective metrics appear first
         if experiment.optimization_config is not None:
-            metric_names = [
-                m.name for m in experiment.optimization_config.objective.metrics
-            ]
+            metric_names = experiment.optimization_config.objective.metric_names
             map_metrics.sort(
                 key=lambda e: e.name in metric_names,
                 reverse=True,

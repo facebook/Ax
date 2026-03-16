@@ -35,7 +35,10 @@ def get_default_ess_or_none(
         opt_config is None
         or isinstance(opt_config, MultiObjectiveOptimizationConfig)
         or len(opt_config.outcome_constraints) > 0
-        or not any(isinstance(m, MapMetric) for m in opt_config.metrics.values())
+        or not any(
+            isinstance(experiment.get_metric(name), MapMetric)
+            for name in opt_config.metric_names
+        )
     ):
         return None
 

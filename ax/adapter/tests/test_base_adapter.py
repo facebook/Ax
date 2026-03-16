@@ -323,6 +323,7 @@ class BaseAdapterTest(TestCase):
     )
     def test_gen_on_experiment_with_imm_ss_and_opt_conf(self, _) -> None:
         exp = get_experiment_for_value()
+        exp.add_tracking_metric(Metric("test_metric"))
         exp._properties[Keys.IMMUTABLE_SEARCH_SPACE_AND_OPT_CONF] = True
         exp.optimization_config = get_optimization_config_no_constraints()
         adapter = Adapter(experiment=exp, generator=Generator())
@@ -593,19 +594,22 @@ class BaseAdapterTest(TestCase):
         # Case 1: Experiment has an optimization config with single map key.
         exp = get_branin_experiment_with_timestamp_map_metric(with_status_quo=True)
         # Add a second map metric, and a non-map metric.
+        branin_map_constraint = get_map_metric("branin_map_constraint")
+        branin_constraint = BraninMetric(
+            name="branin_constraint",
+            param_names=["x1", "x2"],
+            lower_is_better=True,
+        )
+        exp.add_tracking_metrics([branin_map_constraint, branin_constraint])
         exp.optimization_config = none_throws(exp.optimization_config).clone_with_args(
             outcome_constraints=[
                 OutcomeConstraint(
-                    metric=get_map_metric("branin_map_constraint"),
+                    metric=branin_map_constraint,
                     op=ComparisonOp.LEQ,
                     bound=5.0,
                 ),
                 OutcomeConstraint(
-                    metric=BraninMetric(
-                        name="branin_constraint",
-                        param_names=["x1", "x2"],
-                        lower_is_better=True,
-                    ),
+                    metric=branin_constraint,
                     op=ComparisonOp.LEQ,
                     bound=5.0,
                 ),
@@ -650,7 +654,7 @@ class BaseAdapterTest(TestCase):
                     ),
                     {"branin_map", "branin_map_constraint"},
                 )
-            opt_config_metrics = set(none_throws(exp.optimization_config).metrics)
+            opt_config_metrics = none_throws(exp.optimization_config).metric_names
             self.assertEqual(call_kwargs["metrics"], opt_config_metrics)
             adapter_sq = none_throws(adapter.status_quo)
             self.assertEqual(
@@ -685,11 +689,12 @@ class BaseAdapterTest(TestCase):
         )
 
         # Case 3: Experiment doesn't have an optimization config.
-        metrics = none_throws(exp.optimization_config).metrics.values()
+        metrics = list(exp.metrics.values())
         exp._optimization_config = None
         # Attach as tracking metric to prevent data filtering.
         for m in metrics:
-            exp.add_tracking_metric(m)
+            if m.name not in exp.metrics:
+                exp.add_tracking_metric(m)
         with self.assertLogs(logger=logger, level="WARN") as mock_logs:
             adapter = Adapter(
                 experiment=exp,
@@ -1357,15 +1362,15 @@ class BaseAdapterTest(TestCase):
                 ),
             ]
         )
+        metric = GenericNoisyFunctionMetric(name="random", f=lambda _: random())
         experiment = Experiment(
             name="test_derived_digits",
             search_space=search_space,
             is_test=True,
+            tracking_metrics=[metric],
             optimization_config=OptimizationConfig(
                 objective=Objective(
-                    metric=GenericNoisyFunctionMetric(
-                        name="random", f=lambda _: random()
-                    ),
+                    metric=metric,
                     minimize=True,
                 )
             ),

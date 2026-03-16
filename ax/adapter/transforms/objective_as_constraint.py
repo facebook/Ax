@@ -14,7 +14,7 @@ from typing import TYPE_CHECKING
 import pandas as pd
 from ax.adapter.data_utils import ExperimentData
 from ax.adapter.transforms.base import Transform
-from ax.core.objective import MultiObjective, Objective, ScalarizedObjective
+from ax.core.objective import ScalarizedObjective
 from ax.core.observation import ObservationData, ObservationFeatures
 from ax.core.optimization_config import (
     MultiObjectiveOptimizationConfig,
@@ -31,6 +31,7 @@ from pyre_extensions import none_throws
 if TYPE_CHECKING:
     # import as module to make sphinx-autodoc-typehints happy
     from ax import adapter as adapter_module  # noqa F401
+    from ax.core.experiment import Experiment
 
 
 logger: logging.Logger = get_logger(__name__)
@@ -156,6 +157,7 @@ class ObjectiveAsConstraint(Transform):
                 row=row,
                 constraints=outcome_constraints,
                 sq_data=sq_data,
+                experiment=adapter._experiment,
             ):
                 return False
 
@@ -194,15 +196,21 @@ class ObjectiveAsConstraint(Transform):
         # Handle ScalarizedObjective: create a single ScalarizedOutcomeConstraint
         # with the bound equal to the status quo value of the scalarized objective.
         if isinstance(objective, ScalarizedObjective):
+            obj_metrics = none_throws(adapter or self.adapter)._experiment.get_metrics(
+                objective.metric_names
+            )
             scalarized_sq_value = 0.0
-            for metric, weight in objective.metric_weights:
+            for metric, (_, weight) in zip(obj_metrics, objective.metric_weights):
                 metric_idx = sq_data.metric_signatures.index(metric.signature)
                 scalarized_sq_value += weight * sq_data.means[metric_idx]
 
-            op = ComparisonOp.LEQ if objective.minimize else ComparisonOp.GEQ
+            # metric_weights are sign-encoded (negative = minimize direction).
+            # With sign-encoded weights, "don't get worse than SQ" is always
+            # GEQ: Σ(signed_wi * yi) >= Σ(signed_wi * sq_yi).
+            op = ComparisonOp.GEQ
             new_constraint = ScalarizedOutcomeConstraint(
-                metrics=[m.clone() for m in objective.metrics],
-                weights=list(objective.weights),
+                metrics=[m.clone() for m in obj_metrics],
+                weights=[w for _, w in objective.metric_weights],
                 op=op,
                 bound=float(scalarized_sq_value),
                 relative=False,
@@ -211,26 +219,22 @@ class ObjectiveAsConstraint(Transform):
             self._scalarized_objective_constraint_added = True
             return optimization_config
 
-        # Get list of objectives to add constraints for.
-        if isinstance(optimization_config, MultiObjectiveOptimizationConfig):
-            # MultiObjectiveOptimizationConfig can have MultiObjective or
-            # ScalarizedObjective. Only MultiObjective has multiple objectives.
-            if isinstance(objective, MultiObjective):
-                objectives = objective.objectives
-            else:
-                objectives = [
-                    Objective(metric=objective.metric, minimize=objective.minimize)
-                ]
-        else:
-            objectives = [objective]
+        # Get list of (metric_name, weight) pairs for each objective metric.
+        # For multi-objective, each sub-expression has one metric.
+        # For single-objective, metric_weights has one entry.
+        obj_metric_weights = objective.metric_weights
 
         # Add a constraint for each objective at the status quo value.
-        for obj in objectives:
-            metric = obj.metric
+        for metric_name, weight in obj_metric_weights:
+            metric = none_throws(adapter or self.adapter)._experiment.get_metrics(
+                [metric_name]
+            )[0]
             metric_idx = sq_data.metric_signatures.index(metric.signature)
             sq_value = sq_data.means[metric_idx]
 
-            op = ComparisonOp.LEQ if obj.minimize else ComparisonOp.GEQ
+            # Negative weight in the maximize-expression means minimize
+            is_minimize = weight < 0
+            op = ComparisonOp.LEQ if is_minimize else ComparisonOp.GEQ
             new_constraint = OutcomeConstraint(
                 metric=metric.clone(),
                 op=op,
@@ -239,7 +243,7 @@ class ObjectiveAsConstraint(Transform):
             )
 
             optimization_config._outcome_constraints.append(new_constraint)
-            self._objective_metrics_added.append(metric.name)
+            self._objective_metrics_added.append(metric_name)
 
         return optimization_config
 
@@ -258,7 +262,7 @@ class ObjectiveAsConstraint(Transform):
             outcome_constraints = [
                 oc
                 for oc in outcome_constraints
-                if oc.metric.name not in self._objective_metrics_added
+                if oc.metric_names[0] not in self._objective_metrics_added
             ]
         return outcome_constraints
 
@@ -267,6 +271,7 @@ def _is_point_feasible(
     row: pd.Series,
     constraints: list[OutcomeConstraint],
     sq_data: ObservationData | None = None,
+    experiment: Experiment | None = None,
 ) -> bool:
     """Check if a single observation satisfies all outcome constraints.
 
@@ -280,12 +285,18 @@ def _is_point_feasible(
         sq_data: Status quo observation data, required for evaluating
             relative constraints. If None and a relative constraint is
             encountered, the constraint is skipped.
+        experiment: The experiment, used to look up metric signatures from
+            metric names. If None, the metric name is used as the signature.
 
     Returns:
         True if the point satisfies all constraints, False otherwise.
     """
     for constraint in constraints:
-        metric_sig = constraint.metric.signature
+        metric_name = constraint.metric_names[0]
+        if experiment is not None:
+            metric_sig = experiment.get_metric(metric_name).signature
+        else:
+            metric_sig = metric_name
         try:
             mean_val = row["mean", metric_sig]
         except KeyError:

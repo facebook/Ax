@@ -18,11 +18,16 @@ from ax.adapter.data_utils import ExperimentData
 from ax.adapter.transforms.base import Transform
 from ax.adapter.transforms.utils import match_ci_width, T_MATCH_CI_WIDTH
 from ax.core.observation import ObservationData, ObservationFeatures
-from ax.core.optimization_config import OptimizationConfig
+from ax.core.optimization_config import (
+    MultiObjectiveOptimizationConfig,
+    OptimizationConfig,
+)
 from ax.core.outcome_constraint import OutcomeConstraint
 from ax.core.search_space import SearchSpace
+from ax.core.types import ComparisonOp
 from ax.generators.types import TConfig
 from ax.utils.common.logger import get_logger
+from ax.utils.common.sympy import build_constraint_expression_str
 from pyre_extensions import assert_is_instance
 
 
@@ -86,9 +91,13 @@ class LogY(Transform):
         adapter: base_adapter.Adapter | None = None,
         fixed_features: ObservationFeatures | None = None,
     ) -> OptimizationConfig:
-        for c in optimization_config.all_constraints:
-            if c.metric.signature in self.metric_signatures:
-                base_str = f"LogY transform cannot be applied to metric {c.metric.name}"
+        new_outcome_constraints = []
+        for c in optimization_config.outcome_constraints:
+            sig = self._get_metric_signature(c.metric_names[0], adapter)
+            if sig in self.metric_signatures:
+                base_str = (
+                    f"LogY transform cannot be applied to metric {c.metric_names[0]}"
+                )
                 if c.relative:
                     raise ValueError(
                         f"{base_str} since it is subject to a relative constraint."
@@ -98,7 +107,49 @@ class LogY(Transform):
                         f"{base_str} since the bound isn't positive, got: {c.bound}."
                     )
                 else:
-                    c.bound = np.log(c.bound)
+                    new_expr = build_constraint_expression_str(
+                        metric_weights=c.metric_weights,
+                        op=">=" if c.op == ComparisonOp.GEQ else "<=",
+                        bound=np.log(c.bound),
+                        relative=c.relative,
+                    )
+                    new_outcome_constraints.append(
+                        OutcomeConstraint(expression=new_expr)
+                    )
+            else:
+                new_outcome_constraints.append(c)
+        optimization_config.outcome_constraints = new_outcome_constraints
+
+        if isinstance(optimization_config, MultiObjectiveOptimizationConfig):
+            new_thresholds = []
+            for c in optimization_config.objective_thresholds:
+                sig = self._get_metric_signature(c.metric_names[0], adapter)
+                if sig in self.metric_signatures:
+                    base_str = (
+                        f"LogY transform cannot be applied to metric "
+                        f"{c.metric_names[0]}"
+                    )
+                    if c.relative:
+                        raise ValueError(
+                            f"{base_str} since it is subject to a relative constraint."
+                        )
+                    elif c.bound <= 0:
+                        raise ValueError(
+                            f"{base_str} since the bound isn't positive, "
+                            f"got: {c.bound}."
+                        )
+                    else:
+                        new_expr = build_constraint_expression_str(
+                            metric_weights=c.metric_weights,
+                            op=">=" if c.op == ComparisonOp.GEQ else "<=",
+                            bound=np.log(c.bound),
+                            relative=c.relative,
+                        )
+                        new_thresholds.append(OutcomeConstraint(expression=new_expr))
+                else:
+                    new_thresholds.append(c)
+            optimization_config.objective_thresholds = new_thresholds
+
         return optimization_config
 
     def _tf_obs_data(
@@ -156,12 +207,22 @@ class LogY(Transform):
         outcome_constraints: list[OutcomeConstraint],
         fixed_features: ObservationFeatures | None = None,
     ) -> list[OutcomeConstraint]:
+        result = []
         for c in outcome_constraints:
-            if c.metric.signature in self.metric_signatures:
+            sig = self._get_metric_signature(c.metric_names[0])
+            if sig in self.metric_signatures:
                 if c.relative:
                     raise ValueError("Unexpected relative transform.")
-                c.bound = np.exp(c.bound)
-        return outcome_constraints
+                new_expr = build_constraint_expression_str(
+                    metric_weights=c.metric_weights,
+                    op=">=" if c.op == ComparisonOp.GEQ else "<=",
+                    bound=np.exp(c.bound),
+                    relative=c.relative,
+                )
+                result.append(OutcomeConstraint(expression=new_expr))
+            else:
+                result.append(c)
+        return result
 
     def transform_experiment_data(
         self, experiment_data: ExperimentData

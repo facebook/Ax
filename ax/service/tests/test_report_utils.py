@@ -395,8 +395,11 @@ class ReportUtilsTest(TestCase):
     @mock_botorch_optimize
     def test_get_standard_plots_moo(self) -> None:
         exp = get_branin_experiment_with_multi_objective(with_batch=True)
-        exp.optimization_config.objective.objectives[0].minimize = False
-        exp.optimization_config.objective.objectives[1].minimize = True
+        # Flip the minimize direction for the multi-objective:
+        # first objective to maximize, second to minimize
+        obj = none_throws(exp.optimization_config).objective
+        names = obj.metric_names
+        obj._expression_str = f"{names[0]}, -{names[1]}"
         assert_is_instance(
             exp.optimization_config, MultiObjectiveOptimizationConfig
         )._objective_thresholds = [
@@ -436,29 +439,35 @@ class ReportUtilsTest(TestCase):
         self, trial_is_complete: bool
     ) -> None:
         exp = get_branin_experiment_with_multi_objective(with_batch=True)
-        first_obj = assert_is_instance(
-            none_throws(exp.optimization_config).objective, MultiObjective
-        ).objectives[0]
-        first_obj.minimize = False
-        first_obj.metric.lower_is_better = False
+        obj = none_throws(exp.optimization_config).objective
+        # Flip the first objective to maximize (positive weight = maximize)
+        names = obj.metric_names
+        # Create a new Objective rather than mutating _expression_str to
+        # avoid stale _parsed cached_property.
+        none_throws(exp.optimization_config)._objective = Objective(
+            expression=f"{names[0]}, -{names[1]}"
+        )
+        exp.get_metric(names[0]).lower_is_better = False
         assert_is_instance(
             exp.optimization_config, MultiObjectiveOptimizationConfig
         )._objective_thresholds = [
             ObjectiveThreshold(
-                metric=exp.metrics["branin_a"], op=ComparisonOp.GEQ, bound=-100.0
+                metric=exp.metrics["branin_a"],
+                op=ComparisonOp.GEQ,
+                bound=-100.0,
+                relative=False,
             ),
             ObjectiveThreshold(
-                metric=exp.metrics["branin_b"], op=ComparisonOp.LEQ, bound=100.0
+                metric=exp.metrics["branin_b"],
+                op=ComparisonOp.LEQ,
+                bound=100.0,
+                relative=False,
             ),
         ]
         exp.trials[0].run()
         if trial_is_complete:
             exp.trials[0].mark_completed()
 
-        for ot in assert_is_instance(
-            exp.optimization_config, MultiObjectiveOptimizationConfig
-        )._objective_thresholds:
-            ot.relative = False
         plots = get_standard_plots(
             experiment=exp,
             model=Generators.BOTORCH_MODULAR(experiment=exp, data=exp.fetch_data()),
@@ -475,8 +484,13 @@ class ReportUtilsTest(TestCase):
     @mock_botorch_optimize
     def test_get_standard_plots_moo_no_objective_thresholds(self) -> None:
         exp = get_branin_experiment_with_multi_objective(with_batch=True)
-        exp.optimization_config.objective.objectives[0].minimize = False
-        exp.optimization_config.objective.objectives[1].minimize = True
+        # Flip the minimize direction for the multi-objective:
+        # first objective to maximize, second to minimize
+        obj = none_throws(exp.optimization_config).objective
+        names = obj.metric_names
+        none_throws(exp.optimization_config)._objective = Objective(
+            expression=f"{names[0]}, -{names[1]}"
+        )
         exp.trials[0].run()
         plots = get_standard_plots(
             experiment=exp,
@@ -641,7 +655,6 @@ class ReportUtilsTest(TestCase):
         self.assertIsNone(msg)
 
         # Test with no optimization config.
-        exp._tracking_metrics = exp.metrics
         exp._optimization_config = None
         msg = warn_if_unpredictable_metrics(
             experiment=exp,
@@ -701,7 +714,7 @@ class ReportUtilsTest(TestCase):
         arm_names = list(exp.arms_by_name.keys())
 
         # Use a different metric name in optimization config that doesn't exist in data
-        exp._optimization_config.objective._metric = Metric(name="nonexistent_metric")
+        exp._optimization_config.objective._expression_str = "nonexistent_metric"
 
         result = maybe_extract_baseline_comparison_values(
             experiment=exp,
@@ -720,7 +733,8 @@ class ReportUtilsTest(TestCase):
 
         # Replace one objective metric with a nonexistent one
         moo = none_throws(exp.optimization_config).objective
-        moo.objectives[0]._metric = Metric(name="nonexistent_metric")
+        names = list(moo.metric_names)
+        moo._expression_str = f"-nonexistent_metric, -{names[1]}"
 
         result = maybe_extract_baseline_comparison_values(
             experiment=exp,

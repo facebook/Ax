@@ -99,6 +99,9 @@ class TestComplexityRatingAnalysis(TestCase):
         for num_objs, expected_status, expected_tier, expected_msg in test_cases:
             with self.subTest(num_objectives=num_objs):
                 metrics = [Metric(name=f"m{i}") for i in range(num_objs)]
+                for m in metrics:
+                    if m.name not in self.experiment.metrics:
+                        self.experiment.add_tracking_metric(m)
                 self.experiment._optimization_config = MultiObjectiveOptimizationConfig(
                     objective=MultiObjective(
                         objectives=[
@@ -116,7 +119,11 @@ class TestComplexityRatingAnalysis(TestCase):
 
     def test_constraints(self) -> None:
         with self.subTest(constraint_type="outcome"):
+            obj_metric = Metric(name="obj")
             metrics = [Metric(name=f"m{i}") for i in range(3)]
+            for m in [obj_metric] + metrics:
+                if m.name not in self.experiment.metrics:
+                    self.experiment.add_tracking_metric(m)
             self.experiment._optimization_config = OptimizationConfig(
                 objective=Objective(metric=Metric(name="obj"), minimize=False),
                 outcome_constraints=[

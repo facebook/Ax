@@ -266,7 +266,9 @@ class TorchAdapterTest(TestCase):
         self.assertEqual(gen_opt_config.model_gen_options, {"option": "yes"})
         self.assertIs(gen_opt_config.rounding_func, torch.round)
         self.assertFalse(gen_opt_config.is_moo)
-        self.assertEqual(gen_opt_config.opt_config_metrics, opt_config.metrics)
+        self.assertEqual(
+            set(gen_opt_config.opt_config_metrics.keys()), opt_config.metric_names
+        )
         self.assertEqual(gen_args["search_space_digest"].target_values, {})
         self.assertEqual(len(gen_run.arms), 1)
         self.assertEqual(gen_run.arms[0].parameters, {"x1": 1.0, "x2": 2.0, "x3": 3.0})
@@ -458,8 +460,10 @@ class TorchAdapterTest(TestCase):
         self.assertEqual(model_predictions[1], {"m": {"m": cov}})
 
         # test optimization config validation - raise error when
-        # ScalarizedOutcomeConstraint contains a metric that is not in the outcomes
-        with self.assertRaisesRegex(ValueError, "as a relative constraint."):
+        # ScalarizedOutcomeConstraint contains a metric that is not in the outcomes.
+        # With relative=True (default), the constraint expression contains
+        # "baseline" and the validation catches it as a relative constraint.
+        with self.assertRaisesRegex(ValueError, "relative constraint"):
             adapter.gen(
                 n=1,
                 optimization_config=OptimizationConfig(
@@ -1200,7 +1204,8 @@ class TorchAdapterTest(TestCase):
                 ),
                 optimization_config=OptimizationConfig(
                     Objective(
-                        Metric(Keys.PAIRWISE_PREFERENCE_QUERY.value), minimize=False
+                        metric=Metric(Keys.PAIRWISE_PREFERENCE_QUERY.value),
+                        minimize=False,
                     )
                 ),
                 fit_tracking_metrics=False,

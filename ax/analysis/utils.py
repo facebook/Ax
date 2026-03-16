@@ -598,9 +598,9 @@ def _get_scalarized_constraint_mean_and_sem(
     combined_var = np.zeros(n_rows)
     all_metrics_present = True
 
-    for metric, weight in constraint.metric_weights:
-        mean_col = f"{metric.name}_mean"
-        sem_col = f"{metric.name}_sem"
+    for metric_name, weight in constraint.metric_weights:
+        mean_col = f"{metric_name}_mean"
+        sem_col = f"{metric_name}_sem"
 
         if mean_col in df.columns:
             combined_mean += weight * df[mean_col].values
@@ -663,7 +663,7 @@ def _prepare_p_feasible(
             means.append(mean.tolist())
             sigmas.append(sem.tolist())
         else:
-            metric_name = oc.metric.name
+            metric_name = oc.metric_names[0]
             if f"{metric_name}_mean" in df_constraint.columns:
                 means.append(df_constraint[f"{metric_name}_mean"].tolist())
             else:
@@ -749,7 +749,7 @@ def _prepare_p_feasible_per_constraint(
             mean, sigma = _get_scalarized_constraint_mean_and_sem(df_constraint, oc)
             oc_display_name = str(oc)
         else:
-            metric_name = oc.metric.name
+            metric_name = oc.metric_names[0]
             oc_display_name = metric_name
 
             if f"{metric_name}_mean" in df_constraint.columns:
@@ -1139,7 +1139,7 @@ def validate_outcome_constraints(
         return "Experiment must have an OptimizationConfig."
 
     outcome_constraint_metrics = [
-        outcome_constraint.metric.name
+        outcome_constraint.metric_names[0]
         for outcome_constraint in optimization_config.outcome_constraints
     ]
     if len(outcome_constraint_metrics) == 0:

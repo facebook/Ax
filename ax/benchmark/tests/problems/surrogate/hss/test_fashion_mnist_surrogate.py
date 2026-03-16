@@ -18,8 +18,7 @@ class TestFashionMNISTSurrogate(TestCase):
         objective = benchmark.optimization_config.objective
 
         self.assertFalse(objective.minimize)
-        self.assertFalse(objective.metric.lower_is_better)
-        self.assertEqual(objective.metric.name, "FashionMNIST Test Accuracy")
+        self.assertEqual(objective.metric_names, ["FashionMNIST Test Accuracy"])
 
     def test_fashion_mnist_surrogate(self) -> None:
         cases = [

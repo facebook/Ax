@@ -7,7 +7,6 @@
 
 from random import random
 
-from ax.benchmark.benchmark_metric import BenchmarkMetric
 from ax.benchmark.noise import GaussianNoise
 from ax.benchmark.problems.synthetic.hss.jenatton import (
     get_jenatton_benchmark_problem,
@@ -95,24 +94,19 @@ class JenattonTest(TestCase):
     def test_create_problem(self) -> None:
         problem = get_jenatton_benchmark_problem()
         objective = problem.optimization_config.objective
-        metric = objective.metric
 
-        self.assertEqual(metric.name, "Jenatton")
-        self.assertEqual(metric.signature, "Jenatton")
+        self.assertEqual(objective.metric_names, ["Jenatton"])
         self.assertTrue(objective.minimize)
-        self.assertTrue(metric.lower_is_better)
         self.assertEqual(
             assert_is_instance(problem.noise, GaussianNoise).noise_std, 0.0
         )
-        self.assertFalse(assert_is_instance(metric, BenchmarkMetric).observe_noise_sd)
 
         problem = get_jenatton_benchmark_problem(
             num_trials=10, noise_std=0.1, observe_noise_sd=True
         )
         objective = problem.optimization_config.objective
-        metric = objective.metric
-        self.assertTrue(metric.lower_is_better)
+        self.assertEqual(objective.metric_names, ["Jenatton_observed_noise"])
+        self.assertTrue(objective.minimize)
         self.assertEqual(
             assert_is_instance(problem.noise, GaussianNoise).noise_std, 0.1
         )
-        self.assertTrue(assert_is_instance(metric, BenchmarkMetric).observe_noise_sd)

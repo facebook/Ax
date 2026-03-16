@@ -201,7 +201,7 @@ class Adapter:
                     "Optimization config is required when "
                     "`fit_tracking_metrics` is False."
                 )
-            self.outcomes = sorted(self._optimization_config.metrics.keys())
+            self.outcomes = sorted(self._optimization_config.metric_names)
 
         # Set training data (in the raw / untransformed space). This also omits
         # out-of-design and abandoned observations depending on the corresponding flags.
@@ -466,10 +466,14 @@ class Adapter:
                 )
                 return
 
-            if has_map_metrics(optimization_config=self._optimization_config):
+            if has_map_metrics(
+                metrics=experiment.get_metrics(
+                    metric_names=[*self._optimization_config.metric_names]
+                )
+            ):
                 self._status_quo = _combine_multiple_status_quo_observations(
                     status_quo_observations=status_quo_observations,
-                    metrics=set(none_throws(self._optimization_config).metrics),
+                    metrics=none_throws(self._optimization_config).metric_names,
                 )
             else:
                 logger.warning(
@@ -689,7 +693,7 @@ class Adapter:
                 # Check that the optimization config has the same metrics as
                 # the original one. Otherwise, we may attempt to optimize over
                 # metrics that do not have a fitted model.
-                outcomes = set(optimization_config.metrics.keys())
+                outcomes = optimization_config.metric_names
                 if not outcomes.issubset(self.outcomes):
                     raise UnsupportedError(
                         "When fit_tracking_metrics is False, the optimization config "

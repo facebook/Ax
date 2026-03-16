@@ -190,8 +190,10 @@ class TransformsTest(TestCase):
         )
 
         # Confirm other fields are preserved
-        self.assertEqual(transformed_config.objective.metric.name, "m1")
+        self.assertEqual(transformed_config.objective.metric_names[0], "m1")
         self.assertTrue(transformed_config.objective.minimize)
         self.assertEqual(len(transformed_config.outcome_constraints), 1)
-        self.assertEqual(transformed_config.outcome_constraints[0].metric.name, "m2")
+        self.assertEqual(
+            transformed_config.outcome_constraints[0].metric_names[0], "m2"
+        )
         self.assertEqual(transformed_config.outcome_constraints[0].bound, 10.0)

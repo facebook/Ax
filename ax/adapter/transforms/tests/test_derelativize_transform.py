@@ -43,6 +43,7 @@ class DerelativizeTransformTest(TestCase):
         for negative_metrics in [False, True]:
             sq_sign = -1.0 if negative_metrics else 1.0
             observed_means = sq_sign * np.array([[1.0, 2.0], [1.0, 6.0]])
+            sq_a_observed = float(np.mean(observed_means[1, 0]))
             sq_b_observed = np.mean(observed_means[1, 1])
             experiment = get_experiment_with_observations(
                 observations=observed_means.tolist(),
@@ -51,6 +52,7 @@ class DerelativizeTransformTest(TestCase):
             )
 
             predicted_means = sq_sign * np.array([3.0, 5.0])
+            sq_a_predicted = predicted_means[0]
             sq_b_predicted = predicted_means[-1]
             predict_return_value = [
                 ObservationData(
@@ -70,7 +72,9 @@ class DerelativizeTransformTest(TestCase):
                 self._test_DerelativizeTransform(
                     experiment=experiment,
                     mock_predict=mock_predict,
+                    sq_a_observed=sq_a_observed,
                     sq_b_observed=sq_b_observed,
+                    sq_a_predicted=sq_a_predicted,
                     sq_b_predicted=sq_b_predicted,
                 )
 
@@ -78,7 +82,9 @@ class DerelativizeTransformTest(TestCase):
         self,
         experiment: Experiment,
         mock_predict: Mock,
+        sq_a_observed: float,
         sq_b_observed: float,
+        sq_a_predicted: float,
         sq_b_predicted: float,
     ) -> None:
         t = Derelativize(search_space=None)
@@ -98,12 +104,12 @@ class DerelativizeTransformTest(TestCase):
         g = Adapter(experiment=experiment_1, generator=Generator())
 
         # Test with no relative constraints
-        objective = Objective(Metric("c"), minimize=True)
+        objective = Objective(metric=Metric("c"), minimize=True)
         oc = OptimizationConfig(
             objective=objective,
             outcome_constraints=[
                 OutcomeConstraint(
-                    Metric("m1"), ComparisonOp.LEQ, bound=2, relative=False
+                    metric=Metric("m1"), op=ComparisonOp.LEQ, bound=2, relative=False
                 ),
                 ScalarizedOutcomeConstraint(
                     metrics=[Metric("m1"), Metric("m2")],
@@ -123,14 +129,17 @@ class DerelativizeTransformTest(TestCase):
             objective=objective,
             outcome_constraints=[
                 OutcomeConstraint(
-                    Metric("m1"), ComparisonOp.LEQ, bound=2, relative=False
+                    metric=Metric("m1"), op=ComparisonOp.LEQ, bound=2, relative=False
                 ),
                 OutcomeConstraint(
-                    Metric("m2"), ComparisonOp.LEQ, bound=relative_bound, relative=True
+                    metric=Metric("m2"),
+                    op=ComparisonOp.LEQ,
+                    bound=relative_bound,
+                    relative=True,
                 ),
                 ScalarizedOutcomeConstraint(
                     metrics=[Metric("m1"), Metric("m2")],
-                    weights=[0.0, 1.0],
+                    weights=[0.5, 0.5],
                     op=ComparisonOp.LEQ,
                     bound=relative_bound,
                     relative=True,
@@ -140,20 +149,27 @@ class DerelativizeTransformTest(TestCase):
         oc2 = t.transform_optimization_config(oc, g, None)
         sq_val = sq_b_predicted
         absolute_bound = (1 + np.sign(sq_val) * relative_bound / 100.0) * sq_val
+        sq_val_scalarized = 0.5 * sq_a_predicted + 0.5 * sq_b_predicted
+        absolute_bound_scalarized = (
+            1 + np.sign(sq_val_scalarized) * relative_bound / 100.0
+        ) * sq_val_scalarized
         self.assertTrue(
             oc2.outcome_constraints
             == [
                 OutcomeConstraint(
-                    Metric("m1"), ComparisonOp.LEQ, bound=2, relative=False
+                    metric=Metric("m1"), op=ComparisonOp.LEQ, bound=2, relative=False
                 ),
                 OutcomeConstraint(
-                    Metric("m2"), ComparisonOp.LEQ, bound=absolute_bound, relative=False
+                    metric=Metric("m2"),
+                    op=ComparisonOp.LEQ,
+                    bound=absolute_bound,
+                    relative=False,
                 ),
                 ScalarizedOutcomeConstraint(
                     metrics=[Metric("m1"), Metric("m2")],
-                    weights=[0.0, 1.0],
+                    weights=[0.5, 0.5],
                     op=ComparisonOp.LEQ,
-                    bound=absolute_bound,
+                    bound=absolute_bound_scalarized,
                     relative=False,
                 ),
             ]
@@ -179,14 +195,17 @@ class DerelativizeTransformTest(TestCase):
             objective=objective,
             outcome_constraints=[
                 OutcomeConstraint(
-                    Metric("m1"), ComparisonOp.LEQ, bound=2, relative=False
+                    metric=Metric("m1"), op=ComparisonOp.LEQ, bound=2, relative=False
                 ),
                 OutcomeConstraint(
-                    Metric("m2"), ComparisonOp.LEQ, bound=relative_bound, relative=True
+                    metric=Metric("m2"),
+                    op=ComparisonOp.LEQ,
+                    bound=relative_bound,
+                    relative=True,
                 ),
                 ScalarizedOutcomeConstraint(
                     metrics=[Metric("m1"), Metric("m2")],
-                    weights=[0.0, 1.0],
+                    weights=[0.5, 0.5],
                     op=ComparisonOp.LEQ,
                     bound=relative_bound,
                     relative=True,
@@ -196,20 +215,27 @@ class DerelativizeTransformTest(TestCase):
         oc2 = t.transform_optimization_config(oc, g, None)
         sq_val = sq_b_observed
         absolute_bound = (1 + np.sign(sq_val) * relative_bound / 100.0) * sq_val
+        sq_val_scalarized = 0.5 * sq_a_observed + 0.5 * sq_b_observed
+        absolute_bound_scalarized = (
+            1 + np.sign(sq_val_scalarized) * relative_bound / 100.0
+        ) * sq_val_scalarized
         self.assertEqual(
             oc2.outcome_constraints,
             [
                 OutcomeConstraint(
-                    Metric("m1"), ComparisonOp.LEQ, bound=2, relative=False
+                    metric=Metric("m1"), op=ComparisonOp.LEQ, bound=2, relative=False
                 ),
                 OutcomeConstraint(
-                    Metric("m2"), ComparisonOp.LEQ, bound=absolute_bound, relative=False
+                    metric=Metric("m2"),
+                    op=ComparisonOp.LEQ,
+                    bound=absolute_bound,
+                    relative=False,
                 ),
                 ScalarizedOutcomeConstraint(
                     metrics=[Metric("m1"), Metric("m2")],
-                    weights=[0.0, 1.0],
+                    weights=[0.5, 0.5],
                     op=ComparisonOp.LEQ,
-                    bound=absolute_bound,
+                    bound=absolute_bound_scalarized,
                     relative=False,
                 ),
             ],
@@ -227,10 +253,10 @@ class DerelativizeTransformTest(TestCase):
             objective=objective,
             outcome_constraints=[
                 OutcomeConstraint(
-                    Metric("m1"), ComparisonOp.LEQ, bound=2, relative=False
+                    metric=Metric("m1"), op=ComparisonOp.LEQ, bound=2, relative=False
                 ),
                 OutcomeConstraint(
-                    Metric("m2"), ComparisonOp.LEQ, bound=-10, relative=True
+                    metric=Metric("m2"), op=ComparisonOp.LEQ, bound=-10, relative=True
                 ),
             ],
         )
@@ -293,10 +319,10 @@ class DerelativizeTransformTest(TestCase):
     def test_errors(self) -> None:
         t = Derelativize(search_space=None)
         oc = OptimizationConfig(
-            objective=Objective(Metric("c"), minimize=False),
+            objective=Objective(metric=Metric("c"), minimize=False),
             outcome_constraints=[
                 OutcomeConstraint(
-                    Metric("m1"), ComparisonOp.LEQ, bound=2, relative=True
+                    metric=Metric("m1"), op=ComparisonOp.LEQ, bound=2, relative=True
                 )
             ],
         )

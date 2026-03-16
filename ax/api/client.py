@@ -32,8 +32,9 @@ from ax.api.utils.structs import ExperimentStruct, GenerationStrategyDispatchStr
 from ax.core.analysis_card import AnalysisCardBase
 from ax.core.arm import Arm
 from ax.core.experiment import Experiment
+from ax.core.map_metric import MapMetric
 from ax.core.metric import Metric
-from ax.core.objective import MultiObjective, Objective, ScalarizedObjective
+from ax.core.objective import Objective
 from ax.core.observation import ObservationFeatures
 from ax.core.optimization_config import OptimizationConfig
 from ax.core.runner import Runner
@@ -199,6 +200,37 @@ class Client(WithDBSettingsBase):
         # provided
         if pruning_target_arm is not None:
             optimization_config.pruning_target_parameterization = pruning_target_arm
+
+        # Register any new metrics from the optimization config on the experiment
+        # before setting the optimization config, which validates that all
+        # referenced metrics exist on the experiment.
+        # Determine lower_is_better for objective metrics from weights.
+        obj = optimization_config.objective
+        objective_lower_is_better: dict[str, bool] = {}
+        if obj.is_multi_objective:
+            parts = [p.strip() for p in obj.expression.split(",")]
+            for part in parts:
+                sub = Objective(expression=part)
+                for name, weight in sub.metric_weights:
+                    objective_lower_is_better[name] = weight < 0
+        else:
+            for name, weight in obj.metric_weights:
+                objective_lower_is_better[name] = weight < 0
+
+        # Register objective metrics first (preserving expression order),
+        # then constraint metrics.
+        all_metric_names: list[str] = list(obj.metric_names)
+        for oc in optimization_config.all_constraints:
+            for name in oc.metric_names:
+                if name not in all_metric_names:
+                    all_metric_names.append(name)
+
+        for metric_name in all_metric_names:
+            if metric_name not in self._experiment.metrics:
+                lower_is_better = objective_lower_is_better.get(metric_name, None)
+                self._experiment.add_tracking_metric(
+                    MapMetric(name=metric_name, lower_is_better=lower_is_better)
+                )
 
         self._experiment.optimization_config = optimization_config
         self._set_metrics(metrics=list(old_metrics.values()))
@@ -513,7 +545,7 @@ class Client(WithDBSettingsBase):
         # Log metric availability for user visibility.
         if (optimization_config := self._experiment.optimization_config) is not None:
             trial_data = self._experiment.lookup_data(trial_indices=[trial_index])
-            missing_metrics = set(optimization_config.metrics.keys()) - {
+            missing_metrics = optimization_config.metric_names - {
                 *trial_data.metric_names
             }
 
@@ -1220,52 +1252,14 @@ class Client(WithDBSettingsBase):
         handled in self._set_metrics).
         """
 
-        # Check the OptimizationConfig first
-        if (optimization_config := self._experiment.optimization_config) is not None:
-            # Check the objective
-            if isinstance(
-                multi_objective := optimization_config.objective, MultiObjective
-            ):
-                for i in range(len(multi_objective.objectives)):
-                    if metric.name == multi_objective.objectives[i].metric.name:
-                        multi_objective._objectives[i]._metric = metric
-                        return
-            elif isinstance(
-                scalarized_objective := optimization_config.objective,
-                ScalarizedObjective,
-            ):
-                for i in range(len(scalarized_objective.metrics)):
-                    if metric.name == scalarized_objective.metrics[i].name:
-                        scalarized_objective._metrics[i] = metric
-                        return
-            elif (
-                isinstance(optimization_config.objective, Objective)
-                and metric.name == optimization_config.objective.metric.name
-            ):
-                optimization_config.objective._metric = metric
-                return
-
-            # Check the outcome constraints
-            for i in range(len(optimization_config.outcome_constraints)):
-                if (
-                    metric.name
-                    == optimization_config.outcome_constraints[i].metric.name
-                ):
-                    optimization_config._outcome_constraints[i]._metric = metric
-                    return
-
-        # Check the tracking metrics
-        if metric.name in self._experiment._tracking_metrics.keys():
-            self._experiment._tracking_metrics[metric.name] = metric
-            return
-
-        # If an equivalently named Metric does not exist, add it as a tracking
-        # metric.
-        self._experiment.add_tracking_metric(metric=metric)
-        logger.warning(
-            f"Metric {metric} not found in optimization config, added as tracking "
-            "metric."
-        )
+        if metric.name in self._experiment.metrics:
+            self._experiment.update_metric(metric)
+        else:
+            self._experiment.add_tracking_metric(metric=metric)
+            logger.warning(
+                f"Metric {metric} not found on experiment, added as a new "
+                "tracking metric."
+            )
 
     # -------------------- Section 5.3: Storage utilies -------------------------------
     def _to_json_snapshot(self) -> dict[str, Any]:

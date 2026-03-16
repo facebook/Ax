@@ -763,28 +763,24 @@ class SQAStoreTest(TestCase):
                 # Check generator runs
                 gr = trial.generator_runs[0]
                 if composite_type == "multi_objective" and not immutable:
-                    objectives = assert_is_instance(
+                    multi_obj = assert_is_instance(
                         none_throws(gr.optimization_config).objective, MultiObjective
-                    ).objectives
-                    for i, objective in enumerate(objectives):
-                        metric = objective.metric
-                        self.assertEqual(metric.name, f"m{1 + 2 * i}")
-                        self.assertEqual(metric.signature, f"m{1 + 2 * i}")
-                        self.assertEqual(metric.__class__, Metric)
+                    )
+                    metric_names = multi_obj.metric_names
+                    for i, name in enumerate(metric_names):
+                        self.assertEqual(name, f"m{1 + 2 * i}")
                 elif composite_type == "scalarized" and not immutable:
                     # Check scalarized objective children
                     scalarized_objective = none_throws(gr.optimization_config).objective
                     if isinstance(scalarized_objective, ScalarizedObjective):
-                        for metric in scalarized_objective.metrics:
-                            self.assertEqual(metric.__class__, Metric)
+                        self.assertTrue(len(scalarized_objective.metric_names) > 0)
 
                     # Check scalarized outcome constraint children
                     for constraint in none_throws(
                         gr.optimization_config
                     ).outcome_constraints:
                         if isinstance(constraint, ScalarizedOutcomeConstraint):
-                            for metric in constraint.metrics:
-                                self.assertEqual(metric.__class__, Metric)
+                            self.assertTrue(len(constraint.metric_names) > 0)
 
     @patch(
         f"{Decoder.__module__}.Decoder.generator_run_from_sqa",
@@ -1267,8 +1263,7 @@ class SQAStoreTest(TestCase):
         # update objective
         # (should perform update in place)
         optimization_config = get_optimization_config()
-        objective = get_objective()
-        objective.minimize = True
+        objective = get_objective(minimize=True)
         optimization_config.objective = objective
         experiment.optimization_config = optimization_config
         save_experiment(experiment)
@@ -1278,6 +1273,7 @@ class SQAStoreTest(TestCase):
 
         # replace objective
         # (old one should become tracking metric)
+        experiment.add_tracking_metric(Metric(name="objective"))
         optimization_config.objective = Objective(
             metric=Metric(name="objective"), minimize=False
         )
@@ -1300,8 +1296,12 @@ class SQAStoreTest(TestCase):
         # update outcome constraint
         # (should perform update in place)
         optimization_config = get_optimization_config()
-        outcome_constraint = get_outcome_constraint()
-        outcome_constraint.bound = -1.0
+        outcome_constraint = OutcomeConstraint(
+            metric=Metric(name="m2"),
+            op=ComparisonOp.GEQ,
+            bound=-1.0,
+            relative=True,
+        )
         optimization_config.outcome_constraints = [outcome_constraint]
         experiment.optimization_config = optimization_config
         save_experiment(experiment)
@@ -1310,6 +1310,7 @@ class SQAStoreTest(TestCase):
         )
 
         # add outcome constraint
+        experiment.add_tracking_metric(Metric(name="outcome"))
         outcome_constraint2 = OutcomeConstraint(
             metric=Metric(name="outcome"), op=ComparisonOp.GEQ, bound=-0.5
         )
@@ -1324,6 +1325,8 @@ class SQAStoreTest(TestCase):
         )
 
         # add a scalarized outcome constraint
+        experiment.add_tracking_metric(Metric(name="oc_m3"))
+        experiment.add_tracking_metric(Metric(name="oc_m4"))
         outcome_constraint3 = get_scalarized_outcome_constraint()
         optimization_config.outcome_constraints = [
             outcome_constraint,
@@ -1617,12 +1620,10 @@ class SQAStoreTest(TestCase):
                     loaded_config.objective, MultiObjective
                 )
                 self.assertEqual(
-                    len(loaded_objective.objectives),
-                    len(multi_objective.objectives),
+                    len(loaded_objective.metric_names),
+                    len(multi_objective.metric_names),
                 )
-                loaded_metric_names = {
-                    obj.metric.name for obj in loaded_objective.objectives
-                }
+                loaded_metric_names = set(loaded_objective.metric_names)
                 self.assertEqual(loaded_metric_names, {"m1", "m2"})
 
     def test_experiment_objective_threshold_updates(self) -> None:
@@ -1643,12 +1644,13 @@ class SQAStoreTest(TestCase):
             objective_threshold,
             objective_threshold2,
         ]
+        experiment.add_tracking_metric(Metric(name="m3"))
         experiment.optimization_config = optimization_config
         save_experiment(experiment)
         self.assertEqual(get_session().query(SQAMetric).count(), 7)
-        self.assertIsNotNone(optimization_config.objective_thresholds[0].metric.db_id)
 
         # add outcome constraint
+        experiment.add_tracking_metric(Metric(name="outcome"))
         outcome_constraint2 = OutcomeConstraint(
             metric=Metric(name="outcome"), op=ComparisonOp.GEQ, bound=-0.5
         )
@@ -1665,7 +1667,7 @@ class SQAStoreTest(TestCase):
         optimization_config.outcome_constraints = []
         experiment.optimization_config = optimization_config
         save_experiment(experiment)
-        self.assertEqual(get_session().query(SQAMetric).count(), 6)
+        self.assertEqual(get_session().query(SQAMetric).count(), 8)
 
         loaded_experiment = load_experiment(experiment.name)
         self.assertEqual(experiment, loaded_experiment)
@@ -1674,7 +1676,7 @@ class SQAStoreTest(TestCase):
         # objective_thresholds
         optimization_config.objective_thresholds = []
         save_experiment(experiment)
-        self.assertEqual(get_session().query(SQAMetric).count(), 4)
+        self.assertEqual(get_session().query(SQAMetric).count(), 6)
 
         loaded_experiment = load_experiment(experiment.name)
         self.assertEqual(experiment, loaded_experiment)

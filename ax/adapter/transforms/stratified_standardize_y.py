@@ -13,15 +13,21 @@ from typing import TYPE_CHECKING
 import numpy as np
 from ax.adapter.data_utils import ExperimentData
 from ax.adapter.transforms.base import Transform
-from ax.adapter.transforms.standardize_y import compute_standardization_parameters
-from ax.core.objective import ScalarizedObjective
+from ax.adapter.transforms.standardize_y import (
+    _build_objective_from_metric_weights,
+    compute_standardization_parameters,
+)
 from ax.core.observation import Observation, ObservationFeatures
-from ax.core.optimization_config import OptimizationConfig
-from ax.core.outcome_constraint import OutcomeConstraint, ScalarizedOutcomeConstraint
+from ax.core.optimization_config import (
+    MultiObjectiveOptimizationConfig,
+    OptimizationConfig,
+)
+from ax.core.outcome_constraint import OutcomeConstraint
 from ax.core.parameter import ChoiceParameter
 from ax.core.search_space import SearchSpace
-from ax.core.types import TParamValue
+from ax.core.types import ComparisonOp, TParamValue
 from ax.generators.types import TConfig
+from ax.utils.common.sympy import build_constraint_expression_str
 from pyre_extensions import assert_is_instance, none_throws
 
 
@@ -163,8 +169,8 @@ class StratifiedStandardizeY(Transform):
         adapter: adapter_module.base.Adapter | None = None,
         fixed_features: ObservationFeatures | None = None,
     ) -> OptimizationConfig:
-        if len(optimization_config.all_constraints) == 0 and not isinstance(
-            optimization_config.objective, ScalarizedObjective
+        if len(optimization_config.all_constraints) == 0 and not (
+            optimization_config.objective.is_scalarized_objective
         ):
             return optimization_config
         if fixed_features is None or self.p_name not in fixed_features.parameters:
@@ -175,41 +181,103 @@ class StratifiedStandardizeY(Transform):
         v = none_throws(fixed_features.parameters[self.p_name])
         strata = self.strata_mapping[v]
 
-        # Handle ScalarizedObjective: update weights by multiplying with std.
+        # Handle scalarized objective: update weights by multiplying with std.
         # Transform \sum (wi * yi) to \sum (wi * si * zi) where zi = (yi - mu_i) / si
         # The constant term \sum (wi * mu_i) doesn't affect optimization.
-        if isinstance(objective := optimization_config.objective, ScalarizedObjective):
-            objective.weights = [
-                objective.weights[i] * float(self.Ystd[(metric.signature, strata)])
-                for i, metric in enumerate(objective.metrics)
+        if optimization_config.objective.is_scalarized_objective:
+            objective = optimization_config.objective
+            obj_sigs = [
+                self._get_metric_signature(n, adapter) for n in objective.metric_names
             ]
+            old_weights = [w for _, w in objective.metric_weights]
+            new_weights = [
+                old_weights[i] * float(self.Ystd[(sig, strata)])
+                for i, sig in enumerate(obj_sigs)
+            ]
+            new_metric_weights = [
+                (name, new_w)
+                for (name, _), new_w in zip(objective.metric_weights, new_weights)
+            ]
+            optimization_config.objective = _build_objective_from_metric_weights(
+                new_metric_weights
+            )
 
-        for c in optimization_config.all_constraints:
+        optimization_config.outcome_constraints = self._transform_constraints(
+            optimization_config.outcome_constraints, strata, adapter
+        )
+
+        if isinstance(optimization_config, MultiObjectiveOptimizationConfig):
+            optimization_config.objective_thresholds = self._transform_constraints(
+                optimization_config.objective_thresholds, strata, adapter
+            )
+
+        return optimization_config
+
+    def _transform_constraints(
+        self,
+        constraints: list[OutcomeConstraint],
+        strata: TParamValue,
+        adapter: adapter_module.base.Adapter | None = None,
+    ) -> list[OutcomeConstraint]:
+        """Transform a list of constraints by standardizing bounds."""
+        new_constraints = []
+        for c in constraints:
             if c.relative:
                 raise ValueError(
                     "StratifiedStandardizeY transform does not support relative "
                     f"constraint {c}"
                 )
-            if isinstance(c, ScalarizedOutcomeConstraint):
+            if len(c.metric_names) > 1:
+                c_sigs = [
+                    self._get_metric_signature(n, adapter) for n in c.metric_names
+                ]
                 # Transform \sum (wi * yi) <= C to
                 # \sum (wi * si * zi) <= C - \sum (wi * mu_i)
                 # Update bound and weights.
-                c.bound = float(
+                old_weights = [w for _, w in c.metric_weights]
+                new_bound = float(
                     c.bound
                     - sum(
-                        c.weights[i] * self.Ymean[(m.signature, strata)]
-                        for i, m in enumerate(c.metrics)
+                        old_weights[i] * self.Ymean[(sig, strata)]
+                        for i, sig in enumerate(c_sigs)
                     )
                 )
-                c.weights = [
-                    c.weights[i] * self.Ystd[(m.signature, strata)]
-                    for i, m in enumerate(c.metrics)
+                new_weights = [
+                    old_weights[i] * self.Ystd[(sig, strata)]
+                    for i, sig in enumerate(c_sigs)
                 ]
+                new_metric_weights = [
+                    (name, new_w)
+                    for (name, _), new_w in zip(c.metric_weights, new_weights)
+                ]
+                op_str = ">=" if c.op == ComparisonOp.GEQ else "<="
+                new_constraints.append(
+                    OutcomeConstraint(
+                        expression=build_constraint_expression_str(
+                            metric_weights=new_metric_weights,
+                            op=op_str,
+                            bound=new_bound,
+                            relative=False,
+                        )
+                    )
+                )
             else:
-                c.bound = (
-                    c.bound - self.Ymean[(c.metric.signature, strata)]
-                ) / self.Ystd[(c.metric.signature, strata)]
-        return optimization_config
+                c_sig = self._get_metric_signature(c.metric_names[0], adapter)
+                new_bound = float(
+                    (c.bound - self.Ymean[(c_sig, strata)]) / self.Ystd[(c_sig, strata)]
+                )
+                op_str = ">=" if c.op == ComparisonOp.GEQ else "<="
+                new_constraints.append(
+                    OutcomeConstraint(
+                        expression=build_constraint_expression_str(
+                            metric_weights=c.metric_weights,
+                            op=op_str,
+                            bound=new_bound,
+                            relative=c.relative,
+                        )
+                    )
+                )
+        return new_constraints
 
     def untransform_observations(
         self,
@@ -239,32 +307,61 @@ class StratifiedStandardizeY(Transform):
             )
         v = none_throws(fixed_features.parameters[self.p_name])
         strata = self.strata_mapping[v]
+        new_constraints = []
         for c in outcome_constraints:
             if c.relative:
                 raise ValueError(
                     "StratifiedStandardizeY does not support relative constraints"
                 )
-            if isinstance(c, ScalarizedOutcomeConstraint):
+            if len(c.metric_names) > 1:
+                c_sigs = [self._get_metric_signature(n) for n in c.metric_names]
                 # Untransform \sum (wi * si * zi) <= C' back to \sum (wi * yi) <= C
                 # where C' = C - \sum (wi * mu_i) and weights were multiplied by si.
                 # First untransform weights, then untransform bound.
-                c.weights = [
-                    c.weights[i] / self.Ystd[(m.signature, strata)]
-                    for i, m in enumerate(c.metrics)
+                old_weights = [w for _, w in c.metric_weights]
+                new_weights = [
+                    old_weights[i] / self.Ystd[(sig, strata)]
+                    for i, sig in enumerate(c_sigs)
                 ]
-                c.bound = float(
+                new_bound = float(
                     c.bound
                     + sum(
-                        c.weights[i] * self.Ymean[(m.signature, strata)]
-                        for i, m in enumerate(c.metrics)
+                        new_weights[i] * self.Ymean[(sig, strata)]
+                        for i, sig in enumerate(c_sigs)
+                    )
+                )
+                new_metric_weights = [
+                    (name, new_w)
+                    for (name, _), new_w in zip(c.metric_weights, new_weights)
+                ]
+                op_str = ">=" if c.op == ComparisonOp.GEQ else "<="
+                new_constraints.append(
+                    OutcomeConstraint(
+                        expression=build_constraint_expression_str(
+                            metric_weights=new_metric_weights,
+                            op=op_str,
+                            bound=new_bound,
+                            relative=False,
+                        )
                     )
                 )
             else:
-                c.bound = float(
-                    c.bound * self.Ystd[(c.metric.signature, strata)]
-                    + self.Ymean[(c.metric.signature, strata)]
+                c_sig = self._get_metric_signature(c.metric_names[0])
+                new_bound = float(
+                    c.bound * self.Ystd[(c_sig, strata)] + self.Ymean[(c_sig, strata)]
                 )
-        return outcome_constraints
+                op_str = ">=" if c.op == ComparisonOp.GEQ else "<="
+                new_constraints.append(
+                    OutcomeConstraint(
+                        expression=build_constraint_expression_str(
+                            metric_weights=c.metric_weights,
+                            op=op_str,
+                            bound=new_bound,
+                            relative=c.relative,
+                        )
+                    )
+                )
+        return new_constraints
 
     def transform_experiment_data(
         self, experiment_data: ExperimentData

@@ -87,6 +87,22 @@ class Transform:
         self.config = deepcopy(config)
         self.adapter = adapter
 
+    def _get_metric_signature(
+        self,
+        metric_name: str,
+        adapter: adapter_module.base.Adapter | None = None,
+    ) -> str:
+        """Get the metric signature for a metric name.
+
+        Uses the experiment from the adapter to look up the actual signature.
+        Falls back to using the metric name directly if no adapter is available
+        (which is correct for simple Metric objects where name == signature).
+        """
+        a = adapter or self.adapter
+        if a is not None:
+            return a._experiment.get_metric(metric_name).signature
+        return metric_name
+
     def transform_search_space(self, search_space: SearchSpace) -> SearchSpace:
         """Transform search space.
 

@@ -6,7 +6,7 @@
 
 # pyre-strict
 
-from collections.abc import Callable, Iterable
+from collections.abc import Callable, Iterable, Sequence
 from copy import deepcopy
 from datetime import datetime, timedelta
 from enum import Enum
@@ -21,6 +21,7 @@ from ax.core.batch_trial import BatchTrial
 from ax.core.experiment import Experiment
 from ax.core.generator_run import GeneratorRun
 from ax.core.map_metric import MapMetric
+from ax.core.metric import Metric
 from ax.core.observation import ObservationFeatures
 from ax.core.optimization_config import OptimizationConfig
 from ax.core.trial import Trial
@@ -57,7 +58,7 @@ def _maybe_update_trial_status_to_complete(
     if experiment.optimization_config is not None:
         optimization_config = experiment.optimization_config
         trial_data = experiment.lookup_data(trial_indices=[trial_index])
-        missing_metrics = set(optimization_config.metrics.keys()) - {
+        missing_metrics = {*optimization_config.metric_names} - {
             *trial_data.metric_names
         }
 
@@ -206,7 +207,7 @@ def compute_metric_availability(
                 "Either pass one explicitly, set one on the experiment, or provide "
                 "metric_names."
             )
-        required_metrics = set(resolved_opt_config.metrics.keys())
+        required_metrics = resolved_opt_config.metric_names
 
     # Resolve trial indices.
     if trial_indices is not None:
@@ -731,18 +732,15 @@ def _time_trial_completed_safe(trial: BatchTrial) -> datetime:
 # -------------------- MapMetric related utils. ---------------------
 
 
-def has_map_metrics(optimization_config: OptimizationConfig) -> bool:
-    """Check if the optimization config has any ``MapMetric``s.
+def has_map_metrics(metrics: Sequence[Metric]) -> bool:
+    """Check if the given metrics contain any ``MapMetric``s.
 
     Args:
-        optimization_config: Optimization config.
+        metrics: A mapping from metric name to Metric object.
     """
-    metrics = optimization_config.metrics
-    # Technically an OptimizationConfig could have zero metrics since a
-    # MultiObjective could have 0 objectives
     if len(metrics) == 0:
         return False
-    return any(isinstance(metric, MapMetric) for metric in metrics.values())
+    return any(isinstance(metric, MapMetric) for metric in metrics)
 
 
 # -------------------- Context manager and decorator utils. ---------------------

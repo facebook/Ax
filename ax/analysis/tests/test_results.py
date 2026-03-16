@@ -329,12 +329,9 @@ class TestResultsAnalysis(TestCase):
     def test_compute_without_optimization_config(self) -> None:
         # Setup: Create experiment without optimization config
         experiment = get_branin_experiment()
-        metrics = [
-            m.clone()
-            for m in none_throws(experiment.optimization_config).metrics.values()
-        ]
         experiment._optimization_config = None
-        experiment.add_tracking_metrics(metrics)
+        # Metrics are already in experiment._metrics; with no opt config,
+        # they are automatically treated as tracking metrics.
 
         trial = experiment.new_trial()
         trial.add_arm(

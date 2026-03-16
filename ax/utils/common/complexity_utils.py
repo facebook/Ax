@@ -11,7 +11,6 @@ from typing import Any
 
 from ax.adapter.adapter_utils import can_map_to_binary, is_unordered_choice
 from ax.core.experiment import Experiment
-from ax.core.objective import MultiObjective
 from ax.exceptions.core import OptimizationNotConfiguredError, UserInputError
 from ax.orchestration.orchestrator import OrchestratorOptions
 
@@ -174,8 +173,8 @@ def summarize_ax_optimization_complexity(
     num_categorical_6_inf = sum(is_unordered_choice(p, min_choices=6) for p in params)
     num_parameter_constraints = len(search_space.parameter_constraints)
     num_objectives = (
-        len(optimization_config.objective.objectives)
-        if isinstance(optimization_config.objective, MultiObjective)
+        len(optimization_config.objective.metric_names)
+        if optimization_config.objective.is_multi_objective
         else 1
     )
     num_outcome_constraints = len(optimization_config.outcome_constraints)
@@ -184,7 +183,9 @@ def summarize_ax_optimization_complexity(
 
     # Check if any metrics use merge_multiple_curves
     uses_merge_multiple_curves = False
-    all_metrics = list(optimization_config.metrics.values())
+    all_metrics = [
+        experiment.get_metric(name) for name in optimization_config.metric_names
+    ]
     if hasattr(experiment, "tracking_metrics"):
         all_metrics.extend(experiment.tracking_metrics)
     for metric in all_metrics:

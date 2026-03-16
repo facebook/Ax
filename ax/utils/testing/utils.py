@@ -72,7 +72,7 @@ def run_trials_with_gs(
                         "trial_index": i,
                         "metric_signature": m,
                     }
-                    for m in none_throws(experiment.optimization_config).metrics
+                    for m in none_throws(experiment.optimization_config).metric_names
                     for arm in trial.arms
                 ]
             )

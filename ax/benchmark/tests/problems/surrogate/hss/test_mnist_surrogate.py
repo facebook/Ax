@@ -61,8 +61,6 @@ class TestMNISTSurrogate(TestCase):
         benchmark = get_mnist_surrogate_benchmark(num_trials=1)
 
         objective = benchmark.optimization_config.objective
-        metric = objective.metric
 
-        self.assertEqual(metric.name, "MNIST Test Accuracy")
+        self.assertEqual(objective.metric_names, ["MNIST Test Accuracy"])
         self.assertFalse(objective.minimize)
-        self.assertFalse(metric.lower_is_better)

@@ -34,6 +34,7 @@ from ax.generation_strategy.transition_criterion import (
     MaxTrialsAwaitingData,
     MinTrials,
 )
+from ax.metrics.branin import BraninMetric
 from ax.utils.common.constants import Keys
 from ax.utils.common.hash_utils import compute_lilo_input_hash
 from ax.utils.common.logger import get_logger
@@ -440,6 +441,16 @@ class TestTransitionCriterion(TestCase):
 
     def test_is_single_objective_does_not_transition(self) -> None:
         exp = self.branin_experiment
+        exp.add_metric(
+            metric=BraninMetric(
+                name="branin_a", param_names=["x1", "x2"], lower_is_better=True
+            )
+        )
+        exp.add_metric(
+            metric=BraninMetric(
+                name="branin_b", param_names=["x1", "x2"], lower_is_better=True
+            )
+        )
         exp.optimization_config = get_branin_multi_objective_optimization_config()
         gs = GenerationStrategy(
             name="test",

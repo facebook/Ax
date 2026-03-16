@@ -117,7 +117,7 @@ def get_soo_surrogate() -> BenchmarkProblem:
     experiment = get_branin_experiment(with_completed_trial=True)
     test_function = get_soo_surrogate_test_function()
 
-    optimization_config = get_soo_opt_config(
+    optimization_config, opt_config_metrics = get_soo_opt_config(
         outcome_names=test_function.outcome_names,
         observe_noise_sd=True,
     )
@@ -130,6 +130,7 @@ def get_soo_surrogate() -> BenchmarkProblem:
         optimal_value=0.0,
         baseline_value=3.0,
         test_function=test_function,
+        opt_config_metrics=opt_config_metrics,
     )
 
 
@@ -147,7 +148,7 @@ def get_moo_surrogate() -> BenchmarkProblem:
     test_function = SurrogateTestFunction(
         name="test", outcome_names=outcome_names, get_surrogate=lambda: surrogate
     )
-    optimization_config = get_moo_opt_config(
+    optimization_config, opt_config_metrics = get_moo_opt_config(
         outcome_names=outcome_names,
         ref_point=[0.0, 0.0],
         observe_noise_sd=True,
@@ -161,6 +162,7 @@ def get_moo_surrogate() -> BenchmarkProblem:
         optimal_value=1.0,
         baseline_value=0.0,
         test_function=test_function,
+        opt_config_metrics=opt_config_metrics,
     )
 
 
@@ -342,7 +344,7 @@ def get_async_benchmark_problem(
 
     if num_objectives == 1:
         # Single-objective: first outcome is objective, rest are constraints
-        optimization_config = get_soo_opt_config(
+        optimization_config, opt_config_metrics = get_soo_opt_config(
             outcome_names=outcome_names,
             lower_is_better=lower_is_better,
             observe_noise_sd=True,
@@ -351,7 +353,7 @@ def get_async_benchmark_problem(
     else:
         # Multi-objective: pass all outcomes (objectives + constraints)
         # get_moo_opt_config will use the last num_constraints as constraints
-        optimization_config = get_moo_opt_config(
+        optimization_config, opt_config_metrics = get_moo_opt_config(
             outcome_names=outcome_names,
             ref_point=[1.0] * num_objectives,
             num_constraints=num_constraints,
@@ -373,6 +375,7 @@ def get_async_benchmark_problem(
         else None,
         step_runtime_function=step_runtime_fn,
         report_inference_value_as_trace=report_inference_value_as_trace,
+        opt_config_metrics=opt_config_metrics,
     )
 
 

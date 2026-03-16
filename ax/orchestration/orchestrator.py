@@ -1207,7 +1207,7 @@ class Orchestrator(WithDBSettingsBase, BestPointMixin):
 
                 if is_infeasible:
                     constraint_descriptions = [
-                        f"{c.metric.name} {c.op.name} {c.bound}"
+                        f"{c.metric_names[0]} {c.op.name} {c.bound}"
                         for c in optimization_config.outcome_constraints
                     ]
                     error_msg = (
@@ -2097,7 +2097,7 @@ class Orchestrator(WithDBSettingsBase, BestPointMixin):
                 optimization_config = self.experiment.optimization_config
                 if (
                     optimization_config is not None
-                    and metric_name in optimization_config.metrics.keys()
+                    and metric_name in optimization_config.metric_names
                     and not self.experiment.metrics[metric_name].is_recoverable_fetch_e(
                         metric_fetch_e=metric_fetch_e
                     )

@@ -26,6 +26,7 @@ from ax.adapter.transforms.relativize import (
 from ax.core import BatchTrial
 from ax.core.arm import Arm
 from ax.core.experiment import Experiment
+from ax.core.metric import Metric
 from ax.core.objective import MultiObjective, Objective
 from ax.core.observation import Observation, ObservationData, ObservationFeatures
 from ax.core.observation_utils import observations_from_data, recombine_observations
@@ -544,8 +545,15 @@ class RelativizeDataOptConfigTest(TestCase):
             optimization_config = get_branin_multi_objective_optimization_config(
                 has_objective_thresholds=True,
             )
-            for threshold in optimization_config.objective_thresholds:
-                threshold.relative = True
+            optimization_config.objective_thresholds = [
+                OutcomeConstraint(
+                    metric=Metric(name=threshold.metric_names[0]),
+                    op=threshold.op,
+                    bound=threshold.bound,
+                    relative=True,
+                )
+                for threshold in optimization_config.objective_thresholds
+            ]
 
             new_config = relativize.transform_optimization_config(
                 optimization_config=optimization_config,
@@ -575,7 +583,13 @@ class RelativizeDataOptConfigTest(TestCase):
             optimization_config = get_branin_multi_objective_optimization_config(
                 has_objective_thresholds=True,
             )
-            optimization_config.objective_thresholds[1].relative = False
+            old_threshold = optimization_config.objective_thresholds[1]
+            optimization_config.objective_thresholds[1] = OutcomeConstraint(
+                metric=Metric(name=old_threshold.metric_names[0]),
+                op=old_threshold.op,
+                bound=old_threshold.bound,
+                relative=False,
+            )
 
             with self.assertRaisesRegex(
                 ValueError, "All objective thresholds must be relative"
@@ -624,6 +638,7 @@ class RelativizeDataOptConfigTest(TestCase):
                         Objective(
                             metric=BraninMetric("branin", ["x1", "x2"]), minimize=False
                         ),
+                        Objective(metric=Metric(name="aux_metric"), minimize=False),
                     ]
                 ),
                 preference_profile_name="test",

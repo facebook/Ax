@@ -1018,13 +1018,18 @@ class TorchAdapter(Adapter):
                 "to be specified"
             )
 
-        validate_transformed_optimization_config(optimization_config, self.outcomes)
+        validate_transformed_optimization_config(
+            optimization_config, self.outcomes, experiment=self._experiment
+        )
         objective_weights = extract_objective_weight_matrix(
-            objective=optimization_config.objective, outcomes=self.outcomes
+            objective=optimization_config.objective,
+            outcomes=self.outcomes,
+            experiment=self._experiment,
         )
         outcome_constraints = extract_outcome_constraints(
             outcome_constraints=optimization_config.outcome_constraints,
             outcomes=self.outcomes,
+            experiment=self._experiment,
         )
         pruning_target_point = arm_to_np_array(
             arm=optimization_config.pruning_target_parameterization,
@@ -1040,10 +1045,14 @@ class TorchAdapter(Adapter):
                 objective_thresholds=optimization_config.objective_thresholds,
                 objective=optimization_config.objective,
                 outcomes=self.outcomes,
+                experiment=self._experiment,
             )
         else:
             objective_thresholds = None
-        opt_config_metrics = optimization_config.metrics
+        opt_config_metrics = {
+            name: self._experiment.get_metric(name)
+            for name in optimization_config.metric_names
+        }
 
         pending_array = pending_observations_as_array_list(
             pending_observations, self.outcomes, self.parameters
@@ -1225,7 +1234,7 @@ class TorchAdapter(Adapter):
             pe_aux_exp.experiment.search_space.parameters.keys()
         )
 
-        pref_opt_metrics = [m.name for m in optimization_config.objective.metrics]
+        pref_opt_metrics = optimization_config.objective.metric_names
 
         # Get outcome order from the fitted surrogate. We must use surrogate.outcomes
         # which excludes auxiliary datasets (e.g., pairwise preference queries).
@@ -1261,13 +1270,16 @@ class TorchAdapter(Adapter):
 
 
 def validate_transformed_optimization_config(
-    optimization_config: OptimizationConfig, outcomes: list[str]
+    optimization_config: OptimizationConfig,
+    outcomes: list[str],
+    experiment: Experiment,
 ) -> None:
     """Validate optimization config against generator fitted outcomes.
 
     Args:
         optimization_config: Config to validate.
         outcomes: List of metric names w/ valid generator fits.
+        experiment: The experiment to look up metrics from.
 
     Raises if:
             1. In the modeling layer, absolute constraints are required, however,
@@ -1287,18 +1299,24 @@ def validate_transformed_optimization_config(
                 " applied but was not."
             )
         if isinstance(c, ScalarizedOutcomeConstraint):
-            for c_metric in c.metrics:
+            for c_name in c.metric_names:
+                c_metric = experiment.get_metric(c_name)
                 if c_metric.signature not in outcomes:
                     raise DataRequiredError(
                         f"Scalarized constraint metric component "
-                        f"{c.metric.signature} not found in fitted data."
+                        f"{c_metric.signature} not found in fitted data."
                     )
-        elif c.metric.signature not in outcomes:
-            raise DataRequiredError(
-                f"Outcome constraint metric {c.metric.signature} not found in fitted "
-                "data."
-            )
-    obj_metric_signatures = [m.signature for m in optimization_config.objective.metrics]
+        else:
+            c_metric = experiment.get_metric(c.metric_names[0])
+            if c_metric.signature not in outcomes:
+                raise DataRequiredError(
+                    f"Outcome constraint metric {c_metric.signature} not found in "
+                    "fitted data."
+                )
+    obj_metric_signatures = [
+        experiment.get_metric(name).signature
+        for name in optimization_config.objective.metric_names
+    ]
     for obj_metric_signature in obj_metric_signatures:
         if obj_metric_signature not in outcomes:
             raise DataRequiredError(
