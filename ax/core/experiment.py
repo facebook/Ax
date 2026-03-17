@@ -201,6 +201,10 @@ class Experiment(Base):
         # a naming collision occurs.
         for m in [*(tracking_metrics or []), *(metrics or [])]:
             self._metrics[m.name] = m
+            if self._default_trial_type is not None:
+                self._trial_type_to_metric_names.setdefault(
+                    self._default_trial_type, set()
+                ).add(m.name)
 
         # call setters defined below
         self.status_quo = status_quo
@@ -582,6 +586,12 @@ class Experiment(Base):
                     "but not found on experiment. Add it first with add_metric()."
                 )
         self._optimization_config = optimization_config
+        default_trial_type = self._default_trial_type
+        if default_trial_type is not None:
+            for metric_name in optimization_config.metric_names:
+                self._trial_type_to_metric_names.setdefault(
+                    default_trial_type, set()
+                ).add(metric_name)
 
     @property
     def is_moo_problem(self) -> bool:
@@ -834,7 +844,7 @@ class Experiment(Base):
             )
         return self._metrics[name]
 
-    def add_metric(self, metric: Metric) -> Self:
+    def add_metric(self, metric: Metric, trial_type: str | None = None) -> Self:
         """Add a new metric to the experiment.
 
         Metrics that are not referenced by the experiment's optimization config
@@ -843,54 +853,98 @@ class Experiment(Base):
 
         Args:
             metric: Metric to be added.
+            trial_type: If provided, associates the metric with this trial type.
+                When ``None`` and a ``default_trial_type`` is set, defaults to
+                the default trial type.
         """
         if metric.name in self._metrics:
             raise ValueError(
                 f"Metric `{metric.name}` already defined on experiment. "
                 "Use `update_metric` to update an existing metric definition."
             )
+        if trial_type is None and self._default_trial_type is not None:
+            trial_type = self._default_trial_type
+        if trial_type is not None:
+            if not self.supports_trial_type(trial_type):
+                raise ValueError(f"`{trial_type}` is not a supported trial type.")
+            self._trial_type_to_metric_names.setdefault(trial_type, set()).add(
+                metric.name
+            )
         self._metrics[metric.name] = metric
         return self
 
-    def add_tracking_metric(self, metric: Metric) -> Self:
+    def add_tracking_metric(
+        self,
+        metric: Metric,
+        trial_type: str | None = None,
+        canonical_name: str | None = None,
+    ) -> Self:
         """*Deprecated.* Use ``add_metric`` instead."""
         warnings.warn(
             "add_tracking_metric is deprecated. Use add_metric instead.",
             DeprecationWarning,
             stacklevel=2,
         )
-        return self.add_metric(metric)
+        return self.add_metric(metric, trial_type=trial_type)
 
-    def add_tracking_metrics(self, metrics: list[Metric]) -> Experiment:
+    def add_tracking_metrics(
+        self,
+        metrics: list[Metric],
+        metrics_to_trial_types: dict[str, str] | None = None,
+        canonical_names: dict[str, str] | None = None,
+    ) -> Experiment:
         """*Deprecated.* Use ``add_metric`` instead."""
         warnings.warn(
             "add_tracking_metrics is deprecated. Use add_metric instead.",
             DeprecationWarning,
             stacklevel=2,
         )
+        metrics_to_trial_types = metrics_to_trial_types or {}
         for metric in metrics:
-            self.add_metric(metric)
+            canonical_name = (canonical_names or {}).get(metric.name)
+            self.add_tracking_metric(
+                metric=metric,
+                trial_type=metrics_to_trial_types.get(metric.name),
+                canonical_name=canonical_name,
+            )
         return self
 
-    def update_metric(self, metric: Metric) -> Self:
+    def update_metric(self, metric: Metric, trial_type: str | None = None) -> Self:
         """Redefine a metric that already exists on the experiment.
 
         Args:
             metric: New metric definition.
+            trial_type: If provided, reassociates the metric with this trial
+                type. When ``None``, keeps the metric's existing trial type.
         """
         if metric.name not in self._metrics:
             raise ValueError(f"Metric `{metric.name}` doesn't exist on experiment.")
+        if trial_type is not None:
+            if not self.supports_trial_type(trial_type):
+                raise ValueError(f"`{trial_type}` is not a supported trial type.")
+            # Remove from any existing trial type set
+            for names in self._trial_type_to_metric_names.values():
+                names.discard(metric.name)
+            # Add to new trial type set
+            self._trial_type_to_metric_names.setdefault(trial_type, set()).add(
+                metric.name
+            )
         self._metrics[metric.name] = metric
         return self
 
-    def update_tracking_metric(self, metric: Metric) -> Experiment:
+    def update_tracking_metric(
+        self,
+        metric: Metric,
+        trial_type: str | None = None,
+        canonical_name: str | None = None,
+    ) -> Experiment:
         """*Deprecated.* Use ``update_metric`` instead."""
         warnings.warn(
             "update_tracking_metric is deprecated. Use update_metric instead.",
             DeprecationWarning,
             stacklevel=2,
         )
-        return self.update_metric(metric)
+        return self.update_metric(metric, trial_type=trial_type)
 
     def remove_metric(self, metric_name: str) -> Self:
         """Remove a metric from the experiment.
@@ -911,6 +965,9 @@ class Experiment(Base):
                 f"Metric `{metric_name}` is referenced by the optimization config "
                 "and cannot be removed. Update the optimization config first."
             )
+        # Clean up _trial_type_to_metric_names
+        for names in self._trial_type_to_metric_names.values():
+            names.discard(metric_name)
         del self._metrics[metric_name]
         return self
 
