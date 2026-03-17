@@ -28,9 +28,22 @@ class RunnerTest(TestCase):
     def test_base_runner_staging_required(self) -> None:
         self.assertFalse(self.dummy_runner.staging_required)
 
-    def test_base_runner_stop(self) -> None:
-        with self.assertRaises(NotImplementedError):
-            self.dummy_runner.stop(trial=mock.Mock(), reason="")
+    def test_base_runner_not_implemented_methods(self) -> None:
+        cases = [
+            ("stop", lambda: self.dummy_runner.stop(trial=mock.Mock(), reason="")),
+            (
+                "poll_trial_status",
+                lambda: self.dummy_runner.poll_trial_status(trials=self.trials),
+            ),
+            (
+                "poll_exception",
+                lambda: self.dummy_runner.poll_exception(trial=self.trials[0]),
+            ),
+        ]
+        for method_name, call in cases:
+            with self.subTest(method=method_name):
+                with self.assertRaises(NotImplementedError):
+                    call()
 
     def test_base_runner_clone(self) -> None:
         runner_clone = self.dummy_runner.clone()
@@ -44,14 +57,6 @@ class RunnerTest(TestCase):
             {t.index: {"metadatum": f"value_for_trial_{t.index}"} for t in self.trials},
         )
         self.assertEqual({}, self.dummy_runner.run_multiple(trials=[]))
-
-    def test_base_runner_poll_trial_status(self) -> None:
-        with self.assertRaises(NotImplementedError):
-            self.dummy_runner.poll_trial_status(trials=self.trials)
-
-    def test_base_runner_poll_exception(self) -> None:
-        with self.assertRaises(NotImplementedError):
-            self.dummy_runner.poll_exception(trial=self.trials[0])
 
     def test_poll_available_capacity(self) -> None:
         self.assertEqual(self.dummy_runner.poll_available_capacity(), -1)

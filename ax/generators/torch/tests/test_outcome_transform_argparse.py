@@ -103,18 +103,23 @@ class OutcomeTransformArgparseTest(TestCase):
             "stratification_idx": 2,
             "all_task_values": torch.tensor([0, 1, 2], dtype=torch.long),
         }
-        for expected_options, actual_options in zip(
-            (expected_options_a, expected_options_b),
-            (outcome_transform_kwargs_a, outcome_transform_kwargs_b),
+        for label, expected_options, actual_options in (
+            ("default", expected_options_a, outcome_transform_kwargs_a),
+            (
+                "custom_stratification_idx",
+                expected_options_b,
+                outcome_transform_kwargs_b,
+            ),
         ):
-            self.assertEqual(len(actual_options), 2)
-            self.assertEqual(
-                actual_options["stratification_idx"],
-                expected_options["stratification_idx"],
-            )
-            self.assertTrue(
-                torch.equal(
-                    actual_options["all_task_values"],
-                    assert_is_instance(expected_options["all_task_values"], Tensor),
+            with self.subTest(case=label):
+                self.assertEqual(len(actual_options), 2)
+                self.assertEqual(
+                    actual_options["stratification_idx"],
+                    expected_options["stratification_idx"],
                 )
-            )
+                self.assertTrue(
+                    torch.equal(
+                        actual_options["all_task_values"],
+                        assert_is_instance(expected_options["all_task_values"], Tensor),
+                    )
+                )

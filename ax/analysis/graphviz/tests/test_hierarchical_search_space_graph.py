@@ -148,22 +148,18 @@ class TestSearchSpaceSummary(TestCase):
                     for dependent_parameter_name in dependent_parameter_names:
                         self.assertIn(dependent_parameter_name, source)
 
-    def test_online(self) -> None:
+    def test_online_and_offline(self) -> None:
+        # Test HSSGraph computation for both online and offline experiment settings
         analysis = HierarchicalSearchSpaceGraph()
-        for experiment in get_online_experiments():
-            # If validation fails (i.e. this Experiment is not applicable to HSSGraph)
-            # then skip it in the tests
-            if analysis.validate_applicable_state(experiment=experiment) is not None:
-                continue
-
-            _ = analysis.compute(experiment=experiment)
-
-    def test_offline(self) -> None:
-        analysis = HierarchicalSearchSpaceGraph()
-        for experiment in get_offline_experiments():
-            # If validation fails (i.e. this Experiment is not applicable to HSSGraph)
-            # then skip it in the tests
-            if analysis.validate_applicable_state(experiment=experiment) is not None:
-                continue
-
-            _ = analysis.compute(experiment=experiment)
+        for label, get_experiments in [
+            ("online", get_online_experiments),
+            ("offline", get_offline_experiments),
+        ]:
+            with self.subTest(setting=label):
+                for experiment in get_experiments():
+                    if (
+                        analysis.validate_applicable_state(experiment=experiment)
+                        is not None
+                    ):
+                        continue
+                    _ = analysis.compute(experiment=experiment)

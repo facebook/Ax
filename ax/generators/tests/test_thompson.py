@@ -57,41 +57,82 @@ class ThompsonSamplerTest(TestCase):
         self.assertEqual(len(gen_metadata["arms_to_weights"]), 4)
         self.assertEqual(gen_metadata["best_x"], arms[0])
 
+    def test_ThompsonSamplerWeightConfigs(self) -> None:
+        for label, min_weight, uniform_weights, expected_arms, expected_weights in [
+            # With min_weight, arms below threshold get min_weight instead of 0
+            (
+                "min_weight=0.01",
+                0.01,
+                False,
+                [[4, 4], [3, 3], [2, 2]],
+                [3 * i for i in [0.725, 0.225, 0.05]],
+            ),
+            # With uniform_weights, all selected arms get equal weight
+            (
+                "uniform_weights",
+                0.0,
+                True,
+                [[4, 4], [3, 3], [2, 2]],
+                [1.0, 1.0, 1.0],
+            ),
+        ]:
+            with self.subTest(config=label):
+                np.random.seed(0)
+                generator = ThompsonSampler(
+                    min_weight=min_weight, uniform_weights=uniform_weights
+                )
+                generator.fit(
+                    Xs=self.Xs,
+                    Ys=self.Ys,
+                    Yvars=self.Yvars,
+                    parameter_values=self.parameter_values,
+                    outcome_names=self.outcome_names,
+                )
+                arms, weights, _ = generator.gen(
+                    n=3,
+                    parameter_values=self.parameter_values,
+                    objective_weights=np.ones(1),
+                )
+                self.assertEqual(arms, expected_arms)
+                for weight, expected_weight in zip(weights, expected_weights):
+                    self.assertAlmostEqual(weight, expected_weight, 1)
+
     def test_ThompsonSamplerValidation(self) -> None:
         generator = ThompsonSampler(min_weight=0.01)
 
-        # all Xs are not the same
-        with self.assertRaises(ValueError):
+        with self.subTest(case="mismatched_Xs"):
+            with self.assertRaises(ValueError):
+                generator.fit(
+                    Xs=[[[1, 1], [2, 2], [3, 3], [4, 4]], [[1, 1], [2, 2], [4, 4]]],
+                    Ys=self.Ys,
+                    Yvars=self.Yvars,
+                    parameter_values=self.parameter_values,
+                    outcome_names=self.outcome_names,
+                )
+
+        with self.subTest(case="duplicate_parameterizations"):
+            with self.assertRaises(ValueError):
+                generator.fit(
+                    Xs=[[[1, 1], [2, 2], [2, 2]]],
+                    Ys=self.Ys,
+                    Yvars=self.Yvars,
+                    parameter_values=self.parameter_values,
+                    outcome_names=self.outcome_names,
+                )
+
+        with self.subTest(case="similar_but_different_observations"):
+            # these are not the same observations, so should not error
             generator.fit(
-                Xs=[[[1, 1], [2, 2], [3, 3], [4, 4]], [[1, 1], [2, 2], [4, 4]]],
+                Xs=[[[1, 1], [2.0, 2], [2, 2]]],
                 Ys=self.Ys,
                 Yvars=self.Yvars,
                 parameter_values=self.parameter_values,
                 outcome_names=self.outcome_names,
             )
 
-        # multiple observations per parameterization
-        with self.assertRaises(ValueError):
-            generator.fit(
-                Xs=[[[1, 1], [2, 2], [2, 2]]],
-                Ys=self.Ys,
-                Yvars=self.Yvars,
-                parameter_values=self.parameter_values,
-                outcome_names=self.outcome_names,
-            )
-
-        # these are not the same observations, so should not error
-        generator.fit(
-            Xs=[[[1, 1], [2.0, 2], [2, 2]]],
-            Ys=self.Ys,
-            Yvars=self.Yvars,
-            parameter_values=self.parameter_values,
-            outcome_names=self.outcome_names,
-        )
-
-        # requires objective weights
-        with self.assertRaises(ValueError):
-            generator.gen(5, self.parameter_values, objective_weights=None)
+        with self.subTest(case="missing_objective_weights"):
+            with self.assertRaises(ValueError):
+                generator.gen(5, self.parameter_values, objective_weights=None)
 
     def test_ThompsonSamplerTopKError(self) -> None:
         generator = ThompsonSampler(topk=5)
@@ -155,45 +196,6 @@ class ThompsonSamplerTest(TestCase):
 
         # 4) Monotonicity in the final TTTS distribution still holds
         self.assertTrue(full_w2[3] > full_w2[2] > full_w2[1] > full_w2[0])
-
-    def test_ThompsonSamplerMinWeight(self) -> None:
-        np.random.seed(0)
-        generator = ThompsonSampler(min_weight=0.01)
-        generator.fit(
-            Xs=self.Xs,
-            Ys=self.Ys,
-            Yvars=self.Yvars,
-            parameter_values=self.parameter_values,
-            outcome_names=self.outcome_names,
-        )
-        arms, weights, _ = generator.gen(
-            n=3,
-            parameter_values=self.parameter_values,
-            objective_weights=np.ones(1),
-        )
-        self.assertEqual(arms, [[4, 4], [3, 3], [2, 2]])
-        for weight, expected_weight in zip(
-            weights, [3 * i for i in [0.725, 0.225, 0.05]]
-        ):
-            self.assertAlmostEqual(weight, expected_weight, 1)
-
-    def test_ThompsonSamplerUniformWeights(self) -> None:
-        generator = ThompsonSampler(min_weight=0.0, uniform_weights=True)
-        generator.fit(
-            Xs=self.Xs,
-            Ys=self.Ys,
-            Yvars=self.Yvars,
-            parameter_values=self.parameter_values,
-            outcome_names=self.outcome_names,
-        )
-        arms, weights, _ = generator.gen(
-            n=3,
-            parameter_values=self.parameter_values,
-            objective_weights=np.ones(1),
-        )
-        self.assertEqual(arms, [[4, 4], [3, 3], [2, 2]])
-        for weight, expected_weight in zip(weights, [1.0, 1.0, 1.0]):
-            self.assertAlmostEqual(weight, expected_weight, 1)
 
     def test_ThompsonSamplerInfeasible(self) -> None:
         generator = ThompsonSampler(min_weight=0.9)
@@ -302,9 +304,12 @@ class ThompsonSamplerTest(TestCase):
             outcome_names=self.outcome_names,
         )
         for n in (-1, 0):
-            with self.assertRaisesRegex(ValueError, "ThompsonSampler requires n > 0"):
-                generator.gen(
-                    n=n,
-                    parameter_values=self.parameter_values,
-                    objective_weights=np.ones(1),
-                )
+            with self.subTest(n=n):
+                with self.assertRaisesRegex(
+                    ValueError, "ThompsonSampler requires n > 0"
+                ):
+                    generator.gen(
+                        n=n,
+                        parameter_values=self.parameter_values,
+                        objective_weights=np.ones(1),
+                    )

@@ -150,28 +150,30 @@ class BoTorchGeneratorUtilsTest(TestCase):
             )
         # With fidelity features, use SingleTaskMultiFidelityGP.
         for ds in [self.supervised_dataset, self.fixed_noise_dataset]:
-            self.assertEqual(
-                SingleTaskMultiFidelityGP,
-                choose_model_class(
-                    dataset=ds,
-                    search_space_digest=dataclasses.replace(
-                        self.search_space_digest, fidelity_features=[2]
+            with self.subTest(dataset_has_yvar=ds.Yvar is not None):
+                self.assertEqual(
+                    SingleTaskMultiFidelityGP,
+                    choose_model_class(
+                        dataset=ds,
+                        search_space_digest=dataclasses.replace(
+                            self.search_space_digest, fidelity_features=[2]
+                        ),
                     ),
-                ),
-            )
+                )
 
     def test_choose_model_class_task_features(self) -> None:
         # With task features use MultiTaskGP.
         for datasets in (self.supervised_dataset, self.fixed_noise_dataset):
-            self.assertEqual(
-                MultiTaskGP,
-                choose_model_class(
-                    dataset=datasets,
-                    search_space_digest=dataclasses.replace(
-                        self.search_space_digest, task_features=[1]
+            with self.subTest(dataset_has_yvar=datasets.Yvar is not None):
+                self.assertEqual(
+                    MultiTaskGP,
+                    choose_model_class(
+                        dataset=datasets,
+                        search_space_digest=dataclasses.replace(
+                            self.search_space_digest, task_features=[1]
+                        ),
                     ),
-                ),
-            )
+                )
 
     def test_choose_model_class_heterogeneous_task_features(self) -> None:
         # Test that HeterogeneousMTGP is chosen when MultiTaskDataset has
@@ -311,12 +313,13 @@ class BoTorchGeneratorUtilsTest(TestCase):
     def test_choose_model_class(self) -> None:
         # Without fidelity/task features, use SingleTaskGP.
         for ds in [self.fixed_noise_dataset, self.supervised_dataset]:
-            self.assertEqual(
-                SingleTaskGP,
-                choose_model_class(
-                    dataset=ds, search_space_digest=self.search_space_digest
-                ),
-            )
+            with self.subTest(dataset_has_yvar=ds.Yvar is not None):
+                self.assertEqual(
+                    SingleTaskGP,
+                    choose_model_class(
+                        dataset=ds, search_space_digest=self.search_space_digest
+                    ),
+                )
 
     def test_choose_botorch_acqf_class(self) -> None:
         self.assertEqual(

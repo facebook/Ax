@@ -56,21 +56,22 @@ class TracesTest(TestCase):
 
     def test_TracesAutoAxes(self) -> None:
         for optimization_direction in ["minimize", "maximize", "passthrough"]:
-            plot = optimization_trace_single_method_plotly(
-                np.array([[1.0, 2.0, 3.0], [4.0, 5.0, 6.0]]),
-                self.model_metric_names[0],
-                optimization_direction=optimization_direction,
-                autoset_axis_limits=True,
-            )
-            self.assertIsNone(plot.layout.xaxis.range)
-            if optimization_direction == "minimize":
-                self.assertAlmostEqual(plot.layout.yaxis.range[0], 0.525)
-                self.assertAlmostEqual(plot.layout.yaxis.range[1], 6.225)
-            elif optimization_direction == "maximize":
-                self.assertAlmostEqual(plot.layout.yaxis.range[0], 0.775)
-                self.assertAlmostEqual(plot.layout.yaxis.range[1], 6.475)
-            else:
-                self.assertIsNone(plot.layout.yaxis.range)
+            with self.subTest(optimization_direction=optimization_direction):
+                plot = optimization_trace_single_method_plotly(
+                    np.array([[1.0, 2.0, 3.0], [4.0, 5.0, 6.0]]),
+                    self.model_metric_names[0],
+                    optimization_direction=optimization_direction,
+                    autoset_axis_limits=True,
+                )
+                self.assertIsNone(plot.layout.xaxis.range)
+                if optimization_direction == "minimize":
+                    self.assertAlmostEqual(plot.layout.yaxis.range[0], 0.525)
+                    self.assertAlmostEqual(plot.layout.yaxis.range[1], 6.225)
+                elif optimization_direction == "maximize":
+                    self.assertAlmostEqual(plot.layout.yaxis.range[0], 0.775)
+                    self.assertAlmostEqual(plot.layout.yaxis.range[1], 6.475)
+                else:
+                    self.assertIsNone(plot.layout.yaxis.range)
 
     @mock_botorch_optimize
     def test_plot_objective_value_vs_trial_index(self) -> None:

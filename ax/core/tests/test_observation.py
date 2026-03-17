@@ -670,9 +670,12 @@ class ObservationsTest(TestCase):
             )
             self.assertEqual(obs.arm_name, cname_truth[i])
 
-    def test_ObservationsFromDataWithDifferentTimesSingleTrial(
-        self, with_nat: bool = False
-    ) -> None:
+    def test_ObservationsFromDataWithDifferentTimesSingleTrial(self) -> None:
+        for with_nat in (False, True):
+            with self.subTest(with_nat=with_nat):
+                self._check_observations_with_different_times(with_nat=with_nat)
+
+    def _check_observations_with_different_times(self, with_nat: bool = False) -> None:
         params0: TParameterization = {"x": 0, "y": "a"}
         params1: TParameterization = {"x": 1, "y": "a"}
         truth = [
@@ -803,9 +806,6 @@ class ObservationsTest(TestCase):
                         none_throws(obs.features.end_time).strftime("%Y-%m-%d %X"),
                         "2024-03-20 08:46:00",
                     )
-
-    def test_observations_from_dataframe_with_nat_timestamps(self) -> None:
-        self.test_ObservationsFromDataWithDifferentTimesSingleTrial(with_nat=True)
 
     def test_SeparateObservations(self) -> None:
         obs_arm_name = "0_0"
