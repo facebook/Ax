@@ -43,7 +43,6 @@ from ax.utils.common.constants import Keys
 from ax.utils.common.hash_utils import compute_lilo_input_hash
 from ax.utils.common.testutils import TestCase
 from ax.utils.testing.core_stubs import (
-    get_branin_experiment,
     get_experiment_with_observations,
     get_hierarchical_search_space,
     get_search_space_for_range_values,
@@ -79,11 +78,8 @@ class TestAdapterUtils(TestCase):
                 ),
             ],
         )
-        experiment = Experiment(
-            search_space=SearchSpace(parameters=[]),
-            optimization_config=optimization_config,
-            tracking_metrics=[mc],
-        )
+        # For plain Metric objects, signature == name.
+        metric_name_to_signature = {m.name: m.name for m in [ma, mb, mc]}
         feas_hv = feasible_hypervolume(
             optimization_config,
             values={
@@ -112,7 +108,7 @@ class TestAdapterUtils(TestCase):
                     ]
                 ),
             },
-            experiment=experiment,
+            metric_name_to_signature=metric_name_to_signature,
         )
         self.assertEqual(list(feas_hv), [0.0, 0.0, 1.0, 1.0])
 
@@ -544,24 +540,34 @@ class TestAdapterUtils(TestCase):
     def test_extract_objective_weight_matrix(self) -> None:
         m1, m2, m3 = Metric(name="m1"), Metric(name="m2"), Metric(name="m3")
         outcomes = ["m1", "m2", "m3"]
-        experiment = get_branin_experiment()
-        experiment.add_metric(m1)
-        experiment.add_metric(m2)
-        experiment.add_metric(m3)
+        # For plain Metric objects, signature == name.
+        metric_name_to_signature = {name: name for name in outcomes}
 
         # Single Objective: one row, nonzero only in matching column.
         obj = Objective(metric=m1, minimize=False)
-        result = extract_objective_weight_matrix(obj, outcomes, experiment)
+        result = extract_objective_weight_matrix(
+            objective=obj,
+            outcomes=outcomes,
+            metric_name_to_signature=metric_name_to_signature,
+        )
         np.testing.assert_array_equal(result, [[1.0, 0.0, 0.0]])
 
         # Minimization flips the sign.
         obj_min = Objective(metric=m2, minimize=True)
-        result = extract_objective_weight_matrix(obj_min, outcomes, experiment)
+        result = extract_objective_weight_matrix(
+            objective=obj_min,
+            outcomes=outcomes,
+            metric_name_to_signature=metric_name_to_signature,
+        )
         np.testing.assert_array_equal(result, [[0.0, -1.0, 0.0]])
 
         # ScalarizedObjective: single row with multiple nonzero entries.
         scal = ScalarizedObjective(metrics=[m1, m3], weights=[0.3, 0.7], minimize=False)
-        result = extract_objective_weight_matrix(scal, outcomes, experiment)
+        result = extract_objective_weight_matrix(
+            objective=scal,
+            outcomes=outcomes,
+            metric_name_to_signature=metric_name_to_signature,
+        )
         np.testing.assert_array_almost_equal(result, [[0.3, 0.0, 0.7]])
 
         # MultiObjective: one row per sub-objective.
@@ -571,7 +577,11 @@ class TestAdapterUtils(TestCase):
                 Objective(metric=m3, minimize=True),
             ]
         )
-        result = extract_objective_weight_matrix(multi, outcomes, experiment)
+        result = extract_objective_weight_matrix(
+            objective=multi,
+            outcomes=outcomes,
+            metric_name_to_signature=metric_name_to_signature,
+        )
         np.testing.assert_array_equal(result, [[1.0, 0.0, 0.0], [0.0, 0.0, -1.0]])
 
     def test_get_fresh_pairwise_trial_indices(self) -> None:
