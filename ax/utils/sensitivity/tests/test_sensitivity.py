@@ -415,6 +415,7 @@ class SensitivityAnalysisTest(TestCase):
                     order="total",
                     signed=False,
                     exclude_map_key=False,
+                    exclude_task=False,
                     **sobol_kwargs,
                 )
                 ind_deriv = compute_derivatives_from_model_list(
@@ -432,6 +433,7 @@ class SensitivityAnalysisTest(TestCase):
                     order="total",
                     signed=True,
                     exclude_map_key=False,
+                    exclude_task=False,
                     **sobol_kwargs,
                 )
                 for i, pname in enumerate(["x1", "x2"]):
@@ -627,6 +629,7 @@ class SensitivityAnalysisTest(TestCase):
             order="first",
             signed=False,
             exclude_map_key=True,
+            exclude_task=False,
             **sobol_kwargs,
         )
 
@@ -637,6 +640,7 @@ class SensitivityAnalysisTest(TestCase):
             order="first",
             signed=False,
             exclude_map_key=False,
+            exclude_task=False,
             **sobol_kwargs,
         )
 
