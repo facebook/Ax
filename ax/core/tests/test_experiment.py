@@ -2771,3 +2771,114 @@ class ExperimentWithMapDataTest(TestCase):
             )
             self.assertEqual(len(trials), 1)
             self.assertEqual(trials[0].index, 0)
+
+    def _setup_multi_type_branin_experiment(self, n: int = 10) -> Experiment:
+        """Create a base Experiment with two trial types and metrics mapped
+        to each, mimicking a multi-type setup without using
+        MultiTypeExperiment.
+        """
+        exp = Experiment(
+            name="multi_type_test",
+            search_space=get_branin_search_space(),
+            default_trial_type="type1",
+            tracking_metrics=[
+                BraninMetric(name="m1", param_names=["x1", "x2"]),
+            ],
+            runner=SyntheticRunner(),
+        )
+        # Register a second trial type with its own runner and metric.
+        exp._trial_type_to_runner["type2"] = SyntheticRunner()
+        exp.add_tracking_metric(
+            BraninMetric(name="m2", param_names=["x2", "x1"]),
+            trial_type="type2",
+        )
+
+        # Create one batch per trial type and run them.
+        b1 = exp.new_batch_trial(trial_type="type1")
+        b1.add_arms_and_weights(arms=get_branin_arms(n=n, seed=0))
+        b1.run()
+
+        b2 = exp.new_batch_trial(trial_type="type2")
+        b2.add_arms_and_weights(arms=get_branin_arms(n=n, seed=0))
+        b2.run()
+
+        return exp
+
+    def test_fetch_data_filters_by_trial_type(self) -> None:
+        """fetch_data should return only the metrics mapped to each trial's
+        type when _trial_type_to_metric_names is populated."""
+        n = 10
+        exp = self._setup_multi_type_branin_experiment(n=n)
+
+        df = exp.fetch_data().df
+        # Each trial should have n rows (one per arm), for a total of 2*n.
+        self.assertEqual(len(df), 2 * n)
+
+        # Trial 0 (type1) should only have metric "m1".
+        trial_0_df = df[df["trial_index"] == 0]
+        self.assertEqual(set(trial_0_df["metric_name"]), {"m1"})
+        self.assertEqual(len(trial_0_df), n)
+
+        # Trial 1 (type2) should only have metric "m2".
+        trial_1_df = df[df["trial_index"] == 1]
+        self.assertEqual(set(trial_1_df["metric_name"]), {"m2"})
+        self.assertEqual(len(trial_1_df), n)
+
+    def test_fetch_data_with_trial_indices_and_trial_types(self) -> None:
+        """fetch_data with trial_indices should respect trial type filtering."""
+        n = 10
+        exp = self._setup_multi_type_branin_experiment(n=n)
+
+        # Fetch only trial 1 (type2).
+        df = exp.fetch_data(trial_indices=[1]).df
+        self.assertEqual(len(df), n)
+        self.assertEqual(set(df["metric_name"]), {"m2"})
+        self.assertTrue((df["trial_index"] == 1).all())
+
+    def test_fetch_data_skips_non_expecting_trials_with_trial_types(self) -> None:
+        """fetch_data should skip trials not expecting data when
+        _trial_type_to_metric_names is populated."""
+        n = 10
+        exp = self._setup_multi_type_branin_experiment(n=n)
+
+        # Mark trial 0 as abandoned so it doesn't expect data.
+        exp.trials[0].mark_abandoned()
+
+        df = exp.fetch_data().df
+        # Only trial 1 should have data.
+        self.assertEqual(len(df), n)
+        self.assertTrue((df["trial_index"] == 1).all())
+        self.assertEqual(set(df["metric_name"]), {"m2"})
+
+    def test_fetch_trial_data_filters_metrics_by_trial_type(self) -> None:
+        """_fetch_trial_data should filter to only metrics relevant to the
+        trial's type when _trial_type_to_metric_names is populated."""
+        n = 10
+        exp = self._setup_multi_type_branin_experiment(n=n)
+
+        # Fetch data for trial 0 (type1) — should only contain "m1".
+        results_0 = exp._fetch_trial_data(trial_index=0)
+        self.assertIn("m1", results_0)
+        self.assertNotIn("m2", results_0)
+
+        # Fetch data for trial 1 (type2) — should only contain "m2".
+        results_1 = exp._fetch_trial_data(trial_index=1)
+        self.assertIn("m2", results_1)
+        self.assertNotIn("m1", results_1)
+
+    def test_fetch_trial_data_filters_explicit_metrics_by_trial_type(self) -> None:
+        """_fetch_trial_data should filter even an explicit metrics list to
+        only those relevant to the trial's type."""
+        n = 10
+        exp = self._setup_multi_type_branin_experiment(n=n)
+
+        both_metrics = list(exp.metrics.values())
+        # Passing both metrics to a type1 trial should still only return m1.
+        results_0 = exp._fetch_trial_data(trial_index=0, metrics=both_metrics)
+        self.assertIn("m1", results_0)
+        self.assertNotIn("m2", results_0)
+
+        # Passing both metrics to a type2 trial should still only return m2.
+        results_1 = exp._fetch_trial_data(trial_index=1, metrics=both_metrics)
+        self.assertIn("m2", results_1)
+        self.assertNotIn("m1", results_1)

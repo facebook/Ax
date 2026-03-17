@@ -1138,6 +1138,37 @@ class Experiment(Base):
         Returns:
             Data for the experiment.
         """
+        if self._trial_type_to_metric_names:
+            # When metrics are mapped to trial types, group trials by type
+            # and bulk-fetch per group so each group only fetches its
+            # relevant metrics.
+            all_trials = (
+                list(self.trials.values())
+                if trial_indices is None
+                else self.get_trials_by_indices(trial_indices)
+            )
+            trials_by_type: dict[str | None, list[BaseTrial]] = defaultdict(list)
+            for trial in all_trials:
+                if trial.status.expecting_data:
+                    trials_by_type[trial.trial_type].append(trial)
+            all_results: dict[int, dict[str, MetricFetchResult]] = {}
+            for trial_type, type_trials in trials_by_type.items():
+                type_metrics = (
+                    metrics
+                    if metrics is not None
+                    else (
+                        self.metrics_for_trial_type(trial_type)
+                        if trial_type is not None
+                        else list(self.metrics.values())
+                    )
+                )
+                results = self._lookup_or_fetch_trials_results(
+                    trials=type_trials,
+                    metrics=type_metrics,
+                    **kwargs,
+                )
+                all_results.update(results)
+            return Metric._unwrap_experiment_data_multi(results=all_results)
         results = self._lookup_or_fetch_trials_results(
             trials=list(self.trials.values())
             if trial_indices is None
@@ -1277,6 +1308,14 @@ class Experiment(Base):
         self, trial_index: int, metrics: list[Metric] | None = None, **kwargs: Any
     ) -> dict[str, MetricFetchResult]:
         trial = self.trials[trial_index]
+
+        # When metrics are mapped to trial types, filter to only the
+        # metrics relevant to this trial's type.
+        trial_type = trial.trial_type
+        if self._trial_type_to_metric_names and trial_type is not None:
+            valid_names = self._trial_type_to_metric_names.get(trial_type, set())
+            all_metrics = list(metrics or self.metrics.values())
+            metrics = [m for m in all_metrics if m.name in valid_names]
 
         trial_data = self._lookup_or_fetch_trials_results(
             trials=[trial], metrics=metrics, **kwargs
