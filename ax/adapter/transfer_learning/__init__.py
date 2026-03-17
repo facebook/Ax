@@ -4,3 +4,11 @@
 # LICENSE file in the root directory of this source tree.
 
 # pyre-strict
+
+from ax.adapter.transfer_learning.adapter import (  # noqa F401
+    logger,
+    TARGET_TASK_VALUE,
+    TL_EXP,
+    transfer_learning_generator_specs_constructor,
+    TransferLearningAdapter,
+)
