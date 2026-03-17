@@ -129,25 +129,16 @@ class TestSummary(TestCase):
         )
         self.assertEqual(len(card_no_omit.df), len(experiment.arms_by_name))
 
-    def test_online(self) -> None:
-        # Test MetricSummary can be computed for a variety of experiments which
-        # resemble those we see in an online setting.
-
-        for omit_empty_columns in [True, False]:
-            analysis = Summary(omit_empty_columns=omit_empty_columns)
-
-            for experiment in get_online_experiments():
-                _ = analysis.compute(experiment=experiment)
-
-    def test_offline(self) -> None:
-        # Test MetricSummary can be computed for a variety of experiments which
-        # resemble those we see in an offline setting.
-
-        for omit_empty_columns in [True, False]:
-            analysis = Summary(omit_empty_columns=omit_empty_columns)
-
-            for experiment in get_offline_experiments():
-                _ = analysis.compute(experiment=experiment)
+    def test_online_and_offline(self) -> None:
+        for label, get_experiments in [
+            ("online", get_online_experiments),
+            ("offline", get_offline_experiments),
+        ]:
+            for omit_empty_columns in [True, False]:
+                with self.subTest(setting=label, omit_empty_columns=omit_empty_columns):
+                    analysis = Summary(omit_empty_columns=omit_empty_columns)
+                    for experiment in get_experiments():
+                        _ = analysis.compute(experiment=experiment)
 
     def test_trial_indices_filter(self) -> None:
         """Test that Client.summarize correctly uses Summary."""

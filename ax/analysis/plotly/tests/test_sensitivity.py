@@ -133,53 +133,35 @@ class TestSensitivityAnalysisPlot(TestCase):
 
     @mock_botorch_optimize
     @TestCase.ax_long_test(reason="Expensive to compute Sobol indicies")
-    def test_online(self) -> None:
-        for experiment in get_online_experiments():
-            generation_strategy = get_default_generation_strategy_at_MBM_node(
-                experiment=experiment
-            )
-            # Select an arbitrary metric from the optimization config
-            metric_name = none_throws(
-                experiment.optimization_config
-            ).objective.metric_names[0]
-            for order, top_k in product(["first", "second", "total"], [None, 1]):
-                analysis = SensitivityAnalysisPlot(
-                    metric_name=metric_name,
-                    # pyre-fixme: Incompatible parameter type [6]: It isn't sure
-                    # if "order" has one of the values specified by the Literal
-                    order=order,
-                    top_k=top_k,
+    def test_online_and_offline(self) -> None:
+        # Verify SensitivityAnalysisPlot computes for online and offline
+        # experiment types across all Sobol index orders and top_k values.
+        for label, get_experiments in [
+            ("online", get_online_experiments),
+            ("offline", get_offline_experiments),
+        ]:
+            for experiment in get_experiments():
+                generation_strategy = get_default_generation_strategy_at_MBM_node(
+                    experiment=experiment
                 )
+                metric_name = none_throws(
+                    experiment.optimization_config
+                ).objective.metric_names[0]
+                for order, top_k in product(["first", "second", "total"], [None, 1]):
+                    with self.subTest(setting=label, order=order, top_k=top_k):
+                        analysis = SensitivityAnalysisPlot(
+                            metric_name=metric_name,
+                            # pyre-fixme: Incompatible parameter type [6]: It
+                            # isn't sure if "order" has one of the values
+                            # specified by the Literal
+                            order=order,
+                            top_k=top_k,
+                        )
 
-                _ = analysis.compute(
-                    experiment=experiment, generation_strategy=generation_strategy
-                )
-
-    @mock_botorch_optimize
-    @TestCase.ax_long_test(reason="Expensive to compute Sobol indicies")
-    def test_offline(self) -> None:
-        for experiment in get_offline_experiments():
-            generation_strategy = get_default_generation_strategy_at_MBM_node(
-                experiment=experiment
-            )
-            # Select an arbitrary metric from the optimization config
-            metric_name = none_throws(
-                experiment.optimization_config
-            ).objective.metric_names[0]
-            for order, top_k in product(["first", "second", "total"], [None, 1]):
-                analysis = SensitivityAnalysisPlot(
-                    metric_name=metric_name,
-                    # pyre-fixme: Incompatible parameter type [6]: It isn't sure
-                    # if "order" has one of the values specified by the Literal
-                    order=order,
-                    top_k=top_k,
-                )
-
-                # This prints a lot of warnings about y being constant
-                # because the first MOO experiment produces constant data
-                _ = analysis.compute(
-                    experiment=experiment, generation_strategy=generation_strategy
-                )
+                        _ = analysis.compute(
+                            experiment=experiment,
+                            generation_strategy=generation_strategy,
+                        )
 
     @mock_botorch_optimize
     def test_exclude_map_key(self) -> None:

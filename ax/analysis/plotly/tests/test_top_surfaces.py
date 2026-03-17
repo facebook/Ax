@@ -209,84 +209,40 @@ class TestTopSurfacesAnalysis(TestCase):
 
     @mock_botorch_optimize
     @TestCase.ax_long_test(reason="Expensive to compute Sobol indicies")
-    def test_online(self) -> None:
-        # Test TopSurfacesAnalysis can be computed for a variety of experiments
-        # which resemble those we see in an online setting.
+    def test_online_and_offline(self) -> None:
+        # Verify TopSurfacesAnalysis computes for online and offline experiment
+        # types with both explicit top_k=2 and default top_k.
         order = "total"  # most common
 
-        for experiment in get_online_experiments_subset():
-            generation_strategy = get_default_generation_strategy_at_MBM_node(
-                experiment=experiment
-            )
-            analysis = TopSurfacesAnalysis(
-                # Select and arbitrary metric from the optimization config
-                metric_name=none_throws(
-                    experiment.optimization_config
-                ).objective.metric_names[0],
-                order=order,
-                top_k=2,
-            )
+        for label, get_experiments in [
+            ("online", get_online_experiments_subset),
+            ("offline", get_offline_experiments_subset),
+        ]:
+            for top_k in [2, None]:
+                with self.subTest(setting=label, top_k=top_k):
+                    for experiment in get_experiments():
+                        generation_strategy = (
+                            get_default_generation_strategy_at_MBM_node(
+                                experiment=experiment
+                            )
+                        )
+                        metric_name = none_throws(
+                            experiment.optimization_config
+                        ).objective.metric_names[0]
+                        analysis = (
+                            TopSurfacesAnalysis(
+                                metric_name=metric_name,
+                                order=order,
+                                top_k=top_k,
+                            )
+                            if top_k is not None
+                            else TopSurfacesAnalysis(
+                                metric_name=metric_name,
+                                order=order,
+                            )
+                        )
 
-            _ = analysis.compute(
-                experiment=experiment, generation_strategy=generation_strategy
-            )
-
-        # test with default top k
-        for experiment in get_online_experiments_subset():
-            generation_strategy = get_default_generation_strategy_at_MBM_node(
-                experiment=experiment
-            )
-            analysis = TopSurfacesAnalysis(
-                # Select and arbitrary metric from the optimization config
-                metric_name=none_throws(
-                    experiment.optimization_config
-                ).objective.metric_names[0],
-                order=order,
-            )
-
-            _ = analysis.compute(
-                experiment=experiment, generation_strategy=generation_strategy
-            )
-
-    @mock_botorch_optimize
-    @TestCase.ax_long_test(reason="Expensive to compute Sobol indicies")
-    def test_offline(self) -> None:
-        # Test TopSurfacesAnalysis can be computed for a variety of experiments
-        # which resemble those we see in an offline setting, in analogous tests we
-        # run all experiments with modifications to settings, however, this test
-        # is slow and so we limit the number of permutations we validate.
-        order = "total"  # most common
-
-        for experiment in get_offline_experiments_subset():
-            generation_strategy = get_default_generation_strategy_at_MBM_node(
-                experiment=experiment
-            )
-            analysis = TopSurfacesAnalysis(
-                # Select and arbitrary metric from the optimization config
-                metric_name=none_throws(
-                    experiment.optimization_config
-                ).objective.metric_names[0],
-                order=order,
-                top_k=2,
-            )
-
-            _ = analysis.compute(
-                experiment=experiment, generation_strategy=generation_strategy
-            )
-
-        # run the test with the default top k
-        for experiment in get_offline_experiments_subset():
-            generation_strategy = get_default_generation_strategy_at_MBM_node(
-                experiment=experiment
-            )
-            analysis = TopSurfacesAnalysis(
-                # Select and arbitrary metric from the optimization config
-                metric_name=none_throws(
-                    experiment.optimization_config
-                ).objective.metric_names[0],
-                order=order,
-            )
-
-            _ = analysis.compute(
-                experiment=experiment, generation_strategy=generation_strategy
-            )
+                        _ = analysis.compute(
+                            experiment=experiment,
+                            generation_strategy=generation_strategy,
+                        )
