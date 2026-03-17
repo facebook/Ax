@@ -844,6 +844,7 @@ def ax_parameter_sens(
     order: str = "first",
     signed: bool = True,
     exclude_map_key: bool = True,
+    exclude_task: bool = False,
     **sobol_kwargs: Any,
 ) -> dict[str, dict[str, npt.NDArray]]:
     """
@@ -868,6 +869,9 @@ def ax_parameter_sens(
             excluded from sensitivity analysis by fixing it at the maximum step value.
             This makes the sensitivity analysis more interpretable for users who
             care about the effect of parameters on final performance.
+        exclude_task: If True, task parameters (those with ``is_task=True``, e.g.
+            synthetic parameters from the TrialAsTask transform) will be excluded
+            from the sensitivity results.
         sobol_kwargs: keyword arguments passed on to SobolSensitivityGPMean, and if
             signed, GpDGSMGpMean.
 
@@ -910,6 +914,21 @@ def ax_parameter_sens(
         # Remove MAP_KEY from output feature names
         output_feature_names = [f for f in feature_names if f != MAP_KEY]
 
+    # Exclude task parameters (e.g. TRIAL_PARAM from TrialAsTask transform)
+    # by fixing them at their target values.
+    if exclude_task and digest.task_features:
+        if fixed_features is None:
+            fixed_features = {}
+        for task_idx in digest.task_features:
+            if task_idx < len(feature_names):
+                fixed_features[task_idx] = float(
+                    digest.target_values.get(task_idx, bounds[1, task_idx])
+                )
+                task_name = feature_names[task_idx]
+                output_feature_names = [
+                    f for f in output_feature_names if f != task_name
+                ]
+
     # for second order indices, we need to compute first order indices first
     # which is what is done here. With the first order indices, we can then subtract
     # appropriately using the first-order indices to extract the second-order indices.
@@ -943,7 +962,7 @@ def ax_parameter_sens(
     indices = array_with_string_indices_to_dict(
         rows=metrics, cols=output_feature_names, A=ind.cpu().numpy()
     )
-    if order == "second":
+    if order == "second" and len(output_feature_names) >= 2:
         second_order_values = compute_sobol_indices_from_model_list(
             model_list=model_list,
             bounds=bounds,

@@ -12,6 +12,7 @@ from ax.adapter.registry import Generators
 from ax.adapter.torch import TorchAdapter
 from ax.analysis.plotly.sensitivity import (
     _prepare_data,
+    _wrap_label,
     compute_sensitivity_adhoc,
     SensitivityAnalysisPlot,
 )
@@ -222,3 +223,67 @@ class TestSensitivityAnalysisPlot(TestCase):
             exclude_map_key=True,
         ).flatten()
         self.assertEqual(len(cards), 1)
+
+    @mock_botorch_optimize
+    def test_task_params_excluded(self) -> None:
+        """Test that _prepare_data passes exclude_task=True to ax_parameter_sens."""
+        client = get_test_client()
+        adapter = Generators.BOTORCH_MODULAR(
+            experiment=client.experiment, data=client.experiment.lookup_data()
+        )
+
+        mock_results = {"bar": {"x": 0.6}}
+
+        with patch(
+            "ax.analysis.plotly.sensitivity.ax_parameter_sens",
+            return_value=mock_results,
+        ) as mock_sens:
+            _prepare_data(
+                adapter=assert_is_instance(adapter, TorchAdapter),
+                metric_name="bar",
+                order="first",
+            )
+            mock_sens.assert_called_once_with(
+                adapter=assert_is_instance(adapter, TorchAdapter),
+                metrics=["bar"],
+                order="first",
+                exclude_map_key=True,
+                exclude_task=True,
+            )
+
+    def test_wrap_label(self) -> None:
+        cases = [
+            ("short name unchanged", "x", "x"),
+            (
+                "long name wrapped at underscores",
+                "very_long_parameter_name_that_exceeds_limit",
+                None,  # checked separately
+            ),
+            (
+                "interaction effect split across lines",
+                "param_one & param_two",
+                "param_one &<br>param_two",
+            ),
+            (
+                "no underscores returned as-is",
+                "a" * 40,
+                "a" * 40,
+            ),
+        ]
+        for desc, name, expected in cases:
+            with self.subTest(desc):
+                wrapped = _wrap_label(name)
+                if expected is not None:
+                    self.assertEqual(wrapped, expected)
+                else:
+                    # Long name: should contain <br> and reconstruct to original
+                    self.assertIn("<br>", wrapped)
+                    self.assertEqual(wrapped.replace("<br>", ""), name)
+
+        # Long interaction: each part independently wrapped
+        with self.subTest("long interaction effect"):
+            name = "very_long_parameter_name_alpha & very_long_parameter_name_beta"
+            wrapped = _wrap_label(name)
+            self.assertIn(" &<br>", wrapped)
+            parts = wrapped.split(" &<br>")
+            self.assertEqual(len(parts), 2)

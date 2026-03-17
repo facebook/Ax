@@ -28,8 +28,8 @@ from ax.utils.sensitivity.sobol_measures import ax_parameter_sens
 from plotly import express as px, graph_objects as go
 from pyre_extensions import assert_is_instance, none_throws, override
 
-# SensitivityAnalysisPlot uses a plotly bar chart which needs especially short labels
-MAX_LABEL_LEN: int = 20
+# Maximum characters per line for y-axis labels before wrapping with <br>
+MAX_LINE_LEN: int = 25
 
 SENSITIVITY_CARDGROUP_TITLE = (
     "Sensitivity Analysis: Understand how each parameter affects metrics"
@@ -148,7 +148,7 @@ class SensitivityAnalysisPlot(Analysis):
 
         # If a human readable metric name is provided, use it
         metric_label = self.labels.get(
-            metric_name, truncate_label(label=metric_name, n=MAX_LABEL_LEN)
+            metric_name, truncate_label(label=metric_name, n=MAX_LINE_LEN)
         )
         df, fig = _prepare_card_components(
             data=data,
@@ -218,6 +218,45 @@ def compute_sensitivity_adhoc(
     )
 
 
+def _wrap_label(name: str, max_line_len: int = MAX_LINE_LEN) -> str:
+    """Wrap long parameter names using <br> for multi-line y-axis labels.
+
+    For interaction effects (containing " & "), each parameter is placed on its
+    own line. For single parameter names that exceed max_line_len, the name is
+    wrapped at underscores.
+    """
+    if " & " in name:
+        parts = name.split(" & ")
+        wrapped_parts = [_wrap_single(p, max_line_len) for p in parts]
+        return " &<br>".join(wrapped_parts)
+    return _wrap_single(name, max_line_len)
+
+
+def _wrap_single(name: str, max_line_len: int = MAX_LINE_LEN) -> str:
+    """Wrap a single parameter name at underscores if it exceeds max_line_len.
+
+    The underscore at the wrap point is preserved as a leading underscore on the
+    next line, so the full name can be reconstructed by removing ``<br>`` tags.
+    """
+    if len(name) <= max_line_len:
+        return name
+    segments = name.split("_")
+    lines: list[str] = []
+    current_line = ""
+    for segment in segments:
+        candidate = f"{current_line}_{segment}" if current_line else segment
+        if len(candidate) > max_line_len and current_line:
+            lines.append(current_line)
+            current_line = segment
+        else:
+            current_line = candidate
+    if current_line:
+        lines.append(current_line)
+    # Re-join with "<br>_" so the underscore at each break point is preserved
+    # on the next line, making the label visually faithful to the original name.
+    return "<br>_".join(lines)
+
+
 def _prepare_data(
     adapter: TorchAdapter,
     metric_name: str,
@@ -229,9 +268,10 @@ def _prepare_data(
         metrics=[metric_name],
         order=order,
         exclude_map_key=exclude_map_key,
+        exclude_task=True,
     )
 
-    return pd.DataFrame.from_records(
+    df = pd.DataFrame.from_records(
         [
             {
                 "metric_name": metric_name,
@@ -242,6 +282,15 @@ def _prepare_data(
             for parameter_name, sensitivity in sensitivity_dict.items()
         ]
     )
+
+    # Re-normalize sensitivities so absolute values sum to 1 per metric.
+    for mn in df["metric_name"].unique():
+        mask = df["metric_name"] == mn
+        total = df.loc[mask, "sensitivity"].abs().sum()
+        if total > 0:
+            df.loc[mask, "sensitivity"] = df.loc[mask, "sensitivity"] / total
+
+    return df
 
 
 def _prepare_card_components(
@@ -254,33 +303,21 @@ def _prepare_card_components(
         ["parameter_name", "sensitivity"]
     ].copy()
 
-    # If the parameter name is too long, truncate it.
-    # If the parameter name is a second order interaction, truncate each parameter name
-    # separately then re-combine.
-    # If the truncated parameter name already exists, append count at end to prevent
-    # collisions.
-    # TODO: @paschali @mgarrard clean up after implementing parameter canonical names
+    # Wrap long parameter names using <br> for multi-line y-axis labels.
+    # If the wrapped name collides with an existing one, append a count suffix.
     param_names = plotting_df["parameter_name"].unique()
-    param_to_shortened_name = {}
-    shortened_name_count = {}
+    param_to_display_name: dict[str, str] = {}
+    display_name_count: dict[str, int] = {}
     for name in param_names:
-        shortened_name = (
-            " & ".join(
-                truncate_label(label=sub_name, n=MAX_LABEL_LEN // 2)
-                for sub_name in name.split(" & ")
-            )
-            if "&" in name
-            else truncate_label(label=name, n=MAX_LABEL_LEN)
-        )
-        # track number of times each shortened name is seen
-        if shortened_name not in shortened_name_count:
-            shortened_name_count[shortened_name] = 0
+        display_name = _wrap_label(name)
+        if display_name not in display_name_count:
+            display_name_count[display_name] = 0
         else:
-            shortened_name_count[shortened_name] += 1
-            shortened_name = shortened_name + f"_{shortened_name_count[shortened_name]}"
-        param_to_shortened_name[name] = shortened_name
-    plotting_df["truncated_parameter_name"] = plotting_df["parameter_name"].map(
-        param_to_shortened_name
+            display_name_count[display_name] += 1
+            display_name = display_name + f"_{display_name_count[display_name]}"
+        param_to_display_name[name] = display_name
+    plotting_df["display_parameter_name"] = plotting_df["parameter_name"].map(
+        param_to_display_name
     )
 
     plotting_df["importance"] = plotting_df["sensitivity"].abs()
@@ -292,7 +329,7 @@ def _prepare_card_components(
         .reset_index()
         .head(top_k),
         x="importance",
-        y="truncated_parameter_name",
+        y="display_parameter_name",
         orientation="h",
         color="direction",
         color_discrete_map={
