@@ -20,36 +20,33 @@ class TestExperimentStatus(TestCase):
         self.assertEqual(ExperimentStatus.OPTIMIZATION.value, 2)
         self.assertEqual(ExperimentStatus.COMPLETED.value, 4)
 
-    def test_is_active(self) -> None:
-        """Test the is_active property."""
-        # Active statuses
-        self.assertTrue(ExperimentStatus.INITIALIZATION.is_active)
-        self.assertTrue(ExperimentStatus.OPTIMIZATION.is_active)
-
-        # Inactive statuses
-        self.assertFalse(ExperimentStatus.DRAFT.is_active)
-        self.assertFalse(ExperimentStatus.COMPLETED.is_active)
-
-    def test_individual_status_checks(self) -> None:
-        """Test individual status check properties."""
-        self.assertTrue(ExperimentStatus.DRAFT.is_draft)
-        self.assertFalse(ExperimentStatus.INITIALIZATION.is_draft)
-
-        self.assertTrue(ExperimentStatus.INITIALIZATION.is_initialization)
-        self.assertFalse(ExperimentStatus.OPTIMIZATION.is_initialization)
-
-        self.assertTrue(ExperimentStatus.OPTIMIZATION.is_optimization)
-        self.assertFalse(ExperimentStatus.COMPLETED.is_optimization)
-
-        self.assertTrue(ExperimentStatus.COMPLETED.is_completed)
-        self.assertFalse(ExperimentStatus.DRAFT.is_completed)
+    def test_status_boolean_properties(self) -> None:
+        """Test is_active and individual status check properties."""
+        cases = [
+            (ExperimentStatus.INITIALIZATION, "is_active", True),
+            (ExperimentStatus.OPTIMIZATION, "is_active", True),
+            (ExperimentStatus.DRAFT, "is_active", False),
+            (ExperimentStatus.COMPLETED, "is_active", False),
+            (ExperimentStatus.DRAFT, "is_draft", True),
+            (ExperimentStatus.INITIALIZATION, "is_draft", False),
+            (ExperimentStatus.INITIALIZATION, "is_initialization", True),
+            (ExperimentStatus.OPTIMIZATION, "is_initialization", False),
+            (ExperimentStatus.OPTIMIZATION, "is_optimization", True),
+            (ExperimentStatus.COMPLETED, "is_optimization", False),
+            (ExperimentStatus.COMPLETED, "is_completed", True),
+            (ExperimentStatus.DRAFT, "is_completed", False),
+        ]
+        for status, prop, expected in cases:
+            with self.subTest(status=status.name, prop=prop):
+                self.assertEqual(getattr(status, prop), expected)
 
     def test_format_and_repr(self) -> None:
         """Test __format__ and __repr__ methods."""
-        status = ExperimentStatus.DRAFT
-        self.assertEqual(f"{status}", "ExperimentStatus.DRAFT")
-        self.assertEqual(repr(status), "ExperimentStatus.DRAFT")
-
-        status = ExperimentStatus.OPTIMIZATION
-        self.assertEqual(f"{status}", "ExperimentStatus.OPTIMIZATION")
-        self.assertEqual(repr(status), "ExperimentStatus.OPTIMIZATION")
+        cases = [
+            (ExperimentStatus.DRAFT, "ExperimentStatus.DRAFT"),
+            (ExperimentStatus.OPTIMIZATION, "ExperimentStatus.OPTIMIZATION"),
+        ]
+        for status, expected_str in cases:
+            with self.subTest(status=status.name):
+                self.assertEqual(f"{status}", expected_str)
+                self.assertEqual(repr(status), expected_str)
