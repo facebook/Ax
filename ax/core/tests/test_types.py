@@ -62,32 +62,48 @@ class TypesTest(TestCase):
         validate_evaluation_outcome(outcome=trial_evaluation_with_noise)
         validate_evaluation_outcome(outcome=map_trial_evaluation)
 
-        with self.assertRaisesRegex(TypeError, "Expected FloatLike, found foo"):
-            validate_floatlike(floatlike="foo")
-
-        with self.assertRaisesRegex(
-            TypeError,
-            "Tuple-valued SingleMetricData must have len",
-        ):
-            validate_single_metric_data(data=(0, 1, 2))
-
-        with self.assertRaisesRegex(
-            TypeError, "Keys must be strings in TTrialEvaluation, found 0."
-        ):
-            validate_trial_evaluation(evaluation={0: 0})
-
-        with self.assertRaisesRegex(
-            TypeError, "Expected None, bool, float, int, or str, found"
-        ):
-            validate_param_value(param_value=[])
-
-        with self.assertRaisesRegex(
-            TypeError, "Keys must be strings in TParameterization, found 0."
-        ):
-            validate_parameterization(parameterization={0: 0})
-
-        with self.assertRaisesRegex(TypeError, "Steps must be float"):
-            # pyre-fixme[6]: Incompatible parameter type: In call
-            # `validate_step`, for argument `step`, expected `float` but got
-            # `str`
-            validate_step(step="0")
+        error_cases = [
+            (
+                "validate_floatlike",
+                lambda: validate_floatlike(floatlike="foo"),
+                TypeError,
+                "Expected FloatLike, found foo",
+            ),
+            (
+                "validate_single_metric_data",
+                lambda: validate_single_metric_data(data=(0, 1, 2)),
+                TypeError,
+                "Tuple-valued SingleMetricData must have len",
+            ),
+            (
+                "validate_trial_evaluation",
+                lambda: validate_trial_evaluation(evaluation={0: 0}),
+                TypeError,
+                "Keys must be strings in TTrialEvaluation, found 0.",
+            ),
+            (
+                "validate_param_value",
+                lambda: validate_param_value(param_value=[]),
+                TypeError,
+                "Expected None, bool, float, int, or str, found",
+            ),
+            (
+                "validate_parameterization",
+                lambda: validate_parameterization(parameterization={0: 0}),
+                TypeError,
+                "Keys must be strings in TParameterization, found 0.",
+            ),
+            (
+                "validate_step",
+                # pyre-fixme[6]: Incompatible parameter type: In call
+                # `validate_step`, for argument `step`, expected `float` but got
+                # `str`
+                lambda: validate_step(step="0"),
+                TypeError,
+                "Steps must be float",
+            ),
+        ]
+        for name, call, exc_type, msg in error_cases:
+            with self.subTest(validator=name):
+                with self.assertRaisesRegex(exc_type, msg):
+                    call()

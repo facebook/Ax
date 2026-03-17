@@ -530,34 +530,39 @@ class BatchTrialTest(TestCase):
             "BatchTrial(experiment_name='test', index=0, status=TrialStatus.CANDIDATE)",
         )
 
-    def test_TTL_status_property_check(self) -> None:
-        """Verify that TTL is checked on execution of the `status` property."""
-        candidate_trial = self.experiment.new_batch_trial(ttl_seconds=1)
-        self.assertTrue(candidate_trial.status.is_candidate)
-        sleep(1)  # Wait 1 second for trial TTL to elapse.
-        # Candidate should become stale on expiration of TTL.
-        self.assertTrue(candidate_trial.status.is_stale)
-        self.assertIn(1, self.experiment.trial_indices_by_status[TrialStatus.STALE])
+    def test_TTL_expiry_across_access_paths(self) -> None:
+        """Verify that TTL is checked via different access paths."""
 
-    def test_TTL_trial_indices_by_status_check(self) -> None:
-        """Verify that TTL is checked on `experiment.trial_indices_by_status`."""
-        candidate_trial = self.experiment.new_batch_trial(ttl_seconds=1)
-        self.assertTrue(candidate_trial.status.is_candidate)
-        sleep(1)  # Wait 1 second for trial TTL to elapse.
-        self.assertIn(1, self.experiment.trial_indices_by_status[TrialStatus.STALE])
-        self.assertTrue(candidate_trial.status.is_stale)
+        def check_via_experiment_trials(trial: BatchTrial) -> bool:
+            # Access experiment.trials first (this is the side-effect that
+            # triggers the TTL status update), then separately verify
+            # that the private _status field was updated.
+            _ = self.experiment.trials
+            return trial._status == TrialStatus.STALE
 
-    def test_TTL_experiment_trials_check(self) -> None:
-        """Verify that TTL is checked on `experiment.trials`."""
-        candidate_trial = self.experiment.new_batch_trial(ttl_seconds=1)
-        self.assertTrue(candidate_trial.status.is_candidate)
-        self.assertIn(1, self.experiment.trial_indices_by_status[TrialStatus.CANDIDATE])
-        sleep(1)  # Wait 1 second for trial TTL to elapse.
-        self.experiment.trials
-        # Check `_status`, not `status`, to ensure it's within `trials` that the status
-        # was actually changed, not in `status`.
-        self.assertEqual(candidate_trial._status, TrialStatus.STALE)
-        self.assertIn(1, self.experiment.trial_indices_by_status[TrialStatus.STALE])
+        # Three different code paths that should all trigger TTL expiry:
+        # 1. Accessing trial.status directly
+        # 2. Querying experiment.trial_indices_by_status
+        # 3. Accessing experiment.trials (updates _status as side effect)
+        ttl_access_paths = {
+            "status_property": lambda trial: trial.status.is_stale,
+            "trial_indices_by_status": lambda trial: (
+                1 in self.experiment.trial_indices_by_status[TrialStatus.STALE]
+            ),
+            "experiment_trials": check_via_experiment_trials,
+        }
+        for access_path, check_stale in ttl_access_paths.items():
+            with self.subTest(access_path=access_path):
+                # Reset by creating a fresh experiment for each sub-test
+                self.setUp()
+                candidate_trial = self.experiment.new_batch_trial(ttl_seconds=1)
+                self.assertTrue(candidate_trial.status.is_candidate)
+                sleep(1)  # Wait 1 second for trial TTL to elapse.
+                self.assertTrue(check_stale(candidate_trial))
+                self.assertIn(
+                    1,
+                    self.experiment.trial_indices_by_status[TrialStatus.STALE],
+                )
 
     def test_get_candidate_metadata_from_all_generator_runs(self) -> None:
         self.assertEqual(self.batch.generation_method_str, MANUAL_GENERATION_METHOD_STR)

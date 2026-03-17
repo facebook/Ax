@@ -77,19 +77,20 @@ class JenattonTest(TestCase):
             )
 
         for params, value in cases:
-            self.assertAlmostEqual(
-                # pyre-fixme: Incompatible parameter type [6]: In call
-                # `jenatton_test_function`, for 1st positional argument,
-                # expected `Optional[float]` but got `Union[None, bool, float,
-                # int, str]`.
-                jenatton_test_function(**params),
-                value,
-            )
-            self.assertAlmostEqual(
-                benchmark_problem.test_function.evaluate_true(params=params).item(),
-                value,
-                places=6,
-            )
+            with self.subTest(params=params, expected_value=value):
+                self.assertAlmostEqual(
+                    # pyre-fixme: Incompatible parameter type [6]: In call
+                    # `jenatton_test_function`, for 1st positional argument,
+                    # expected `Optional[float]` but got `Union[None, bool, float,
+                    # int, str]`.
+                    jenatton_test_function(**params),
+                    value,
+                )
+                self.assertAlmostEqual(
+                    benchmark_problem.test_function.evaluate_true(params=params).item(),
+                    value,
+                    places=6,
+                )
 
     def test_create_problem(self) -> None:
         problem = get_jenatton_benchmark_problem()
