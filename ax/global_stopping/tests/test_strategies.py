@@ -404,10 +404,12 @@ class TestImprovementGlobalStoppingStrategy(TestCase):
             (0.5, 0.2, 0.4),  # infeasible
         ]
         exp = self._create_single_objective_experiment(metric_values=metric_values)
-        self.assertTrue(constraint_satisfaction(exp.trials[0]))
-        self.assertFalse(constraint_satisfaction(exp.trials[1]))
-        self.assertFalse(constraint_satisfaction(exp.trials[2]))
-        self.assertFalse(constraint_satisfaction(exp.trials[3]))
+        expected_feasibility = [True, False, False, False]
+        for trial_idx, expected in enumerate(expected_feasibility):
+            with self.subTest(trial_index=trial_idx, expected_feasible=expected):
+                self.assertEqual(
+                    constraint_satisfaction(exp.trials[trial_idx]), expected
+                )
 
     def test_global_stopping_savings(self) -> None:
         exp = get_experiment_with_data()
