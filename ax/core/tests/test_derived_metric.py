@@ -521,6 +521,34 @@ class DerivedMetricTest(TestCase):
             self.assertIsInstance(result, Err)
             self.assertIn("b", none_throws(result.err).message)
 
+    def test_fetch_trial_data_skips_abandoned_arms(self) -> None:
+        """Abandoned arms are skipped in _collect_arm_data.
+
+        When a BatchTrial has an abandoned arm, that arm has no base metric
+        data (the metric system correctly does not fetch data for abandoned
+        arms).  _collect_arm_data must skip abandoned arms rather than
+        returning a MetricFetchE for missing input data.
+        """
+        metric = _SumDerivedMetric(name="total", input_metric_names=["a", "b"])
+        exp = Experiment(name="test", search_space=get_branin_search_space())
+        trial = exp.new_batch_trial()
+        arm_ok = Arm(name="arm_ok", parameters={"x1": 1.0, "x2": 1.0})
+        arm_abandoned = Arm(name="arm_abandoned", parameters={"x1": 2.0, "x2": 2.0})
+        trial.add_arm(arm_ok)
+        trial.add_arm(arm_abandoned)
+        trial.mark_running(no_runner_required=True)
+        trial.mark_arm_abandoned(arm_name="arm_abandoned")
+        trial.mark_completed()
+
+        # Only attach data for the non-abandoned arm.
+        exp.attach_data(_make_trial_data(0, {"arm_ok": {"a": 3.0, "b": 4.0}}))
+
+        result = metric.fetch_trial_data(trial)
+        self.assertIsInstance(result, Ok)
+        df = none_throws(result.ok).df
+        self.assertEqual(list(df["arm_name"]), ["arm_ok"])
+        self.assertAlmostEqual(df["mean"].iloc[0], 7.0)
+
 
 class ExpressionDerivedMetricTest(TestCase):
     """Tests for ExpressionDerivedMetric."""
