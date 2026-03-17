@@ -9,6 +9,7 @@
 from __future__ import annotations
 
 import logging
+from collections.abc import Mapping
 from typing import TYPE_CHECKING
 
 import pandas as pd
@@ -31,7 +32,6 @@ from pyre_extensions import none_throws
 if TYPE_CHECKING:
     # import as module to make sphinx-autodoc-typehints happy
     from ax import adapter as adapter_module  # noqa F401
-    from ax.core.experiment import Experiment
 
 
 logger: logging.Logger = get_logger(__name__)
@@ -157,7 +157,7 @@ class ObjectiveAsConstraint(Transform):
                 row=row,
                 constraints=outcome_constraints,
                 sq_data=sq_data,
-                experiment=adapter._experiment,
+                metric_name_to_signature=adapter.metric_name_to_signature,
             ):
                 return False
 
@@ -271,7 +271,7 @@ def _is_point_feasible(
     row: pd.Series,
     constraints: list[OutcomeConstraint],
     sq_data: ObservationData | None = None,
-    experiment: Experiment | None = None,
+    metric_name_to_signature: Mapping[str, str] | None = None,
 ) -> bool:
     """Check if a single observation satisfies all outcome constraints.
 
@@ -285,16 +285,16 @@ def _is_point_feasible(
         sq_data: Status quo observation data, required for evaluating
             relative constraints. If None and a relative constraint is
             encountered, the constraint is skipped.
-        experiment: The experiment, used to look up metric signatures from
-            metric names. If None, the metric name is used as the signature.
+        metric_name_to_signature: Mapping from metric names to signatures.
+            If None, the metric name is used as the signature.
 
     Returns:
         True if the point satisfies all constraints, False otherwise.
     """
     for constraint in constraints:
         metric_name = constraint.metric_names[0]
-        if experiment is not None:
-            metric_sig = experiment.get_metric(metric_name).signature
+        if metric_name_to_signature is not None:
+            metric_sig = metric_name_to_signature[metric_name]
         else:
             metric_sig = metric_name
         try:

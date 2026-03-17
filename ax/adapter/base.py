@@ -190,6 +190,9 @@ class Adapter:
         )
         self._experiment_properties: dict[str, Any] = experiment._properties
         self._experiment: Experiment = experiment
+        self._metric_name_to_signature: dict[str, str] = {
+            name: metric.signature for name, metric in self._experiment.metrics.items()
+        }
 
         if self._optimization_config is None:
             self._optimization_config = experiment.optimization_config
@@ -524,6 +527,11 @@ class Adapter:
     def metric_signatures(self) -> set[str]:
         """Metric signatures present in training data."""
         return self._metric_signatures
+
+    @property
+    def metric_name_to_signature(self) -> dict[str, str]:
+        """Mapping from metric names to their signatures."""
+        return self._metric_name_to_signature
 
     @property
     def model_space(self) -> SearchSpace:
