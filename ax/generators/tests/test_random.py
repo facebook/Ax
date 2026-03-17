@@ -31,21 +31,24 @@ class RandomGeneratorTest(TestCase):
 
     def test_state(self) -> None:
         for model in (self.random_model, RandomGenerator(seed=5)):
-            state = model._get_state()
-            self.assertEqual(state["seed"], model.seed)
-            self.assertEqual(state["init_position"], model.init_position)
+            with self.subTest(seed=model.seed):
+                state = model._get_state()
+                self.assertEqual(state["seed"], model.seed)
+                self.assertEqual(state["init_position"], model.init_position)
 
-    def test_RandomGeneratorGenSamples(self) -> None:
-        with self.assertRaises(NotImplementedError):
-            self.random_model._gen_samples(
+    def test_not_implemented_methods(self) -> None:
+        cases = {
+            "_gen_samples": lambda: self.random_model._gen_samples(
                 n=1, tunable_d=1, bounds=np.array([[0.0, 1.0]])
-            )
-
-    def test_RandomGeneratorGenUnconstrained(self) -> None:
-        with self.assertRaises(NotImplementedError):
-            self.random_model._gen_unconstrained(
+            ),
+            "_gen_unconstrained": lambda: self.random_model._gen_unconstrained(
                 n=1, d=2, tunable_feature_indices=np.array([], dtype=int)
-            )
+            ),
+        }
+        for method_name, call in cases.items():
+            with self.subTest(method=method_name):
+                with self.assertRaises(NotImplementedError):
+                    call()
 
     def test_ConvertEqualityConstraints(self) -> None:
         fixed_features = {3: 0.7, 1: 0.5}
