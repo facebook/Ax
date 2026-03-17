@@ -219,13 +219,19 @@ class Encoder:
         runners = []
         if isinstance(experiment, MultiTypeExperiment):
             experiment._properties[Keys.SUBCLASS] = "MultiTypeExperiment"
+        if experiment._default_trial_type is not None:
             for trial_type, runner in experiment._trial_type_to_runner.items():
                 runner_sqa = self.runner_to_sqa(none_throws(runner), trial_type)
                 runners.append(runner_sqa)
 
+            metric_to_tt = experiment.metric_to_trial_type
             for metric in tracking_metrics:
-                metric.trial_type = experiment._metric_to_trial_type[metric.name]
-                if metric.name in experiment._metric_to_canonical_name:
+                if metric.name in metric_to_tt:
+                    metric.trial_type = metric_to_tt[metric.name]
+                if (
+                    isinstance(experiment, MultiTypeExperiment)
+                    and metric.name in experiment._metric_to_canonical_name
+                ):
                     metric.canonical_name = experiment._metric_to_canonical_name[
                         metric.name
                     ]
