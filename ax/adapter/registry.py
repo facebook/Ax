@@ -463,6 +463,7 @@ class Generators(GeneratorRegistryBase):
     IN_SAMPLE_UNIFORM = "InSampleUniform"
     ST_MTGP = "ST_MTGP"
     BO_MIXED = "BO_MIXED"
+    BOTL = "BOTL"
 
 
 def _extract_generator_state_after_gen(
