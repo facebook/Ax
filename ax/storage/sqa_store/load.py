@@ -843,8 +843,11 @@ def identify_transferable_experiments(
             continue
         if not exp_search_space:
             continue
+        num_tunable_params = len(exp_search_space.tunable_parameters.values())
+        if num_tunable_params == 0:
+            continue
         overlap_params = exp_search_space.get_overlapping_parameters(search_space)
-        prop_overlap = len(overlap_params) / len(search_space.parameters)
+        prop_overlap = len(overlap_params) / num_tunable_params
         if prop_overlap >= overlap_threshold:
             results.append(
                 {

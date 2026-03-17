@@ -267,6 +267,34 @@ class RangeParameterTest(TestCase):
             )
             self.assertFalse(range_param_1.is_compatible_with(range_param_2))
 
+        with self.subTest("compatible_with_fixed_same_type"):
+            range_param = RangeParameter(
+                name="x",
+                parameter_type=ParameterType.FLOAT,
+                lower=0.0,
+                upper=1.0,
+            )
+            fixed_param = FixedParameter(
+                name="x",
+                parameter_type=ParameterType.FLOAT,
+                value=0.5,
+            )
+            self.assertTrue(range_param.is_compatible_with(fixed_param))
+
+        with self.subTest("incompatible_with_fixed_different_type"):
+            range_param = RangeParameter(
+                name="x",
+                parameter_type=ParameterType.FLOAT,
+                lower=0.0,
+                upper=1.0,
+            )
+            fixed_param = FixedParameter(
+                name="x",
+                parameter_type=ParameterType.INT,
+                value=1,
+            )
+            self.assertFalse(range_param.is_compatible_with(fixed_param))
+
 
 class ChoiceParameterTest(TestCase):
     def setUp(self) -> None:
@@ -784,17 +812,31 @@ class ChoiceParameterTest(TestCase):
             )
 
     def test_is_compatible_with(self) -> None:
-        choice_param_1 = ChoiceParameter(
-            name="x",
-            parameter_type=ParameterType.STRING,
-            values=["foo", "bar"],
-        )
-        choice_param_2 = ChoiceParameter(
-            name="x",
-            parameter_type=ParameterType.STRING,
-            values=["foo", "bar"],
-        )
-        self.assertTrue(choice_param_1.is_compatible_with(choice_param_2))
+        with self.subTest("compatible_same_values"):
+            choice_param_1 = ChoiceParameter(
+                name="x",
+                parameter_type=ParameterType.STRING,
+                values=["foo", "bar"],
+            )
+            choice_param_2 = ChoiceParameter(
+                name="x",
+                parameter_type=ParameterType.STRING,
+                values=["foo", "bar"],
+            )
+            self.assertTrue(choice_param_1.is_compatible_with(choice_param_2))
+
+        with self.subTest("compatible_different_values"):
+            choice_param_1 = ChoiceParameter(
+                name="x",
+                parameter_type=ParameterType.STRING,
+                values=["foo", "bar"],
+            )
+            choice_param_2 = ChoiceParameter(
+                name="x",
+                parameter_type=ParameterType.STRING,
+                values=["bar", "baz"],
+            )
+            self.assertTrue(choice_param_1.is_compatible_with(choice_param_2))
 
 
 class FixedParameterTest(TestCase):
@@ -962,7 +1004,7 @@ class FixedParameterTest(TestCase):
             )
             self.assertTrue(fixed_param_1.is_compatible_with(fixed_param_2))
 
-        with self.subTest("incompatible_different_value"):
+        with self.subTest("compatible_different_value"):
             fixed_param_1 = FixedParameter(
                 name="x",
                 parameter_type=ParameterType.STRING,
@@ -973,7 +1015,35 @@ class FixedParameterTest(TestCase):
                 parameter_type=ParameterType.STRING,
                 value="bar",
             )
-            self.assertFalse(fixed_param_1.is_compatible_with(fixed_param_2))
+            self.assertTrue(fixed_param_1.is_compatible_with(fixed_param_2))
+
+        with self.subTest("compatible_with_range_same_type"):
+            fixed_param = FixedParameter(
+                name="x",
+                parameter_type=ParameterType.FLOAT,
+                value=0.5,
+            )
+            range_param = RangeParameter(
+                name="x",
+                parameter_type=ParameterType.FLOAT,
+                lower=0.0,
+                upper=1.0,
+            )
+            self.assertTrue(fixed_param.is_compatible_with(range_param))
+
+        with self.subTest("incompatible_with_range_different_type"):
+            fixed_param = FixedParameter(
+                name="x",
+                parameter_type=ParameterType.INT,
+                value=1,
+            )
+            range_param = RangeParameter(
+                name="x",
+                parameter_type=ParameterType.FLOAT,
+                lower=0.0,
+                upper=1.0,
+            )
+            self.assertFalse(fixed_param.is_compatible_with(range_param))
 
 
 class DerivedParameterTest(TestCase):

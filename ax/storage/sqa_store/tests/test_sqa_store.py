@@ -43,7 +43,13 @@ from ax.core.optimization_config import (
     PreferenceOptimizationConfig,
 )
 from ax.core.outcome_constraint import OutcomeConstraint, ScalarizedOutcomeConstraint
-from ax.core.parameter import ChoiceParameter, ParameterType, RangeParameter
+from ax.core.parameter import (
+    ChoiceParameter,
+    DerivedParameter,
+    FixedParameter,
+    ParameterType,
+    RangeParameter,
+)
 from ax.core.runner import Runner
 from ax.core.search_space import SearchSpace
 from ax.core.trial import Trial
@@ -3236,12 +3242,7 @@ class SQAStoreTest(TestCase):
             source_experiment.attach_data(get_data(trial_index=trial.index))
             save_experiment(source_experiment, config=config)
 
-            # Execute: Find transferable experiments for a target search space
-            # that only has RangeParameters w and x (overlapping with source)
-            # Note: We use only RangeParameters to avoid incompatibility issues
-            # with Choice/Fixed parameters that have different values
-            from ax.core.search_space import SearchSpace
-
+            # Target has w and x (overlapping with source).
             target_search_space = SearchSpace(
                 parameters=[
                     get_range_parameter(),  # w
@@ -3267,7 +3268,8 @@ class SQAStoreTest(TestCase):
         with self.subTest("filters_by_overlap_threshold"):
             config = SQAConfig(experiment_type_enum=MockExperimentTypeEnum)
 
-            # Create and save a source experiment with parameters w, x, y, z
+            # Source experiment has params w, x, y, z, d (from get_search_space).
+            # w is RangeParameter(FLOAT), x is RangeParameter(INT).
             source_experiment = get_experiment_with_batch_trial()
             source_experiment.name = "exp_with_partial_overlap"
             source_experiment.experiment_type = "TEST"
@@ -3276,70 +3278,145 @@ class SQAStoreTest(TestCase):
             source_experiment.attach_data(get_data(trial_index=trial.index))
             save_experiment(source_experiment, config=config)
 
-            # Target has 6 range parameters: w, x overlap with source (33% overlap)
-            from ax.core.search_space import SearchSpace
-
+            # Target has w (FLOAT, compatible) and x (FLOAT, incompatible
+            # with source x which is INT). Overlap = [w], prop = 1/2 = 0.5.
             target_search_space = SearchSpace(
                 parameters=[
-                    get_range_parameter(),  # w - overlaps
-                    get_range_parameter2(),  # x - overlaps
+                    get_range_parameter(),  # w (FLOAT) - compatible with source
                     RangeParameter(
-                        name="extra1",
+                        name="x",
                         parameter_type=ParameterType.FLOAT,
                         lower=0,
                         upper=10,
+                    ),  # x (FLOAT) - incompatible with source x (INT)
+                ]
+            )
+
+            # Threshold 0.4 < 0.5 -- should include
+            result_above = identify_transferable_experiments(
+                search_space=target_search_space,
+                experiment_types=["TEST"],
+                overlap_threshold=0.4,
+                max_num_exps=10,
+                config=config,
+            )
+
+            self.assertIn("exp_with_partial_overlap", result_above)
+            metadata = result_above["exp_with_partial_overlap"]
+            self.assertIsNotNone(metadata.overlap_parameters)
+            # Only w overlaps (x is incompatible due to type mismatch)
+            self.assertEqual(len(none_throws(metadata.overlap_parameters)), 1)
+
+            # Threshold 0.6 > 0.5 -- should exclude
+            result_below = identify_transferable_experiments(
+                search_space=target_search_space,
+                experiment_types=["TEST"],
+                overlap_threshold=0.6,
+                max_num_exps=10,
+                config=config,
+            )
+
+            self.assertNotIn("exp_with_partial_overlap", result_below)
+
+        with self.subTest("prop_overlap_uses_source_tunable_params_as_denominator"):
+            config = SQAConfig(experiment_type_enum=MockExperimentTypeEnum)
+
+            # Source experiment has w (Range FLOAT), x (Range INT), y (Choice),
+            # z (Fixed), d (Derived).
+            source_experiment = get_experiment_with_batch_trial()
+            source_experiment.name = "exp_prop_overlap_denom"
+            source_experiment.experiment_type = "TEST"
+            source_experiment.is_test = False
+            trial = source_experiment.trials[0]
+            source_experiment.attach_data(get_data(trial_index=trial.index))
+            save_experiment(source_experiment, config=config)
+
+            # Target has w (compatible) and x (FLOAT, incompatible with
+            # source x which is INT). DB returns source {w, x} (filtered
+            # to target names). Tunable = {w, x} = 2. Overlap = [w].
+            # prop_overlap = 1/2 = 0.5.
+            target_search_space = SearchSpace(
+                parameters=[
+                    get_range_parameter(),  # w (FLOAT) - compatible
+                    RangeParameter(
+                        name="x",
+                        parameter_type=ParameterType.FLOAT,
+                        lower=0,
+                        upper=10,
+                    ),  # x (FLOAT) - incompatible with source x (INT)
+                ]
+            )
+
+            # prop_overlap = 0.5, so threshold 0.4 should include
+            result_above = identify_transferable_experiments(
+                search_space=target_search_space,
+                experiment_types=["TEST"],
+                overlap_threshold=0.4,
+                max_num_exps=10,
+                config=config,
+            )
+            self.assertIn("exp_with_partial_overlap", result_above)
+            metadata = result_above["exp_with_partial_overlap"]
+            self.assertEqual(len(none_throws(metadata.overlap_parameters)), 1)
+
+            # prop_overlap = 0.5, so threshold 0.6 should exclude
+            result_below = identify_transferable_experiments(
+                search_space=target_search_space,
+                experiment_types=["TEST"],
+                overlap_threshold=0.6,
+                max_num_exps=10,
+                config=config,
+            )
+            self.assertNotIn("exp_with_partial_overlap", result_below)
+
+        with self.subTest("derived_params_exempt_fixed_params_compatible"):
+            config = SQAConfig(experiment_type_enum=MockExperimentTypeEnum)
+
+            # Source has w, x, y (tunable) + z (Fixed BOOL) + d (Derived).
+            source_experiment = get_experiment_with_batch_trial()
+            source_experiment.name = "exp_ignore_fixed_derived"
+            source_experiment.experiment_type = "TEST"
+            source_experiment.is_test = False
+            trial = source_experiment.trials[0]
+            source_experiment.attach_data(get_data(trial_index=trial.index))
+            save_experiment(source_experiment, config=config)
+
+            # Target has w, x (compatible range), z (compatible fixed,
+            # different value), d (incompatible derived, exempt).
+            # Overlap = [w, x, z]. Source tunable = {w, x, y} (3).
+            # prop_overlap = 3/3 = 1.0.
+            target_search_space = SearchSpace(
+                parameters=[
+                    get_range_parameter(),  # w
+                    get_range_parameter2(),  # x
+                    FixedParameter(
+                        name="z",
+                        parameter_type=ParameterType.BOOL,
+                        value=False,
                     ),
-                    RangeParameter(
-                        name="extra2",
+                    DerivedParameter(
+                        name="d",
                         parameter_type=ParameterType.FLOAT,
-                        lower=0,
-                        upper=10,
-                    ),
-                    RangeParameter(
-                        name="extra3",
-                        parameter_type=ParameterType.FLOAT,
-                        lower=0,
-                        upper=10,
-                    ),
-                    RangeParameter(
-                        name="extra4",
-                        parameter_type=ParameterType.FLOAT,
-                        lower=0,
-                        upper=10,
+                        expression_str="99.0 * w",
                     ),
                 ]
             )
 
-            # Execute with threshold of 0.2 (20%) - should include experiment
-            # since overlap is ~33% which exceeds 20%
-            result_above = identify_transferable_experiments(
+            result = identify_transferable_experiments(
                 search_space=target_search_space,
                 experiment_types=["TEST"],
-                overlap_threshold=0.2,  # Threshold below the ~33% overlap
+                overlap_threshold=0.5,
                 max_num_exps=10,
                 config=config,
             )
-
-            # Assert: Should find experiment
-            self.assertIn("exp_with_partial_overlap", result_above)
-            # Verify overlap metadata is correct
-            metadata = result_above["exp_with_partial_overlap"]
-            self.assertIsNotNone(metadata.overlap_parameters)
-            # Should have 2 overlapping parameters (w and x)
-            self.assertEqual(len(none_throws(metadata.overlap_parameters)), 2)
-
-            # Execute with threshold of 0.5 (50%) - should exclude experiment
-            # since overlap is only ~33%
-            result_below = identify_transferable_experiments(
-                search_space=target_search_space,
-                experiment_types=["TEST"],
-                overlap_threshold=0.5,  # Threshold above the ~33% overlap
-                max_num_exps=10,
-                config=config,
-            )
-
-            # Assert: Should NOT find experiment due to threshold
-            self.assertNotIn("exp_with_partial_overlap", result_below)
+            self.assertIn("exp_ignore_fixed_derived", result)
+            metadata = result["exp_ignore_fixed_derived"]
+            overlap = none_throws(metadata.overlap_parameters)
+            # w, x, z overlap; d is derived (exempt, excluded from result)
+            self.assertEqual(len(overlap), 3)
+            self.assertIn("w", overlap)
+            self.assertIn("x", overlap)
+            self.assertIn("z", overlap)
 
         with self.subTest("respects_max_num_exps"):
             config = SQAConfig(experiment_type_enum=MockExperimentTypeEnum)
@@ -3353,9 +3430,6 @@ class SQAStoreTest(TestCase):
                 trial = exp.trials[0]
                 exp.attach_data(get_data(trial_index=trial.index))
                 save_experiment(exp, config=config)
-
-            # Use a target search space with only RangeParameters
-            from ax.core.search_space import SearchSpace
 
             target_search_space = SearchSpace(
                 parameters=[
@@ -3419,10 +3493,7 @@ class SQAStoreTest(TestCase):
                 source_exp.attach_data(get_data(trial_index=trial.index))
                 save_experiment(source_exp, config=config)
 
-            # Create target experiment with same experiment type
-            # Use only RangeParameters to ensure overlap with source experiments
-            from ax.core.search_space import SearchSpace
-
+            # Create target experiment with same type and overlapping params.
             target_search_space = SearchSpace(
                 parameters=[
                     get_range_parameter(),  # w
