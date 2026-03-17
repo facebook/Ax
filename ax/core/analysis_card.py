@@ -431,3 +431,17 @@ class ErrorAnalysisCard(AnalysisCard):
         """
 
         return f"<div class='content'>{self.blob}</div>"
+
+
+class NotApplicableStateAnalysisCard(AnalysisCard):
+    """Card for analyses that are not applicable to the current experiment state.
+
+    This card represents a transient state where an analysis cannot be computed
+    due to the current experiment state (e.g., when the experiment doesn't have enough
+    data, when no model has been fit yet, or when required trials have not completed),
+    but may become available as the experiment progresses.
+    """
+
+    def _body_html(self, depth: int) -> str:
+        """Return the HTML body containing the not-applicable explanation text."""
+        return f"<div class='content'>{self.blob}</div>"
