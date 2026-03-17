@@ -220,20 +220,19 @@ class TestHierarchicalSearchSpace(TestCase):
         cv_res = cross_validate(adapter=mbm)
         self.assertEqual(len(cv_res), len(experiment.trials))
 
-    def test_with_non_hierarchical_hss(self) -> None:
-        experiment = self._test_gen_base(
-            hss=self.non_hierarchical_hss, expected_num_candidate_params=[3]
-        )
-        self._base_test_predict_and_cv(experiment=experiment)
-
-    def test_with_simple_hss(self) -> None:
-        experiment = self._test_gen_base(
-            hss=self.simple_hss, expected_num_candidate_params=[2]
-        )
-        self._base_test_predict_and_cv(experiment=experiment)
-
-    def test_with_complex_hss(self) -> None:
-        experiment = self._test_gen_base(
-            hss=self.complex_hss, expected_num_candidate_params=[2, 4, 5]
-        )
-        self._base_test_predict_and_cv(experiment=experiment)
+    def test_with_hss_variants(self) -> None:
+        cases = [
+            # Non-hierarchical HSS: all 3 params are candidates
+            ("non_hierarchical", self.non_hierarchical_hss, [3]),
+            # Simple HSS: 2 candidate params per node
+            ("simple", self.simple_hss, [2]),
+            # Complex HSS: varying candidate params across nodes (2, 4, 5)
+            ("complex", self.complex_hss, [2, 4, 5]),
+        ]
+        for label, hss, expected_num_candidate_params in cases:
+            with self.subTest(hss_variant=label):
+                experiment = self._test_gen_base(
+                    hss=hss,
+                    expected_num_candidate_params=expected_num_candidate_params,
+                )
+                self._base_test_predict_and_cv(experiment=experiment)
