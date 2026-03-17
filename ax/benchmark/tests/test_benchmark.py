@@ -70,7 +70,6 @@ from ax.benchmark.testing.benchmark_stubs import (
     get_soo_surrogate,
 )
 from ax.core.experiment import Experiment
-from ax.core.objective import MultiObjective
 from ax.core.trial_status import TrialStatus
 from ax.early_stopping.strategies.threshold import ThresholdEarlyStoppingStrategy
 from ax.generation_strategy.external_generation_node import ExternalGenerationNode
