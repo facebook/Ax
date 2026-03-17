@@ -327,33 +327,18 @@ class TestAdapterUtils(TestCase):
 
     def test_arm_to_np_array(self) -> None:
         # Test extracting target point from arm with valid parameters
-
-        # Setup: create arm with target parameter values
         target_arm = Arm(parameters={"x1": 0.5, "x2": 1.5, "x3": 2.5})
-        parameters = ["x1", "x2", "x3"]
-
-        # Execute: extract target point
-        actual = arm_to_np_array(arm=target_arm, parameters=parameters)
-
-        # Assert: confirm extracted values match expected order
-        expected = np.array([0.5, 1.5, 2.5])
-        self.assertIsNotNone(actual)
-        np.testing.assert_array_equal(actual, expected)
-
-    def test_extract_arm_to_np_array_different_parameter_order(self) -> None:
-        # Test extracting target point with different parameter ordering
-
-        # Setup: create arm and specify parameters in different order
-        target_arm = Arm(parameters={"x1": 0.5, "x2": 1.5, "x3": 2.5})
-        parameters = ["x3", "x1", "x2"]
-
-        # Execute: extract target point
-        actual = arm_to_np_array(arm=target_arm, parameters=parameters)
-
-        # Assert: confirm values are extracted in specified parameter order
-        expected = np.array([2.5, 0.5, 1.5])
-        self.assertIsNotNone(actual)
-        np.testing.assert_array_equal(actual, expected)
+        cases = [
+            # Values extracted in natural parameter order
+            (["x1", "x2", "x3"], np.array([0.5, 1.5, 2.5])),
+            # Values extracted in a different parameter order
+            (["x3", "x1", "x2"], np.array([2.5, 0.5, 1.5])),
+        ]
+        for parameters, expected in cases:
+            with self.subTest(parameters=parameters):
+                actual = arm_to_np_array(arm=target_arm, parameters=parameters)
+                self.assertIsNotNone(actual)
+                np.testing.assert_array_equal(actual, expected)
 
     def test_arm_to_np_array_none(self) -> None:
         # Test that None is returned when target_arm is None
