@@ -57,10 +57,10 @@ class TestCanGenerateCandidates(TestCase):
             reason="The data is borked.",
             days_till_fail=2,
         ).compute(experiment=experiment, generation_strategy=None)
-        # THEN it is a WARNING
-        self.assertEqual(card.get_status(), HealthcheckStatus.WARNING)
+        # THEN it is INFO
+        self.assertEqual(card.get_status(), HealthcheckStatus.INFO)
         self.assertEqual(card.name, "CanGenerateCandidatesAnalysis")
-        self.assertEqual(card.title, "Ax Candidate Generation Warning")
+        self.assertEqual(card.title, "Ax Candidate Generation Info")
         self.assertEqual(
             card.subtitle,
             (
@@ -71,11 +71,11 @@ class TestCanGenerateCandidates(TestCase):
                 "LAST TRIAL RUN: 1 day(s) ago"
             ),
         )
-        self.assertEqual(card.get_status(), HealthcheckStatus.WARNING)
+        self.assertEqual(card.get_status(), HealthcheckStatus.INFO)
         self.assertDictEqual(
             card.get_aditional_attrs(),
             {
-                "status": HealthcheckStatus.WARNING,
+                "status": HealthcheckStatus.INFO,
                 "reason": "The data is borked.",
             },
         )

@@ -231,9 +231,7 @@ class BaselineImprovementAnalysis(Analysis):
         num_total = len(comparison_list)
 
         status = (
-            HealthcheckStatus.PASS
-            if num_improved == num_total
-            else HealthcheckStatus.WARNING
+            HealthcheckStatus.INFO if num_improved > 0 else HealthcheckStatus.WARNING
         )
 
         # Build subtitle
