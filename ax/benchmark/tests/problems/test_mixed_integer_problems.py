@@ -29,28 +29,31 @@ class MixedIntegerProblemsTest(TestCase):
             (Rosenbrock, get_discrete_rosenbrock, 10, 6),
         ):
             name = problem_cls.__name__
-            problem = constructor()
-            self.assertEqual(f"Discrete {name}", problem.name)
-            test_function = assert_is_instance(
-                problem.test_function, BoTorchTestFunction
-            )
-            botorch_problem = test_function.botorch_problem
-            self.assertIsInstance(botorch_problem, problem_cls)
-            self.assertEqual(len(problem.search_space.parameters), dim)
-            self.assertEqual(
-                sum(
-                    p.parameter_type == ParameterType.INT
-                    for p in problem.search_space.parameters.values()
-                ),
-                dim_int,
-            )
-            # Check that the underlying problem has the correct bounds.
-            if name == "Rosenbrock":
-                expected_bounds = [(-5.0, 10.0) for _ in range(dim)]
-            else:
-                expected_bounds = [(0.0, 1.0) for _ in range(dim)]
-            self.assertEqual(botorch_problem._bounds, expected_bounds)
-            self.assertGreaterEqual(problem.optimal_value, problem_cls().optimal_value)
+            with self.subTest(problem=name):
+                problem = constructor()
+                self.assertEqual(f"Discrete {name}", problem.name)
+                test_function = assert_is_instance(
+                    problem.test_function, BoTorchTestFunction
+                )
+                botorch_problem = test_function.botorch_problem
+                self.assertIsInstance(botorch_problem, problem_cls)
+                self.assertEqual(len(problem.search_space.parameters), dim)
+                self.assertEqual(
+                    sum(
+                        p.parameter_type == ParameterType.INT
+                        for p in problem.search_space.parameters.values()
+                    ),
+                    dim_int,
+                )
+                # Check that the underlying problem has the correct bounds.
+                if name == "Rosenbrock":
+                    expected_bounds = [(-5.0, 10.0) for _ in range(dim)]
+                else:
+                    expected_bounds = [(0.0, 1.0) for _ in range(dim)]
+                self.assertEqual(botorch_problem._bounds, expected_bounds)
+                self.assertGreaterEqual(
+                    problem.optimal_value, problem_cls().optimal_value
+                )
 
         # Test that they match correctly to the original problems.
         cases: list[tuple[BenchmarkProblem, dict[str, float], torch.Tensor]] = [
@@ -94,14 +97,15 @@ class MixedIntegerProblemsTest(TestCase):
         ]
 
         for problem, params, expected_arg in cases:
-            test_function = assert_is_instance(
-                problem.test_function, BoTorchTestFunction
-            )
-            with patch.object(
-                test_function.botorch_problem,
-                attribute="evaluate_true",
-                wraps=test_function.botorch_problem.evaluate_true,
-            ) as mock_call:
-                test_function.evaluate_true(params=params)
-            actual = mock_call.call_args.kwargs["X"]
-            self.assertAllClose(actual, expected_arg)
+            with self.subTest(problem=problem.name, params=params):
+                test_function = assert_is_instance(
+                    problem.test_function, BoTorchTestFunction
+                )
+                with patch.object(
+                    test_function.botorch_problem,
+                    attribute="evaluate_true",
+                    wraps=test_function.botorch_problem.evaluate_true,
+                ) as mock_call:
+                    test_function.evaluate_true(params=params)
+                actual = mock_call.call_args.kwargs["X"]
+                self.assertAllClose(actual, expected_arg)

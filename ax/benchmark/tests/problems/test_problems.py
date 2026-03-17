@@ -64,8 +64,9 @@ class TestProblems(TestCase):
             for name in ["Discrete Ackley", "Discrete Hartmann", "Discrete Rosenbrock"]
         ]
         for registry_key, problem_name in expected_names:
-            problem = get_benchmark_problem(problem_key=registry_key)
-            self.assertEqual(problem.name, problem_name)
+            with self.subTest(registry_key=registry_key):
+                problem = get_benchmark_problem(problem_key=registry_key)
+                self.assertEqual(problem.name, problem_name)
 
     def test_no_duplicates(self) -> None:
         problem_names = set()

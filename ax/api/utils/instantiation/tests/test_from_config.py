@@ -349,21 +349,16 @@ class TestFromConfig(TestCase):
         )
 
     def test_parameter_type_converter(self) -> None:
-        self.assertEqual(
-            _parameter_type_converter(parameter_type="bool"),
-            CoreParameterType.BOOL,
-        )
-        self.assertEqual(
-            _parameter_type_converter(parameter_type="int"),
-            CoreParameterType.INT,
-        )
-        self.assertEqual(
-            _parameter_type_converter(parameter_type="float"),
-            CoreParameterType.FLOAT,
-        )
-        self.assertEqual(
-            _parameter_type_converter(parameter_type="str"),
-            CoreParameterType.STRING,
-        )
+        for type_str, expected in [
+            ("bool", CoreParameterType.BOOL),
+            ("int", CoreParameterType.INT),
+            ("float", CoreParameterType.FLOAT),
+            ("str", CoreParameterType.STRING),
+        ]:
+            with self.subTest(parameter_type=type_str):
+                self.assertEqual(
+                    _parameter_type_converter(parameter_type=type_str),
+                    expected,
+                )
         with self.assertRaisesRegex(UserInputError, "Unsupported parameter type"):
             _parameter_type_converter(parameter_type="bad")

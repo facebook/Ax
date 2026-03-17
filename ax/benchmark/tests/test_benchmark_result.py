@@ -14,38 +14,43 @@ class TestBenchmarkResult(TestCase):
     def test_benchmark_result_invalid_inputs(self) -> None:
         """
         Test that a BenchmarkResult cannot be specified with both an `experiment`
-        and an `experiment_storage_id`.
+        and an `experiment_storage_id`, or with neither.
         """
-        with self.assertRaisesRegex(ValueError, "Cannot specify both an `experiment` "):
-            BenchmarkResult(
-                name="name",
-                seed=0,
-                inference_trace=[],
-                oracle_trace=[],
-                optimization_trace=[],
-                score_trace=[],
-                is_feasible_trace=[],
-                cost_trace=[],
-                num_trials=[],
-                fit_time=0.0,
-                gen_time=0.0,
-                experiment=get_experiment(),
-                experiment_storage_id="experiment_storage_id",
-            )
+        with self.subTest(case="both experiment and experiment_storage_id"):
+            with self.assertRaisesRegex(
+                ValueError, "Cannot specify both an `experiment` "
+            ):
+                BenchmarkResult(
+                    name="name",
+                    seed=0,
+                    inference_trace=[],
+                    oracle_trace=[],
+                    optimization_trace=[],
+                    score_trace=[],
+                    is_feasible_trace=[],
+                    cost_trace=[],
+                    num_trials=[],
+                    fit_time=0.0,
+                    gen_time=0.0,
+                    experiment=get_experiment(),
+                    experiment_storage_id="experiment_storage_id",
+                )
 
-        with self.assertRaisesRegex(
-            ValueError, "Must provide an `experiment` or `experiment_storage_id`"
-        ):
-            BenchmarkResult(
-                name="name",
-                seed=0,
-                inference_trace=[],
-                oracle_trace=[],
-                optimization_trace=[],
-                score_trace=[],
-                is_feasible_trace=[],
-                cost_trace=[],
-                num_trials=[],
-                fit_time=0.0,
-                gen_time=0.0,
-            )
+        with self.subTest(case="neither experiment nor experiment_storage_id"):
+            with self.assertRaisesRegex(
+                ValueError,
+                "Must provide an `experiment` or `experiment_storage_id`",
+            ):
+                BenchmarkResult(
+                    name="name",
+                    seed=0,
+                    inference_trace=[],
+                    oracle_trace=[],
+                    optimization_trace=[],
+                    score_trace=[],
+                    is_feasible_trace=[],
+                    cost_trace=[],
+                    num_trials=[],
+                    fit_time=0.0,
+                    gen_time=0.0,
+                )
