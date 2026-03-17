@@ -249,11 +249,11 @@ class ClientTest(TestCase):
         # Check that cross validation works.
         cross_validate(adapter=adapter)
 
-    def test_no_early_stopping_with_progression(self) -> None:
-        self._test_no_early_stopping(with_progression=True)
-
-    def test_no_early_stopping_no_progression(self) -> None:
-        self._test_no_early_stopping(with_progression=False)
+    def test_no_early_stopping(self) -> None:
+        # Verify no-early-stopping behavior both with and without progression data
+        for with_progression in (True, False):
+            with self.subTest(with_progression=with_progression):
+                self._test_no_early_stopping(with_progression=with_progression)
 
     def test_early_stopping_with_final_progression(self) -> None:
         self._test_early_stopping(complete_with_progression=True)

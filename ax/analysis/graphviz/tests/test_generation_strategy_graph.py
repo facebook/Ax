@@ -96,24 +96,25 @@ class TestGenerationStrategyGraph(TestCase):
             ],
         )
 
-    def test_validate_applicable_state_no_gs(self) -> None:
-        """Test that validation fails when no GenerationStrategy is provided."""
+    def test_validate_applicable_state(self) -> None:
+        """Test validation with and without a GenerationStrategy."""
         analysis = GenerationStrategyGraph()
-        result = analysis.validate_applicable_state(
-            experiment=None,
-            generation_strategy=None,
-        )
-        self.assertIsNotNone(result)
-        self.assertIn("requires a GenerationStrategy", result)
-
-    def test_validate_applicable_state_valid(self) -> None:
-        """Test that validation passes with a valid GenerationStrategy."""
-        analysis = GenerationStrategyGraph()
-        result = analysis.validate_applicable_state(
-            experiment=None,
-            generation_strategy=self.node_gs,
-        )
-        self.assertIsNone(result)
+        for label, gs, expect_error in [
+            # No GenerationStrategy provided -> validation fails
+            ("no_gs", None, True),
+            # Valid GenerationStrategy -> validation passes
+            ("valid", self.node_gs, False),
+        ]:
+            with self.subTest(label=label):
+                result = analysis.validate_applicable_state(
+                    experiment=None,
+                    generation_strategy=gs,
+                )
+                if expect_error:
+                    self.assertIsNotNone(result)
+                    self.assertIn("requires a GenerationStrategy", result)
+                else:
+                    self.assertIsNone(result)
 
     def test_compute_step_based_gs(self) -> None:
         """Test computing the graph for a step-based GenerationStrategy."""
@@ -218,26 +219,24 @@ class TestGenerationStrategyGraph(TestCase):
         self.assertIn("Sobol", dot.source)
         self.assertIn("MBM", dot.source)
 
-    def test_add_node_to_graph_current(self) -> None:
-        """Test adding a current node to the graph."""
-        dot = Digraph()
-        node = self.node_gs._nodes[0]
-        _add_node_to_graph(dot=dot, node=node, is_current=True)
+    def test_add_node_to_graph(self) -> None:
+        """Test adding current and non-current nodes to the graph."""
+        for is_current, node_index, expected_name, expected_style in [
+            # Current node gets highlighted with lightblue + bold
+            (True, 0, "Sobol", "lightblue"),
+            # Non-current node gets standard rounded style
+            (False, 1, "MBM", "rounded"),
+        ]:
+            with self.subTest(is_current=is_current):
+                dot = Digraph()
+                node = self.node_gs._nodes[node_index]
+                _add_node_to_graph(dot=dot, node=node, is_current=is_current)
 
-        source = dot.source
-        self.assertIn("Sobol", source)
-        self.assertIn("lightblue", source)
-        self.assertIn("bold", source)
-
-    def test_add_node_to_graph_non_current(self) -> None:
-        """Test adding a non-current node to the graph."""
-        dot = Digraph()
-        node = self.node_gs._nodes[1]
-        _add_node_to_graph(dot=dot, node=node, is_current=False)
-
-        source = dot.source
-        self.assertIn("MBM", source)
-        self.assertIn("rounded", source)
+                source = dot.source
+                self.assertIn(expected_name, source)
+                self.assertIn(expected_style, source)
+                if is_current:
+                    self.assertIn("bold", source)
 
     def test_add_edges_for_node(self) -> None:
         """Test adding edges for a node."""

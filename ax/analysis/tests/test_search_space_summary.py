@@ -74,18 +74,14 @@ class TestSearchSpaceSummary(TestCase):
         )
         pd.testing.assert_frame_equal(card.df, expected)
 
-    def test_online(self) -> None:
-        # Test SearchSpaceSummary can be computed for a variety of experiments which
-        # resemble those we see in an online setting.
-
+    def test_online_and_offline(self) -> None:
+        # Verify SearchSpaceSummary computes for both online and offline
+        # experiment types.
         analysis = SearchSpaceSummary()
-        for experiment in get_online_experiments():
-            _ = analysis.compute(experiment=experiment)
-
-    def test_offline(self) -> None:
-        # Test SearchSpaceSummary can be computed for a variety of experiments which
-        # resemble those we see in an offline setting.
-
-        analysis = SearchSpaceSummary()
-        for experiment in get_offline_experiments():
-            _ = analysis.compute(experiment=experiment)
+        for label, get_experiments in [
+            ("online", get_online_experiments),
+            ("offline", get_offline_experiments),
+        ]:
+            with self.subTest(setting=label):
+                for experiment in get_experiments():
+                    _ = analysis.compute(experiment=experiment)

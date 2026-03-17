@@ -193,11 +193,11 @@ class BaseAdapterTest(TestCase):
             search_space=search_space, experiment_data=experiment_data
         )
 
-    def test_init_with_data_single_objective(self) -> None:
-        self._test_init_with_data(multi_objective=False)
-
-    def test_init_with_data_multi_objective(self) -> None:
-        self._test_init_with_data(multi_objective=True)
+    def test_init_with_data(self) -> None:
+        # Verify init_with_data for both single-objective and multi-objective
+        for multi_objective in (False, True):
+            with self.subTest(multi_objective=multi_objective):
+                self._test_init_with_data(multi_objective=multi_objective)
 
     def test_fit_tracking_metrics(self) -> None:
         # Test error when fit_tracking_metrics is False and optimization

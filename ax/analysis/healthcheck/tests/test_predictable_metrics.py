@@ -212,40 +212,47 @@ class TestPredictableMetricsAnalysis(TestCase):
         self.assertIn("RandomAdapter", error)
         self.assertIn("no model to evaluate", error)
 
-    def test_validate_applicable_state_no_experiment(self) -> None:
-        """Test that validation fails when experiment is None."""
+    def test_validate_applicable_state(self) -> None:
+        """Test validation for various input combinations."""
         healthcheck = PredictableMetricsAnalysis()
 
-        error = healthcheck.validate_applicable_state(
-            experiment=None,
-            generation_strategy=self.generation_strategy,
-        )
-
-        self.assertIsNotNone(error)
-        self.assertIn("Experiment", error)
-
-    def test_validate_applicable_state_no_generation_strategy(self) -> None:
-        """Test that validation fails when generation_strategy is None."""
-        healthcheck = PredictableMetricsAnalysis()
-
-        error = healthcheck.validate_applicable_state(
-            experiment=self.experiment,
-            generation_strategy=None,
-        )
-
-        self.assertIsNotNone(error)
-        self.assertIn("GenerationStrategy", error)
-
-    def test_validate_applicable_state_valid_inputs(self) -> None:
-        """Test that validation passes with valid experiment and generation strategy."""
-        healthcheck = PredictableMetricsAnalysis()
-
-        error = healthcheck.validate_applicable_state(
-            experiment=self.experiment,
-            generation_strategy=self.generation_strategy,
-        )
-
-        self.assertIsNone(error)
+        for label, experiment, generation_strategy, expect_error, expected_substr in [
+            # Missing experiment -> validation error mentioning "Experiment"
+            (
+                "no_experiment",
+                None,
+                self.generation_strategy,
+                True,
+                "Experiment",
+            ),
+            # Missing generation strategy -> validation error
+            # mentioning "GenerationStrategy"
+            (
+                "no_generation_strategy",
+                self.experiment,
+                None,
+                True,
+                "GenerationStrategy",
+            ),
+            # Both provided -> validation passes
+            (
+                "valid_inputs",
+                self.experiment,
+                self.generation_strategy,
+                False,
+                None,
+            ),
+        ]:
+            with self.subTest(label=label):
+                error = healthcheck.validate_applicable_state(
+                    experiment=experiment,
+                    generation_strategy=generation_strategy,
+                )
+                if expect_error:
+                    self.assertIsNotNone(error)
+                    self.assertIn(expected_substr, error)
+                else:
+                    self.assertIsNone(error)
 
     @mock_botorch_optimize
     def test_adapter_resolved_from_generation_strategy(self) -> None:

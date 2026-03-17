@@ -175,64 +175,40 @@ class TestCrossValidationPlot(TestCase):
         )
     )
     @mock_botorch_optimize
-    def test_online(self) -> None:
-        # Test CrossValidationPlot can be computed for a variety of experiments which
-        # resemble those we see in an online setting.
+    def test_online_and_offline(self) -> None:
+        # Verify CrossValidationPlot computes for online and offline experiment
+        # types, with all combinations of untransform and custom labels.
+        for label, get_experiments in [
+            ("online", get_online_experiments),
+            ("offline", get_offline_experiments),
+        ]:
+            for experiment in get_experiments():
+                for untransform in [True, False]:
+                    for refined_metric_name in [None, "foo"]:
+                        with self.subTest(
+                            setting=label,
+                            untransform=untransform,
+                            refined_metric_name=refined_metric_name,
+                        ):
+                            generation_strategy = (
+                                get_default_generation_strategy_at_MBM_node(
+                                    experiment=experiment
+                                )
+                            )
 
-        for experiment in get_online_experiments():
-            for untransform in [True, False]:
-                for refined_metric_name in [None, "foo"]:
-                    generation_strategy = get_default_generation_strategy_at_MBM_node(
-                        experiment=experiment
-                    )
+                            metric_name = none_throws(
+                                experiment.optimization_config
+                            ).objective.metric_names[0]
 
-                    # Pick an arbitrary metric from the experiment's optimization config
-                    metric_name = none_throws(
-                        experiment.optimization_config
-                    ).objective.metric_names[0]
+                            analysis = CrossValidationPlot(
+                                metric_names=[metric_name],
+                                untransform=untransform,
+                                labels={metric_name: refined_metric_name}
+                                if refined_metric_name
+                                else None,
+                            )
 
-                    analysis = CrossValidationPlot(
-                        metric_names=[metric_name],
-                        untransform=untransform,
-                        labels={metric_name: refined_metric_name}
-                        if refined_metric_name
-                        else None,
-                    )
-
-                    _ = analysis.compute(
-                        experiment=experiment, generation_strategy=generation_strategy
-                    )
-
-    @TestCase.ax_long_test(
-        reason=(
-            "cross_validate still too slow under @mock_botorch_optimize for this test"
-        )
-    )
-    @mock_botorch_optimize
-    def test_offline(self) -> None:
-        # Test CrossValidationPlot can be computed for a variety of experiments which
-        # resemble those we see in an online setting.
-
-        for experiment in get_offline_experiments():
-            for untransform in [True, False]:
-                for refined_metric_name in [None, "foo"]:
-                    generation_strategy = get_default_generation_strategy_at_MBM_node(
-                        experiment=experiment
-                    )
-
-                    # Pick an arbitrary metric from the experiment's optimization config
-                    metric_name = none_throws(
-                        experiment.optimization_config
-                    ).objective.metric_names[0]
-
-                    analysis = CrossValidationPlot(
-                        metric_names=[metric_name],
-                        untransform=untransform,
-                        labels={metric_name: refined_metric_name}
-                        if refined_metric_name
-                        else None,
-                    )
-
-                    _ = analysis.compute(
-                        experiment=experiment, generation_strategy=generation_strategy
-                    )
+                            _ = analysis.compute(
+                                experiment=experiment,
+                                generation_strategy=generation_strategy,
+                            )
