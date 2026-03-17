@@ -815,7 +815,9 @@ class SearchSpaceTest(TestCase):
             result = search_space_1.get_overlapping_parameters(search_space_2)
             self.assertEqual(result, [])
 
-        with self.subTest("no_overlap_incompatible_fixed_params"):
+        with self.subTest("overlap_fixed_params_different_values"):
+            # Fixed params with different values are now compatible
+            # (consistent with merge_parameters).
             fixed_param_1 = FixedParameter(
                 name="x",
                 parameter_type=ParameterType.STRING,
@@ -831,7 +833,93 @@ class SearchSpaceTest(TestCase):
             search_space_2 = SearchSpace(parameters=[fixed_param_2])
 
             result = search_space_1.get_overlapping_parameters(search_space_2)
-            self.assertEqual(result, [])
+            self.assertEqual(result, ["x"])
+
+        with self.subTest("compatible_fixed_different_values_with_range"):
+            # Fixed params with different values are compatible
+            # (consistent with merge_parameters), so both x and y overlap.
+            range_param_1 = RangeParameter(
+                name="x",
+                parameter_type=ParameterType.FLOAT,
+                lower=0.0,
+                upper=1.0,
+            )
+            fixed_param_1 = FixedParameter(
+                name="y",
+                parameter_type=ParameterType.STRING,
+                value="foo",
+            )
+            search_space_1 = SearchSpace(parameters=[range_param_1, fixed_param_1])
+
+            range_param_2 = RangeParameter(
+                name="x",
+                parameter_type=ParameterType.FLOAT,
+                lower=0.5,
+                upper=2.0,
+            )
+            fixed_param_2 = FixedParameter(
+                name="y",
+                parameter_type=ParameterType.STRING,
+                value="bar",
+            )
+            search_space_2 = SearchSpace(parameters=[range_param_2, fixed_param_2])
+
+            result = search_space_1.get_overlapping_parameters(search_space_2)
+            self.assertCountEqual(result, ["x", "y"])
+
+        with self.subTest("derived_params_always_exempt"):
+            # Incompatible derived params never block overlap and are
+            # excluded from the result.
+            range_param = RangeParameter(
+                name="x",
+                parameter_type=ParameterType.FLOAT,
+                lower=0.0,
+                upper=1.0,
+            )
+            derived_param_1 = DerivedParameter(
+                name="d",
+                parameter_type=ParameterType.FLOAT,
+                expression_str="x * 2",
+            )
+            search_space_1 = SearchSpace(parameters=[range_param, derived_param_1])
+
+            range_param_2 = RangeParameter(
+                name="x",
+                parameter_type=ParameterType.FLOAT,
+                lower=0.5,
+                upper=2.0,
+            )
+            derived_param_2 = DerivedParameter(
+                name="d",
+                parameter_type=ParameterType.FLOAT,
+                expression_str="x * 3",
+            )
+            search_space_2 = SearchSpace(parameters=[range_param_2, derived_param_2])
+
+            # Derived params are always exempt -- only compatible
+            # non-derived params (x) are returned.
+            result = search_space_1.get_overlapping_parameters(search_space_2)
+            self.assertEqual(result, ["x"])
+
+        with self.subTest("overlap_choice_params_different_values"):
+            # Choice params with different values are compatible
+            # (consistent with merge_parameters).
+            choice_param_1 = ChoiceParameter(
+                name="c",
+                parameter_type=ParameterType.STRING,
+                values=["a", "b"],
+            )
+            search_space_1 = SearchSpace(parameters=[choice_param_1])
+
+            choice_param_2 = ChoiceParameter(
+                name="c",
+                parameter_type=ParameterType.STRING,
+                values=["x", "y"],
+            )
+            search_space_2 = SearchSpace(parameters=[choice_param_2])
+
+            result = search_space_1.get_overlapping_parameters(search_space_2)
+            self.assertEqual(result, ["c"])
 
 
 class SearchSpaceDigestTest(TestCase):
