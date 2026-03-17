@@ -48,38 +48,37 @@ class TestBestModelSelector(TestCase):
                 criterion=ReductionCriterion.MEAN,
             )
 
-    def test_SingleDiagnosticBestModelSelector_min_mean(self) -> None:
-        s = SingleDiagnosticBestModelSelector(
-            diagnostic="Fisher exact test p",
-            criterion=ReductionCriterion.MIN,
-            metric_aggregation=ReductionCriterion.MEAN,
-        )
-        # Min/mean will pick index 1 since it has the lowest mean (0.1 vs 0.2 & 0.55).
-        self.assertIs(
-            s.best_model(generator_specs=self.generator_specs), self.generator_specs[1]
-        )
-
-    def test_SingleDiagnosticBestModelSelector_min_min(self) -> None:
-        s = SingleDiagnosticBestModelSelector(
-            diagnostic="Fisher exact test p",
-            criterion=ReductionCriterion.MIN,
-            metric_aggregation=ReductionCriterion.MIN,
-        )
-        # Min/min will pick index 0 since it has the lowest min (0.0 vs 0.1 & 0.5).
-        self.assertIs(
-            s.best_model(generator_specs=self.generator_specs), self.generator_specs[0]
-        )
-
-    def test_SingleDiagnosticBestModelSelector_max_mean(self) -> None:
-        s = SingleDiagnosticBestModelSelector(
-            diagnostic="Fisher exact test p",
-            criterion=ReductionCriterion.MAX,
-            metric_aggregation=ReductionCriterion.MEAN,
-        )
-        # Max/mean will pick index 2 since it has the largest mean (0.55 vs 0.1 & 0.2).
-        self.assertIs(
-            s.best_model(generator_specs=self.generator_specs), self.generator_specs[2]
-        )
+    def test_SingleDiagnosticBestModelSelector_criterion_aggregation(self) -> None:
+        for label, criterion, aggregation, expected_index in [
+            (
+                "min_mean picks index 1 (lowest mean: 0.1)",
+                ReductionCriterion.MIN,
+                ReductionCriterion.MEAN,
+                1,
+            ),
+            (
+                "min_min picks index 0 (lowest min: 0.0)",
+                ReductionCriterion.MIN,
+                ReductionCriterion.MIN,
+                0,
+            ),
+            (
+                "max_mean picks index 2 (largest mean: 0.55)",
+                ReductionCriterion.MAX,
+                ReductionCriterion.MEAN,
+                2,
+            ),
+        ]:
+            with self.subTest(label):
+                s = SingleDiagnosticBestModelSelector(
+                    diagnostic="Fisher exact test p",
+                    criterion=criterion,
+                    metric_aggregation=aggregation,
+                )
+                self.assertIs(
+                    s.best_model(generator_specs=self.generator_specs),
+                    self.generator_specs[expected_index],
+                )
 
     def test_SingleDiagnosticBestModelSelector_cv_kwargs(self) -> None:
         s = SingleDiagnosticBestModelSelector(
