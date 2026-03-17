@@ -9,7 +9,7 @@
 from __future__ import annotations
 
 from collections import defaultdict
-from collections.abc import Callable, Iterable
+from collections.abc import Callable, Iterable, Mapping
 from logging import Logger
 from typing import cast, NamedTuple
 from warnings import warn
@@ -21,7 +21,6 @@ from ax.adapter.base import Adapter
 from ax.adapter.data_utils import ExperimentData
 from ax.adapter.observation_utils import unwrap_observation_data
 from ax.adapter.torch import TorchAdapter
-from ax.core.experiment import Experiment
 from ax.core.observation import Observation, ObservationData, ObservationFeatures
 from ax.core.optimization_config import OptimizationConfig
 from ax.exceptions.core import UnsupportedError
@@ -574,7 +573,7 @@ def assess_model_fit(
 def has_good_opt_config_model_fit(
     optimization_config: OptimizationConfig,
     assess_model_fit_result: AssessModelFitResult,
-    experiment: Experiment,
+    metric_name_to_signature: Mapping[str, str],
 ) -> bool:
     """Assess model fit for given diagnostics results across the optimization
     config metrics
@@ -587,7 +586,7 @@ def has_good_opt_config_model_fit(
     Args:
         optimization_config: Objective/Outcome constraint metrics to assess
         assess_model_fit_result: Output of assess_model_fit
-        experiment: The experiment, used to map metric names to signatures.
+        metric_name_to_signature: Mapping from metric names to signatures.
 
     Returns:
         Two dictionaries, one for good metrics, one for bad metrics, each
@@ -597,7 +596,7 @@ def has_good_opt_config_model_fit(
     # Bad fit criteria: Any objective metrics are poorly fit
     # TODO[]: Incl. outcome constraints in assessment
     has_good_opt_config_fit = all(
-        experiment.get_metric(name).signature
+        metric_name_to_signature[name]
         in assess_model_fit_result.good_fit_metrics_to_fisher_score
         for name in optimization_config.objective.metric_names
     )
