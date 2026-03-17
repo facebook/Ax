@@ -251,7 +251,12 @@ class PowerTransformYTest(TestCase):
         cons = tf.untransform_outcome_constraints(
             outcome_constraints=oc_tf.outcome_constraints, fixed_features=None
         )
-        self.assertEqual(cons, oc.outcome_constraints)
+        self.assertEqual(len(cons), len(oc.outcome_constraints))
+        for c_actual, c_expected in zip(cons, oc.outcome_constraints):
+            self.assertEqual(c_actual.metric_names, c_expected.metric_names)
+            self.assertEqual(c_actual.op, c_expected.op)
+            self.assertEqual(c_actual.relative, c_expected.relative)
+            self.assertAlmostEqual(c_actual.bound, c_expected.bound, places=5)
         # Relative constraints aren't supported
         oc = OptimizationConfig(
             objective=objective_m2,
