@@ -190,8 +190,9 @@ class TestBenchmark(TestCase):
             self.assertEqual(experiment, experiment)
 
     def test_storage(self) -> None:
-        self._test_storage(map_data=False)
-        self._test_storage(map_data=True)
+        for map_data in [False, True]:
+            with self.subTest(map_data=map_data):
+                self._test_storage(map_data=map_data)
 
     def test_replication_sobol_synthetic(self) -> None:
         method = get_sobol_benchmark_method()
