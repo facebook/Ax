@@ -343,21 +343,22 @@ class TrialTest(TestCase):
         )
         self.assertEqual(str(self.trial), repr_)
 
-    def test_update_run_metadata(self) -> None:
-        self.assertEqual(len(self.trial.run_metadata), 1)
-        old_run_metadata = deepcopy(self.trial.run_metadata)
-        self.trial.update_run_metadata({"something": "new"})
-        self.assertDictEqual(
-            self.trial.run_metadata, {**old_run_metadata, "something": "new"}
-        )
-
-    def test_update_stop_metadata(self) -> None:
-        self.assertEqual(len(self.trial.stop_metadata), 1)
-        old_stop_metadata = deepcopy(self.trial.stop_metadata)
-        self.trial.update_stop_metadata({"something": "new"})
-        self.assertEqual(
-            self.trial.stop_metadata, {**old_stop_metadata, "something": "new"}
-        )
+    def test_update_metadata(self) -> None:
+        for attr_name, update_method_name in [
+            ("run_metadata", "update_run_metadata"),
+            ("stop_metadata", "update_stop_metadata"),
+        ]:
+            with self.subTest(metadata_type=attr_name):
+                self.setUp()
+                update_method = getattr(self.trial, update_method_name)
+                metadata = getattr(self.trial, attr_name)
+                self.assertEqual(len(metadata), 1)
+                old_metadata = deepcopy(metadata)
+                update_method({"something": "new"})
+                self.assertDictEqual(
+                    getattr(self.trial, attr_name),
+                    {**old_metadata, "something": "new"},
+                )
 
     def test_update_trial_data(self) -> None:
         # Verify components before we attach trial data

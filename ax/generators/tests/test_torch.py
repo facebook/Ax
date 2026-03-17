@@ -39,19 +39,25 @@ class TorchGeneratorTest(TestCase):
             ),
         )
 
-    def test_TorchModelPredict(self) -> None:
+    def test_not_implemented_methods(self) -> None:
         torch_model = TorchGenerator()
-        with self.assertRaises(NotImplementedError):
-            torch_model.predict(torch.zeros(1))
-
-    def test_TorchModelGen(self) -> None:
-        torch_model = TorchGenerator()
-        with self.assertRaises(NotImplementedError):
-            torch_model.gen(
+        cases = {
+            "predict": lambda: torch_model.predict(torch.zeros(1)),
+            "gen": lambda: torch_model.gen(
                 n=1,
                 search_space_digest=self.search_space_digest,
                 torch_opt_config=self.torch_opt_config,
-            )
+            ),
+            "cross_validate": lambda: torch_model.cross_validate(
+                datasets=[self.dataset],
+                X_test=torch.ones(1),
+                search_space_digest=SearchSpaceDigest(feature_names=[], bounds=[]),
+            ),
+        }
+        for method_name, call in cases.items():
+            with self.subTest(method=method_name):
+                with self.assertRaises(NotImplementedError):
+                    call()
 
     def test_NumpyTorchBestPoint(self) -> None:
         torch_model = TorchGenerator()
@@ -60,12 +66,3 @@ class TorchGeneratorTest(TestCase):
             torch_opt_config=self.torch_opt_config,
         )
         self.assertIsNone(x)
-
-    def test_TorchModelCrossValidate(self) -> None:
-        torch_model = TorchGenerator()
-        with self.assertRaises(NotImplementedError):
-            torch_model.cross_validate(
-                datasets=[self.dataset],
-                X_test=torch.ones(1),
-                search_space_digest=SearchSpaceDigest(feature_names=[], bounds=[]),
-            )

@@ -22,45 +22,21 @@ class ParameterConstraintTest(TestCase):
         self.constraint_repr = "ParameterConstraint(2.0*x + -3.0*y <= 6.0)"
 
     def test_constraint_dict_and_bounds(self) -> None:
-        constraint = ParameterConstraint(inequality="x1 + x2 <= 1")
-
-        self.assertEqual(
-            constraint.constraint_dict,
-            {"x1": 1, "x2": 1},
-        )
-        self.assertEqual(constraint.bound, 1.0)
-
-        with_coefficients = ParameterConstraint(inequality="2 * x1 + 3 * x2 <= 1")
-        self.assertEqual(
-            with_coefficients.constraint_dict,
-            {"x1": 2, "x2": 3},
-        )
-        self.assertEqual(with_coefficients.bound, 1.0)
-
-        flipped_sign = ParameterConstraint(inequality="x1 + x2 >= 1")
-        self.assertEqual(
-            flipped_sign.constraint_dict,
-            {"x1": -1, "x2": -1},
-        )
-        self.assertEqual(flipped_sign.bound, -1.0)
-
-        weird = ParameterConstraint(inequality="x1 + x2 <= 1.5 * x3 + 2")
-        self.assertEqual(
-            weird.constraint_dict,
-            {"x1": 1, "x2": 1, "x3": -1.5},
-        )
-        self.assertEqual(weird.bound, 2.0)
+        cases = [
+            ("x1 + x2 <= 1", {"x1": 1, "x2": 1}, 1.0),
+            ("2 * x1 + 3 * x2 <= 1", {"x1": 2, "x2": 3}, 1.0),
+            ("x1 + x2 >= 1", {"x1": -1, "x2": -1}, -1.0),
+            ("x1 + x2 <= 1.5 * x3 + 2", {"x1": 1, "x2": 1, "x3": -1.5}, 2.0),
+            ("foo.bar + foo.baz <= 1", {"foo.bar": 1, "foo.baz": 1}, 1.0),
+        ]
+        for inequality, expected_dict, expected_bound in cases:
+            with self.subTest(inequality=inequality):
+                c = ParameterConstraint(inequality=inequality)
+                self.assertEqual(c.constraint_dict, expected_dict)
+                self.assertEqual(c.bound, expected_bound)
 
         with self.assertRaisesRegex(UserInputError, "Only linear"):
             ParameterConstraint(inequality="x1 * x2 <= 1")
-
-        # test with sanitization
-        constraint = ParameterConstraint(inequality="foo.bar + foo.baz <= 1")
-        self.assertEqual(
-            constraint.constraint_dict,
-            {"foo.bar": 1, "foo.baz": 1},
-        )
-        self.assertEqual(constraint.bound, 1.0)
 
     def test_Eq(self) -> None:
         constraint1 = ParameterConstraint(

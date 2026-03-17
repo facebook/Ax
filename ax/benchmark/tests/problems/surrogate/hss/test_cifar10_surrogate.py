@@ -67,7 +67,8 @@ class TestCIFAR10Surrogate(TestCase):
         benchmark = get_cifar10_surrogate_benchmark(num_trials=1)
 
         for params, target_value in cases:
-            self.assertAlmostEqual(
-                benchmark.test_function.evaluate_true(params).item(),
-                target_value,
-            )
+            with self.subTest(params=params):
+                self.assertAlmostEqual(
+                    benchmark.test_function.evaluate_true(params).item(),
+                    target_value,
+                )

@@ -184,10 +184,15 @@ class RangeParameterTest(TestCase):
         self.assertNotEqual(self.param1.lower, param_clone.lower)
 
     def test_get_parameter_type(self) -> None:
-        self.assertEqual(_get_parameter_type(float), ParameterType.FLOAT)
-        self.assertEqual(_get_parameter_type(int), ParameterType.INT)
-        self.assertEqual(_get_parameter_type(bool), ParameterType.BOOL)
-        self.assertEqual(_get_parameter_type(str), ParameterType.STRING)
+        cases = [
+            (float, ParameterType.FLOAT),
+            (int, ParameterType.INT),
+            (bool, ParameterType.BOOL),
+            (str, ParameterType.STRING),
+        ]
+        for py_type, expected in cases:
+            with self.subTest(py_type=py_type.__name__):
+                self.assertEqual(_get_parameter_type(py_type), expected)
         with self.assertRaises(ValueError):
             _get_parameter_type(dict)
 
@@ -211,8 +216,12 @@ class RangeParameterTest(TestCase):
         self.assertListEqual(self.param2.available_flags, range_flags)
 
     def test_domain_repr(self) -> None:
-        self.assertEqual(self.param1.domain_repr, "range=[1.0, 3.0]")
-        self.assertEqual(self.param2.domain_repr, "range=[10, 15]")
+        for param, expected in [
+            (self.param1, "range=[1.0, 3.0]"),
+            (self.param2, "range=[10, 15]"),
+        ]:
+            with self.subTest(param=param.name):
+                self.assertEqual(param.domain_repr, expected)
 
     def test_summary_dict(self) -> None:
         self.assertDictEqual(

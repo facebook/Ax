@@ -793,20 +793,40 @@ class RelativizeDataTest(TestCase):
         )
 
     def test_relativize_data(self) -> None:
-        data = Data(df=self.df)
-        expected_relativized_data = Data(df=self.expected_relativized_df)
+        # Test relativization both with valid SEM values and with NaN SEMs
+        for sem_label, modify_sem in [
+            ("with_sem", False),
+            ("no_sem", True),
+        ]:
+            with self.subTest(sem=sem_label):
+                df = self.df.copy()
+                expected_relativized_df = self.expected_relativized_df.copy()
+                expected_relativized_df_with_sq = (
+                    self.expected_relativized_df_with_sq.copy()
+                )
 
-        expected_relativized_data_with_sq = Data(
-            df=self.expected_relativized_df_with_sq
-        )
+                if modify_sem:
+                    df["sem"] = np.nan
+                    expected_relativized_df["sem"] = np.nan
+                    expected_relativized_df_with_sq.loc[
+                        expected_relativized_df_with_sq["arm_name"] != "status_quo",
+                        "sem",
+                    ] = np.nan
 
-        actual_relativized_data = data.relativize()
-        self.assertEqual(expected_relativized_data, actual_relativized_data)
+                data = Data(df=df)
+                expected_relativized_data = Data(df=expected_relativized_df)
+                expected_relativized_data_with_sq = Data(
+                    df=expected_relativized_df_with_sq
+                )
 
-        actual_relativized_data_with_sq = data.relativize(include_sq=True)
-        self.assertEqual(
-            expected_relativized_data_with_sq, actual_relativized_data_with_sq
-        )
+                actual_relativized_data = data.relativize()
+                self.assertEqual(expected_relativized_data, actual_relativized_data)
+
+                actual_relativized_data_with_sq = data.relativize(include_sq=True)
+                self.assertEqual(
+                    expected_relativized_data_with_sq,
+                    actual_relativized_data_with_sq,
+                )
 
         with self.subTest("step column not supported"):
             data = Data(df=self.df.assign(step=0))
@@ -814,26 +834,3 @@ class RelativizeDataTest(TestCase):
                 NotImplementedError, "Relativization is not supported"
             ):
                 data.relativize()
-
-    def test_relativize_data_no_sem(self) -> None:
-        df = self.df.copy()
-        df["sem"] = np.nan
-        data = Data(df=df)
-
-        expected_relativized_df = self.expected_relativized_df.copy()
-        expected_relativized_df["sem"] = np.nan
-        expected_relativized_data = Data(df=expected_relativized_df)
-
-        expected_relativized_df_with_sq = self.expected_relativized_df_with_sq.copy()
-        expected_relativized_df_with_sq.loc[
-            expected_relativized_df_with_sq["arm_name"] != "status_quo", "sem"
-        ] = np.nan
-        expected_relativized_data_with_sq = Data(df=expected_relativized_df_with_sq)
-
-        actual_relativized_data = data.relativize()
-        self.assertEqual(expected_relativized_data, actual_relativized_data)
-
-        actual_relativized_data_with_sq = data.relativize(include_sq=True)
-        self.assertEqual(
-            expected_relativized_data_with_sq, actual_relativized_data_with_sq
-        )
