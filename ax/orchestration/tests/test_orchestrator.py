@@ -1544,11 +1544,10 @@ class TestAxOrchestrator(TestCase):
                 optimization_config=get_branin_multi_objective_optimization_config()
             )
 
-        # We override the optimization config but not objectives, so an error
-        # results as expected, but only much deeper in the stack.
-        # Python <3.14: "'branin_a' is not in list"
-        # Python 3.14+: "list.index(x): x not in list"
-        with self.assertRaisesRegex(KeyError, "not found"):
+        # We override the optimization config but not objectives, so a
+        # KeyError results when extract_objective_weights tries to look up
+        # the MOO metric name in metric_name_to_signature.
+        with self.assertRaisesRegex(KeyError, "branin_a"):
             orchestrator.get_pareto_optimal_parameters(
                 optimization_config=get_branin_multi_objective_optimization_config(
                     has_objective_thresholds=True

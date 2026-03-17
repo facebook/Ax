@@ -8,6 +8,7 @@
 
 from __future__ import annotations
 
+from collections.abc import Mapping
 from logging import Logger
 from typing import TYPE_CHECKING
 
@@ -15,7 +16,6 @@ import numpy as np
 from ax.adapter.observation_utils import unwrap_observation_data
 from ax.adapter.transforms.base import Transform
 from ax.adapter.transforms.ivw import ivw_metric_merge
-from ax.core.experiment import Experiment
 from ax.core.observation import ObservationFeatures
 from ax.core.optimization_config import (
     MultiObjectiveOptimizationConfig,
@@ -94,7 +94,7 @@ class Derelativize(Transform):
                 raw_f=raw_f,
                 pred_f=f,
                 pred_cov=cov,
-                experiment=adapter._experiment,
+                metric_name_to_signature=adapter.metric_name_to_signature,
             )
         else:
             f = raw_f
@@ -193,18 +193,18 @@ def _warn_if_raw_sq_is_out_of_CI(
     raw_f: TModelMean,
     pred_f: TModelMean,
     pred_cov: TModelCov,
-    experiment: Experiment,
+    metric_name_to_signature: Mapping[str, str],
 ) -> None:
     """Warn if the raw SQ values for relative constraint metrics deviate
     by more than 1.96 standard deviation from the predictions.
     """
     relative_metrics = {
-        experiment.get_metric(oc.metric_names[0]).signature
+        metric_name_to_signature[oc.metric_names[0]]
         for oc in optimization_config.all_constraints
         if oc.relative and not isinstance(oc, ScalarizedOutcomeConstraint)
     }.union(
         {
-            experiment.get_metric(name).signature
+            metric_name_to_signature[name]
             for oc in optimization_config.all_constraints
             if oc.relative and isinstance(oc, ScalarizedOutcomeConstraint)
             for name in oc.metric_names

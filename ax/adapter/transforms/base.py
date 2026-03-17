@@ -98,9 +98,9 @@ class Transform:
         Falls back to using the metric name directly if no adapter is available
         (which is correct for simple Metric objects where name == signature).
         """
-        a = adapter or self.adapter
-        if a is not None:
-            return a._experiment.get_metric(metric_name).signature
+        resolved = adapter or self.adapter
+        if resolved is not None:
+            return resolved.metric_name_to_signature[metric_name]
         return metric_name
 
     def transform_search_space(self, search_space: SearchSpace) -> SearchSpace:

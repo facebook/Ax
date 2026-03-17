@@ -1019,17 +1019,19 @@ class TorchAdapter(Adapter):
             )
 
         validate_transformed_optimization_config(
-            optimization_config, self.outcomes, experiment=self._experiment
+            optimization_config,
+            self.outcomes,
+            metric_name_to_signature=self.metric_name_to_signature,
         )
         objective_weights = extract_objective_weight_matrix(
             objective=optimization_config.objective,
             outcomes=self.outcomes,
-            experiment=self._experiment,
+            metric_name_to_signature=self.metric_name_to_signature,
         )
         outcome_constraints = extract_outcome_constraints(
             outcome_constraints=optimization_config.outcome_constraints,
             outcomes=self.outcomes,
-            experiment=self._experiment,
+            metric_name_to_signature=self.metric_name_to_signature,
         )
         pruning_target_point = arm_to_np_array(
             arm=optimization_config.pruning_target_parameterization,
@@ -1045,7 +1047,7 @@ class TorchAdapter(Adapter):
                 objective_thresholds=optimization_config.objective_thresholds,
                 objective=optimization_config.objective,
                 outcomes=self.outcomes,
-                experiment=self._experiment,
+                metric_name_to_signature=self.metric_name_to_signature,
             )
         else:
             objective_thresholds = None
@@ -1272,14 +1274,14 @@ class TorchAdapter(Adapter):
 def validate_transformed_optimization_config(
     optimization_config: OptimizationConfig,
     outcomes: list[str],
-    experiment: Experiment,
+    metric_name_to_signature: Mapping[str, str],
 ) -> None:
     """Validate optimization config against generator fitted outcomes.
 
     Args:
         optimization_config: Config to validate.
         outcomes: List of metric names w/ valid generator fits.
-        experiment: The experiment to look up metrics from.
+        metric_name_to_signature: Mapping from metric names to signatures.
 
     Raises if:
             1. In the modeling layer, absolute constraints are required, however,
@@ -1300,21 +1302,20 @@ def validate_transformed_optimization_config(
             )
         if isinstance(c, ScalarizedOutcomeConstraint):
             for c_name in c.metric_names:
-                c_metric = experiment.get_metric(c_name)
-                if c_metric.signature not in outcomes:
+                c_sig = metric_name_to_signature[c_name]
+                if c_sig not in outcomes:
                     raise DataRequiredError(
                         f"Scalarized constraint metric component "
-                        f"{c_metric.signature} not found in fitted data."
+                        f"{c_sig} not found in fitted data."
                     )
         else:
-            c_metric = experiment.get_metric(c.metric_names[0])
-            if c_metric.signature not in outcomes:
+            c_sig = metric_name_to_signature[c.metric_names[0]]
+            if c_sig not in outcomes:
                 raise DataRequiredError(
-                    f"Outcome constraint metric {c_metric.signature} not found in "
-                    "fitted data."
+                    f"Outcome constraint metric {c_sig} not found in fitted data."
                 )
     obj_metric_signatures = [
-        experiment.get_metric(name).signature
+        metric_name_to_signature[name]
         for name in optimization_config.objective.metric_names
     ]
     for obj_metric_signature in obj_metric_signatures:
