@@ -112,37 +112,38 @@ class CovarModuleArgparseTest(TestCase):
         ]
 
         for i, botorch_model_class in enumerate([SingleTaskGP, MultiTaskGP]):
-            covar_module_kwargs = covar_module_argparse(
-                ScaleMaternKernel,
-                botorch_model_class=botorch_model_class,
-                dataset=self.dataset,
-                lengthscale_prior=GammaPrior(6.0, 3.0),
-                outputscale_prior=GammaPrior(2, 0.15),
-            )
-
-            covar_module_kwargs["lengthscale_prior_concentration"] = (
-                covar_module_kwargs["lengthscale_prior"].concentration.item()
-            )
-            covar_module_kwargs["lengthscale_prior_rate"] = covar_module_kwargs[
-                "lengthscale_prior"
-            ].rate.item()
-
-            covar_module_kwargs["outputscale_prior_concentration"] = (
-                covar_module_kwargs["outputscale_prior"].concentration.item()
-            )
-            covar_module_kwargs["outputscale_prior_rate"] = covar_module_kwargs[
-                "outputscale_prior"
-            ].rate.item()
-
-            covar_module_kwargs.pop("lengthscale_prior")
-            covar_module_kwargs.pop("outputscale_prior")
-
-            for key in covar_module_kwargs.keys():
-                self.assertAlmostEqual(
-                    covar_module_kwargs[key],
-                    covar_module_kwargs_defaults[i][key],
-                    places=4,
+            with self.subTest(botorch_model_class=botorch_model_class.__name__):
+                covar_module_kwargs = covar_module_argparse(
+                    ScaleMaternKernel,
+                    botorch_model_class=botorch_model_class,
+                    dataset=self.dataset,
+                    lengthscale_prior=GammaPrior(6.0, 3.0),
+                    outputscale_prior=GammaPrior(2, 0.15),
                 )
+
+                covar_module_kwargs["lengthscale_prior_concentration"] = (
+                    covar_module_kwargs["lengthscale_prior"].concentration.item()
+                )
+                covar_module_kwargs["lengthscale_prior_rate"] = covar_module_kwargs[
+                    "lengthscale_prior"
+                ].rate.item()
+
+                covar_module_kwargs["outputscale_prior_concentration"] = (
+                    covar_module_kwargs["outputscale_prior"].concentration.item()
+                )
+                covar_module_kwargs["outputscale_prior_rate"] = covar_module_kwargs[
+                    "outputscale_prior"
+                ].rate.item()
+
+                covar_module_kwargs.pop("lengthscale_prior")
+                covar_module_kwargs.pop("outputscale_prior")
+
+                for key in covar_module_kwargs.keys():
+                    self.assertAlmostEqual(
+                        covar_module_kwargs[key],
+                        covar_module_kwargs_defaults[i][key],
+                        places=4,
+                    )
 
         X = torch.randn((10, 10))
         Y = torch.randn((10, 1))
@@ -161,44 +162,45 @@ class CovarModuleArgparseTest(TestCase):
 
     def test_argparse_default(self) -> None:
         for kernel_class in (DefaultRBFKernel, DefaultMaternKernel):
-            with self.assertRaisesRegex(UserInputError, "Only one of"):
-                covar_module_argparse(
+            with self.subTest(kernel_class=kernel_class.__name__):
+                with self.assertRaisesRegex(UserInputError, "Only one of"):
+                    covar_module_argparse(
+                        kernel_class,
+                        botorch_model_class=SingleTaskGP,
+                        dataset=self.dataset,
+                        inactive_features=["x1"],
+                        active_dims=[0],
+                    )
+                # Test with inactive features.
+                covar_module_kwargs = covar_module_argparse(
                     kernel_class,
                     botorch_model_class=SingleTaskGP,
                     dataset=self.dataset,
-                    inactive_features=["x1"],
-                    active_dims=[0],
+                    inactive_features=["x9"],
                 )
-            # Test with inactive features.
-            covar_module_kwargs = covar_module_argparse(
-                kernel_class,
-                botorch_model_class=SingleTaskGP,
-                dataset=self.dataset,
-                inactive_features=["x9"],
-            )
-            expected = {
-                "active_dims": list(range(9)),
-                "batch_shape": torch.Size([2]),  # For 2 outputs.
-                "ard_num_dims": 9,
-                "lengthscale_prior": None,
-            }
-            self.assertEqual(covar_module_kwargs, expected)
-            # Test other inputs.
-            covar_module_kwargs = covar_module_argparse(
-                kernel_class,
-                botorch_model_class=SingleTaskGP,
-                dataset=self.dataset,
-                active_dims=[-3, -2],
-                ard_num_dims=1,
-                batch_shape=torch.Size([]),
-            )
-            expected = {
-                "active_dims": [7, 8],
-                "batch_shape": torch.Size([]),
-                "ard_num_dims": 1,
-                "lengthscale_prior": None,
-            }
-            self.assertEqual(covar_module_kwargs, expected)
+                expected = {
+                    "active_dims": list(range(9)),
+                    "batch_shape": torch.Size([2]),  # For 2 outputs.
+                    "ard_num_dims": 9,
+                    "lengthscale_prior": None,
+                }
+                self.assertEqual(covar_module_kwargs, expected)
+                # Test other inputs.
+                covar_module_kwargs = covar_module_argparse(
+                    kernel_class,
+                    botorch_model_class=SingleTaskGP,
+                    dataset=self.dataset,
+                    active_dims=[-3, -2],
+                    ard_num_dims=1,
+                    batch_shape=torch.Size([]),
+                )
+                expected = {
+                    "active_dims": [7, 8],
+                    "batch_shape": torch.Size([]),
+                    "ard_num_dims": 1,
+                    "lengthscale_prior": None,
+                }
+                self.assertEqual(covar_module_kwargs, expected)
 
     def test_argparse_linear(self) -> None:
         # Test other inputs.
