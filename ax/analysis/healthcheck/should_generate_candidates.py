@@ -40,9 +40,7 @@ class ShouldGenerateCandidates(Analysis):
         adapter: Adapter | None = None,
     ) -> HealthcheckAnalysisCard:
         status = (
-            HealthcheckStatus.PASS
-            if self.should_generate
-            else HealthcheckStatus.WARNING
+            HealthcheckStatus.PASS if self.should_generate else HealthcheckStatus.INFO
         )
         return create_healthcheck_analysis_card(
             name=self.__class__.__name__,

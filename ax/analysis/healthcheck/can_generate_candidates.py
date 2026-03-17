@@ -76,8 +76,8 @@ class CanGenerateCandidatesAnalysis(Analysis):
                     status = HealthcheckStatus.FAIL
                     title_status = "Failure"
                 else:
-                    status = HealthcheckStatus.WARNING
-                    title_status = "Warning"
+                    status = HealthcheckStatus.INFO
+                    title_status = "Info"
                 subtitle += self.LAST_RUN_TEMPLATE.format(days=days_since_last_run)
         else:
             subtitle += f"{self.reason}"

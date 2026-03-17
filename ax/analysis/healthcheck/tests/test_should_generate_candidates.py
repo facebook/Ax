@@ -30,5 +30,5 @@ class TestShouldGenerateCandidates(TestCase):
             reason="Something concerning",
             trial_index=trial_index,
         ).compute()
-        self.assertEqual(card.get_status(), HealthcheckStatus.WARNING)
+        self.assertEqual(card.get_status(), HealthcheckStatus.INFO)
         self.assertEqual(card.subtitle, "Something concerning")

@@ -142,9 +142,9 @@ class ComplexityRatingAnalysis(Analysis):
         if tier == "Standard":
             status = HealthcheckStatus.PASS
         elif tier == "Advanced":
-            status = HealthcheckStatus.WARNING
+            status = HealthcheckStatus.INFO
         else:  # Unsupported
-            status = HealthcheckStatus.FAIL
+            status = HealthcheckStatus.WARNING
 
         # Create dataframe with experiment summary
         df = pd.DataFrame(

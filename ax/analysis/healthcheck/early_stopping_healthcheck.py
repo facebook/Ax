@@ -233,7 +233,7 @@ class EarlyStoppingAnalysis(Analysis):
                 "auto_early_stopping_config='standard' or configure an "
                 "early_stopping_strategy_config."
             ),
-            status=HealthcheckStatus.PASS,
+            status=HealthcheckStatus.INFO,
             df=df,
         )
 
@@ -391,7 +391,7 @@ class EarlyStoppingAnalysis(Analysis):
             title=EARLY_STOPPING_SAVINGS_TITLE,
             subtitle=subtitle,
             df=df,
-            status=HealthcheckStatus.PASS,
+            status=HealthcheckStatus.INFO,
         )
 
     def _report_early_stopping_nudge(
@@ -467,7 +467,7 @@ class EarlyStoppingAnalysis(Analysis):
             title=title,
             subtitle=subtitle,
             df=df,
-            status=HealthcheckStatus.WARNING,
+            status=HealthcheckStatus.INFO,
             potential_savings=savings_pct,
             best_metric=metric.name,
         )

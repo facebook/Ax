@@ -61,11 +61,11 @@ class TestBaselineImprovementAnalysis(TestCase):
         exp.attach_data(Data(df=pd.DataFrame(rows)))
 
     def test_status_outcomes(self) -> None:
-        """Test PASS/WARNING status based on improvement."""
+        """Test INFO/WARNING status based on improvement."""
         # minimize=True: lower is better
         test_cases = [
             # (baseline_mean, comparison_mean, expected_status, description)
-            (100.0, 50.0, HealthcheckStatus.PASS, "improved (lower)"),
+            (100.0, 50.0, HealthcheckStatus.INFO, "improved (lower)"),
             (50.0, 100.0, HealthcheckStatus.WARNING, "not improved (higher)"),
         ]
 
@@ -83,7 +83,7 @@ class TestBaselineImprovementAnalysis(TestCase):
                 self.assertEqual(card.get_status(), expected_status)
 
     def test_multi_objective_partial_improvement(self) -> None:
-        """Test WARNING status when only some objectives improve."""
+        """Test INFO status when only some objectives improve."""
         # minimize=True for both objectives (lower is better):
         # branin_a: 100 -> 50, improved (decreased)
         # branin_b: 50 -> 100, NOT improved (increased)
@@ -102,7 +102,7 @@ class TestBaselineImprovementAnalysis(TestCase):
         )
         card = analysis.compute(experiment=self.moo_experiment)
 
-        self.assertEqual(card.get_status(), HealthcheckStatus.WARNING)
+        self.assertEqual(card.get_status(), HealthcheckStatus.INFO)
         self.assertIn("1 out of 2", card.subtitle)
 
     def test_documentation_link(self) -> None:
