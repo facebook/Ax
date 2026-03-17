@@ -13,22 +13,19 @@ from ax.utils.common.testutils import TestCase
 
 
 class TestShouldGenerateCandidates(TestCase):
-    def test_should(self) -> None:
-        trial_index = randint(0, 10)
-        card = ShouldGenerateCandidates(
-            should_generate=True,
-            reason="Something reassuring",
-            trial_index=trial_index,
-        ).compute()
-        self.assertEqual(card.get_status(), HealthcheckStatus.PASS)
-        self.assertEqual(card.subtitle, "Something reassuring")
-
-    def test_should_not(self) -> None:
-        trial_index = randint(0, 10)
-        card = ShouldGenerateCandidates(
-            should_generate=False,
-            reason="Something concerning",
-            trial_index=trial_index,
-        ).compute()
-        self.assertEqual(card.get_status(), HealthcheckStatus.WARNING)
-        self.assertEqual(card.subtitle, "Something concerning")
+    def test_should_generate_candidates(self) -> None:
+        for should_generate, reason, expected_status in [
+            # should_generate=True -> PASS status
+            (True, "Something reassuring", HealthcheckStatus.PASS),
+            # should_generate=False -> WARNING status
+            (False, "Something concerning", HealthcheckStatus.WARNING),
+        ]:
+            with self.subTest(should_generate=should_generate):
+                trial_index = randint(0, 10)
+                card = ShouldGenerateCandidates(
+                    should_generate=should_generate,
+                    reason=reason,
+                    trial_index=trial_index,
+                ).compute()
+                self.assertEqual(card.get_status(), expected_status)
+                self.assertEqual(card.subtitle, reason)

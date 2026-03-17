@@ -105,30 +105,18 @@ class TestParallelCoordinatesPlot(TestCase):
             },
         )
 
-    def test_online(self) -> None:
-        # Test ParallelCoordinatesPlot can be computed for a variety of experiments
-        # which resemble those we see in an online setting.
-
-        for experiment in get_online_experiments():
-            analysis = ParallelCoordinatesPlot(
-                # Select and arbitrary metric from the optimization config
-                metric_name=none_throws(
-                    experiment.optimization_config
-                ).objective.metric_names[0]
-            )
-
-            _ = analysis.compute(experiment=experiment)
-
-    def test_offline(self) -> None:
-        # Test ParallelCoordinatesPlot can be computed for a variety of experiments
-        # which resemble those we see in an offline setting.
-
-        for experiment in get_offline_experiments():
-            analysis = ParallelCoordinatesPlot(
-                # Select and arbitrary metric from the optimization config
-                metric_name=none_throws(
-                    experiment.optimization_config
-                ).objective.metric_names[0]
-            )
-
-            _ = analysis.compute(experiment=experiment)
+    def test_online_and_offline(self) -> None:
+        # Verify ParallelCoordinatesPlot computes for both online and offline
+        # experiment types.
+        for label, get_experiments in [
+            ("online", get_online_experiments),
+            ("offline", get_offline_experiments),
+        ]:
+            with self.subTest(setting=label):
+                for experiment in get_experiments():
+                    analysis = ParallelCoordinatesPlot(
+                        metric_name=none_throws(
+                            experiment.optimization_config
+                        ).objective.metric_names[0]
+                    )
+                    _ = analysis.compute(experiment=experiment)
