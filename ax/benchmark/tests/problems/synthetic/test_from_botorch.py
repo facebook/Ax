@@ -72,61 +72,65 @@ class TestBoTorchProblems(TestCase):
 class TestFromBoTorch(TestCase):
     def test_single_objective_from_botorch(self) -> None:
         for botorch_test_problem in [Ackley(), ConstrainedHartmann(dim=6)]:
-            test_problem = create_problem_from_botorch(
-                test_problem_class=botorch_test_problem.__class__,
-                test_problem_kwargs={},
-                num_trials=1,
-                baseline_value=100.0,
-            )
-
-            # Test search space
-            self.assertEqual(
-                len(test_problem.search_space.parameters), botorch_test_problem.dim
-            )
-            self.assertEqual(
-                len(test_problem.search_space.parameters),
-                len(test_problem.search_space.range_parameters),
-            )
-            self.assertTrue(
-                all(
-                    test_problem.search_space.range_parameters[f"x{i}"].lower
-                    == botorch_test_problem._bounds[i][0]
-                    for i in range(botorch_test_problem.dim)
-                ),
-                "Parameters' lower bounds must all match Botorch problem's bounds.",
-            )
-            self.assertTrue(
-                all(
-                    test_problem.search_space.range_parameters[f"x{i}"].upper
-                    == botorch_test_problem._bounds[i][1]
-                    for i in range(botorch_test_problem.dim)
-                ),
-                "Parameters' upper bounds must all match Botorch problem's bounds.",
-            )
-
-            # Test optimum
-            self.assertEqual(
-                test_problem.optimal_value, botorch_test_problem._optimal_value
-            )
-            # test optimization config
-            metric_name = test_problem.optimization_config.objective.metric_names[0]
-            self.assertEqual(metric_name, test_problem.name)
-            self.assertTrue(test_problem.optimization_config.objective.minimize)
-            # test repr method
-            if isinstance(botorch_test_problem, Ackley):
-                self.assertEqual(
-                    test_problem.optimization_config.outcome_constraints, []
+            with self.subTest(problem=botorch_test_problem.__class__.__name__):
+                test_problem = create_problem_from_botorch(
+                    test_problem_class=botorch_test_problem.__class__,
+                    test_problem_kwargs={},
+                    num_trials=1,
+                    baseline_value=100.0,
                 )
-            else:
-                outcome_constraint = (
-                    test_problem.optimization_config.outcome_constraints[0]
+
+                # Test search space
+                self.assertEqual(
+                    len(test_problem.search_space.parameters),
+                    botorch_test_problem.dim,
                 )
                 self.assertEqual(
-                    outcome_constraint.metric_names[0], "constraint_slack_0"
+                    len(test_problem.search_space.parameters),
+                    len(test_problem.search_space.range_parameters),
                 )
-                self.assertEqual(outcome_constraint.op, ComparisonOp.GEQ)
-                self.assertFalse(outcome_constraint.relative)
-                self.assertEqual(outcome_constraint.bound, 0.0)
+                self.assertTrue(
+                    all(
+                        test_problem.search_space.range_parameters[f"x{i}"].lower
+                        == botorch_test_problem._bounds[i][0]
+                        for i in range(botorch_test_problem.dim)
+                    ),
+                    "Parameters' lower bounds must all match Botorch problem's bounds.",
+                )
+                self.assertTrue(
+                    all(
+                        test_problem.search_space.range_parameters[f"x{i}"].upper
+                        == botorch_test_problem._bounds[i][1]
+                        for i in range(botorch_test_problem.dim)
+                    ),
+                    "Parameters' upper bounds must all match Botorch problem's bounds.",
+                )
+
+                # Test optimum
+                self.assertEqual(
+                    test_problem.optimal_value,
+                    botorch_test_problem._optimal_value,
+                )
+                # test optimization config
+                metric_name = test_problem.optimization_config.objective.metric.name
+                self.assertEqual(metric_name, test_problem.name)
+                self.assertTrue(test_problem.optimization_config.objective.minimize)
+                # test repr method
+                if isinstance(botorch_test_problem, Ackley):
+                    self.assertEqual(
+                        test_problem.optimization_config.outcome_constraints,
+                        [],
+                    )
+                else:
+                    outcome_constraint = (
+                        test_problem.optimization_config.outcome_constraints[0]
+                    )
+                    self.assertEqual(
+                        outcome_constraint.metric.name, "constraint_slack_0"
+                    )
+                    self.assertEqual(outcome_constraint.op, ComparisonOp.GEQ)
+                    self.assertFalse(outcome_constraint.relative)
+                    self.assertEqual(outcome_constraint.bound, 0.0)
 
     def _test_constrained_from_botorch(
         self,
@@ -251,8 +255,9 @@ class TestFromBoTorch(TestCase):
             self.assertTrue(all(w > 0 for _, w in opt_config.objective.metric_weights))
 
     def test_moo_from_botorch(self) -> None:
-        self._test_moo_from_botorch(lower_is_better=True)
-        self._test_moo_from_botorch(lower_is_better=False)
+        for lower_is_better in [True, False]:
+            with self.subTest(lower_is_better=lower_is_better):
+                self._test_moo_from_botorch(lower_is_better=lower_is_better)
 
     def test_create_problem_from_botorch_with_shifted_function(self) -> None:
         ax_problem = create_problem_from_botorch(

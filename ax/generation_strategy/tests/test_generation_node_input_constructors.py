@@ -149,132 +149,112 @@ class TestGenerationNodeInputConstructors(TestCase):
         self.assertEqual(small_n, 0)
         self.assertTrue(self.sobol_generation_node._should_skip)
 
-    def test_remaining_n_constructor_expect_1(self) -> None:
-        """Test that the remaining_n_constructor returns the remaining n."""
-        # should return 1 because 4 arms already exist and 5 are requested
-        expect_1 = NodeInputConstructors.REMAINING_N(
-            previous_node=None,
-            next_node=self.sobol_generation_node,
-            gs_gen_call_kwargs={"n": 5, "grs_this_gen": self.grs},
-            experiment=self.experiment,
-        )
-        self.assertEqual(expect_1, 1)
-
-    def test_remaining_n_constructor_expect_0(self) -> None:
-        # should return 0 because 4 arms already exist and 4 are requested
-        expect_0 = NodeInputConstructors.REMAINING_N(
-            previous_node=None,
-            next_node=self.sobol_generation_node,
-            gs_gen_call_kwargs={"n": 4, "grs_this_gen": self.grs},
-            experiment=self.experiment,
-        )
-        self.assertEqual(expect_0, 0)
-
-    def test_remaining_n_constructor_cap_at_zero(self) -> None:
-        # should return 0 because 4 arms already exist and 3 are requested
-        # this is a bad state that should never be hit, but ensuring proper
-        # handling here feels like a valid edge case
-        expect_0 = NodeInputConstructors.REMAINING_N(
-            previous_node=None,
-            next_node=self.sobol_generation_node,
-            gs_gen_call_kwargs={"n": 3, "grs_this_gen": self.grs},
-            experiment=self.experiment,
-        )
-        self.assertEqual(expect_0, 0)
+    def test_remaining_n_constructor(self) -> None:
+        """Test that the remaining_n_constructor returns the correct remaining n."""
+        for label, n, expected in [
+            ("returns 1 when 4 arms exist and 5 requested", 5, 1),
+            ("returns 0 when 4 arms exist and 4 requested", 4, 0),
+            ("caps at 0 when 4 arms exist and 3 requested", 3, 0),
+        ]:
+            with self.subTest(label):
+                result = NodeInputConstructors.REMAINING_N(
+                    previous_node=None,
+                    next_node=self.sobol_generation_node,
+                    gs_gen_call_kwargs={"n": n, "grs_this_gen": self.grs},
+                    experiment=self.experiment,
+                )
+                self.assertEqual(result, expected)
 
     def test_no_n_provided_all_n(self) -> None:
-        num_to_gen = NodeInputConstructors.ALL_N(
-            previous_node=None,
-            next_node=self.sobol_generation_node,
-            gs_gen_call_kwargs={},
-            experiment=self.experiment,
-        )
-        self.assertEqual(num_to_gen, 10)
-
-    def test_no_n_provided_all_n_with_exp_prop(self) -> None:
-        self.experiment._properties[Keys.EXPERIMENT_TOTAL_CONCURRENT_ARMS] = 12
-        num_to_gen = NodeInputConstructors.ALL_N(
-            previous_node=None,
-            next_node=self.sobol_generation_node,
-            gs_gen_call_kwargs={},
-            experiment=self.experiment,
-        )
-        self.assertEqual(num_to_gen, 12)
-
-    def test_no_n_provided_all_n_with_exp_prop_long_run(self) -> None:
-        self.experiment._properties[Keys.EXPERIMENT_TOTAL_CONCURRENT_ARMS] = 13
-        self.sobol_generation_node._trial_type = Keys.LONG_RUN
-        num_to_gen = NodeInputConstructors.ALL_N(
-            previous_node=None,
-            next_node=self.sobol_generation_node,
-            gs_gen_call_kwargs={},
-            experiment=self.experiment,
-        )
-        self.assertEqual(num_to_gen, 7)
-
-    def test_no_n_provided_all_n_with_exp_prop_short_run(self) -> None:
-        self.experiment._properties[Keys.EXPERIMENT_TOTAL_CONCURRENT_ARMS] = 13
-        self.sobol_generation_node._trial_type = Keys.SHORT_RUN
-        num_to_gen = NodeInputConstructors.ALL_N(
-            previous_node=None,
-            next_node=self.sobol_generation_node,
-            gs_gen_call_kwargs={},
-            experiment=self.experiment,
-        )
-        self.assertEqual(num_to_gen, 6)
+        for label, exp_prop, trial_type, expected in [
+            ("default returns 10", None, None, 10),
+            ("with exp prop 12", 12, None, 12),
+            ("with exp prop 13 and long_run", 13, Keys.LONG_RUN, 7),
+            ("with exp prop 13 and short_run", 13, Keys.SHORT_RUN, 6),
+        ]:
+            with self.subTest(label):
+                # Reset state for each subtest
+                experiment = get_branin_experiment()
+                node = GenerationNode(
+                    name="test",
+                    generator_specs=[self.sobol_generator_spec],
+                )
+                if exp_prop is not None:
+                    experiment._properties[Keys.EXPERIMENT_TOTAL_CONCURRENT_ARMS] = (
+                        exp_prop
+                    )
+                if trial_type is not None:
+                    node._trial_type = trial_type
+                num_to_gen = NodeInputConstructors.ALL_N(
+                    previous_node=None,
+                    next_node=node,
+                    gs_gen_call_kwargs={},
+                    experiment=experiment,
+                )
+                self.assertEqual(num_to_gen, expected)
 
     def test_no_n_provided_repeat_n(self) -> None:
-        num_to_gen = NodeInputConstructors.REPEAT_N(
-            previous_node=None,
-            next_node=self.sobol_generation_node,
-            gs_gen_call_kwargs={},
-            experiment=self.experiment,
-        )
-        self.assertEqual(num_to_gen, 1)
-
-    def test_no_n_provided_repeat_n_with_exp_prop(self) -> None:
-        self.experiment._properties[Keys.EXPERIMENT_TOTAL_CONCURRENT_ARMS] = 18
-        num_to_gen = NodeInputConstructors.REPEAT_N(
-            previous_node=None,
-            next_node=self.sobol_generation_node,
-            gs_gen_call_kwargs={},
-            experiment=self.experiment,
-        )
-        self.assertEqual(num_to_gen, 2)
-
-    def test_no_n_provided_repeat_n_with_exp_prop_long_run(self) -> None:
-        self.experiment._properties[Keys.EXPERIMENT_TOTAL_CONCURRENT_ARMS] = 18
-        self.sobol_generation_node._trial_type = Keys.SHORT_RUN
-        num_to_gen = NodeInputConstructors.REPEAT_N(
-            previous_node=None,
-            next_node=self.sobol_generation_node,
-            gs_gen_call_kwargs={},
-            experiment=self.experiment,
-        )
-        # expect 1 arm here because total concurrent arms is 18, and we have a trial
-        # type (short run), so we'll take the floor of 18/2 = 9 to be used in the
-        # logic for repeat arms which says if we have less than 10 requested arms we
-        # should get 1 repeat arm.
-        self.assertEqual(num_to_gen, 1)
+        for label, exp_prop, trial_type, expected in [
+            ("default returns 1", None, None, 1),
+            ("with exp prop 18 returns 2", 18, None, 2),
+            (
+                "with exp prop 18 and short_run returns 1",
+                18,
+                Keys.SHORT_RUN,
+                # expect 1 because total concurrent arms is 18, and we have a trial
+                # type (short run), so we'll take the floor of 18/2 = 9 to be used
+                # in the logic for repeat arms which says if we have less than 10
+                # requested arms we should get 1 repeat arm.
+                1,
+            ),
+        ]:
+            with self.subTest(label):
+                experiment = get_branin_experiment()
+                node = GenerationNode(
+                    name="test",
+                    generator_specs=[self.sobol_generator_spec],
+                )
+                if exp_prop is not None:
+                    experiment._properties[Keys.EXPERIMENT_TOTAL_CONCURRENT_ARMS] = (
+                        exp_prop
+                    )
+                if trial_type is not None:
+                    node._trial_type = trial_type
+                num_to_gen = NodeInputConstructors.REPEAT_N(
+                    previous_node=None,
+                    next_node=node,
+                    gs_gen_call_kwargs={},
+                    experiment=experiment,
+                )
+                self.assertEqual(num_to_gen, expected)
 
     def test_no_n_provided_remaining_n(self) -> None:
-        num_to_gen = NodeInputConstructors.REMAINING_N(
-            previous_node=None,
-            next_node=self.sobol_generation_node,
-            gs_gen_call_kwargs={},
-            experiment=self.experiment,
-        )
-        self.assertEqual(num_to_gen, 10)
-
-    def test_no_n_provided_remaining_n_with_exp_prop(self) -> None:
-        self.experiment._properties[Keys.EXPERIMENT_TOTAL_CONCURRENT_ARMS] = 8
-        num_to_gen = NodeInputConstructors.REMAINING_N(
-            previous_node=None,
-            next_node=self.sobol_generation_node,
-            gs_gen_call_kwargs={"grs_this_gen": self.grs},
-            experiment=self.experiment,
-        )
-        self.assertEqual(num_to_gen, 4)
+        for label, exp_prop, gs_gen_call_kwargs, expected in [
+            ("default returns 10", None, {}, 10),
+            (
+                "with exp prop 8 and existing grs returns 4",
+                8,
+                {"grs_this_gen": self.grs},
+                4,
+            ),
+        ]:
+            with self.subTest(label):
+                experiment = get_branin_experiment()
+                node = GenerationNode(
+                    name="test",
+                    generator_specs=[self.sobol_generator_spec],
+                )
+                if exp_prop is not None:
+                    experiment._properties[Keys.EXPERIMENT_TOTAL_CONCURRENT_ARMS] = (
+                        exp_prop
+                    )
+                num_to_gen = NodeInputConstructors.REMAINING_N(
+                    previous_node=None,
+                    next_node=node,
+                    gs_gen_call_kwargs=gs_gen_call_kwargs,
+                    experiment=experiment,
+                )
+                self.assertEqual(num_to_gen, expected)
 
     def test_set_target_trial_long_run_wins(self) -> None:
         for num_arms, trial_type in zip((1, 3), (Keys.LONG_RUN, Keys.SHORT_RUN)):

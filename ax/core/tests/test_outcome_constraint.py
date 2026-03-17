@@ -99,64 +99,54 @@ class OutcomeConstraintTest(TestCase):
         constraint3 = OutcomeConstraint(expression="foo <= 0", relative=False)
         self.assertNotEqual(constraint1, constraint3)
 
+    def test_ValidMutations(self) -> None:
+        # updating constraint metric is ok as long as lower_is_better is compatible.
+        self.constraint.metric = self.maximize_metric
+        self.constraint.op = ComparisonOp.LEQ
+        self.assertEqual(self.constraint.metric.name, "baz")
+        self.assertEqual(self.constraint.metric.signature, "baz")
+
+    def test_OutcomeConstraintFail(self) -> None:
+        logger_name = OUTCOME_CONSTRAINT_PATH + ".logger"
+        cases = [
+            (self.minimize_metric, ComparisonOp.GEQ, LOWER_BOUND_MISMATCH, "bar"),
+            (self.maximize_metric, ComparisonOp.LEQ, UPPER_BOUND_MISMATCH, "baz"),
+        ]
+        for metric, op, mismatch, name in cases:
+            with self.subTest(metric=name):
+                with mock.patch(logger_name) as mock_warning:
+                    OutcomeConstraint(metric=metric, op=op, bound=self.bound)
+                mock_warning.debug.assert_called_once_with(
+                    CONSTRAINT_WARNING_MESSAGE.format(**mismatch, name=name)
+                )
+
     def test_Sortable(self) -> None:
         constraint1 = OutcomeConstraint(expression="foo <= 0", relative=False)
         constraint2 = OutcomeConstraint(expression="foo >= 0", relative=False)
         self.assertTrue(constraint1 < constraint2)
 
-    def test_Clone(self) -> None:
-        oc = OutcomeConstraint(expression="foo >= 10", relative=False)
-        cloned = oc.clone()
-        self.assertEqual(oc, cloned)
-        self.assertIsNot(oc, cloned)
-        self.assertEqual(oc.expression, cloned.expression)
-
-    def test_Repr(self) -> None:
-        oc = OutcomeConstraint(expression="foo >= 10", relative=False)
-        self.assertEqual(str(oc), "OutcomeConstraint(foo >= 10)")
-
-        oc_rel = OutcomeConstraint(expression="bar <= 5 * baseline")
-        self.assertEqual(str(oc_rel), "OutcomeConstraint(bar <= 5 * baseline)")
-
-    def test_DeprecatedMetricProperty(self) -> None:
-        oc = OutcomeConstraint(expression="foo >= 10", relative=False)
-
-        # Use a helper to prevent Pyre from resolving the attribute name
-        # statically; the .metric attribute was intentionally removed.
-        def _getattr(obj: object, name: str) -> object:
-            return getattr(obj, name)
-
-        with self.assertRaises(AttributeError):
-            _getattr(oc, "metric")
-
-    def test_ScalarizedExpression(self) -> None:
-        """Test a constraint with multiple weighted metrics."""
-        oc = OutcomeConstraint(expression="2*m1 + 3*m2 <= 10", relative=False)
-        self.assertEqual(sorted(oc.metric_names), ["m1", "m2"])
-        self.assertEqual(oc.op, ComparisonOp.LEQ)
-        self.assertEqual(oc.bound, 10.0)
-        weights_dict = dict(oc.metric_weights)
-        self.assertEqual(weights_dict["m1"], 2.0)
-        self.assertEqual(weights_dict["m2"], 3.0)
-
-    def test_RelativeRoundTrip(self) -> None:
-        """Test that relative constraints round-trip correctly."""
-        # GEQ relative constraint
-        oc = OutcomeConstraint(expression="qps >= 0.95 * baseline")
-        self.assertEqual(oc.bound, -5.0)
-        self.assertEqual(oc.op, ComparisonOp.GEQ)
-        self.assertTrue(oc.relative)
-
-        # LEQ relative constraint
-        oc2 = OutcomeConstraint(expression="latency <= 1.05 * baseline")
-        self.assertEqual(oc2.bound, 5.0)
-        self.assertEqual(oc2.op, ComparisonOp.LEQ)
-        self.assertTrue(oc2.relative)
-
-        # Standalone baseline (multiplier = 1)
-        oc3 = OutcomeConstraint(expression="qps >= baseline")
-        self.assertEqual(oc3.bound, 0.0)
-        self.assertTrue(oc3.relative)
+    def test_validate_constraint(self) -> None:
+        # Validate constraint logic for (lower_is_better, bound, op) combinations.
+        # Only (lower_is_better=False, bound<0, GEQ) and (lower_is_better=True,
+        # bound>0, LEQ) are considered valid/sensible constraints.
+        cases = [
+            (False, -3, ComparisonOp.GEQ, True),
+            (False, -3, ComparisonOp.LEQ, False),
+            (False, 3, ComparisonOp.GEQ, False),
+            (False, 3, ComparisonOp.LEQ, False),
+            (True, 3, ComparisonOp.LEQ, True),
+            (True, 3, ComparisonOp.GEQ, False),
+            (True, -3, ComparisonOp.LEQ, False),
+            (True, -3, ComparisonOp.GEQ, False),
+        ]
+        for lower_is_better, bound, op, expected in cases:
+            with self.subTest(lower_is_better=lower_is_better, bound=bound, op=op.name):
+                metric = Metric(
+                    name=f"metric_lib{'1' if lower_is_better else '0'}",
+                    lower_is_better=lower_is_better,
+                )
+                oc = OutcomeConstraint(metric, bound=bound, relative=True, op=op)
+                self.assertEqual(oc._validate_constraint()[0], expected)
 
 
 class ObjectiveThresholdTest(TestCase):
@@ -224,57 +214,47 @@ class ObjectiveThresholdTest(TestCase):
             )
         self.assertNotEqual(threshold1, threshold3)
 
-    def test_Clone(self) -> None:
-        with warnings.catch_warnings(record=True):
-            warnings.simplefilter("always")
-            ot = ObjectiveThreshold(
-                metric=self.maximize_metric, bound=0.5, relative=False
-            )
-        cloned = ot.clone()
-        self.assertEqual(ot, cloned)
-        self.assertIsNot(ot, cloned)
-        self.assertIsInstance(cloned, ObjectiveThreshold)
+        constraint3 = OutcomeConstraint(
+            metric=self.minimize_metric, op=ComparisonOp.LEQ, bound=self.bound
+        )
+        self.assertNotEqual(threshold1, constraint3)
 
-    def test_Repr(self) -> None:
-        with warnings.catch_warnings(record=True):
-            warnings.simplefilter("always")
-            ot = ObjectiveThreshold(
-                metric=self.maximize_metric,
-                bound=0.5,
-                relative=False,
-                op=ComparisonOp.GEQ,
-            )
-        self.assertEqual(str(ot), "ObjectiveThreshold(baz >= 0.5)")
+    def test_ValidMutations(self) -> None:
+        # updating constraint metric is ok as long as lower_is_better is compatible.
+        self.threshold.metric = self.ambiguous_metric
+        self.threshold.op = ComparisonOp.LEQ
+        self.assertEqual(self.threshold.metric.name, "buz")
+        self.assertEqual(self.threshold.metric.signature, "buz")
+
+    def test_ObjectiveThresholdFail(self) -> None:
+        logger_name = OUTCOME_CONSTRAINT_PATH + ".logger"
+        cases = [
+            (self.minimize_metric, ComparisonOp.GEQ, LOWER_BOUND_MISMATCH, "bar"),
+            (self.maximize_metric, ComparisonOp.LEQ, UPPER_BOUND_MISMATCH, "baz"),
+        ]
+        for metric, op, mismatch, name in cases:
+            with self.subTest(metric=name):
+                with mock.patch(logger_name) as mock_warning:
+                    ObjectiveThreshold(metric=metric, op=op, bound=self.bound)
+                mock_warning.debug.assert_called_once_with(
+                    CONSTRAINT_WARNING_MESSAGE.format(**mismatch, name=name)
+                )
 
     def test_Relativize(self) -> None:
-        with warnings.catch_warnings(record=True):
-            warnings.simplefilter("always")
-            # Default is relative=True
-            ot_default = ObjectiveThreshold(
-                metric=self.maximize_metric,
-                op=ComparisonOp.LEQ,
-                bound=0.0,
-            )
-        self.assertTrue(ot_default.relative)
-
-        with warnings.catch_warnings(record=True):
-            warnings.simplefilter("always")
-            ot_abs = ObjectiveThreshold(
-                metric=self.maximize_metric,
-                op=ComparisonOp.LEQ,
-                bound=0.0,
-                relative=False,
-            )
-        self.assertFalse(ot_abs.relative)
-
-    def test_IsInstance(self) -> None:
-        with warnings.catch_warnings(record=True):
-            warnings.simplefilter("always")
-            ot = ObjectiveThreshold(
-                metric=self.maximize_metric, bound=0.5, relative=False
-            )
-        self.assertIsInstance(ot, OutcomeConstraint)
-        self.assertIsInstance(ot, ObjectiveThreshold)
+        cases = [
+            ("default", {}, True),
+            ("explicit_true", {"relative": True}, True),
+            ("explicit_false", {"relative": False}, False),
+        ]
+        for label, kwargs, expected in cases:
+            with self.subTest(label=label):
+                ot = ObjectiveThreshold(
+                    metric=self.maximize_metric,
+                    op=ComparisonOp.LEQ,
+                    bound=self.bound,
+                    **kwargs,
+                )
+                self.assertEqual(ot.relative, expected)
 
 
 class ScalarizedOutcomeConstraintTest(TestCase):

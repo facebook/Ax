@@ -341,8 +341,9 @@ class TestBenchmarkMetric(TestCase):
             self.assertEqual(df.reset_index(drop=True).to_dict(), expected_df.to_dict())
 
     def test_fetch_trial_multiple_time_steps_with_simulator(self) -> None:
-        self._test_fetch_trial_multiple_time_steps_with_simulator(batch=False)
-        self._test_fetch_trial_multiple_time_steps_with_simulator(batch=True)
+        for batch in [False, True]:
+            with self.subTest(batch=batch):
+                self._test_fetch_trial_multiple_time_steps_with_simulator(batch=batch)
 
     def test_sim_trial_completes_in_future_raises(self) -> None:
         simulator = BackendSimulator()
