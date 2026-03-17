@@ -25,7 +25,7 @@ def extract_coefficient_dict_from_inequality(
     """
     # Parse the constraint string into a SymPy inequality
     try:
-        inequality = sympify(sanitize_name(inequality_str))
+        inequality = sympify(sanitize_name(inequality_str, sanitize_parens=True))
     except SympifyError:
         raise UserInputError(f"Expected an inequality, found {inequality_str}")
 
@@ -64,7 +64,7 @@ def parse_objective_expression(expression_str: str) -> Expr | tuple[Expr, ...]:
     if len(expression_str) == 0:
         raise UserInputError("Objective expression string must not be empty.")
 
-    sanitized = sanitize_name(expression_str)
+    sanitized = sanitize_name(expression_str, sanitize_parens=True)
     parsed = sympify(sanitized)
 
     if isinstance(parsed, tuple):
