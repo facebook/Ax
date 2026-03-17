@@ -24,6 +24,7 @@ from ax.core.analysis_card import (
     AnalysisCardBase,
     AnalysisCardGroup,
     ErrorAnalysisCard,
+    NotApplicableStateAnalysisCard,
 )
 from ax.core.arm import Arm
 from ax.core.auxiliary import AuxiliaryExperiment, AuxiliaryExperimentPurpose
@@ -1167,6 +1168,15 @@ class Decoder:
         blob = none_throws(analysis_card_sqa.blob)
         blob_annotation = analysis_card_sqa.blob_annotation
 
+        if blob_annotation == "not_applicable_state":
+            return NotApplicableStateAnalysisCard(
+                name=analysis_card_sqa.name,
+                title=title,
+                subtitle=subtitle,
+                df=read_json(StringIO(analysis_card_sqa.dataframe_json)),
+                blob=blob,
+                timestamp=analysis_card_sqa.timestamp,
+            )
         if blob_annotation == "error":
             return ErrorAnalysisCard(
                 name=analysis_card_sqa.name,

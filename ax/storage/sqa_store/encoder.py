@@ -19,6 +19,7 @@ from ax.core.analysis_card import (
     AnalysisCardBase,
     AnalysisCardGroup,
     ErrorAnalysisCard,
+    NotApplicableStateAnalysisCard,
 )
 from ax.core.arm import Arm
 from ax.core.auxiliary import AuxiliaryExperiment, AuxiliaryExperimentPurpose
@@ -1261,7 +1262,9 @@ class Encoder:
 
         card = assert_is_instance(analysis_card, AnalysisCard)
 
-        if isinstance(card, ErrorAnalysisCard):
+        if isinstance(card, NotApplicableStateAnalysisCard):
+            blob_annotation = "not_applicable_state"
+        elif isinstance(card, ErrorAnalysisCard):
             blob_annotation = "error"
         elif isinstance(card, PlotlyAnalysisCard):
             blob_annotation = "plotly"
