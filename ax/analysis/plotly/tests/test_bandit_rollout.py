@@ -10,7 +10,8 @@ from ax.analysis.plotly.utils import STALE_FAIL_REASON
 from ax.core.arm import Arm
 from ax.core.experiment import Experiment
 from ax.core.metric import Metric
-from ax.core.optimization_config import Objective, OptimizationConfig
+from ax.core.objective import Objective
+from ax.core.optimization_config import OptimizationConfig
 from ax.core.parameter import ChoiceParameter, ParameterType
 from ax.core.search_space import SearchSpace
 from ax.utils.common.testutils import TestCase

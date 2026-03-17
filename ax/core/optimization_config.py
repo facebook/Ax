@@ -13,11 +13,7 @@ from typing import Self
 
 from ax.core.arm import Arm
 from ax.core.objective import Objective
-from ax.core.outcome_constraint import (
-    ComparisonOp,
-    ObjectiveThreshold,
-    OutcomeConstraint,
-)
+from ax.core.outcome_constraint import ComparisonOp, OutcomeConstraint
 from ax.exceptions.core import UserInputError
 from ax.utils.common.base import Base
 

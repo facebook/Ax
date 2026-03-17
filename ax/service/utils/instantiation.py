@@ -22,10 +22,9 @@ from ax.core.objective import MultiObjective, Objective
 from ax.core.observation import ObservationFeatures
 from ax.core.optimization_config import (
     MultiObjectiveOptimizationConfig,
-    ObjectiveThreshold,
     OptimizationConfig,
 )
-from ax.core.outcome_constraint import OutcomeConstraint
+from ax.core.outcome_constraint import ObjectiveThreshold, OutcomeConstraint
 from ax.core.parameter import (
     ChoiceParameter,
     DerivedParameter,
