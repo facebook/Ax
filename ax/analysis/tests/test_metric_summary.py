@@ -83,18 +83,13 @@ class TestMetricSummary(TestCase):
             none_throws(MetricSummary().validate_applicable_state()),
         )
 
-    def test_online(self) -> None:
-        # Test MetricSummary can be computed for a variety of experiments which
-        # resemble those we see in an online setting.
-
+    def test_online_and_offline(self) -> None:
+        # Verify MetricSummary computes for both online and offline experiment types.
         analysis = MetricSummary()
-        for experiment in get_online_experiments():
-            _ = analysis.compute(experiment=experiment)
-
-    def test_offline(self) -> None:
-        # Test MetricSummary can be computed for a variety of experiments which
-        # resemble those we see in an offline setting.
-
-        analysis = MetricSummary()
-        for experiment in get_offline_experiments():
-            _ = analysis.compute(experiment=experiment)
+        for label, get_experiments in [
+            ("online", get_online_experiments),
+            ("offline", get_offline_experiments),
+        ]:
+            with self.subTest(setting=label):
+                for experiment in get_experiments():
+                    _ = analysis.compute(experiment=experiment)
