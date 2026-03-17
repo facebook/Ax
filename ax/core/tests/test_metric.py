@@ -87,20 +87,23 @@ class MetricTest(TestCase):
     def test_wrap_unwrap(self) -> None:
         data = get_data()
 
-        trial_multi = Metric._unwrap_trial_data_multi(
-            results=Metric._wrap_trial_data_multi(data=data)
-        )
-        self.assertEqual(trial_multi, data)
+        with self.subTest(wrap_type="trial_data_multi"):
+            result = Metric._unwrap_trial_data_multi(
+                results=Metric._wrap_trial_data_multi(data=data)
+            )
+            self.assertEqual(result, data)
 
-        experiment = Metric._unwrap_experiment_data(
-            results=Metric._wrap_experiment_data(data=data)
-        )
-        self.assertEqual(experiment, data)
+        with self.subTest(wrap_type="experiment_data"):
+            result = Metric._unwrap_experiment_data(
+                results=Metric._wrap_experiment_data(data=data)
+            )
+            self.assertEqual(result, data)
 
-        experiment_multi = Metric._unwrap_experiment_data_multi(
-            results=Metric._wrap_experiment_data_multi(data=data)
-        )
-        self.assertEqual(experiment_multi, data)
+        with self.subTest(wrap_type="experiment_data_multi"):
+            result = Metric._unwrap_experiment_data_multi(
+                results=Metric._wrap_experiment_data_multi(data=data)
+            )
+            self.assertEqual(result, data)
 
     def test_wrap_err(self) -> None:
         err = Err(MetricFetchE(message="failed!", exception=Exception("panic!")))

@@ -1121,79 +1121,74 @@ class ExperimentTest(TestCase):
         )
         self.assertTrue(immutable_exp_2.immutable_search_space_and_opt_config)
 
-    def test_attach_batch_trial_no_arm_names(self) -> None:
+    def _test_attach_trial(
+        self,
+        parameterizations: list[dict[str, object]],
+        arm_names: list[str] | None,
+        expected_type: type[BaseTrial],
+        expected_names: set[str] | str | None,
+    ) -> None:
+        self.setUp()
         num_trials = len(self.experiment.trials)
-
-        _, trial_index = self.experiment.attach_trial(
-            parameterizations=[
-                {"w": 5.3, "x": 5, "y": "baz", "z": True, "d": 11.6},
-                {"w": 5.2, "x": 5, "y": "foo", "z": True, "d": 11.4},
-                {"w": 5.1, "x": 5, "y": "bar", "z": True, "d": 11.2},
-            ],
-            ttl_seconds=3600,
-            run_metadata={"test_metadata_field": 1},
-        )
+        if arm_names is not None:
+            _, trial_index = self.experiment.attach_trial(
+                parameterizations=parameterizations,
+                arm_names=arm_names,
+                ttl_seconds=3600,
+                run_metadata={"test_metadata_field": 1},
+            )
+        else:
+            _, trial_index = self.experiment.attach_trial(
+                parameterizations=parameterizations,
+                ttl_seconds=3600,
+                run_metadata={"test_metadata_field": 1},
+            )
 
         self.assertEqual(len(self.experiment.trials), num_trials + 1)
-        self.assertEqual(
-            len(set(self.experiment.trials[trial_index].arms_by_name) - {"status_quo"}),
-            3,
-        )
-        self.assertEqual(type(self.experiment.trials[trial_index]), BatchTrial)
+        self.assertEqual(type(self.experiment.trials[trial_index]), expected_type)
+        if isinstance(expected_names, set):
+            self.assertEqual(
+                expected_names,
+                set(self.experiment.trials[trial_index].arms_by_name) - {"status_quo"},
+            )
+        elif isinstance(expected_names, str):
+            self.assertEqual(
+                expected_names,
+                self.experiment.trials[trial_index].arm.name,
+            )
 
-    def test_attach_batch_trial_with_arm_names(self) -> None:
-        num_trials = len(self.experiment.trials)
-
-        _, trial_index = self.experiment.attach_trial(
-            parameterizations=[
-                {"w": 5.3, "x": 5, "y": "baz", "z": True, "d": 11.6},
-                {"w": 5.2, "x": 5, "y": "foo", "z": True, "d": 11.4},
-                {"w": 5.1, "x": 5, "y": "bar", "z": True, "d": 11.2},
-            ],
-            arm_names=["arm1", "arm2", "arm3"],
-            ttl_seconds=3600,
-            run_metadata={"test_metadata_field": 1},
-        )
-
-        self.assertEqual(len(self.experiment.trials), num_trials + 1)
-        self.assertEqual(
-            len(set(self.experiment.trials[trial_index].arms_by_name) - {"status_quo"}),
-            3,
-        )
-        self.assertEqual(type(self.experiment.trials[trial_index]), BatchTrial)
-        self.assertEqual(
-            {"arm1", "arm2", "arm3"},
-            set(self.experiment.trials[trial_index].arms_by_name) - {"status_quo"},
-        )
-
-    def test_attach_single_arm_trial_no_arm_name(self) -> None:
-        num_trials = len(self.experiment.trials)
-
-        _, trial_index = self.experiment.attach_trial(
-            parameterizations=[{"w": 5.3, "x": 5, "y": "baz", "z": True, "d": 11.6}],
-            ttl_seconds=3600,
-            run_metadata={"test_metadata_field": 1},
-        )
-
-        self.assertEqual(len(self.experiment.trials), num_trials + 1)
-        self.assertEqual(type(self.experiment.trials[trial_index]), Trial)
-
-    def test_attach_single_arm_trial_with_arm_name(self) -> None:
-        num_trials = len(self.experiment.trials)
-
-        _, trial_index = self.experiment.attach_trial(
-            parameterizations=[{"w": 5.3, "x": 5, "y": "baz", "z": True, "d": 11.6}],
-            arm_names=["arm1"],
-            ttl_seconds=3600,
-            run_metadata={"test_metadata_field": 1},
-        )
-
-        self.assertEqual(len(self.experiment.trials), num_trials + 1)
-        self.assertEqual(type(self.experiment.trials[trial_index]), Trial)
-        self.assertEqual(
-            "arm1",
-            self.experiment.trials[trial_index].arm.name,
-        )
+    def test_attach_trial(self) -> None:
+        batch_params: list[dict[str, object]] = [
+            {"w": 5.3, "x": 5, "y": "baz", "z": True, "d": 11.6},
+            {"w": 5.2, "x": 5, "y": "foo", "z": True, "d": 11.4},
+            {"w": 5.1, "x": 5, "y": "bar", "z": True, "d": 11.2},
+        ]
+        single_params: list[dict[str, object]] = [
+            {"w": 5.3, "x": 5, "y": "baz", "z": True, "d": 11.6},
+        ]
+        for label, params, arm_names, expected_type, expected_names in [
+            # Batch trial without explicit arm names -> auto-generated names
+            ("batch_no_arm_names", batch_params, None, BatchTrial, None),
+            # Batch trial with explicit arm names -> names preserved
+            (
+                "batch_with_arm_names",
+                batch_params,
+                ["arm1", "arm2", "arm3"],
+                BatchTrial,
+                {"arm1", "arm2", "arm3"},
+            ),
+            # Single-arm trial without arm name -> creates Trial (not BatchTrial)
+            ("single_no_arm_name", single_params, None, Trial, None),
+            # Single-arm trial with explicit arm name -> name preserved
+            ("single_with_arm_name", single_params, ["arm1"], Trial, "arm1"),
+        ]:
+            with self.subTest(label=label):
+                self._test_attach_trial(
+                    parameterizations=params,
+                    arm_names=arm_names,
+                    expected_type=expected_type,
+                    expected_names=expected_names,
+                )
 
     def test_fetch_as_class(self) -> None:
         class MyMetric(Metric):
@@ -2593,45 +2588,38 @@ class ExperimentWithMapDataTest(TestCase):
             )
             self.assertFalse(experiment.is_bope_problem)
 
-    def test_name_and_store_arm_if_not_exists_same_name_different_signature(
-        self,
-    ) -> None:
-        experiment = self.experiment
+    def test_name_and_store_arm_if_not_exists_different_signature(self) -> None:
         shared_name = "shared_name"
-
         arm_1 = Arm({"x1": -1.0, "x2": 1.0}, name=shared_name)
-        arm_2 = Arm({"x1": -1.7, "x2": 0.2, "x3": 1})
-        self.assertNotEqual(arm_1.signature, arm_2.signature)
 
-        experiment._register_arm(arm=arm_1)
-        with self.assertRaisesRegex(
-            AxError,
-            f"Arm with name {shared_name} already exists on experiment "
-            f"with different signature.",
-        ):
-            experiment._name_and_store_arm_if_not_exists(
-                arm=arm_2, proposed_name=shared_name
-            )
-
-    def test_name_and_store_arm_if_not_exists_same_proposed_name_different_signature(
-        self,
-    ) -> None:
-        experiment = self.experiment
-        shared_name = "shared_name"
-
-        arm_1 = Arm({"x1": -1.0, "x2": 1.0}, name=shared_name)
-        arm_2 = Arm({"x1": -1.7, "x2": 0.2, "x3": 1}, name=shared_name)
-        self.assertNotEqual(arm_1.signature, arm_2.signature)
-
-        experiment._register_arm(arm=arm_1)
-        with self.assertRaisesRegex(
-            AxError,
-            f"Arm with name {shared_name} already exists on experiment "
-            f"with different signature.",
-        ):
-            experiment._name_and_store_arm_if_not_exists(
-                arm=arm_2, proposed_name="different proposed name"
-            )
+        cases = [
+            # Unnamed arm with proposed_name matching existing arm's name
+            (
+                "arm_without_name",
+                Arm({"x1": -1.7, "x2": 0.2, "x3": 1}),
+                shared_name,
+            ),
+            # Named arm matching existing arm but with a different proposed_name
+            (
+                "arm_with_shared_name",
+                Arm({"x1": -1.7, "x2": 0.2, "x3": 1}, name=shared_name),
+                "different proposed name",
+            ),
+        ]
+        for label, arm_2, proposed_name in cases:
+            with self.subTest(label=label):
+                self.setUp()
+                experiment = self.experiment
+                experiment._register_arm(arm=arm_1)
+                self.assertNotEqual(arm_1.signature, arm_2.signature)
+                with self.assertRaisesRegex(
+                    AxError,
+                    f"Arm with name {shared_name} already exists on experiment "
+                    f"with different signature.",
+                ):
+                    experiment._name_and_store_arm_if_not_exists(
+                        arm=arm_2, proposed_name=proposed_name
+                    )
 
     def test_sorting_data_by_trial_index_and_arm_name(self) -> None:
         # test sorting data
