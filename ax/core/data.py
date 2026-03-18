@@ -768,7 +768,7 @@ def relativize_dataframe(
 def _ceil_divide(
     a: int | np.int_ | npt.NDArray[np.int_], b: int | np.int_ | npt.NDArray[np.int_]
 ) -> np.int_ | npt.NDArray[np.int_]:
-    return -np.floor_divide(-a, b)
+    return -np.floor_divide(np.negative(a), b)
 
 
 def _subsample_rate(

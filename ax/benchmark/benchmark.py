@@ -120,7 +120,7 @@ def compute_score_trace(
         optimal_value: The best possible value of the objective; when the
             optimization_trace equals the optimal_value, the score is 100.
     """
-    return (
+    return np.asarray(
         100 * (optimization_trace - baseline_value) / (optimal_value - baseline_value)
     )
 
@@ -481,7 +481,7 @@ def get_benchmark_result_from_experiment_and_gs(
         )
     else:
         trial_completion_order = [{i} for i in range(len(experiment.trials))]
-        cost_trace = 1.0 + np.arange(len(experiment.trials), dtype=float)
+        cost_trace = np.arange(len(experiment.trials), dtype=float) + 1.0
 
     num_trials = list(accumulate(len(trials) for trials in trial_completion_order))
 

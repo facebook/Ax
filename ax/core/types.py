@@ -12,6 +12,7 @@ from collections.abc import Callable, Mapping, Sequence
 from typing import Any
 
 import numpy as np
+import numpy.typing as npt
 
 
 TNumeric = float | int
@@ -21,7 +22,7 @@ TParameterization = dict[str, TParamValue]
 TParamValueList = list[TParamValue]  # a parameterization without the keys
 TContextStratum = dict[str, str | float | int] | None
 
-TBounds = tuple[np.ndarray[Any, Any], np.ndarray[Any, Any]] | None
+TBounds = tuple[npt.NDArray, npt.NDArray] | None
 TModelMean = dict[str, list[float]]
 TModelCov = dict[str, dict[str, list[float]]]
 TModelPredict = tuple[TModelMean, TModelCov]
