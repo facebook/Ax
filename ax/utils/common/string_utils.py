@@ -17,6 +17,8 @@ PIPE_PLACEHOLDER = "__pipe__"
 TILDE_PLACEHOLDER = "__tilde__"
 SPACE_PLACEHOLDER = "__space__"
 HYPHEN_PLACEHOLDER = "__hyphen__"
+LPAREN_PLACEHOLDER = "__lparen__"
+RPAREN_PLACEHOLDER = "__rparen__"
 _forbidden_re: re.Pattern[str] = re.compile(r"[\;\[\'\\]")
 
 SYMPY_GLOBALS: set[str] = set(dir(sympy))
@@ -48,7 +50,7 @@ def _check_sympy_conflicts(expression: str) -> None:
         )
 
 
-def sanitize_name(s: str) -> str:
+def sanitize_name(s: str, sanitize_parens: bool = False) -> str:
     """
     Converts a string with normal dots and slashes to a string with sanitized dots and
     slashes. This is temporarily necessary because SymPy symbol names must be valid
@@ -62,6 +64,21 @@ def sanitize_name(s: str) -> str:
 
     This does not allow obvious attack vectors  `;`, `[`, backslashes, and quotations.
     Colons, dots, slashes, and tildes are sanitized.
+
+    Args:
+        s: The string to sanitize.
+        sanitize_parens: If True, also sanitize parentheses that appear to be
+            part of metric/parameter names (e.g. ``"metric_(p50)"`` becomes
+            ``"metric___lparen__p50__rparen__"``). The regex matches
+            ``identifier(alphanumeric_content)`` — any ``(...)`` preceded by
+            an identifier whose content is purely ``[a-zA-Z0-9_]``. This
+            means single-argument SymPy calls like ``log(x)`` are also
+            sanitized, which is fine because this flag is only enabled in
+            objective/constraint parsing where SymPy function calls are
+            not valid expressions. Mathematical grouping like ``"(a + b)"``
+            (no preceding identifier) is never affected.
+            Defaults to False so that ``ExpressionDerivedMetric``, which
+            relies on genuine SymPy function calls, is unaffected.
     """
     if _forbidden_re.search(s) is not None:
         raise ValueError(f"Expression {s} has forbidden control characters.")
@@ -110,10 +127,24 @@ def sanitize_name(s: str) -> str:
         rf"\1{HYPHEN_PLACEHOLDER}",
         sans_tilde,
     )
-    # Check for conflicts with sympy's global dictionary
-    _check_sympy_conflicts(sans_hyphen)
+    result = sans_hyphen
 
-    return sans_hyphen
+    # Optionally sanitize parentheses that are part of metric/parameter names.
+    # Matches ``identifier(content)`` where content is purely [a-zA-Z0-9_].
+    # This intentionally also matches single-argument SymPy calls like
+    # ``log(x)``; callers that need SymPy function calls (e.g.
+    # ExpressionDerivedMetric) should leave sanitize_parens=False.
+    if sanitize_parens:
+        result = re.sub(
+            r"([a-zA-Z_][a-zA-Z0-9_]*)\(([a-zA-Z0-9_]+)\)",
+            rf"\1{LPAREN_PLACEHOLDER}\2{RPAREN_PLACEHOLDER}",
+            result,
+        )
+
+    # Check for conflicts with sympy's global dictionary
+    _check_sympy_conflicts(result)
+
+    return result
 
 
 def unsanitize_name(s: str) -> str:
@@ -125,7 +156,9 @@ def unsanitize_name(s: str) -> str:
     """
 
     # Unsanitize in the reverse order of sanitization
-    with_hyphen = re.sub(rf"{HYPHEN_PLACEHOLDER}", "-", s)
+    with_rparen = re.sub(rf"{RPAREN_PLACEHOLDER}", ")", s)
+    with_lparen = re.sub(rf"{LPAREN_PLACEHOLDER}", "(", with_rparen)
+    with_hyphen = re.sub(rf"{HYPHEN_PLACEHOLDER}", "-", with_lparen)
     with_tilde = re.sub(rf"{TILDE_PLACEHOLDER}", "~", with_hyphen)
     with_pipe = re.sub(rf"{PIPE_PLACEHOLDER}", "|", with_tilde)
     with_colon = re.sub(rf"{COLON_PLACEHOLDER}", ":", with_pipe)

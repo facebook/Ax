@@ -6,7 +6,7 @@
 
 # pyre-strict
 
-from ax.utils.common.string_utils import sanitize_name
+from ax.utils.common.string_utils import sanitize_name, unsanitize_name
 from ax.utils.common.testutils import TestCase
 
 
@@ -63,8 +63,68 @@ class StringUtilsTest(TestCase):
         # Test that E in scientific notation is not flagged (it's not an identifier)
         self.assertEqual(sanitize_name("1E5 + 2.3E-4"), "1E5 + 2.3E-4")
 
-        # Test that parens and equals are preserved (not sanitized).
+        # Test that parens and equals are preserved (not sanitized) by default.
         self.assertEqual(
             sanitize_name("sin(1) + cos(2)"),
             "sin(1) + cos(2)",
         )
+
+    def test_sanitize_parens(self) -> None:
+        """Test that sanitize_parens=True sanitizes parens in metric names."""
+        # Parenthesized suffix with purely identifier content is sanitized.
+        self.assertEqual(
+            sanitize_name("metric_(p50)", sanitize_parens=True),
+            "metric___lparen__p50__rparen__",
+        )
+        self.assertEqual(
+            sanitize_name("score(0_2_5)", sanitize_parens=True),
+            "score__lparen__0_2_5__rparen__",
+        )
+        # Metric name with colons AND parentheses.
+        self.assertEqual(
+            sanitize_name(
+                "scope:sub:metric_(p99)",
+                sanitize_parens=True,
+            ),
+            "scope__colon__sub__colon__metric___lparen__p99__rparen__",
+        )
+        # Mathematical grouping is NOT sanitized (no preceding identifier).
+        self.assertEqual(
+            sanitize_name("(a + b) * c", sanitize_parens=True),
+            "(a + b) * c",
+        )
+        # Parens with operator content inside are NOT sanitized.
+        self.assertEqual(
+            sanitize_name("sin(x + y)", sanitize_parens=True),
+            "sin(x + y)",
+        )
+        # sanitize_parens=False (default) does NOT sanitize parens.
+        self.assertEqual(
+            sanitize_name("metric_(p50)"),
+            "metric_(p50)",
+        )
+
+    def test_unsanitize_name_roundtrip(self) -> None:
+        """Test that unsanitize_name reverses sanitize_name including parens."""
+        names = [
+            "foo.bar.baz",
+            "foo.bar/11:Baz|qux",
+            "~treatment_percent_",
+            "metric-name",
+        ]
+        for name in names:
+            with self.subTest(name=name):
+                self.assertEqual(unsanitize_name(sanitize_name(name)), name)
+
+        # Round-trip with sanitize_parens=True
+        paren_names = [
+            "score(0_2_5)",
+            "metric_(p50)",
+            "scope:sub:metric_(p99)",
+        ]
+        for name in paren_names:
+            with self.subTest(name=name):
+                self.assertEqual(
+                    unsanitize_name(sanitize_name(name, sanitize_parens=True)),
+                    name,
+                )
