@@ -25,6 +25,7 @@ from ax.core.search_space import SearchSpace
 from ax.core.trial import Trial
 from ax.core.trial_status import TrialStatus
 from ax.core.types import ComparisonOp
+from ax.exceptions.core import UnsupportedError
 from ax.global_stopping.strategies.improvement import (
     constraint_satisfaction,
     ImprovementGlobalStoppingStrategy,
@@ -363,6 +364,53 @@ class TestImprovementGlobalStoppingStrategy(TestCase):
             "less than 0.1 times the interquartile range (IQR) of objectives "
             "attained so far (IQR=0.100).",
         )
+
+    def test_scalarized_objective_raises(self) -> None:
+        """Scalarized objectives should raise UnsupportedError."""
+        metric_values = [
+            (0.1, 0.6, 0.1),
+            (0.2, 0.3, 0.2),
+            (0.4, 0.5, 0.6),
+            (0.3, 0.4, 0.0),
+            (0.6, 0.6, 0.3),
+            (0.9, 0.1, 0.1),
+        ]
+        exp = self._create_single_objective_experiment(metric_values=metric_values)
+        exp._optimization_config = OptimizationConfig(
+            objective=Objective(expression="2*m1 + -3*m4"),
+            outcome_constraints=none_throws(
+                exp.optimization_config
+            ).outcome_constraints,
+        )
+        gss = ImprovementGlobalStoppingStrategy(
+            min_trials=2, window_size=3, improvement_bar=0.1
+        )
+        with self.assertRaisesRegex(
+            UnsupportedError, "does not support scalarized objectives"
+        ):
+            gss.should_stop_optimization(experiment=exp, trial_to_check=5)
+
+    def test_scalarized_outcome_constraint_raises(self) -> None:
+        """Scalarized outcome constraints should raise UnsupportedError."""
+        metric_values = [
+            (0.1, 0.6, 0.1),
+            (0.2, 0.3, 0.2),
+            (0.4, 0.5, 0.6),
+        ]
+        exp = self._create_single_objective_experiment(metric_values=metric_values)
+        exp._optimization_config = OptimizationConfig(
+            objective=Objective(metric=Metric(name="m1"), minimize=False),
+            outcome_constraints=[
+                OutcomeConstraint(expression="1.0*m2 + 1.0*m3 <= 0.5"),
+            ],
+        )
+        gss = ImprovementGlobalStoppingStrategy(
+            min_trials=2, window_size=3, improvement_bar=0.1
+        )
+        with self.assertRaisesRegex(
+            UnsupportedError, "does not support scalarized outcome constraints"
+        ):
+            gss.should_stop_optimization(experiment=exp, trial_to_check=2)
 
     def test_moo_with_map_data(self) -> None:
         exp = get_branin_experiment_with_timestamp_map_metric(
