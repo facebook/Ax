@@ -347,7 +347,7 @@ class WinsorizeTransformTest(TestCase):
             experiment=experiment,
             data_loader_config=DataLoaderConfig(),
         )
-        # Scalarized objective
+        # Scalarized objective (deprecated class)
         for minimize in [True, False]:
             experiment.optimization_config = OptimizationConfig(
                 objective=ScalarizedObjective(
@@ -368,6 +368,28 @@ class WinsorizeTransformTest(TestCase):
                     transform.cutoffs,
                     {"m1": (-6.5, INF), "m2": (-INF, 10.0), "m3": (-INF, INF)},
                 )
+        # Scalarized objective (expression-based). "m1 - m2" is equivalent to
+        # ScalarizedObjective(metrics=[m1, m2], weights=[1, -1], minimize=False)
+        # since expressions are always maximized.
+        experiment.optimization_config = OptimizationConfig(
+            objective=Objective(expression="m1 - m2")
+        )
+        adapter = Adapter(experiment=experiment, generator=Generator())
+        transform = Winsorize(experiment_data=experiment_data, adapter=adapter)
+        self.assertEqual(
+            transform.cutoffs,
+            {"m1": (-6.5, INF), "m2": (-INF, 10.0), "m3": (-INF, INF)},
+        )
+        # Negated expression "-m1 + m2" is equivalent to minimize=True above.
+        experiment.optimization_config = OptimizationConfig(
+            objective=Objective(expression="-m1 + m2")
+        )
+        adapter = Adapter(experiment=experiment, generator=Generator())
+        transform = Winsorize(experiment_data=experiment_data, adapter=adapter)
+        self.assertEqual(
+            transform.cutoffs,
+            {"m1": (-INF, 13.5), "m2": (-6.0, INF), "m3": (-INF, INF)},
+        )
         # Simple single-objective problem
         m1 = Metric(name="m1", lower_is_better=False)
         m2 = Metric(name="m2", lower_is_better=True)
