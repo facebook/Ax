@@ -24,7 +24,7 @@ from pyre_extensions import assert_is_instance
 from torch import Tensor
 
 
-Tensoray = Union[torch.Tensor, npt.NDArray]
+Tensoray = Union[torch.Tensor, np.ndarray]
 TTensoray = TypeVar("TTensoray", bound=Tensoray)
 
 

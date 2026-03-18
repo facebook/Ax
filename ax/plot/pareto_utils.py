@@ -399,9 +399,9 @@ def compute_posterior_pareto_frontier(
     # Construct weightings with linear angular spacing.
     # TODO: Verify whether 0, 1 weights cause problems because of subset_model.
     alpha = np.linspace(0 + 0.01, np.pi / 2 - 0.01, num_points)
-    primary_weight = (-1 if primary_objective.lower_is_better else 1) * np.cos(alpha)
-    secondary_weight = (-1 if secondary_objective.lower_is_better else 1) * np.sin(
-        alpha
+    primary_weight = np.cos(alpha) * (-1 if primary_objective.lower_is_better else 1)
+    secondary_weight = np.sin(alpha) * (
+        -1 if secondary_objective.lower_is_better else 1
     )
     weights_list = np.stack([primary_weight, secondary_weight]).transpose()
     for weights in weights_list:

@@ -457,7 +457,7 @@ class BatchTrial(BaseTrial):
         weights = np.array(self.weights)
         if trunc_digits is not None:
             atomic_weight = 10**-trunc_digits
-            int_weights = (
+            int_weights = np.asarray(
                 (total / atomic_weight) * (weights / np.sum(weights))
             ).astype(int)
             n_leftover = int(total / atomic_weight) - np.sum(int_weights)

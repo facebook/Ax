@@ -136,7 +136,7 @@ class CrossValidationTest(TestCase):
             self.assertEqual(len(set(train[i]).intersection(test[i])), 0)
             self.assertEqual(len(train[i]) + len(test[i]), 4)
         # Test all points used as test points
-        all_test = np.hstack(test)
+        all_test = np.hstack([np.asarray(t) for t in test])
         self.assertTrue(
             np.array_equal(sorted(all_test), np.array([2.0, 2.0, 3.0, 4.0]))
         )
@@ -162,7 +162,7 @@ class CrossValidationTest(TestCase):
             self.assertEqual(len(set(train[i]).intersection(test[i])), 0)
             self.assertEqual(len(train[i]) + len(test[i]), 4)
         # Test all points used as test points
-        all_test = np.hstack(test)
+        all_test = np.hstack([np.asarray(t) for t in test])
         self.assertTrue(
             np.array_equal(sorted(all_test), np.array([2.0, 2.0, 3.0, 4.0]))
         )
@@ -200,7 +200,7 @@ class CrossValidationTest(TestCase):
             self.assertEqual(len(set(train[i]).intersection(test[i])), 0)
             self.assertEqual(len(train[i]) + len(test[i]), 4)
         # Test all points used as test points -- these are transformed after call.
-        all_test = np.hstack(test)
+        all_test = np.hstack([np.asarray(t) for t in test])
         self.assertTrue(
             np.array_equal(sorted(all_test), np.array([0.2, 0.2, 0.3, 0.4]))
         )
@@ -248,7 +248,10 @@ class CrossValidationTest(TestCase):
         z = mock_cv.mock_calls
         self.assertEqual(len(z), 2)
         all_test = np.hstack(
-            [[obsf.parameters["x"] for obsf in r[2]["cv_test_points"]] for r in z]
+            [
+                np.asarray([obsf.parameters["x"] for obsf in r[2]["cv_test_points"]])
+                for r in z
+            ]
         )
         self.assertTrue(np.array_equal(sorted(all_test), np.array([2.0, 2.0, 3.0])))
 

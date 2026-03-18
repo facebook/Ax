@@ -38,10 +38,10 @@ def _validate_and_extract_single_metric_data(
             sem is None or isinstance(sem, FloatLike)
         ):
             raise UserInputError(error_message)
-        return mean, sem
+        return float(mean), float(sem) if sem is not None else None
     if not isinstance(dat, FloatLike):
         raise UserInputError(error_message)
-    return dat, None
+    return float(dat), None
 
 
 def raw_evaluations_to_data(
