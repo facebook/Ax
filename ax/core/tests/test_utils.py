@@ -14,8 +14,10 @@ import pandas as pd
 from ax.core.arm import Arm
 from ax.core.batch_trial import BatchTrial
 from ax.core.data import Data
+from ax.core.derived_metric import DerivedMetric
 from ax.core.evaluations_to_data import raw_evaluations_to_data
 from ax.core.generator_run import GeneratorRun
+from ax.core.llm_provider import LLMMessage
 from ax.core.metric import Metric
 from ax.core.objective import Objective
 from ax.core.observation import ObservationFeatures
@@ -35,6 +37,7 @@ from ax.core.utils import (
     get_pending_observation_features_based_on_trial_status as get_pending_status,
     get_target_trial_index,
     is_bandit_experiment,
+    is_lilo_experiment,
     MetricAvailability,
 )
 from ax.exceptions.core import AxError
@@ -867,6 +870,87 @@ class UtilsTest(TestCase):
             get_target_trial_index(experiment=self.batch_experiment),
             completed_trial.index,
         )
+
+    def test_get_target_trial_index_excludes_lilo_trials(self) -> None:
+        """LILO labeling trials should never be selected as the target trial."""
+        exp = get_branin_experiment(with_completed_trial=False)
+        exp.status_quo = Arm(name="status_quo", parameters={"x1": 0.0, "x2": 0.0})
+
+        # Sobol trial with base metric data.
+        sobol_trial = exp.new_batch_trial().add_arm(exp.status_quo)
+        sobol_trial.mark_completed(unsafe=True)
+        exp.attach_data(get_branin_data_batch(batch=sobol_trial))
+
+        # Register a pairwise preference DerivedMetric (mimics configure_lilo).
+        pairwise_name = Keys.PAIRWISE_PREFERENCE_QUERY.value
+        pairwise_metric = DerivedMetric(
+            name=pairwise_name, input_metric_names=["branin"]
+        )
+        exp.add_tracking_metric(pairwise_metric)
+        exp.optimization_config = OptimizationConfig(
+            objective=Objective(expression=pairwise_name),
+        )
+        exp.llm_messages = [LLMMessage(role="system", content="test")]
+
+        # LILO trial with pairwise data and SQ.
+        lilo_trial = exp.new_batch_trial(trial_type=Keys.LILO_LABELING)
+        lilo_trial.add_arm(exp.status_quo)
+        lilo_trial.add_arm(Arm(name="lilo_arm", parameters={"x1": 0.5, "x2": 0.5}))
+        lilo_trial.mark_completed(unsafe=True)
+        exp.attach_data(
+            Data(
+                df=pd.DataFrame(
+                    [
+                        {
+                            "arm_name": "status_quo",
+                            "mean": 0.0,
+                            "sem": 0.0,
+                            "trial_index": lilo_trial.index,
+                            "metric_name": pairwise_name,
+                            "metric_signature": pairwise_name,
+                        },
+                        {
+                            "arm_name": "lilo_arm",
+                            "mean": 1.0,
+                            "sem": 0.0,
+                            "trial_index": lilo_trial.index,
+                            "metric_name": pairwise_name,
+                            "metric_signature": pairwise_name,
+                        },
+                    ]
+                )
+            )
+        )
+
+        # Without the LILO exclusion, the LILO trial would be selected
+        # (it has COMPLETE data for the opt config metric).  With the
+        # exclusion, the Sobol trial is selected via the INCOMPLETE fallback.
+        target = get_target_trial_index(experiment=exp)
+        self.assertEqual(target, sobol_trial.index)
+
+    def test_is_lilo_experiment(self) -> None:
+        # No opt config → False.
+        exp_no_oc = get_branin_experiment(has_optimization_config=False)
+        self.assertFalse(is_lilo_experiment(exp_no_oc))
+
+        # Objective is not pairwise_pref_query → False.
+        exp = get_branin_experiment(with_completed_trial=False)
+        self.assertFalse(is_lilo_experiment(exp))
+
+        # Pairwise metric in objective but no LLM messages → False (PBO).
+        pairwise_name = Keys.PAIRWISE_PREFERENCE_QUERY.value
+        pairwise_metric = DerivedMetric(
+            name=pairwise_name, input_metric_names=["branin"]
+        )
+        exp.add_tracking_metric(pairwise_metric)
+        exp.optimization_config = OptimizationConfig(
+            objective=Objective(expression=pairwise_name),
+        )
+        self.assertFalse(is_lilo_experiment(exp))
+
+        # Both conditions met → True.
+        exp.llm_messages = [LLMMessage(role="user", content="optimize latency")]
+        self.assertTrue(is_lilo_experiment(exp))
 
 
 class TestMetricAvailability(TestCase):
