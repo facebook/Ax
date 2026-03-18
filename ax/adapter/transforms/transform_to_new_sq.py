@@ -9,7 +9,6 @@
 from __future__ import annotations
 
 from collections.abc import Callable
-from logging import Logger
 from typing import TYPE_CHECKING
 
 import numpy as np
@@ -22,14 +21,12 @@ from ax.core.outcome_constraint import OutcomeConstraint
 from ax.core.search_space import SearchSpace
 from ax.core.utils import get_target_trial_index
 from ax.generators.types import TConfig
-from ax.utils.common.logger import get_logger
 from ax.utils.stats.math_utils import relativize, unrelativize
 from pyre_extensions import assert_is_instance, none_throws
 
 if TYPE_CHECKING:
     # import as module to make sphinx-autodoc-typehints happy
     from ax import adapter as adapter_module  # noqa F401
-logger: Logger = get_logger(__name__)
 
 
 class TransformToNewSQ(BaseRelativize):
@@ -108,49 +105,41 @@ class TransformToNewSQ(BaseRelativize):
         self, experiment_data: ExperimentData
     ) -> ExperimentData:
         observation_data = experiment_data.observation_data.copy(deep=True)
-        all_trial_indices = observation_data.index.get_level_values(
-            "trial_index"
-        ).unique()
-        if not all_trial_indices.isin(self.status_quo_data_by_trial.keys()).all():
-            raise ValueError(
-                f"{self.__class__.__name__} requires status quo data for all "
-                f"trials in the experiment data. Found trial indices "
-                f"{all_trial_indices} but status quo data is only available for "
-                f"trials {list(self.status_quo_data_by_trial.keys())}."
-            )
-
         trial_indices = observation_data.index.get_level_values("trial_index")
-        transform_mask = trial_indices != self.default_trial_idx
-        # Get the target trial's status quo data
-        target_sq_data = self.status_quo_data_by_trial[self.default_trial_idx]
 
+        # Trials to skip: target trial, non-relativizable trials (e.g.,
+        # LILO labeling), and trials without SQ data.
+        all_unique = set(trial_indices.unique().tolist())
+        trials_without_sq = all_unique - set(self.status_quo_data_by_trial.keys())
+        skip_trials = (
+            {self.default_trial_idx}
+            | self._non_relativizable_trial_indices
+            | trials_without_sq
+        )
+        transform_mask = ~trial_indices.isin(skip_trials)
+
+        target_sq_data = self.status_quo_data_by_trial[self.default_trial_idx]
         metrics = experiment_data.metric_signatures
         if not transform_mask.any():
-            # Nothing to transform, set metrics to empty list to skip the loop.
-            # We still need to drop SQ after.
             metrics = []
 
         for metric in metrics:
-            # Create arrays of control values for each row based on trial_index.
+            if metric not in target_sq_data.metric_signatures:
+                continue
+
+            # Build per-row control arrays from each trial's SQ data.
             mean_c, sem_c = [], []
-            for idx in trial_indices:
+            for idx in trial_indices[transform_mask]:
                 sq_data = self.status_quo_data_by_trial[idx]
                 j = get_metric_index(data=sq_data, metric_signature=metric)
                 mean_c.append(sq_data.means[j])
                 sem_c.append(sq_data.covariance[j, j] ** 0.5)
-            mean_c = np.array(mean_c)
-            sem_c = np.array(sem_c)
 
-            # Only transform rows that are not from the target trial.
-            means_t = observation_data.loc[transform_mask, ("mean", metric)]
-            sems_t = observation_data.loc[transform_mask, ("sem", metric)]
-
-            # Relativize with respect to original trial's status quo.
             means_rel, sems_rel = relativize(
-                means_t=means_t,
-                sems_t=sems_t,
-                mean_c=mean_c[transform_mask],
-                sem_c=sem_c[transform_mask],
+                means_t=observation_data.loc[transform_mask, ("mean", metric)],
+                sems_t=observation_data.loc[transform_mask, ("sem", metric)],
+                mean_c=np.array(mean_c),
+                sem_c=np.array(sem_c),
                 as_percent=False,
                 control_as_constant=self.control_as_constant,
             )
@@ -166,23 +155,22 @@ class TransformToNewSQ(BaseRelativize):
                 sems_rel * abs_target_mean_c
             )
 
-        # Drop SQ observations from the data -- except for the target trial.
-        # Keep rows where arm_name != SQ or trial_index == target_trial_idx.
-        observation_data = observation_data[
-            (
-                observation_data.index.get_level_values("arm_name")
-                != self.status_quo_name
-            )
-            | (
-                observation_data.index.get_level_values("trial_index")
-                == self.default_trial_idx
-            )
-        ]
+        # Drop SQ observations from transformed trials (their SQ values
+        # are now zero / redundant).  Non-transformed trials (e.g., LILO
+        # labeling) keep all observations including SQ arms.
+        transformed_trials = all_unique - skip_trials
         arm_data = experiment_data.arm_data
-        arm_data = arm_data[
-            (arm_data.index.get_level_values("arm_name") != self.status_quo_name)
-            | (arm_data.index.get_level_values("trial_index") == self.default_trial_idx)
-        ]
+        if transformed_trials:
+            obs_drop = trial_indices.isin(transformed_trials) & (
+                observation_data.index.get_level_values("arm_name")
+                == self.status_quo_name
+            )
+            observation_data = observation_data[~obs_drop]
+            arm_trial_indices = arm_data.index.get_level_values("trial_index")
+            arm_drop = arm_trial_indices.isin(transformed_trials) & (
+                arm_data.index.get_level_values("arm_name") == self.status_quo_name
+            )
+            arm_data = arm_data[~arm_drop]
         return ExperimentData(
             arm_data=arm_data,
             observation_data=observation_data,
@@ -201,6 +189,8 @@ class TransformToNewSQ(BaseRelativize):
         if idx == self.default_trial_idx:
             # don't transform data from target batch
             return obs.data
+        if idx not in self.status_quo_data_by_trial:
+            return obs.data
         return super()._get_relative_data_from_obs(
             obs=obs,
             rel_op=rel_op,
@@ -215,13 +205,16 @@ class TransformToNewSQ(BaseRelativize):
             observations=observations,
             rel_op=rel_op,
         )
+        # Keep SQ observations from non-relativizable trials (e.g.,
+        # LILO labeling) — dropping an arm from a pairwise comparison
+        # would break PairwiseGP.
         return [
             obs
             for obs in rel_observations
-            # drop SQ observations
             if (
                 obs.arm_name != self.status_quo_name
                 or obs.features.trial_index == self.default_trial_idx
+                or obs.features.trial_index in self._non_relativizable_trial_indices
             )
         ]
 
