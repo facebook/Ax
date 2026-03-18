@@ -19,7 +19,7 @@ from ax.core.optimization_config import (
 from ax.core.outcome_constraint import OutcomeConstraint
 from ax.core.trial import Trial
 from ax.core.types import ComparisonOp
-from ax.exceptions.core import AxError
+from ax.exceptions.core import AxError, UnsupportedError
 from ax.global_stopping.strategies.base import BaseGlobalStoppingStrategy
 from ax.service.utils.best_point import (
     get_tensor_converter_adapter,
@@ -155,6 +155,19 @@ class ImprovementGlobalStoppingStrategy(BaseGlobalStoppingStrategy):
                 f"to it, despite having {num_completed_trials} completed "
                 f"trials. Data is required for {self}, so this is an invalid "
                 "state of the experiment."
+            )
+
+        opt_config = none_throws(experiment.optimization_config)
+        if opt_config.objective.is_scalarized_objective:
+            raise UnsupportedError(
+                "ImprovementGlobalStoppingStrategy does not support scalarized "
+                "objectives. The objective is a combination of metrics, not a "
+                "single metric."
+            )
+        if any(len(oc.metric_names) > 1 for oc in opt_config.outcome_constraints):
+            raise UnsupportedError(
+                "ImprovementGlobalStoppingStrategy does not support scalarized "
+                "outcome constraints."
             )
 
         if isinstance(experiment.optimization_config, MultiObjectiveOptimizationConfig):
@@ -303,9 +316,10 @@ class ImprovementGlobalStoppingStrategy(BaseGlobalStoppingStrategy):
                 objectives.append(tr.objective_mean)
                 is_feasible.append(constraint_satisfaction(tr))
 
-        if assert_is_instance(
+        minimize = assert_is_instance(
             experiment.optimization_config, OptimizationConfig
-        ).objective.minimize:
+        ).objective.minimize
+        if minimize:
             selector, mask_val = np.minimum, np.inf
         else:
             selector, mask_val = np.maximum, -np.inf
