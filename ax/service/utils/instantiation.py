@@ -174,12 +174,6 @@ class InstantiationBase:
         for_opt_config: bool = False,
         metric_definitions: dict[str, dict[str, Any]] | None = None,
     ) -> Metric:
-        if " " in name:
-            raise ValueError(
-                "Metric names cannot contain spaces when used with AxClient. Got "
-                f"{name!r}."
-            )
-
         metric_definitions = metric_definitions or {}
 
         metric_class, kwargs = cls._get_deserialized_metric_kwargs(
@@ -374,12 +368,6 @@ class InstantiationBase:
                 "'bool' or 'str'."
             )
 
-        if " " in name:
-            raise ValueError(
-                "Parameter names cannot contain spaces when used with AxClient. Got "
-                f"{name!r}."
-            )
-
         if parameter_class == "range":
             return cls._make_range_param(
                 name=name,
@@ -440,6 +428,12 @@ class InstantiationBase:
             An instantiated ParameterConstraint, either an OrderConstraint or a
             ParameterConstraint, representing a linear constraint.
         """
+        for param_name in parameters:
+            if " " in param_name:
+                raise ValueError(
+                    "Parameter names cannot contain spaces when used in "
+                    f"constraint strings. Got {param_name!r}."
+                )
         tokens = representation.split()
         try:
             float(tokens[-1])
@@ -482,11 +476,13 @@ class InstantiationBase:
     ) -> OutcomeConstraint:
         """Parse string representation of an outcome constraint."""
         tokens = representation.split()
-        assert len(tokens) == 3 and tokens[1] in COMPARISON_OPS, (
-            f"Outcome constraint '{representation}' should be of "
-            "form `metric_name >= x`, where x is a "
-            "float bound and comparison operator is >= or <=."
-        )
+        if len(tokens) != 3 or tokens[1] not in COMPARISON_OPS:
+            raise ValueError(
+                f"Outcome constraint '{representation}' should be of "
+                "form `metric_name >= x`, where x is a float bound and "
+                "comparison operator is >= or <=. Note that metric names "
+                "cannot contain spaces in constraint strings."
+            )
         op = COMPARISON_OPS[tokens[1]]
         rel = False
         try:
