@@ -37,17 +37,13 @@ from botorch.acquisition.multi_objective.parego import qLogNParEGO
 from botorch.exceptions.errors import BotorchError, CandidateGenerationError
 from botorch.fit import fit_fully_bayesian_model_nuts, fit_gpytorch_mll
 from botorch.models import PairwiseLaplaceMarginalLogLikelihood
-from botorch.models.fully_bayesian import (
-    AbstractFullyBayesianSingleTaskGP,
-    FullyBayesianSingleTaskGP,
-)
+from botorch.models.fully_bayesian import AbstractFullyBayesianSingleTaskGP
 from botorch.models.fully_bayesian_multitask import SaasFullyBayesianMultiTaskGP
 from botorch.models.gp_regression import SingleTaskGP
 from botorch.models.gp_regression_fidelity import SingleTaskMultiFidelityGP
 from botorch.models.gp_regression_mixed import MixedSingleTaskGP
 from botorch.models.gpytorch import BatchedMultiOutputGPyTorchModel, GPyTorchModel
 from botorch.models.heterogeneous_mtgp import HeterogeneousMTGP
-from botorch.models.map_saas import EnsembleMapSaasSingleTaskGP
 from botorch.models.model import Model, ModelList
 from botorch.models.multitask import MultiTaskGP
 from botorch.models.pairwise_gp import PairwiseGP
@@ -200,17 +196,9 @@ def use_model_list(
 
     # Otherwise, the same model class is used for all outcomes.
     botorch_model_class = none_throws(next(iter(botorch_model_class_set)))
-    if issubclass(botorch_model_class, FullyBayesianSingleTaskGP):
-        # SAAS models do not support multiple outcomes.
-        # Use model list if there are multiple outcomes.
-        return len(datasets) > 1 or datasets[0].Y.shape[-1] > 1
-    elif issubclass(botorch_model_class, EnsembleMapSaasSingleTaskGP):
-        # Ensemble MAP SAAS models do not support multiple outcomes.
-        # Use model list if there are multiple outcomes.
-        return len(datasets) > 1 or datasets[0].Y.shape[-1] > 1
-    elif issubclass(botorch_model_class, MultiTaskGP):
-        # We wrap multi-task models into `ModelListGP` when there are
-        # multiple outcomes.
+    if getattr(botorch_model_class, "_supports_batched_models", None) is False:
+        # Models with _supports_batched_models = False do not support batching
+        # multiple metrics. Use model list if there are multiple outcomes.
         return len(datasets) > 1 or datasets[0].Y.shape[-1] > 1
     elif len(datasets) == 1:
         # This method is called before multiple datasets are merged into
