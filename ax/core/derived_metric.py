@@ -53,6 +53,7 @@ from typing import Any, Callable, cast
 
 import pandas as pd
 from ax.core.base_trial import BaseTrial
+from ax.core.batch_trial import BatchTrial
 from ax.core.data import Data
 from ax.core.metric import Metric, MetricFetchE, MetricFetchResult
 from ax.exceptions.core import UserInputError
@@ -272,7 +273,18 @@ class DerivedMetric(Metric):
         """
         arm_data: dict[str, pd.DataFrame] = {}
 
+        # Skip abandoned arms -- they have no base metric data (the metric
+        # system correctly does not fetch data for abandoned arms), so
+        # requiring their data would cause a spurious MetricFetchE.
+        abandoned_names: set[str] = (
+            {a.name for a in trial.abandoned_arms}
+            if isinstance(trial, BatchTrial)
+            else set()
+        )
+
         for arm in trial.arms:
+            if arm.name in abandoned_names:
+                continue
             if source_trial_indices is not None and arm.name in source_trial_indices:
                 src_trial_idx, src_arm_name = source_trial_indices[arm.name]
                 arm_df = df[
