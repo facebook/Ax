@@ -37,6 +37,27 @@ MANY_TRIALS_IN_EXPERIMENT = 100
 OLD_TRIAL_THRESHOLD_DAYS = 10
 
 
+def is_lilo_experiment(experiment: Experiment) -> bool:
+    """Return ``True`` if *experiment* is configured for LILO.
+
+    An experiment is considered a LILO experiment when **both**:
+    1. The objective references the pairwise preference query metric.
+    2. The experiment has LLM messages.
+
+    Condition 1 alone (without LLM messages) indicates a PBO experiment
+    (human-provided pairwise preferences).  Condition 2 alone means
+    ``configure_lilo()`` has not been called yet.
+    """
+    opt_config = experiment.optimization_config
+    if opt_config is None:
+        return False
+    if Keys.PAIRWISE_PREFERENCE_QUERY.value not in opt_config.objective.metric_names:
+        return False
+    if not experiment.llm_messages:
+        return False
+    return True
+
+
 # ------------------- Utils shared by Client and BatchClient--------------------
 def _maybe_update_trial_status_to_complete(
     experiment: Experiment,
@@ -552,10 +573,45 @@ def get_target_trial_index(
     sq_df = df[df["arm_name"] == status_quo.name]
     trial_indices_with_sq_data = set(sq_df.trial_index.unique())
 
+    # Exclude LILO labeling trials — they carry only pairwise preference
+    # data and should never serve as the relativization reference.
+    lilo_trial_indices = {
+        t.index
+        for t in experiment.trials.values()
+        if t.trial_type == Keys.LILO_LABELING
+    }
+
     # trials with both SQ data and required metrics
     valid_trial_indices = (
         trial_indices_with_sq_data & trial_indices_with_required_metrics
-    )
+    ) - lilo_trial_indices
+
+    # Fallback: accept INCOMPLETE availability for LILO experiments.
+    # configure_lilo() adds pairwise_pref_query to the opt config, but
+    # non-LILO trials can never have data for that metric (it requires
+    # a specific LILO labeling trial setup).  Relaxing to INCOMPLETE
+    # lets those trials qualify as relativization references.
+    # Scoped to LILO experiments to avoid masking real data issues
+    # elsewhere.
+    if not valid_trial_indices and is_lilo_experiment(experiment):
+        # Check availability against ALL experiment metrics (not just opt
+        # config) so that non-LILO trials with base-metric data are found
+        # even though they lack the pairwise preference metric that
+        # configure_lilo() added to the opt config.
+        availability = compute_metric_availability(
+            experiment=experiment,
+            trial_indices={int(idx) for idx in df.trial_index.unique()},
+            metric_names=set(experiment.metrics.keys()),
+        )
+        valid_trial_indices = (
+            trial_indices_with_sq_data
+            & {
+                idx
+                for idx, avail in availability.items()
+                if avail in (MetricAvailability.COMPLETE, MetricAvailability.INCOMPLETE)
+            }
+            - lilo_trial_indices
+        )
 
     # only consider running trials with valid data
     running_trials = [
