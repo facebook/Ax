@@ -1896,6 +1896,48 @@ class TestClient(TestCase):
         self.assertIn("param_sum", summary_df.columns)
         self.assertEqual(len(summary_df), 3)
 
+    @mock_botorch_optimize
+    def test_scalarized_single_objective_optimization(self) -> None:
+        """Test that a scalarized single objective (e.g., "0.5*m1 + 0.5*m2")
+        works end-to-end including BoTorch generation."""
+        client = Client()
+        client.configure_experiment(
+            parameters=[
+                RangeParameterConfig(name="x", parameter_type="float", bounds=(-1, 1)),
+            ],
+        )
+        client.configure_optimization(objective="0.5*m1 + 0.5*m2")
+        client.configure_generation_strategy(initialization_budget=3)
+
+        # Verify the objective is set up correctly.
+        opt_config = none_throws(client._experiment.optimization_config)
+        objective = opt_config.objective
+        self.assertTrue(objective.is_scalarized_objective)
+        self.assertFalse(objective.is_multi_objective)
+        self.assertEqual(objective.metric_names, ["m1", "m2"])
+
+        # Run Sobol initialization trials.
+        for _ in range(3):
+            for index, parameters in client.get_next_trials(max_trials=1).items():
+                x = assert_is_instance(parameters["x"], float)
+                client.complete_trial(
+                    trial_index=index,
+                    raw_data={"m1": x**2, "m2": 1 - x**2},
+                )
+
+        # Generate a BoTorch trial (post-initialization).
+        for index, parameters in client.get_next_trials(max_trials=1).items():
+            x = assert_is_instance(parameters["x"], float)
+            client.complete_trial(
+                trial_index=index,
+                raw_data={"m1": x**2, "m2": 1 - x**2},
+            )
+
+        # Verify we can get the best parameterization.
+        best_params, prediction, _index, _name = client.get_best_parameterization()
+        self.assertIn("x", best_params)
+        self.assertEqual(set(prediction.keys()), {"m1", "m2"})
+
 
 class DummyRunner(IRunner):
     @override

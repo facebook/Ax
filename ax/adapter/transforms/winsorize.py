@@ -18,7 +18,7 @@ from ax.adapter.transforms.base import Transform
 from ax.adapter.transforms.utils import (
     derelativize_optimization_config_with_raw_status_quo,
 )
-from ax.core.objective import ScalarizedObjective
+from ax.core.objective import ScalarizedObjective  # noqa: F401
 from ax.core.observation import ObservationData
 from ax.core.optimization_config import (
     MultiObjectiveOptimizationConfig,
@@ -243,23 +243,20 @@ def _get_cutoffs(
             metric_values=metric_values,
         )
 
-    # Make sure we winsorize from the correct direction if a `ScalarizedObjective`.
-    if isinstance(optimization_config.objective, ScalarizedObjective):
-        objective = assert_is_instance(
-            optimization_config.objective, ScalarizedObjective
-        )
-        weight = [w for m, w in objective.metric_weights if m == metric_signature][0]
-        # metric_weights are sign-encoded: a negative weight means minimize.
-        return _get_auto_winsorization_cutoffs_single_objective(
-            metric_values=metric_values,
-            minimize=weight < 0,
-        )
-
-    # Single-objective
+    # Single-objective (including scalarized).
     if not optimization_config.is_moo_problem:
+        objective = optimization_config.objective
+        if objective.is_scalarized_objective:
+            # metric_weights are sign-encoded: a negative weight means minimize.
+            weight = [w for m, w in objective.metric_weights if m == metric_signature][
+                0
+            ]
+            minimize = weight < 0
+        else:
+            minimize = objective.minimize
         return _get_auto_winsorization_cutoffs_single_objective(
             metric_values=metric_values,
-            minimize=optimization_config.objective.minimize,
+            minimize=minimize,
         )
 
     # Multi-objective
