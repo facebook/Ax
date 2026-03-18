@@ -2215,13 +2215,23 @@ class Experiment(Base):
             if objective.is_multi_objective:
                 parts = [p.strip() for p in objective.expression.split(",")]
                 sub_objectives = [Objective(expression=part) for part in parts]
+                for sub_obj in sub_objectives:
+                    obj_name = sub_obj.metric_names[0]
+                    if obj_name in records:
+                        records[obj_name][METRIC_DF_COLNAMES["goal"]] = (
+                            "minimize" if sub_obj.minimize else "maximize"
+                        )
+            elif objective.is_scalarized_objective:
+                for metric_name, weight in objective.metric_weights:
+                    if metric_name in records:
+                        records[metric_name][METRIC_DF_COLNAMES["goal"]] = (
+                            "minimize" if weight < 0 else "maximize"
+                        )
             else:
-                sub_objectives = [objective]
-            for sub_obj in sub_objectives:
-                obj_name = sub_obj.metric_names[0]
+                obj_name = objective.metric_names[0]
                 if obj_name in records:
                     records[obj_name][METRIC_DF_COLNAMES["goal"]] = (
-                        "minimize" if sub_obj.minimize else "maximize"
+                        "minimize" if objective.minimize else "maximize"
                     )
 
             objective_threshold_names: set[str] = set()
