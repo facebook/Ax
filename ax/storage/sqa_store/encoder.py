@@ -6,6 +6,7 @@
 
 # pyre-strict
 
+import dataclasses
 from enum import Enum
 from logging import Logger
 from typing import Any, cast
@@ -29,6 +30,7 @@ from ax.core.data import Data
 from ax.core.evaluations_to_data import DataType
 from ax.core.experiment import Experiment
 from ax.core.generator_run import GeneratorRun
+from ax.core.llm_provider import LLMMessage
 from ax.core.metric import Metric
 from ax.core.multi_type_experiment import MultiTypeExperiment
 from ax.core.objective import MultiObjective, Objective, ScalarizedObjective
@@ -239,6 +241,11 @@ class Encoder:
             properties["pruning_target_parameterization"] = arm_to_dict(
                 oc.pruning_target_parameterization
             )
+        if Keys.LLM_MESSAGES in properties:
+            properties[Keys.LLM_MESSAGES] = [
+                dataclasses.asdict(m) if isinstance(m, LLMMessage) else m
+                for m in properties[Keys.LLM_MESSAGES]
+            ]
 
         # pyre-ignore[9]: Expected `Base` for 1st...yping.Type[Experiment]`.
         experiment_class: type[SQAExperiment] = self.config.class_to_sqa_class[
