@@ -14,7 +14,7 @@ from ax.core import OptimizationConfig
 from ax.core.data import Data, MAP_KEY
 from ax.core.experiment import Experiment
 from ax.core.metric import Metric
-from ax.core.objective import MultiObjective
+from ax.core.objective import MultiObjective, Objective
 from ax.core.trial_status import TrialStatus
 from ax.early_stopping.strategies import (
     BaseEarlyStoppingStrategy,
@@ -287,6 +287,28 @@ class TestBaseEarlyStoppingStrategy(TestCase):
             "Metrics used for early stopping must specify lower_is_better. ",
         ):
             es_strategy._all_objectives_and_directions(experiment=test_experiment)
+
+    def test_all_objectives_and_directions_scalarized(self) -> None:
+        """Test that _all_objectives_and_directions handles scalarized
+        objectives by using metric_weights to determine directions."""
+        test_experiment = get_test_map_data_experiment(
+            num_trials=3, num_fetches=5, num_complete=3
+        )
+        metric_a = Metric(name="metric_a", lower_is_better=False)
+        metric_b = Metric(name="metric_b", lower_is_better=True)
+        test_experiment.add_tracking_metric(metric_a)
+        test_experiment.add_tracking_metric(metric_b)
+        # Scalarized objective: maximize metric_a, minimize metric_b
+        test_experiment._optimization_config = OptimizationConfig(
+            objective=Objective(expression="2*metric_a + -3*metric_b"),
+        )
+        es_strategy = FakeStrategy()
+        directions = es_strategy._all_objectives_and_directions(
+            experiment=test_experiment
+        )
+        # weight > 0 -> minimize=False, weight < 0 -> minimize=True
+        self.assertFalse(directions[metric_a.signature])
+        self.assertTrue(directions[metric_b.signature])
 
     @patch.object(logger, "warning")
     def test_default_objective_and_direction(self, _: MagicMock) -> None:

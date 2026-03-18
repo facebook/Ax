@@ -516,7 +516,9 @@ class BaseEarlyStoppingStrategy(ABC, Base):
             optimization_config = none_throws(experiment.optimization_config)
             objective = optimization_config.objective
             directions = {}
-            if objective.is_multi_objective:
+            if not objective.is_single_objective:
+                # Covers both multi-objective and scalarized objectives.
+                # For both, metric_weights encodes direction via sign.
                 for name, weight in objective.metric_weights:
                     metric = experiment.get_metric(name)
                     directions[metric.signature] = weight < 0
