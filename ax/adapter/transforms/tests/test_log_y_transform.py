@@ -404,7 +404,7 @@ class LogNormTest(TestCase):
 
     def test_norm_to_lognorm(self) -> None:
         # Test with variance (diagonal elements only)
-        mu_n = -0.5 * np.ones(3)
+        mu_n = np.asarray(-0.5 * np.ones(3))
         var_n = np.ones(3)
         mu_ln, var_ln = norm_to_lognorm(mu_n, var_n)
         self.assertTrue(np.allclose(mu_ln, np.ones(3)))

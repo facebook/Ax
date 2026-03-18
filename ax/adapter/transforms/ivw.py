@@ -65,9 +65,7 @@ def ivw_metric_merge(
         idx_noiseless = np.where(sigma2s == 0.0)[0]
         if len(idx_noiseless) == 0:
             # Weight is inverse of variance, normalized
-            # Expected `np.ndarray` for 3rd anonymous parameter to call
-            # `dict.__setitem__` but got `float`.
-            weights[metric_signature] = 1.0 / sigma2s
+            weights[metric_signature] = np.asarray(1.0 / sigma2s)
             weights[metric_signature] /= np.sum(weights[metric_signature])
         else:
             # Check if there are conflicting means for the noiseless observations
