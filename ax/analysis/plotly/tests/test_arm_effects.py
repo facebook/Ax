@@ -359,7 +359,7 @@ class TestArmEffectsPlotInfeasibility(TestCase):
         # Single trace containing all infeasible arms
         self.assertEqual(len(infeasible_traces), 1)
         trace = infeasible_traces[0]
-        self.assertEqual(trace["marker"]["line"]["color"], "red")
+        self.assertEqual(trace["marker"]["line"]["color"], "rgba(255, 0, 0, 0.6)")
         self.assertGreater(trace["marker"]["line"]["width"], 0)
         # The trace should contain 2 infeasible points
         self.assertEqual(len([x for x in trace["x"] if x is not None]), 2)
