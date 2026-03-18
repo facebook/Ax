@@ -156,7 +156,13 @@ class Parameter(SortableBase, metaclass=ABCMeta):
         """Check whether parameters are compatible.
 
         Two parameters are compatible if they have the same parameter type and
-        domain type. Additional checks are performed based on the domain type.
+        compatible domain types. Any pair of parameters that can be merged is also
+        considered compatible. In particular:
+
+        - Two RangeParameters are always compatible (bounds may differ).
+        - A RangeParameter and a FixedParameter are compatible.
+        - Two ChoiceParameters are always compatible (values may differ).
+        - Two FixedParameters are always compatible (values may differ).
 
         Args:
             other: Another Ax parameter object to compare against.
@@ -669,10 +675,11 @@ class RangeParameter(Parameter):
     def _is_domain_compatible(self, other: Parameter) -> bool:
         """Check domain-specific compatibility for RangeParameter.
 
-        Two RangeParameters are compatible if they are both RangeParameters.
-        The bounds do not need to overlap.
+        A RangeParameter is compatible with another RangeParameter (bounds may
+        differ) or with a FixedParameter (to support merging a fixed value
+        into a range).
         """
-        return isinstance(other, RangeParameter)
+        return isinstance(other, (RangeParameter, FixedParameter))
 
     @property
     def domain_repr(self) -> str:
@@ -1076,11 +1083,10 @@ class ChoiceParameter(Parameter):
     def _is_domain_compatible(self, other: Parameter) -> bool:
         """Check domain-specific compatibility for ChoiceParameter.
 
-        Two ChoiceParameters are compatible if they have the same set of values.
+        Two ChoiceParameters are always compatible (values may differ, since
+        they can be merged via union).
         """
-        if not isinstance(other, ChoiceParameter):
-            return False
-        return set(self.values) == set(other.values)
+        return isinstance(other, ChoiceParameter)
 
     @property
     def domain_repr(self) -> str:
@@ -1232,11 +1238,11 @@ class FixedParameter(Parameter):
     def _is_domain_compatible(self, other: Parameter) -> bool:
         """Check domain-specific compatibility for FixedParameter.
 
-        Two FixedParameters are compatible if they have the same value.
+        A FixedParameter is compatible with another FixedParameter (values may
+        differ) or with a RangeParameter (to support merging a fixed value
+        into a range).
         """
-        if not isinstance(other, FixedParameter):
-            return False
-        return self.value == other.value
+        return isinstance(other, (FixedParameter, RangeParameter))
 
     @property
     def domain_repr(self) -> str:
