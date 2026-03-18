@@ -147,6 +147,7 @@ def unrelativize(
     """
     means_t = np.array(means_t, dtype=float)
     sems_t = np.array(sems_t, dtype=float)
+    cov_means = np.array(cov_means, dtype=float)
 
     if as_percent:
         means_t = means_t / 100

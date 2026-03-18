@@ -233,7 +233,9 @@ class LogY(Transform):
         for metric in self.metric_signatures:
             means = obs_data["mean", metric]
             variances = obs_data["sem", metric] ** 2
-            transformed_means, transformed_variances = self._transform(means, variances)
+            transformed_means, transformed_variances = self._transform(
+                means.values, variances.values
+            )
             obs_data["mean", metric] = transformed_means
             obs_data["sem", metric] = np.sqrt(transformed_variances)
         return ExperimentData(

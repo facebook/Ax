@@ -93,8 +93,10 @@ class MetricsAsTask(Transform):
                     new_obs_feats = obs.features.clone(replace_parameters=params)
                     new_obs_data = ObservationData(
                         metric_signatures=target_metrics,
-                        means=obs.data.means_dict[task_metric]
-                        * np.ones(len(target_metrics)),
+                        means=np.asarray(
+                            obs.data.means_dict[task_metric]
+                            * np.ones(len(target_metrics))
+                        ),
                         covariance=np.diag(
                             obs.data.covariance_matrix[task_metric][task_metric]
                             * np.ones(len(target_metrics))
