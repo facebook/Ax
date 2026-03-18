@@ -10,9 +10,9 @@ from __future__ import annotations
 from logging import Logger
 from typing import Any
 
-from ax.adapter.data_utils import ExperimentData
 from ax.core.auxiliary import AuxiliaryExperiment
 from ax.core.data import Data
+from ax.core.data_utils import ExperimentData
 from ax.core.experiment import Experiment
 from ax.core.observation import Observation
 from ax.core.parameter import (

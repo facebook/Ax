@@ -9,10 +9,9 @@ import logging
 import unittest
 
 import pandas as pd
-from ax.adapter.base import DataLoaderConfig
-from ax.adapter.data_utils import extract_experiment_data
 from ax.core.auxiliary_source import _check_parameter_compatibility, AuxiliarySource
 from ax.core.data import Data
+from ax.core.data_utils import DataLoaderConfig, extract_experiment_data
 from ax.core.metric import Metric
 from ax.core.observation import Observation, ObservationFeatures
 from ax.core.observation_utils import observations_from_data

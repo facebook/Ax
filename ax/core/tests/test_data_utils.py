@@ -11,13 +11,13 @@ from math import nan
 from unittest import mock
 
 import numpy as np
-from ax.adapter.data_utils import (
+from ax.adapter.registry import Generators
+from ax.core.data import Data, MAP_KEY
+from ax.core.data_utils import (
     _use_object_dtype_for_strings,
     DataLoaderConfig,
     extract_experiment_data,
 )
-from ax.adapter.registry import Generators
-from ax.core.data import Data, MAP_KEY
 from ax.core.observation import Observation, ObservationData, ObservationFeatures
 from ax.core.trial_status import STATUSES_EXPECTING_DATA, TrialStatus
 from ax.exceptions.core import UnsupportedError
