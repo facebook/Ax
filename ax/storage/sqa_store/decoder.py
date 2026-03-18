@@ -33,6 +33,7 @@ from ax.core.batch_trial import AbandonedArm, BatchTrial
 from ax.core.data import Data
 from ax.core.experiment import Experiment
 from ax.core.generator_run import GeneratorRun
+from ax.core.llm_provider import LLMMessage
 from ax.core.metric import Metric
 from ax.core.multi_type_experiment import MultiTypeExperiment
 from ax.core.objective import MultiObjective, Objective, ScalarizedObjective
@@ -222,6 +223,10 @@ class Decoder:
         # `experiment_sqa.properties` is `sqlalchemy.ext.mutable.MutableDict`
         # so need to convert it to regular dict.
         properties = dict(experiment_sqa.properties or {})
+        if Keys.LLM_MESSAGES in properties:
+            properties[Keys.LLM_MESSAGES] = [
+                LLMMessage(**m) for m in properties[Keys.LLM_MESSAGES]
+            ]
         pruning_target = (
             self._get_pruning_target_parameterization_from_experiment_properties(
                 properties=properties
@@ -286,6 +291,10 @@ class Decoder:
     ) -> MultiTypeExperiment:
         """First step of conversion within experiment_from_sqa."""
         properties = dict(experiment_sqa.properties or {})
+        if Keys.LLM_MESSAGES in properties:
+            properties[Keys.LLM_MESSAGES] = [
+                LLMMessage(**m) for m in properties[Keys.LLM_MESSAGES]
+            ]
         pruning_target = (
             self._get_pruning_target_parameterization_from_experiment_properties(
                 properties=properties
