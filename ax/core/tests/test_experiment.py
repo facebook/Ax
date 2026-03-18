@@ -1625,6 +1625,25 @@ class ExperimentTest(TestCase):
         )
         pd.testing.assert_frame_equal(df, expected_df)
 
+    def test_metric_summary_df_scalarized_objective(self) -> None:
+        experiment = Experiment(
+            name="test_experiment",
+            search_space=SearchSpace(parameters=[]),
+            optimization_config=OptimizationConfig(
+                objective=Objective(expression="2*metric_a + -3*metric_b"),
+            ),
+            tracking_metrics=[
+                Metric(name="metric_a", lower_is_better=False),
+                Metric(name="metric_b", lower_is_better=True),
+            ],
+        )
+        df = experiment.metric_config_summary_df
+        # metric_a has positive weight -> maximize
+        # metric_b has negative weight -> minimize
+        goal_by_name = dict(zip(df["Name"], df["Goal"]))
+        self.assertEqual(goal_by_name["metric_a"], "maximize")
+        self.assertEqual(goal_by_name["metric_b"], "minimize")
+
     def test_arms_by_signature_for_deduplication(self) -> None:
         experiment = self.experiment
         trial = experiment.new_trial()
