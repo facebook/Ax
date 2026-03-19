@@ -724,12 +724,15 @@ def _maybe_get_default_minimize_single_metric(
         optimization_config is not None
         and metric_name in optimization_config.objective.metric_names
     ):
-        if optimization_config.is_moo_problem:
-            for obj_metric_name, weight in optimization_config.objective.metric_weights:
+        objective = optimization_config.objective
+        if not objective.is_single_objective:
+            # Covers both multi-objective and scalarized objectives.
+            # For both, metric_weights encodes direction via sign.
+            for obj_metric_name, weight in objective.metric_weights:
                 if obj_metric_name == metric_name:
                     return weight < 0
         else:
-            return optimization_config.objective.minimize
+            return objective.minimize
 
     # Next try to get minimize from objective_thresholds
     if objective_thresholds is not None:
