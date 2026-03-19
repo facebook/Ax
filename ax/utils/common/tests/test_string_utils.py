@@ -104,6 +104,17 @@ class StringUtilsTest(TestCase):
             "metric_(p50)",
         )
 
+    def test_sanitize_at_sign(self) -> None:
+        """Test that @ in metric names is sanitized to avoid sympy misparse."""
+        self.assertEqual(
+            sanitize_name("metric@region"),
+            "metric__at__region",
+        )
+        self.assertEqual(
+            sanitize_name("scope:sub:metric@region"),
+            "scope__colon__sub__colon__metric__at__region",
+        )
+
     def test_unsanitize_name_roundtrip(self) -> None:
         """Test that unsanitize_name reverses sanitize_name including parens."""
         names = [
@@ -111,6 +122,8 @@ class StringUtilsTest(TestCase):
             "foo.bar/11:Baz|qux",
             "~treatment_percent_",
             "metric-name",
+            "metric@region",
+            "scope:sub:metric@region",
         ]
         for name in names:
             with self.subTest(name=name):

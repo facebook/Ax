@@ -17,6 +17,7 @@ PIPE_PLACEHOLDER = "__pipe__"
 TILDE_PLACEHOLDER = "__tilde__"
 SPACE_PLACEHOLDER = "__space__"
 HYPHEN_PLACEHOLDER = "__hyphen__"
+AT_PLACEHOLDER = "__at__"
 LPAREN_PLACEHOLDER = "__lparen__"
 RPAREN_PLACEHOLDER = "__rparen__"
 _forbidden_re: re.Pattern[str] = re.compile(r"[\;\[\'\\]")
@@ -127,7 +128,16 @@ def sanitize_name(s: str, sanitize_parens: bool = False) -> str:
         rf"\1{HYPHEN_PLACEHOLDER}",
         sans_tilde,
     )
-    result = sans_hyphen
+    # Replace "@" when it appears between identifier characters
+    # (e.g. "metric@region" in metric names). In Python, @ is the matrix
+    # multiplication operator (PEP 465), so SymPy's sympify() will
+    # misinterpret it and raise a TypeError.
+    sans_at = re.sub(
+        r"([a-zA-Z_][a-zA-Z0-9_]*)@(?=[a-zA-Z0-9_])",
+        rf"\1{AT_PLACEHOLDER}",
+        sans_hyphen,
+    )
+    result = sans_at
 
     # Optionally sanitize parentheses that are part of metric/parameter names.
     # Matches ``identifier(content)`` where content is purely [a-zA-Z0-9_].
@@ -158,7 +168,8 @@ def unsanitize_name(s: str) -> str:
     # Unsanitize in the reverse order of sanitization
     with_rparen = re.sub(rf"{RPAREN_PLACEHOLDER}", ")", s)
     with_lparen = re.sub(rf"{LPAREN_PLACEHOLDER}", "(", with_rparen)
-    with_hyphen = re.sub(rf"{HYPHEN_PLACEHOLDER}", "-", with_lparen)
+    with_at = re.sub(rf"{AT_PLACEHOLDER}", "@", with_lparen)
+    with_hyphen = re.sub(rf"{HYPHEN_PLACEHOLDER}", "-", with_at)
     with_tilde = re.sub(rf"{TILDE_PLACEHOLDER}", "~", with_hyphen)
     with_pipe = re.sub(rf"{PIPE_PLACEHOLDER}", "|", with_tilde)
     with_colon = re.sub(rf"{COLON_PLACEHOLDER}", ":", with_pipe)
