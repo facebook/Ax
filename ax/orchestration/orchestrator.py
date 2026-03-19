@@ -1450,6 +1450,13 @@ class Orchestrator(WithDBSettingsBase, BestPointMixin):
             trials = self.experiment.get_trials_by_indices(trial_idcs)
             updated_trial_indices.update(trial_idcs)
             for trial in trials:
+                if trial.status == status:
+                    # Trial is already in the target status; skip re-marking
+                    # to avoid resetting timestamps (e.g. time_completed).
+                    # The trial index is still in updated_trial_indices so
+                    # any in-memory mutations (e.g. abandoned arms) will be
+                    # persisted.
+                    continue
                 if status.is_failed or status.is_abandoned:
                     try:
                         reason = self.runner.poll_exception(trial)
