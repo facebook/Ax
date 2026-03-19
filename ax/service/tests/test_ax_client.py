@@ -26,8 +26,11 @@ from ax.core.data import Data, MAP_KEY
 from ax.core.generator_run import GeneratorRun
 from ax.core.metric import Metric
 from ax.core.multi_type_experiment import MultiTypeExperiment
-from ax.core.objective import MultiObjective
-from ax.core.optimization_config import MultiObjectiveOptimizationConfig
+from ax.core.objective import MultiObjective, Objective
+from ax.core.optimization_config import (
+    MultiObjectiveOptimizationConfig,
+    OptimizationConfig,
+)
 from ax.core.outcome_constraint import ObjectiveThreshold, OutcomeConstraint
 from ax.core.parameter import (
     ChoiceParameter,
@@ -3224,6 +3227,35 @@ class TestAxClient(TestCase):
         ) as mock_plot:
             ax_client.get_optimization_trace()
         mock_plot.assert_called_once()
+
+    def test_get_optimization_trace_scalarized(self) -> None:
+        """get_optimization_trace raises UnsupportedError for scalarized."""
+        ax_client = get_branin_optimization()
+        params, idx = ax_client.get_next_trial()
+        ax_client.complete_trial(trial_index=idx, raw_data={"branin": (1.0, 0.0)})
+        ax_client.experiment.add_tracking_metric(Metric(name="other_metric"))
+        ax_client.experiment._optimization_config = OptimizationConfig(
+            objective=Objective(expression="2*branin + -1*other_metric"),
+        )
+        with self.assertRaisesRegex(UnsupportedError, "not supported for scalarized"):
+            ax_client.get_optimization_trace()
+
+    def test_get_optimization_trace_scalarized_outcome_constraint(self) -> None:
+        """get_optimization_trace raises UnsupportedError for scalarized
+        outcome constraints."""
+        ax_client = get_branin_optimization()
+        params, idx = ax_client.get_next_trial()
+        ax_client.complete_trial(trial_index=idx, raw_data={"branin": (1.0, 0.0)})
+        ax_client.experiment.add_tracking_metric(Metric(name="m1"))
+        ax_client.experiment.add_tracking_metric(Metric(name="m2"))
+        ax_client.experiment._optimization_config = OptimizationConfig(
+            objective=Objective(metric=Metric(name="branin"), minimize=True),
+            outcome_constraints=[
+                OutcomeConstraint(expression="2*m1 + 3*m2 <= 10"),
+            ],
+        )
+        with self.assertRaisesRegex(UnsupportedError, "not supported for scalarized"):
+            ax_client.get_optimization_trace()
 
 
 # Utility functions for testing get_model_predictions without calling

@@ -1046,13 +1046,29 @@ class AxClient(AnalysisBase, BestPointMixin, InstantiationBase):
                 "for multi-objective experiments"
             )
 
+        if objective.is_scalarized_objective:
+            raise UnsupportedError(
+                "`get_optimization_trace` is not supported for scalarized "
+                "objectives. `trial.objective_mean` returns the value of "
+                "the first metric, not the weighted combination."
+            )
+
+        opt_config = none_throws(self.experiment.optimization_config)
+        if any(len(oc.metric_names) > 1 for oc in opt_config.outcome_constraints):
+            raise UnsupportedError(
+                "`get_optimization_trace` is not supported for scalarized "
+                "outcome constraints."
+            )
+
+        minimize: bool = objective.minimize
+
         # Setting the objective values of infeasible points to be infinitely
         # bad prevents them from increasing or decreasing the
         # optimization trace.
         def _constrained_trial_objective_mean(trial: BaseTrial) -> float:
             if constraint_satisfaction(trial):
                 return assert_is_instance(trial, Trial).objective_mean
-            return float("inf") if self.objective.minimize else float("-inf")
+            return float("inf") if minimize else float("-inf")
 
         objective_name = self.objective_name
         best_objectives = np.array(
@@ -1072,7 +1088,7 @@ class AxClient(AnalysisBase, BestPointMixin, InstantiationBase):
         return optimization_trace_single_method(
             y=(
                 np.minimum.accumulate(best_objectives, axis=1)
-                if objective.minimize
+                if minimize
                 else np.maximum.accumulate(best_objectives, axis=1)
             ),
             optimum=objective_optimum,
