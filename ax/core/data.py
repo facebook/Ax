@@ -357,7 +357,7 @@ class Data(Base, SerializationMixin):
             # In the case where all MAP_KEY values are NaN for a group we return an
             # arbitrary row from that group.
             .fillna(
-                self.full_df.groupby(self.DEDUPLICATE_BY_COLUMNS).apply(
+                self.full_df.groupby(self.DEDUPLICATE_BY_COLUMNS)[MAP_KEY].apply(
                     lambda group: group.index[0]
                 )
             )
