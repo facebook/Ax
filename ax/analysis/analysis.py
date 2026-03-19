@@ -19,6 +19,7 @@ from ax.core.analysis_card import (
     AnalysisCardBase,
     AnalysisCardGroup,
     ErrorAnalysisCard,
+    NotApplicableStateAnalysisCard,
 )
 from ax.core.experiment import Experiment
 from ax.exceptions.analysis import AnalysisNotApplicableStateError
@@ -28,6 +29,12 @@ from ax.utils.common.result import Err, ExceptionE, Ok, Result
 from IPython.display import display
 
 logger: Logger = get_logger(__name__)
+
+NOT_APPLICABLE_STATE_SUBTITLE: str = (
+    "This analysis is temporarily unavailable. It will become available "
+    "as your experiment progresses (e.g., after collecting more data, "
+    "running more trials, or fitting a model)."
+)
 
 
 class Analysis(Protocol):
@@ -202,7 +209,7 @@ def display_cards(
 
 def error_card_from_analysis_e(
     analysis_e: AnalysisE,
-) -> ErrorAnalysisCard:
+) -> ErrorAnalysisCard | NotApplicableStateAnalysisCard:
     analysis_name = analysis_e.analysis.__class__.__name__
     exception_name = analysis_e.exception.__class__.__name__
 
@@ -213,6 +220,18 @@ def error_card_from_analysis_e(
         if (exception_message := str(analysis_e.exception))
         else f"{exception_name} encountered while computing {analysis_name}."
     )
+    if isinstance(analysis_e.exception, AnalysisNotApplicableStateError):
+        # AnalysisNotApplicableStateError gets rendered as a
+        # NotApplicableStateAnalysisCard
+        return NotApplicableStateAnalysisCard(
+            name=analysis_name,
+            title=f"{analysis_name} -- Not Available Yet",
+            subtitle=NOT_APPLICABLE_STATE_SUBTITLE,
+            df=pd.DataFrame(),
+            blob=exception_message
+            if exception_message
+            else f"{exception_name} encountered.",
+        )
 
     return ErrorAnalysisCard(
         name=analysis_name,
