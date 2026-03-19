@@ -37,6 +37,7 @@ from botorch.acquisition.multi_objective.parego import qLogNParEGO
 from botorch.exceptions.errors import BotorchError, CandidateGenerationError
 from botorch.fit import fit_fully_bayesian_model_nuts, fit_gpytorch_mll
 from botorch.models import PairwiseLaplaceMarginalLogLikelihood
+from botorch.models.classifier import SoftKNNClassifierModel
 from botorch.models.fully_bayesian import AbstractFullyBayesianSingleTaskGP
 from botorch.models.fully_bayesian_multitask import SaasFullyBayesianMultiTaskGP
 from botorch.models.gp_regression import SingleTaskGP
@@ -806,6 +807,15 @@ def _fit_botorch_model_fully_bayesian_nuts(
     mll_options = mll_options or {}
     mll_options.setdefault("disable_progbar", True)
     fit_fully_bayesian_model_nuts(model, **mll_options)
+
+
+@fit_botorch_model.register(SoftKNNClassifierModel)
+def _fit_botorch_model_classifier(
+    model: SoftKNNClassifierModel,
+    mll_class: type[MarginalLogLikelihood],
+    mll_options: dict[str, Any] | None = None,
+) -> None:
+    """Classifier models fit themselves in __init__(), so no-op here."""
 
 
 @fit_botorch_model.register(object)
