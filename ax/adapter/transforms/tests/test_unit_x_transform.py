@@ -133,6 +133,29 @@ class UnitXTransformTest(TestCase):
             self.search_space_with_target.parameters["x"].target_value, 1.0
         )
 
+    def test_transform_search_space_clears_digits(self) -> None:
+        """Test that digits is cleared during transform to avoid rounding
+        in unit space. Regression test for a bug where digits=-3 (round to
+        nearest 1000) collapsed [0, 1] bounds to (0.0, 0.0)."""
+        ss = SearchSpace(
+            parameters=[
+                RangeParameter(
+                    "w",
+                    lower=5000.0,
+                    upper=500000.0,
+                    parameter_type=ParameterType.FLOAT,
+                    digits=-3,
+                ),
+            ]
+        )
+        t = UnitX(search_space=ss)
+        ss = t.transform_search_space(ss)
+        w = assert_is_instance(ss.parameters["w"], RangeParameter)
+        # digits must be cleared so rounding doesn't corrupt [0, 1] bounds.
+        self.assertIsNone(w.digits)
+        self.assertEqual(w.lower, 0.0)
+        self.assertEqual(w.upper, 1.0)
+
     def test_TransformNewSearchSpace(self) -> None:
         new_ss = SearchSpace(
             parameters=[
