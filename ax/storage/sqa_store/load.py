@@ -766,6 +766,8 @@ def _query_historical_experiments_given_parameters(
                         encoder.get_enum_value(t, config.experiment_type_enum)
                         for t in experiment_types
                     ]
+                    if config.experiment_type_enum is not None
+                    else experiment_types
                 )
             )
             .filter(SQAExperiment.is_test == False)  # noqa E712 `is` won't work for SQA
