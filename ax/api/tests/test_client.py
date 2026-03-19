@@ -12,6 +12,7 @@ from unittest import mock
 
 import numpy as np
 import pandas as pd
+from ax.analysis.analysis import NOT_APPLICABLE_STATE_SUBTITLE
 from ax.analysis.plotly.parallel_coordinates import ParallelCoordinatesPlot
 from ax.api.client import Client
 from ax.api.configs import (
@@ -1278,10 +1279,10 @@ class TestClient(TestCase):
 
         self.assertEqual(len(cards), 1)
         self.assertEqual(cards[0].name, "ParallelCoordinatesPlot")
-        self.assertEqual(cards[0].title, "ParallelCoordinatesPlot Error")
+        self.assertEqual(cards[0].title, "ParallelCoordinatesPlot -- Not Available Yet")
         self.assertEqual(
             cards[0].subtitle,
-            "AnalysisNotApplicableStateError: Experiment has no trials.",
+            NOT_APPLICABLE_STATE_SUBTITLE,
         )
 
         for trial_index, _ in client.get_next_trials(max_trials=1).items():
