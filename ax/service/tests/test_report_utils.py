@@ -20,9 +20,13 @@ from ax.adapter.registry import Generators
 from ax.core.arm import Arm
 from ax.core.metric import Metric
 from ax.core.objective import MultiObjective, Objective
-from ax.core.optimization_config import MultiObjectiveOptimizationConfig
+from ax.core.optimization_config import (
+    MultiObjectiveOptimizationConfig,
+    OptimizationConfig,
+)
 from ax.core.outcome_constraint import ObjectiveThreshold
 from ax.core.types import ComparisonOp
+from ax.exceptions.core import UnsupportedError
 from ax.generation_strategy.generation_node import GenerationStep
 from ax.generation_strategy.generation_strategy import GenerationStrategy
 from ax.orchestration.orchestrator import Orchestrator
@@ -49,6 +53,7 @@ from ax.utils.testing.core_stubs import (
     get_branin_experiment,
     get_branin_experiment_with_multi_objective,
     get_branin_experiment_with_timestamp_map_metric,
+    get_branin_metric,
     get_experiment_with_observations,
     get_high_dimensional_branin_experiment,
     get_multi_type_experiment,
@@ -743,3 +748,31 @@ class ReportUtilsTest(TestCase):
             baseline_arm_name=arm_names[0],
         )
         self.assertIsNone(result)
+
+    def test_get_objective_trace_plot_scalarized(self) -> None:
+        """_get_objective_trace_plot raises UnsupportedError for scalarized."""
+        exp = get_branin_experiment(with_completed_trial=True)
+        exp.add_tracking_metric(get_branin_metric(name="branin2"))
+        exp._optimization_config = OptimizationConfig(
+            objective=Objective(expression="2*branin + -1*branin2"),
+        )
+        with self.assertRaisesRegex(UnsupportedError, "not supported for scalarized"):
+            _get_objective_trace_plot(experiment=exp)
+
+    def test_maybe_extract_baseline_comparison_values_scalarized(self) -> None:
+        """maybe_extract_baseline_comparison_values raises UnsupportedError
+        for scalarized."""
+        exp = get_branin_experiment_with_multi_objective(with_batch=True)
+        exp.trials[0].run()
+        exp.fetch_data()
+        arm_names = list(exp.arms_by_name.keys())
+        exp._optimization_config = OptimizationConfig(
+            objective=Objective(expression="2*branin_a + -1*branin_b"),
+        )
+        with self.assertRaisesRegex(UnsupportedError, "not supported for scalarized"):
+            maybe_extract_baseline_comparison_values(
+                experiment=exp,
+                optimization_config=exp.optimization_config,
+                comparison_arm_names=[arm_names[1]],
+                baseline_arm_name=arm_names[0],
+            )

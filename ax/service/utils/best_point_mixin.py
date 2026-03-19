@@ -22,7 +22,7 @@ from ax.core.optimization_config import (
 )
 from ax.core.trial import Trial
 from ax.core.types import TModelPredictArm, TParameterization
-from ax.exceptions.core import UserInputError
+from ax.exceptions.core import UnsupportedError, UserInputError
 from ax.generation_strategy.generation_strategy import GenerationStrategy
 from ax.service.utils import best_point as best_point_utils
 from ax.service.utils.best_point import get_tensor_converter_adapter
@@ -385,6 +385,12 @@ class BestPointMixin(ABC):
         optimization_config = optimization_config or none_throws(
             experiment.optimization_config
         )
+        if optimization_config.objective.is_scalarized_objective:
+            raise UnsupportedError(
+                "`_get_trace_by_progression` is not supported for scalarized "
+                "objectives. The objective is a combination of metrics, not a "
+                "single metric."
+            )
         objective = optimization_config.objective.metric_names[0]
         minimize = optimization_config.objective.minimize
         map_data = experiment.lookup_data()
@@ -458,15 +464,20 @@ class BestPointMixin(ABC):
                 "`get_improvement_over_baseline` not yet implemented"
                 + " for multi-objective problems."
             )
+        optimization_config = experiment.optimization_config
+        if not optimization_config:
+            raise ValueError("No optimization config found.")
+        if optimization_config.objective.is_scalarized_objective:
+            raise UnsupportedError(
+                "`get_improvement_over_baseline` is not supported for "
+                "scalarized objectives. The objective is a combination of "
+                "metrics, not a single metric."
+            )
         if not baseline_arm_name:
             baseline_arm_name, _ = select_baseline_name_default_first_trial(
                 experiment=experiment,
                 baseline_arm_name=baseline_arm_name,
             )
-
-        optimization_config = experiment.optimization_config
-        if not optimization_config:
-            raise ValueError("No optimization config found.")
 
         objective_metric_name = optimization_config.objective.metric_names[0]
 

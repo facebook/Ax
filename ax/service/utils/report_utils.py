@@ -42,7 +42,7 @@ from ax.core.parameter import Parameter
 from ax.core.trial import BaseTrial
 from ax.core.trial_status import TrialStatus
 from ax.early_stopping.strategies.base import BaseEarlyStoppingStrategy
-from ax.exceptions.core import DataRequiredError, UserInputError
+from ax.exceptions.core import DataRequiredError, UnsupportedError, UserInputError
 from ax.generation_strategy.generation_strategy import GenerationStrategy
 from ax.plot.contour import interact_contour_plotly
 from ax.plot.diagnostic import interact_cross_validation_plotly
@@ -123,10 +123,18 @@ def _get_objective_trace_plot(
     if optimization_config is None:
         return []
 
+    objective = optimization_config.objective
+    if objective.is_scalarized_objective:
+        raise UnsupportedError(
+            "`_get_objective_trace_plot` is not supported for scalarized "
+            "objectives. The objective is a combination of metrics, not a "
+            "single metric."
+        )
+
     metric_names = (
         metric_name
         for metric_name in [
-            optimization_config.objective.metric_names[0],
+            objective.metric_names[0],
             true_objective_metric_name,
         ]
         if metric_name is not None
@@ -137,8 +145,8 @@ def _get_objective_trace_plot(
             exp_df=exp_df,
             metric_colname=metric_name,
             minimize=none_throws(
-                optimization_config.objective.minimize
-                if optimization_config.objective.metric_names[0] == metric_name
+                objective.minimize
+                if objective.metric_names[0] == metric_name
                 else experiment.metrics[metric_name].lower_is_better
             ),
             title=f"Best {metric_name} found vs. trial index",
@@ -1371,6 +1379,13 @@ def maybe_extract_baseline_comparison_values(
 
             result_list.append(result_tuple)
         return result_list if result_list else None
+
+    if optimization_config.objective.is_scalarized_objective:
+        raise UnsupportedError(
+            "`maybe_extract_baseline_comparison_values` is not supported for "
+            "scalarized objectives. The objective is a combination of "
+            "metrics, not a single metric."
+        )
 
     objective_name = optimization_config.objective.metric_names[0]
 

@@ -24,6 +24,7 @@ from ax.core.objective import MultiObjective, Objective
 from ax.core.observation import Observation, ObservationData, ObservationFeatures
 from ax.core.optimization_config import (
     MultiObjectiveOptimizationConfig,
+    OptimizationConfig,
     PreferenceOptimizationConfig,
 )
 from ax.core.outcome_constraint import OutcomeConstraint
@@ -31,7 +32,7 @@ from ax.core.parameter import ParameterType, RangeParameter
 from ax.core.search_space import SearchSpace
 from ax.core.trial import Trial
 from ax.core.types import ComparisonOp
-from ax.exceptions.core import DataRequiredError, UserInputError
+from ax.exceptions.core import DataRequiredError, UnsupportedError, UserInputError
 from ax.service.utils.best_point import (
     get_tensor_converter_adapter,
     get_trace,
@@ -798,4 +799,26 @@ class InferReferencePointFromExperimentTest(TestCase):
             )
             self.assertIsInstance(
                 get_tensor_converter_adapter(experiment=experiment), TorchAdapter
+            )
+
+    def test_get_trace_by_progression_scalarized(self) -> None:
+        """_get_trace_by_progression raises UnsupportedError for scalarized."""
+        experiment = get_experiment_with_trial()
+        experiment._optimization_config = OptimizationConfig(
+            objective=Objective(expression="2*m1 + -1*m2"),
+        )
+        with self.assertRaisesRegex(UnsupportedError, "not supported for scalarized"):
+            BestPointMixin._get_trace_by_progression(experiment=experiment)
+
+    def test_get_improvement_over_baseline_scalarized(self) -> None:
+        """get_improvement_over_baseline raises UnsupportedError for scalarized."""
+        experiment = get_experiment_with_trial()
+        experiment._optimization_config = OptimizationConfig(
+            objective=Objective(expression="2*m1 + -1*m2"),
+        )
+        mixin = BestPointMixin.__new__(BestPointMixin)
+        with self.assertRaisesRegex(UnsupportedError, "not supported for scalarized"):
+            mixin.get_improvement_over_baseline(
+                experiment=experiment,
+                generation_strategy=Mock(),
             )
