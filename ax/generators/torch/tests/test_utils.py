@@ -874,8 +874,51 @@ class BoTorchGeneratorUtilsTest(TestCase):
             )
         )
 
+        # Test _supports_batched_models class attribute.
+        class NoBatchModel(SingleTaskGP):
+            _supports_batched_models = False
+
+        # Single outcome: should not use model list.
+        self.assertFalse(
+            use_model_list(
+                datasets=[self.supervised_dataset],
+                model_configs=[ModelConfig(botorch_model_class=NoBatchModel)],
+                search_space_digest=SearchSpaceDigest(feature_names=[], bounds=[]),
+            )
+        )
+        # Multiple datasets: should use model list.
+        self.assertTrue(
+            use_model_list(
+                datasets=2
+                * [
+                    SupervisedDataset(
+                        X=self.Xs,
+                        Y=self.Ys,
+                        feature_names=self.feature_names,
+                        outcome_names=["y"],
+                    )
+                ],
+                model_configs=[ModelConfig(botorch_model_class=NoBatchModel)],
+                search_space_digest=SearchSpaceDigest(feature_names=[], bounds=[]),
+            )
+        )
+        # Single dataset with multiple outcomes: should use model list.
+        self.assertTrue(
+            use_model_list(
+                datasets=[
+                    SupervisedDataset(
+                        X=self.Xs,
+                        Y=self.Ys.repeat(1, 2),
+                        feature_names=self.feature_names,
+                        outcome_names=["y1", "y2"],
+                    ),
+                ],
+                model_configs=[ModelConfig(botorch_model_class=NoBatchModel)],
+                search_space_digest=SearchSpaceDigest(feature_names=[], bounds=[]),
+            )
+        )
+
     def test_get_shared_rows(self) -> None:
-        # test bad input
         with self.assertRaisesRegex(
             UserInputError, "All inputs must be two-dimensional."
         ):
