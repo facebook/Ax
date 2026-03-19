@@ -460,6 +460,13 @@ class TorchAdapter(Adapter):
             # Drop NaN columns from means & corresponding params.
             outcome_means = mean_and_params[outcome_col_name].to_numpy()
             to_keep = ~np.isnan(outcome_means)
+            if not np.any(to_keep):
+                logger.warning(
+                    f"Skipping outcome '{outcome}': no non-NaN observations "
+                    f"remain after filtering. This can happen when a metric "
+                    f"has data in only a subset of trials."
+                )
+                continue
             Y = torch.from_numpy(outcome_means[to_keep]).double().view(-1, 1)
             X = torch.from_numpy(params_np[to_keep]).double()
             sem = sems_df[outcome].to_numpy()[to_keep]

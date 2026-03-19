@@ -6,6 +6,7 @@
 # pyre-strict
 
 
+import logging
 import unittest
 from copy import deepcopy
 from unittest import mock
@@ -427,3 +428,55 @@ class TransformToNewSQSpecificTest(TestCase):
                 transformed.observation_data.loc[0]["sem", "branin"],
             )
         )
+
+    def test_zero_sq_metric_skipped_with_warning(self) -> None:
+        """Metrics whose status quo mean is near-zero (e.g.,
+        ExpressionDerivedMetric that is already relativized) should be
+        skipped with a warning rather than crashing on division by zero.
+        """
+        sobol = get_sobol(search_space=self.exp.search_space)
+        for sq_val in (2.0, 3.0):
+            t = self.exp.new_batch_trial(
+                generator_run=sobol.gen(2), should_add_status_quo_arm=True
+            ).mark_completed(unsafe=True)
+            data = get_branin_data_batch(batch=t)
+            data.df.loc[(data.df["arm_name"] == "status_quo"), "mean"] = sq_val
+            self.exp.attach_data(data=data)
+        self._refresh_adapter()
+
+        experiment_data = extract_experiment_data(
+            experiment=self.exp, data_loader_config=DataLoaderConfig()
+        )
+
+        tf = TransformToNewSQ(
+            search_space=None,
+            adapter=self.adapter,
+            config={"target_trial_index": 2},
+        )
+
+        # Set the target trial's SQ mean to zero, simulating an
+        # ExpressionDerivedMetric whose SQ is naturally zero.
+        tf.status_quo_data_by_trial[2].means[0] = 0.0
+
+        with self.assertLogs(
+            "ax.adapter.transforms.transform_to_new_sq", level=logging.WARNING
+        ) as cm:
+            transformed_data = tf.transform_experiment_data(
+                experiment_data=deepcopy(experiment_data)
+            )
+
+        # Verify a warning was emitted for the skipped metric.
+        self.assertTrue(
+            any("near-zero" in msg for msg in cm.output),
+            f"Expected a near-zero warning, got: {cm.output}",
+        )
+
+        # Data for all non-target trials should be unchanged (no transform
+        # was applied for the metric with zero SQ).
+        for t_idx in (0, 1):
+            orig = experiment_data.observation_data.loc[t_idx]
+            orig_non_sq = orig[
+                orig.index.get_level_values("arm_name") != self.adapter.status_quo_name
+            ]
+            tf_data = transformed_data.observation_data.loc[t_idx]
+            assert_frame_equal(orig_non_sq, tf_data)
