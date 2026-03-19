@@ -109,6 +109,14 @@ class Transform:
         This is typically done in-place. This class implements the identity
         transform (does nothing).
 
+        NOTE for subclasses: If a transform changes the *scale* of a
+        RangeParameter (e.g., Log, UnitX, Logit), it must clear ``digits``
+        via ``p.set_digits(digits=None)`` before calling ``update_range``.
+        Otherwise, rounding calibrated for the original scale will corrupt
+        the transformed bounds (e.g., ``digits=-3`` rounds to the nearest
+        1000, which collapses [0, 1] to 0). The Cast transform re-applies
+        ``digits`` in the original space during untransform.
+
         Args:
             search_space: The search space
 

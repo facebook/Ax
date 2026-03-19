@@ -73,6 +73,10 @@ class UnitX(Transform):
             if (p_bounds := self.bounds.get(p_name)) is not None and isinstance(
                 p, RangeParameter
             ):
+                # Don't round in unit space; digits will be re-applied in
+                # the original space by the Cast transform during untransform.
+                if p.digits is not None:
+                    p.set_digits(digits=None)
                 p.update_range(
                     lower=self._normalize_value(value=p.lower, bounds=p_bounds),
                     upper=self._normalize_value(value=p.upper, bounds=p_bounds),
