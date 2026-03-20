@@ -501,7 +501,7 @@ class Orchestrator(WithDBSettingsBase, BestPointMixin):
 
     def __repr__(self) -> str:
         """Short user-friendly string representation."""
-        if not hasattr(self, "experiment"):
+        if not hasattr(self, "experiment") or not hasattr(self, "generation_strategy"):
             # Experiment, generation strategy, etc. attributes have not
             # yet been set.
             return f"{self.__class__.__name__}"
