@@ -34,17 +34,19 @@ class TestInstantiationtUtils(TestCase):
             InstantiationBase._get_parameter_type(list)
 
     def test_make_search_space(self) -> None:
-        with self.assertRaisesRegex(ValueError, "cannot contain spaces"):
-            InstantiationBase.make_search_space(
-                parameters=[
-                    {
-                        "name": "x space 1",
-                        "type": "range",
-                        "bounds": [0.0, 1.0],
-                    }
-                ],
-                parameter_constraints=None,
-            )
+        # Parameter names with spaces should be allowed in search spaces
+        # (only rejected in constraint string parsing).
+        ss = InstantiationBase.make_search_space(
+            parameters=[
+                {
+                    "name": "x space 1",
+                    "type": "range",
+                    "bounds": [0.0, 1.0],
+                }
+            ],
+            parameter_constraints=None,
+        )
+        self.assertIn("x space 1", ss.parameters)
 
     def test_constraint_from_str(self) -> None:
         x1 = RangeParameter(
@@ -96,7 +98,7 @@ class TestInstantiationtUtils(TestCase):
             "x1 + x2 + x3 <= 3", {"x1": x1, "x2": x2, "x3": x3}
         )
 
-        with self.assertRaisesRegex(AssertionError, "Outcome constraint 'm1"):
+        with self.assertRaisesRegex(ValueError, "Outcome constraint 'm1"):
             InstantiationBase.outcome_constraint_from_str("m1 == 2*m2")
 
         self.assertEqual(three_val_constaint.bound, 3.0)
@@ -191,6 +193,29 @@ class TestInstantiationtUtils(TestCase):
                 "x1 + x2 / 2.0 + x3 >= 3", {"x1": x1, "x2": x2, "x3": x3}
             )
 
+    def test_spaces_in_metric_and_parameter_names(self) -> None:
+        # Metric and parameter names with spaces are allowed everywhere
+        # except in constraint string parsing, where split() would break.
+        metric = InstantiationBase._make_metric(name="my metric")
+        self.assertEqual(metric.name, "my metric")
+
+        experiment = InstantiationBase.make_experiment(
+            parameters=[{"name": "x", "type": "range", "bounds": [0, 1]}],
+            tracking_metric_names=["my metric", "another metric"],
+        )
+        tracking_metric_names = [m.name for m in experiment.tracking_metrics]
+        self.assertIn("my metric", tracking_metric_names)
+        self.assertIn("another metric", tracking_metric_names)
+
+        # Constraint string parsing rejects spaces (can't tokenize correctly).
+        x1 = RangeParameter(
+            name="x 1", parameter_type=ParameterType.FLOAT, lower=0.1, upper=4.0
+        )
+        with self.assertRaisesRegex(ValueError, "cannot contain spaces"):
+            InstantiationBase.constraint_from_str("x 1 <= 3", {"x 1": x1})
+        with self.assertRaisesRegex(ValueError, "cannot contain spaces"):
+            InstantiationBase.outcome_constraint_from_str("my metric <= 3")
+
     def test_add_tracking_metrics(self) -> None:
         experiment = InstantiationBase.make_experiment(
             parameters=[{"name": "x", "type": "range", "bounds": [0, 1]}],
@@ -212,8 +237,12 @@ class TestInstantiationtUtils(TestCase):
         with self.assertRaisesRegex(ValueError, "specify 'minimize' or 'maximize'"):
             InstantiationBase.make_objectives({"branin": "unknown"})
 
-        with self.assertRaisesRegex(ValueError, "cannot contain spaces"):
-            InstantiationBase.make_objectives({"branin space": "maximize"})
+        # Metric names with spaces should be allowed in objectives
+        # (only rejected in constraint string parsing).
+        objectives_with_spaces = InstantiationBase.make_objectives(
+            {"branin space": "maximize"}
+        )
+        self.assertEqual(objectives_with_spaces[0].metric_names[0], "branin space")
 
         objectives = InstantiationBase.make_objectives(
             {"branin": "minimize", "currin": "maximize"}

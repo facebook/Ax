@@ -165,6 +165,7 @@ class ObjectiveThresholdTest(TestCase):
         self.minimize_metric = Metric(name="bar", lower_is_better=True)
         self.maximize_metric = Metric(name="baz", lower_is_better=False)
         self.ambiguous_metric = Metric(name="buz")
+        self.bound = 0.5
 
     def test_Init(self) -> None:
         with warnings.catch_warnings(record=True) as w:
