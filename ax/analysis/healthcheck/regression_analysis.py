@@ -101,12 +101,22 @@ class RegressionAnalysis(Analysis):
                 "The following arms are regressing the "
                 "following metrics for the respective trials: \n"
                 f"{regressions_msg}"
+                "\n**Suggested next steps:**\n"
+                "- If the regression is on a critical metric, consider "
+                "abandoning the affected arm(s) via "
+                "`batch_trial.mark_arm_abandoned()`. Individual arms in a "
+                "batch trial can be abandoned without affecting the rest "
+                "of the trial.\n"
+                "- If the regression is tolerable or expected during "
+                "exploration, let the arm run to completion for full data.\n"
+                "- Check whether regressing arms share parameter values "
+                "that may explain the regression."
             )
 
             title_status = "Warning"
         else:
             status = HealthcheckStatus.PASS
-            subtitle = subtitle_base + "No metric regessions detected."
+            subtitle = subtitle_base + "No metric regressions detected."
             title_status = "Success"
 
         return create_healthcheck_analysis_card(
