@@ -170,14 +170,14 @@ class TransferLearningAnalysis(Analysis):
             f"**{n} eligible source experiment(s)** "
             "for transfer learning:\n\n"
             f"{exp_lines}\n\n"
-            "Caution: Only use source experiments that are closely related "
-            "to your current experiment. "
-            "Using data from unrelated experiments can lead to negative "
-            "transfer, which may hurt "
-            "optimization performance. Review the overlapping parameters "
-            "before enabling transfer learning. If using the UI, 'Learn from "
+            "If using the UI, 'Learn from "
             "Related Experiments' button is likely available for use; "
-            "otherwise, use `Client.add_transferable_experiment`."
+            "otherwise, use `Client.add_transferable_experiment`.\n\n"
+            "Caution: Only use source experiments that are closely related "
+            "to your current experiment. Using data from unrelated experiments "
+            "can lead to negative transfer, which may hurt optimization "
+            "performance. Review the overlapping parameters before enabling "
+            "transfer learning."
         )
 
         return TransferLearningAnalysisCard(
