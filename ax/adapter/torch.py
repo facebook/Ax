@@ -447,7 +447,7 @@ class TorchAdapter(Adapter):
         ).to_numpy()
         metadata = mean_and_params["metadata"]
         datasets: list[SupervisedDataset] = []
-        candidate_metadata = []
+        candidate_metadata: dict[str, list[dict[str, Any] | None]] = {}
         for outcome in outcomes:
             outcome_col_name = (
                 outcome + "_metric" if outcome in duplicated_names else outcome
@@ -513,7 +513,7 @@ class TorchAdapter(Adapter):
                     group_indices=group_indices,
                 )
             datasets.append(dataset)
-            candidate_metadata.append(metadata.loc[to_keep].to_list())
+            candidate_metadata[outcome] = metadata.loc[to_keep].to_list()
 
         # If the search space digest specifies a task feature,
         # convert the datasets into MultiTaskDataset.
@@ -542,6 +542,10 @@ class TorchAdapter(Adapter):
                 )
                 for dataset in datasets
             ]
+        # Build the list of outcomes actually present in datasets (some may
+        # have been skipped above due to all-NaN observations).
+        included_outcomes = [name for d in datasets for name in d.outcome_names]
+
         # Check if there is a `parameter_decomposition` experiment property to
         # decide whether it is a contextual experiment.
         if self._experiment_properties.get("parameter_decomposition", None) is not None:
@@ -551,7 +555,7 @@ class TorchAdapter(Adapter):
                 list[SupervisedDataset],
                 process_contextual_datasets(
                     datasets=datasets,
-                    outcomes=outcomes,
+                    outcomes=included_outcomes,
                     parameter_decomposition=self._experiment_properties[
                         "parameter_decomposition"
                     ],
@@ -561,15 +565,14 @@ class TorchAdapter(Adapter):
                 ),
             )
 
-        # Get the order of outcomes
-        ordered_outcomes = []
-        for d in datasets:
-            ordered_outcomes.extend(d.outcome_names)
+        # Get the order of outcomes (may differ from included_outcomes
+        # after contextual/multi-task dataset transformations).
+        ordered_outcomes = [name for d in datasets for name in d.outcome_names]
         # Re-order candidate metadata
         if not metadata.isnull().all():
             ordered_metadata = []
             for outcome in ordered_outcomes:
-                ordered_metadata.append(candidate_metadata[outcomes.index(outcome)])
+                ordered_metadata.append(candidate_metadata[outcome])
         else:
             ordered_metadata = None
 
