@@ -13,6 +13,7 @@ from typing import Any
 import torch
 from ax.adapter.registry import GeneratorRegistryBase, Generators
 from ax.core.experiment import Experiment
+from ax.core.experiment_status import ExperimentStatus
 from ax.core.optimization_config import OptimizationConfig
 from ax.core.parameter import ChoiceParameter, ParameterType, RangeParameter
 from ax.core.search_space import SearchSpace
@@ -66,6 +67,7 @@ def _make_sobol_step(
         generator_kwargs={"deduplicate": True, "seed": seed},
         use_all_trials_in_exp=True,
         should_deduplicate=should_deduplicate,
+        suggested_experiment_status=ExperimentStatus.INITIALIZATION,
     )
 
 
@@ -133,6 +135,7 @@ def _make_botorch_step(
         max_parallelism=max_concurrency,
         generator_kwargs=generator_kwargs,
         should_deduplicate=should_deduplicate,
+        suggested_experiment_status=ExperimentStatus.OPTIMIZATION,
     )
 
 
