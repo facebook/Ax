@@ -17,7 +17,6 @@ from botorch.models.deterministic import GenericDeterministicModel
 from botorch.models.model import ModelList
 from botorch.models.model_list_gp_regression import ModelListGP
 from botorch.models.multitask import MultiTaskGP
-from pyre_extensions import none_throws
 from torch import Tensor
 
 
@@ -38,7 +37,6 @@ class SubsetModelTest(TestCase):
         super().setUp()
         self.x = torch.zeros(1, 1)
         self.y = torch.rand(1, 2)
-        self.obj_t = torch.rand(2)
         self.model = SingleTaskGP(self.x, self.y)
         self.obj_weights = torch.tensor([[1.0, 0.0]])
 
@@ -48,9 +46,7 @@ class SubsetModelTest(TestCase):
         model_sub = subset_model_results.model
         obj_weights_sub = subset_model_results.objective_weights
         ocs_sub = subset_model_results.outcome_constraints
-        obj_t_sub = subset_model_results.objective_thresholds
         self.assertIsNone(ocs_sub)
-        self.assertIsNone(obj_t_sub)
         self.assertEqual(model_sub.num_outputs, 1)
         self.assertTrue(torch.equal(obj_weights_sub, torch.tensor([[1.0]])))
 
@@ -60,9 +56,7 @@ class SubsetModelTest(TestCase):
         model_sub = subset_model_results.model
         obj_weights_sub = subset_model_results.objective_weights
         ocs_sub = subset_model_results.outcome_constraints
-        obj_t_sub = subset_model_results.objective_thresholds
         self.assertIsNone(ocs_sub)
-        self.assertIsNone(obj_t_sub)
         self.assertIs(model_sub, self.model)  # check identity
         self.assertIs(obj_weights_sub, obj_weights)  # check identity
         self.assertTrue(torch.equal(subset_model_results.indices, torch.tensor([0, 1])))
@@ -73,9 +67,7 @@ class SubsetModelTest(TestCase):
         model_sub = subset_model_results.model
         obj_weights_sub = subset_model_results.objective_weights
         ocs_sub = subset_model_results.outcome_constraints
-        obj_t_sub = subset_model_results.objective_thresholds
         self.assertEqual(model_sub.num_outputs, 1)
-        self.assertIsNone(obj_t_sub)
         self.assertTrue(torch.equal(obj_weights_sub, torch.tensor([[1.0]])))
         # pyre-fixme[16]: Optional type has no attribute `__getitem__`.
         self.assertTrue(torch.equal(ocs_sub[0], torch.tensor([[1.0]])))
@@ -88,46 +80,10 @@ class SubsetModelTest(TestCase):
         model_sub = subset_model_results.model
         obj_weights_sub = subset_model_results.objective_weights
         ocs_sub = subset_model_results.outcome_constraints
-        obj_t_sub = subset_model_results.objective_thresholds
         self.assertIs(model_sub, self.model)  # check identity
-        self.assertIsNone(obj_t_sub)
         self.assertIs(obj_weights_sub, self.obj_weights)  # check identity
         self.assertIs(ocs_sub, ocs)  # check identity
         self.assertTrue(torch.equal(subset_model_results.indices, torch.tensor([0, 1])))
-
-    def test_with_obj_thresholds_cannot_subset(self) -> None:
-        # test w/ objective thresholds, cannot subset
-        ocs = (torch.tensor([[0.0, 1.0]]), torch.tensor([1.0]))
-        subset_model_results = subset_model(
-            self.model, self.obj_weights, ocs, self.obj_t
-        )
-        model_sub = subset_model_results.model
-        obj_weights_sub = subset_model_results.objective_weights
-        ocs_sub = subset_model_results.outcome_constraints
-        obj_t_sub = subset_model_results.objective_thresholds
-        self.assertIs(model_sub, self.model)  # check identity
-        self.assertIs(self.obj_t, obj_t_sub)
-        self.assertIs(obj_weights_sub, self.obj_weights)  # check identity
-        self.assertTrue(torch.equal(subset_model_results.indices, torch.tensor([0, 1])))
-        self.assertIs(ocs_sub, ocs)  # check identity
-
-    def test_with_obj_thresholds_can_subset(self) -> None:
-        # test w/ objective thresholds, can subset
-        ocs = (torch.tensor([[1.0, 0.0]]), torch.tensor([1.0]))
-        subset_model_results = subset_model(
-            self.model, self.obj_weights, ocs, self.obj_t
-        )
-        model_sub = subset_model_results.model
-        obj_weights_sub = subset_model_results.objective_weights
-        ocs_sub = none_throws(subset_model_results.outcome_constraints)
-        obj_t_sub = subset_model_results.objective_thresholds
-        self.assertTrue(torch.equal(subset_model_results.indices, torch.tensor([0])))
-        self.assertEqual(model_sub.num_outputs, 1)
-        self.assertTrue(torch.equal(obj_weights_sub, torch.tensor([[1.0]])))
-        # pyre-fixme[6]: For 1st param expected `Tensor` but got `Optional[Tensor]`.
-        self.assertTrue(torch.equal(obj_t_sub, self.obj_t[:1]))
-        self.assertTrue(torch.equal(ocs_sub[0], torch.tensor([[1.0]])))
-        self.assertTrue(torch.equal(ocs_sub[1], torch.tensor([1.0])))
 
     def test_unsupported(self) -> None:
         yvar = torch.ones(1, 2)

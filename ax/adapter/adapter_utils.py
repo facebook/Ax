@@ -41,12 +41,16 @@ from ax.core.search_space import SearchSpace, SearchSpaceDigest
 from ax.core.types import TBounds, TCandidateMetadata, TNumeric
 from ax.exceptions.core import DataRequiredError, UserInputError
 from ax.generators.torch.botorch_moo_utils import (
-    get_weighted_mc_objective_and_objective_thresholds,
+    get_weighted_mc_objective,
     pareto_frontier_evaluator,
 )
 from ax.utils.common.constants import Keys
 from ax.utils.common.hash_utils import get_current_lilo_hash
 from ax.utils.common.logger import get_logger
+from ax.utils.common.sympy import (
+    extract_metric_weights_from_objective_expr,
+    parse_objective_expression,
+)
 from ax.utils.common.typeutils import (
     assert_is_instance_of_tuple,
     assert_is_instance_optional,
@@ -208,15 +212,21 @@ def extract_objective_thresholds(
     outcomes: list[str],
     metric_name_to_signature: Mapping[str, str],
 ) -> npt.NDArray | None:
-    """Extracts objective thresholds' values, in the order of `outcomes`.
+    """Extracts objective thresholds' values, in the order of objectives.
 
-    Will return None if no objective thresholds, otherwise the extracted tensor
-    will be the same length as `outcomes`.
+    Will return None if no objective thresholds or if the objective is single-
+    objective. Otherwise the extracted array will have length ``n_objectives``
+    (matching the rows of the objective weight matrix).
 
-    Outcomes that are not part of an objective and the objectives that do no have
-    a corresponding objective threshold will be given a threshold of NaN. We will
-    later infer appropriate threshold values for the objectives that are given a
-    threshold of NaN.
+    Objectives that do not have a corresponding objective threshold will be
+    given a threshold of NaN. We will later infer appropriate threshold values
+    for those objectives.
+
+    The returned thresholds are maximization-aligned: for minimize objectives,
+    the threshold is negated. E.g., an outcome we want to maximize with a
+    threshold of at least 5 returns 5. An outcome we want to minimize with a
+    threshold of no more than 5 returns -5, since we maximize the negative of
+    the outcome internally.
 
     Args:
         objective_thresholds: Objective thresholds to extract values from.
@@ -225,7 +235,7 @@ def extract_objective_thresholds(
         metric_name_to_signature: Mapping from metric names to signatures.
 
     Returns:
-        (n,) array of thresholds
+        ``(n_objectives,)`` array of maximization-aligned thresholds, or None.
     """
     if len(objective_thresholds) == 0:
         return None
@@ -250,11 +260,23 @@ def extract_objective_thresholds(
             f"Got {objective_thresholds=} and {objective=}."
         )
 
-    # Initialize these to be NaN to make sure that objective thresholds for
-    # non-objective metrics are never used.
-    obj_t = np.full(len(outcomes), float("nan"))
-    for metric, threshold in objective_threshold_dict.items():
-        obj_t[outcomes.index(metric)] = threshold
+    if not objective.is_multi_objective:
+        # Single objective — thresholds not applicable.
+        return None
+
+    parsed = parse_objective_expression(objective.expression)
+    sub_exprs = parsed if isinstance(parsed, tuple) else (parsed,)
+    n_objectives = len(sub_exprs)
+    obj_t = np.full(n_objectives, float("nan"))
+    for i, sub_expr in enumerate(sub_exprs):
+        sub_mw = extract_metric_weights_from_objective_expr(sub_expr)
+        if len(sub_mw) > 1:
+            continue  # Scalarized sub-objective — NaN, will be inferred later.
+        name, weight = sub_mw[0]
+        sig = metric_name_to_signature[name]
+        if sig in objective_threshold_dict:
+            sign = 1.0 if weight > 0 else -1.0
+            obj_t[i] = sign * objective_threshold_dict[sig]
     return obj_t
 
 
@@ -769,10 +791,8 @@ def pareto_frontier(
     if obj_t is None:
         return frontier_observations
 
-    # Apply appropriate weights and thresholds
-    obj, obj_t = get_weighted_mc_objective_and_objective_thresholds(
-        objective_weights=obj_w, objective_thresholds=obj_t
-    )
+    # Apply appropriate weights
+    obj = get_weighted_mc_objective(objective_weights=obj_w)
     f_t = obj(f)
 
     # Compute individual hypervolumes by taking the difference between the observation
@@ -937,15 +957,13 @@ def hypervolume(
         dtype=torch.bool,
         device=f.device,
     )
-    # Apply appropriate weights and thresholds
-    obj, obj_t = get_weighted_mc_objective_and_objective_thresholds(
-        objective_weights=obj_w, objective_thresholds=none_throws(obj_t)
-    )
+    # Apply appropriate weights
+    obj = get_weighted_mc_objective(objective_weights=obj_w)
     f_t = obj(f)
     obj_mask = (obj_w != 0).any(dim=0).nonzero().view(-1)
     selected_metrics_mask = selected_metrics_mask[obj_mask]
     f_t = f_t[:, selected_metrics_mask]
-    obj_t = obj_t[selected_metrics_mask]
+    obj_t = none_throws(obj_t)[selected_metrics_mask]
     bd = DominatedPartitioning(ref_point=obj_t, Y=f_t)
     return bd.compute_hypervolume().item()
 

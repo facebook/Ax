@@ -382,20 +382,23 @@ class BoTorchGeneratorUtilsTest(TestCase):
         )
 
     def test_objective_threshold_to_outcome_constraints(self) -> None:
-        # Test basic conversion: maximize obj 0, minimize obj 1, skip obj 2.
+        # Test basic conversion: maximize obj 0, minimize obj 1.
+        # Thresholds are (n_objectives,) and maximization-aligned.
         objective_weights = torch.tensor([[1.0, 0.0, 0.0], [0.0, -1.0, 0.0]])
-        objective_thresholds = torch.tensor([0.5, 1.5, float("nan")])
+        # Obj 0 (maximize): threshold 0.5. Obj 1 (minimize): threshold -1.5.
+        objective_thresholds = torch.tensor([0.5, -1.5])
         A, b = _objective_threshold_to_outcome_constraints(
             objective_weights=objective_weights,
             objective_thresholds=objective_thresholds,
         )
-        # Two objectives (idx 0 and 1) have nonzero weights and non-NaN thresholds.
+        # Both objectives have non-NaN thresholds.
         self.assertEqual(A.shape, (2, 3))
         self.assertEqual(b.shape, (2, 1))
-        # For idx 0: w=1.0, t=0.5 → A[0, 0]=-1.0, b[0]=-0.5
+        # A = -objective_weights, b = -objective_thresholds
+        # For obj 0: A[0]=-[1, 0, 0], b[0]=-0.5
         self.assertEqual(A[0, 0].item(), -1.0)
         self.assertEqual(b[0].item(), -0.5)
-        # For idx 1: w=-1.0, t=1.5 → A[1, 1]=1.0, b[1]=1.5
+        # For obj 1: A[1]=-[0, -1, 0]=[0, 1, 0], b[1]=1.5
         self.assertEqual(A[1, 1].item(), 1.0)
         self.assertEqual(b[1].item(), 1.5)
 
@@ -469,16 +472,17 @@ class BoTorchGeneratorUtilsTest(TestCase):
             ),
         )
 
-        # With minimization: w=-1, threshold=1.5 means Y should be <= 1.5.
-        # Point 0: obj1=1.0 (good, <=2.0 after flip), obj2=2.0 > 1.5 → fails.
-        # Point 1: obj1=3.0 > 2.0 → fails.
+        # With minimization: thresholds are maximization-aligned (negated).
+        # weighted_Y = Y * [-1, -1]. Thresholds = [-2.0, -1.5].
+        # Point 0: weighted_Y=[-1, -2], [-1>=-2 ✓, -2>=-1.5 ✗] → fails.
+        # Point 1: weighted_Y=[-3, -0.5], [-3>=-2 ✗] → fails.
         self.assertEqual(
             qLogProbabilityOfFeasibility,
             choose_botorch_acqf_class(
                 search_space_digest=ssd,
                 torch_opt_config=TorchOptConfig(
                     objective_weights=torch.tensor([[-1.0, 0.0], [0.0, -1.0]]),
-                    objective_thresholds=torch.tensor([2.0, 1.5]),
+                    objective_thresholds=torch.tensor([-2.0, -1.5]),
                 ),
                 datasets=[dataset],
             ),

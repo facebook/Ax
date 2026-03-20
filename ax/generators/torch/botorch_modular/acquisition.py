@@ -226,8 +226,8 @@ class Acquisition(Base):
         self.X_pending: Tensor | None = X_pending
         self.X_observed: Tensor | None = X_observed
 
-        # Store objective thresholds for all outcomes (including non-objectives).
-        self._full_objective_thresholds: Tensor | None = (
+        # Store (n_objectives,) maximization-aligned objective thresholds.
+        self._objective_thresholds: Tensor | None = (
             torch_opt_config.objective_thresholds
         )
         self._full_objective_weights: Tensor = torch_opt_config.objective_weights
@@ -236,12 +236,10 @@ class Acquisition(Base):
             self._model,
             self._objective_weights,
             self._outcome_constraints,
-            self._objective_thresholds,
         ) = self._subset_model(
             model=surrogate.model,
             objective_weights=torch_opt_config.objective_weights,
             outcome_constraints=torch_opt_config.outcome_constraints,
-            objective_thresholds=torch_opt_config.objective_thresholds,
         )
         self._update_objective_thresholds(torch_opt_config=torch_opt_config)
         self._set_preference_model(torch_opt_config=torch_opt_config)
@@ -265,16 +263,14 @@ class Acquisition(Base):
         model: Model,
         objective_weights: Tensor,
         outcome_constraints: tuple[Tensor, Tensor] | None = None,
-        objective_thresholds: Tensor | None = None,
-    ) -> tuple[Model, Tensor, tuple[Tensor, Tensor] | None, Tensor | None]:
+    ) -> tuple[Model, Tensor, tuple[Tensor, Tensor] | None]:
         if not self._should_subset_model:
-            return model, objective_weights, outcome_constraints, objective_thresholds
+            return model, objective_weights, outcome_constraints
         # Otherwise, subset
         subset_model_results = subset_model(
             model=model,
             objective_weights=objective_weights,
             outcome_constraints=outcome_constraints,
-            objective_thresholds=objective_thresholds,
         )
         if self._subset_idcs is None:
             self._subset_idcs = subset_model_results.indices
@@ -286,7 +282,6 @@ class Acquisition(Base):
             subset_model_results.model,
             subset_model_results.objective_weights,
             subset_model_results.outcome_constraints,
-            subset_model_results.objective_thresholds,
         )
 
     def _update_objective_thresholds(self, torch_opt_config: TorchOptConfig) -> None:
@@ -304,27 +299,20 @@ class Acquisition(Base):
         if not (
             torch_opt_config.is_moo
             and (
-                self._full_objective_thresholds is None
-                or self._full_objective_thresholds[torch_opt_config.outcome_mask]
-                .isnan()
-                .any()
+                self._objective_thresholds is None
+                or self._objective_thresholds.isnan().any()
             )
             and self.X_observed is not None
         ):
             return
         try:
-            self._full_objective_thresholds = infer_objective_thresholds(
+            self._objective_thresholds = infer_objective_thresholds(
                 model=self._model,
                 objective_weights=self._full_objective_weights,
                 X_observed=self.X_observed,
                 outcome_constraints=torch_opt_config.outcome_constraints,
                 subset_idcs=self._subset_idcs,
-                objective_thresholds=self._full_objective_thresholds,
-            )
-            self._objective_thresholds = (
-                none_throws(self._full_objective_thresholds)[self._subset_idcs]
-                if self._subset_idcs is not None
-                else self._full_objective_thresholds
+                objective_thresholds=self._objective_thresholds,
             )
         except (AxError, BotorchError) as e:
             logger.warning(
@@ -399,11 +387,13 @@ class Acquisition(Base):
                 constraint_transforms = constraint_transforms + threshold_transforms
             elif threshold_transforms is not None:
                 constraint_transforms = threshold_transforms
+        # Pass thresholds directly as ref_point. Our thresholds are already
+        # maximization-aligned, so no further transformation is needed.
         input_constructor_kwargs = {
             "model": model,
             "X_baseline": self.X_observed,
             "X_pending": self.X_pending,
-            "objective_thresholds": self._objective_thresholds,
+            "ref_point": self._objective_thresholds,
             "constraints": constraint_transforms,
             "constraints_tuple": self._outcome_constraints,
             "objective": objective,
@@ -458,11 +448,8 @@ class Acquisition(Base):
 
     @property
     def objective_thresholds(self) -> Tensor | None:
-        """The objective thresholds for all outcomes.
-
-        For non-objective outcomes, the objective thresholds are nans.
-        """
-        return self._full_objective_thresholds
+        """The ``(n_objectives,)`` maximization-aligned objective thresholds."""
+        return self._objective_thresholds
 
     @property
     def objective_weights(self) -> Tensor | None:

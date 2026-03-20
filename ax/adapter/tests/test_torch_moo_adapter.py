@@ -199,10 +199,10 @@ class MultiObjectiveTorchAdapterTest(TestCase):
             )
         )
         self.assertTrue(obj_t is not None)
+        # Thresholds are now (n_objectives,) and maximization-aligned.
+        # LEQ thresholds with bound=5.0 become -5.0 after sign flip.
         self.assertTrue(
-            torch.equal(
-                none_throws(obj_t)[:2], torch.full((2,), 5.0, dtype=torch.double)
-            )
+            torch.equal(none_throws(obj_t), torch.full((2,), -5.0, dtype=torch.double))
         )
         observed_frontier2 = pareto_frontier(
             adapter=adapter,
