@@ -23,7 +23,6 @@ from ax.analysis.healthcheck.healthcheck_analysis import (
 from ax.analysis.healthcheck.predictable_metrics import PredictableMetricsAnalysis
 from ax.analysis.healthcheck.regression_analysis import RegressionAnalysis
 from ax.analysis.healthcheck.search_space_analysis import SearchSpaceAnalysis
-from ax.analysis.healthcheck.should_generate_candidates import ShouldGenerateCandidates
 from ax.analysis.healthcheck.transfer_learning_analysis import TransferLearningAnalysis
 
 __all__ = [
@@ -34,7 +33,6 @@ __all__ = [
     "HealthcheckAnalysisCard",
     "HealthcheckStatus",
     "EarlyStoppingAnalysis",
-    "ShouldGenerateCandidates",
     "SearchSpaceAnalysis",
     "RegressionAnalysis",
     "ComplexityRatingAnalysis",
