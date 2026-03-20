@@ -8,6 +8,7 @@
 
 from __future__ import annotations
 
+import logging
 from collections.abc import Callable
 from typing import TYPE_CHECKING
 
@@ -21,8 +22,10 @@ from ax.core.outcome_constraint import OutcomeConstraint
 from ax.core.search_space import SearchSpace
 from ax.core.utils import get_target_trial_index
 from ax.generators.types import TConfig
-from ax.utils.stats.math_utils import relativize, unrelativize
+from ax.utils.stats.math_utils import MEAN_CONTROL_EPSILON, relativize, unrelativize
 from pyre_extensions import assert_is_instance, none_throws
+
+logger: logging.Logger = logging.getLogger(__name__)
 
 if TYPE_CHECKING:
     # import as module to make sphinx-autodoc-typehints happy
@@ -127,6 +130,19 @@ class TransformToNewSQ(BaseRelativize):
             if metric not in target_sq_data.metric_signatures:
                 continue
 
+            # Check target SQ mean first -- if near-zero, relativization is
+            # undefined (unrelativization would collapse all values to zero).
+            target_j = get_metric_index(data=target_sq_data, metric_signature=metric)
+            target_mean_c = target_sq_data.means[target_j]
+            if np.abs(target_mean_c) < MEAN_CONTROL_EPSILON:
+                logger.warning(
+                    f"Skipping TransformToNewSQ for metric '{metric}': "
+                    f"target trial status quo mean is near-zero "
+                    f"({target_mean_c}). This can happen when the metric "
+                    f"is already relativized (e.g., ExpressionDerivedMetric)."
+                )
+                continue
+
             # Build per-row control arrays from each trial's SQ data.
             mean_c, sem_c = [], []
             for idx in trial_indices[transform_mask]:
@@ -135,18 +151,26 @@ class TransformToNewSQ(BaseRelativize):
                 mean_c.append(sq_data.means[j])
                 sem_c.append(sq_data.covariance[j, j] ** 0.5)
 
+            mean_c_arr = np.array(mean_c)
+            if np.any(np.abs(mean_c_arr) < MEAN_CONTROL_EPSILON):
+                logger.warning(
+                    f"Skipping TransformToNewSQ for metric '{metric}': "
+                    f"one or more trial status quo means are near-zero. "
+                    f"This can happen when the metric is already relativized "
+                    f"(e.g., ExpressionDerivedMetric)."
+                )
+                continue
+
             means_rel, sems_rel = relativize(
                 means_t=observation_data.loc[transform_mask, ("mean", metric)],
                 sems_t=observation_data.loc[transform_mask, ("sem", metric)],
-                mean_c=np.array(mean_c),
+                mean_c=mean_c_arr,
                 sem_c=np.array(sem_c),
                 as_percent=False,
                 control_as_constant=self.control_as_constant,
             )
 
             # Unrelativize with respect to target trial's status quo.
-            target_j = get_metric_index(data=target_sq_data, metric_signature=metric)
-            target_mean_c = target_sq_data.means[target_j]
             abs_target_mean_c = np.abs(target_mean_c)
             observation_data.loc[transform_mask, ("mean", metric)] = (
                 means_rel * abs_target_mean_c + target_mean_c
@@ -232,6 +256,19 @@ class TransformToNewSQ(BaseRelativize):
         j = get_metric_index(data=target_status_quo_data, metric_signature=metric)
         target_mean_c = target_status_quo_data.means[j]
         abs_target_mean_c = np.abs(target_mean_c)
+        # Skip if control or target SQ mean is near-zero -- relativization
+        # is undefined (division by zero).  The guard here is needed for
+        # untransform symmetry: if transform_experiment_data skipped a
+        # metric, the untransform path must also skip it.
+        if abs_target_mean_c < MEAN_CONTROL_EPSILON or (
+            np.abs(mean_c) < MEAN_CONTROL_EPSILON
+        ):
+            logger.warning(
+                f"Skipping TransformToNewSQ for metric '{metric}': "
+                f"status quo mean is near-zero (target={target_mean_c}, "
+                f"control={mean_c})."
+            )
+            return means_t, sems_t
         if rel_op == unrelativize:
             means_t = (means_t - target_mean_c) / abs_target_mean_c
             sems_t = sems_t / abs_target_mean_c

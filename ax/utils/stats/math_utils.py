@@ -9,6 +9,10 @@
 import numpy as np
 import numpy.typing as npt
 
+# Minimum absolute value for a control mean to be considered non-zero
+# for relativization via the delta method.
+MEAN_CONTROL_EPSILON: float = 1e-10
+
 
 def relativize(
     means_t: npt.NDArray | list[float] | float,
@@ -83,8 +87,7 @@ def relativize(
 
     """
     # if mean_c is too small, bail
-    epsilon = 1e-10
-    if np.any(np.abs(mean_c) < epsilon):
+    if np.any(np.abs(mean_c) < MEAN_CONTROL_EPSILON):
         raise ValueError(
             "mean_control ({} +/- {}) is smaller than 1 in 10 billion, "
             "which is too small to reliably analyze ratios using the delta "
