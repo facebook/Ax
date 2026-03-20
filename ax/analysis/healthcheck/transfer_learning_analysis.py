@@ -175,7 +175,9 @@ class TransferLearningAnalysis(Analysis):
             "Using data from unrelated experiments can lead to negative "
             "transfer, which may hurt "
             "optimization performance. Review the overlapping parameters "
-            "before enabling transfer learning."
+            "before enabling transfer learning. If using the UI, 'Learn from "
+            "Related Experiments' button is likely available for use; "
+            "otherwise, use `Client.add_transferable_experiment`."
         )
 
         return TransferLearningAnalysisCard(
