@@ -13,6 +13,7 @@ from typing import Any
 import torch
 from ax.adapter.registry import Generators
 from ax.adapter.transforms.log_y import LogY
+from ax.core.experiment_status import ExperimentStatus
 from ax.core.objective import Objective
 from ax.core.optimization_config import MultiObjectiveOptimizationConfig
 from ax.generation_strategy.dispatch_utils import (
@@ -1088,3 +1089,32 @@ class TestDispatchUtils(TestCase):
                 run_branin_experiment_with_generation_strategy(
                     generation_strategy=gp_saasbo,
                 )
+
+    def test_suggested_experiment_status(self) -> None:
+        with self.subTest(
+            "choose_generation_strategy_legacy sets statuses on both nodes"
+        ):
+            gs = choose_generation_strategy_legacy(
+                search_space=get_branin_search_space(),
+            )
+            # Sobol step should be INITIALIZATION
+            self.assertEqual(
+                gs._nodes[0].suggested_experiment_status,
+                ExperimentStatus.INITIALIZATION,
+            )
+            # BoTorch step should be OPTIMIZATION
+            self.assertEqual(
+                gs._nodes[1].suggested_experiment_status,
+                ExperimentStatus.OPTIMIZATION,
+            )
+
+        with self.subTest("force_random_search sets INITIALIZATION on Sobol-only GS"):
+            gs = choose_generation_strategy_legacy(
+                search_space=get_branin_search_space(),
+                force_random_search=True,
+            )
+            self.assertEqual(len(gs._nodes), 1)
+            self.assertEqual(
+                gs._nodes[0].suggested_experiment_status,
+                ExperimentStatus.INITIALIZATION,
+            )
