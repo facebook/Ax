@@ -473,11 +473,11 @@ class BatchTrial(BaseTrial):
         Usually done after deployment when one arm causes issues but
         user wants to continue running other arms in the batch.
 
-        NOTE: Abandoned arms are considered to be 'pending points' in
-        experiment after their abandonment to avoid Ax models suggesting
-        the same arm again as a new candidate. Abandoned arms are also
-        excluded from model training data unless ``fit_abandoned``
-        is specified to adapter via ``DataLoaderConfig``.
+        NOTE: Abandoned arms are not considered pending points, so
+        their parameter configurations are eligible for re-suggestion
+        by the model. Abandoned arms are also excluded from model
+        training data unless ``fit_abandoned`` is specified to adapter
+        via ``DataLoaderConfig``.
 
         Args:
             arm_name: The name of the arm to abandon.
