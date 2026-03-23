@@ -303,6 +303,40 @@ class SearchSpaceTest(TestCase):
         with self.assertRaises(ValueError):
             self.ss2.check_membership(p_dict, raise_error=True)
 
+    def test_CheckMembershipMissingParamWithBackfill(self) -> None:
+        """Missing parameters with backfill values should pass membership check."""
+        ss = SearchSpace(
+            parameters=[
+                RangeParameter(
+                    name="x",
+                    parameter_type=ParameterType.FLOAT,
+                    lower=0.0,
+                    upper=1.0,
+                ),
+                RangeParameter(
+                    name="y",
+                    parameter_type=ParameterType.FLOAT,
+                    lower=0.0,
+                    upper=1.0,
+                    backfill_value=0.5,
+                ),
+            ]
+        )
+
+        # Both present: valid
+        self.assertTrue(ss.check_membership({"x": 0.5, "y": 0.5}))
+
+        # Missing param with backfill value: valid
+        self.assertTrue(ss.check_membership({"x": 0.5}))
+
+        # Missing param without backfill value: invalid
+        self.assertFalse(ss.check_membership({"y": 0.5}))
+        with self.assertRaises(ValueError):
+            ss.check_membership({"y": 0.5}, raise_error=True)
+
+        # Extra param: still invalid
+        self.assertFalse(ss.check_membership({"x": 0.5, "y": 0.5, "z": 1.0}))
+
     def test_CheckMembershipSkipRangeBounds(self) -> None:
         ss = SearchSpace(
             parameters=[
@@ -426,6 +460,48 @@ class SearchSpaceTest(TestCase):
         test_data_with_metadata["metadata"] = [{"key": "value"}] * len(test_data)
         result_with_metadata = self.ss1.check_membership_df(test_data_with_metadata)
         self.assertEqual(result, result_with_metadata)
+
+    def test_check_membership_df_missing_param_with_backfill(self) -> None:
+        """Missing columns with backfill values should not cause all-False."""
+        ss = SearchSpace(
+            parameters=[
+                RangeParameter(
+                    name="x",
+                    parameter_type=ParameterType.FLOAT,
+                    lower=0.0,
+                    upper=1.0,
+                ),
+                RangeParameter(
+                    name="y",
+                    parameter_type=ParameterType.FLOAT,
+                    lower=0.0,
+                    upper=1.0,
+                    backfill_value=0.5,
+                ),
+            ]
+        )
+
+        # DataFrame missing column "y" which has backfill: should pass
+        df = pd.DataFrame(
+            {"x": [0.5, 0.3]},
+            index=pd.MultiIndex.from_tuples(
+                [(0, "arm0"), (1, "arm1")],
+                names=["trial_index", "arm_name"],
+            ),
+        )
+        result = ss.check_membership_df(df)
+        self.assertEqual(result, [True, True])
+
+        # DataFrame missing column "x" which has no backfill: should fail
+        df_missing_x = pd.DataFrame(
+            {"y": [0.5, 0.3]},
+            index=pd.MultiIndex.from_tuples(
+                [(0, "arm0"), (1, "arm1")],
+                names=["trial_index", "arm_name"],
+            ),
+        )
+        result_missing_x = ss.check_membership_df(df_missing_x)
+        self.assertEqual(result_missing_x, [False, False])
 
     def test_CheckTypes(self) -> None:
         p_dict = {"a": 1.0, "b": 5, "c": "foo", "d": True, "e": 0.2, "f": 5}
