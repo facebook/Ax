@@ -66,6 +66,6 @@ class TestRegressionAnalysis(TestCase):
                 "regressions can happen (especially in exploratory rounds that use "
                 "randomized parameters), users may choose to stop arms that are "
                 "regressing company-critical metrics.\n\n"
-                "No metric regessions detected."
+                "No metric regressions detected."
             ),
         )
