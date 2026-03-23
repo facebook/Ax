@@ -29,6 +29,26 @@ HEALTHCHECK_DESCRIPTION: str = (
     "be reliably predicted by the model. "
 )
 DEFAULT_MODEL_FIT_THRESHOLD = 0.1
+INVESTIGATION_STEPS: str = (
+    "\n\n**Suggested next steps:**\n"
+    "- If the metric is noisy, increase replications per trial "
+    "so the averaged observation is more stable and the model "
+    "can detect the underlying signal.\n"
+    "- Run more trials so the model has enough data to learn "
+    "the parameter-metric relationship (leave-one-out cross-"
+    "validation needs sufficient training points).\n"
+    "- Verify that the tuned parameters actually influence this "
+    "metric. If the metric does not depend on any parameter, "
+    "the model cannot learn a relationship and predictions will "
+    "be no better than the mean.\n"
+    "- Check that the metric has sufficient variation across "
+    "trials. If metric values are nearly constant, the model "
+    "fit score will be very low or negative.\n"
+    "- Check for missing values, outliers, or bugs in the "
+    "metric implementation that could corrupt model training.\n"
+    "- If this metric is not critical, removing it from the "
+    "optimization config may simplify the problem."
+)
 
 
 @final
@@ -156,6 +176,7 @@ class PredictableMetricsAnalysis(Analysis):
 
         if warning_message is not None:
             subtitle = HEALTHCHECK_DESCRIPTION + warning_message
+            subtitle += INVESTIGATION_STEPS
             if self.guidance_message is not None:
                 subtitle += "\n\n" + self.guidance_message
             return create_healthcheck_analysis_card(
