@@ -316,7 +316,7 @@ class SearchSpace(Base):
         self, parameterization: Mapping[str, TParamValue], raise_error: bool = False
     ) -> bool:
         """Whether a given parameterization contains all the parameters in the
-        search space.
+        search space. Parameters with a backfill value are considered present.
 
         Args:
             parameterization: Dict from parameter name to value to validate.
@@ -329,12 +329,19 @@ class SearchSpace(Base):
         parameterization_params = set(parameterization.keys())
         ss_params = set(self.parameters.keys())
         if parameterization_params != ss_params:
-            if raise_error:
-                raise ValueError(
-                    f"Parameterization has parameters: {parameterization_params}, "
-                    f"but search space has parameters: {ss_params}."
-                )
-            return False
+            # Allow missing parameters if they have backfill values set.
+            missing_params = ss_params - parameterization_params
+            extra_params = parameterization_params - ss_params
+            missing_without_backfill = {
+                p for p in missing_params if self.parameters[p].backfill_value is None
+            }
+            if missing_without_backfill or extra_params:
+                if raise_error:
+                    raise ValueError(
+                        f"Parameterization has parameters: {parameterization_params}, "
+                        f"but search space has parameters: {ss_params}."
+                    )
+                return False
         return True
 
     def check_membership(
@@ -355,7 +362,8 @@ class SearchSpace(Base):
             raise_error: If true parameterization does not belong, raises an error
                 with detailed explanation of why.
             check_all_parameters_present: Ensure that parameterization specifies
-                values for all parameters as expected by the search space.
+                values for all parameters as expected by the search space. Parameters
+                with a backfill value set are considered always present.
             check_range_bounds: If False, only check that values for
                 RangeParameters have the correct type, without enforcing
                 the parameter bounds. Other parameter types (ChoiceParameter,
@@ -464,7 +472,12 @@ class SearchSpace(Base):
         # Check all parameters present (for non-hierarchical search spaces)
         # This must happen BEFORE filtering to detect extra columns
         if check_all_parameters_present and not self.is_hierarchical:
-            if df_cols != ss_params:
+            missing_params = ss_params - df_cols
+            extra_params = df_cols - ss_params
+            missing_without_backfill = {
+                p for p in missing_params if self.parameters[p].backfill_value is None
+            }
+            if missing_without_backfill or extra_params:
                 # All rows are out of design if parameters don't match
                 return [False] * len(arm_data)
 
