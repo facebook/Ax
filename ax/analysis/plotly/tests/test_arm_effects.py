@@ -12,7 +12,9 @@ from ax.adapter.registry import Generators
 from ax.analysis.plotly.arm_effects import ArmEffectsPlot, compute_arm_effects_adhoc
 from ax.api.client import Client
 from ax.api.configs import RangeParameterConfig
+from ax.core.analysis_card import AnalysisCard
 from ax.core.arm import Arm
+from ax.core.generator_run import GeneratorRun
 from ax.core.trial_status import DEFAULT_ANALYSIS_STATUSES, TrialStatus
 from ax.exceptions.core import UserInputError
 from ax.utils.common.testutils import TestCase
@@ -200,6 +202,57 @@ class TestArmEffectsPlot(TestCase):
         )
 
         self.assertEqual(cards, adhoc_cards.children[0])
+
+    def test_compute_with_generator_runs(self) -> None:
+        gr = GeneratorRun(
+            arms=[
+                Arm(parameters={"x1": 0.1, "x2": 0.2}),
+                Arm(parameters={"x1": 0.3, "x2": 0.4}),
+            ]
+        )
+        analysis = ArmEffectsPlot(
+            metric_name="foo",
+            use_model_predictions=True,
+            generator_runs={"my_gr": gr},
+        )
+        card = analysis.compute(
+            experiment=self.client._experiment,
+            generation_strategy=self.client._generation_strategy,
+        )
+        # Check that generator run arms appear with the expected names
+        ticktext = json.loads(card.blob)["layout"]["xaxis"]["ticktext"]
+        self.assertIn("my_gr_0", ticktext)
+        self.assertIn("my_gr_1", ticktext)
+
+    def test_compute_with_additional_arms_and_generator_runs(self) -> None:
+        additional_arm = Arm(parameters={"x1": 0.5, "x2": 0.5}, name="extra_arm")
+        gr = GeneratorRun(arms=[Arm(parameters={"x1": 0.1, "x2": 0.2})])
+        analysis = ArmEffectsPlot(
+            metric_name="foo",
+            use_model_predictions=True,
+            additional_arms=[additional_arm],
+            generator_runs={"my_gr": gr},
+        )
+        card = analysis.compute(
+            experiment=self.client._experiment,
+            generation_strategy=self.client._generation_strategy,
+        )
+        ticktext = json.loads(card.blob)["layout"]["xaxis"]["ticktext"]
+        self.assertIn("extra_arm", ticktext)
+        self.assertIn("my_gr_0", ticktext)
+
+    def test_compute_adhoc_with_generator_runs(self) -> None:
+        gr = GeneratorRun(arms=[Arm(parameters={"x1": 0.1, "x2": 0.2})])
+        cards = compute_arm_effects_adhoc(
+            experiment=self.client._experiment,
+            generation_strategy=self.client._generation_strategy,
+            metric_names=["foo"],
+            generator_runs={"my_gr": gr},
+        )
+        self.assertEqual(len(cards.children), 1)
+        card = assert_is_instance(cards.children[0], AnalysisCard)
+        ticktext = json.loads(card.blob)["layout"]["xaxis"]["ticktext"]
+        self.assertIn("my_gr_0", ticktext)
 
     @TestCase.ax_long_test(
         reason=(
