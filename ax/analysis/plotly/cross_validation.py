@@ -13,6 +13,7 @@ import pandas as pd
 from ax.adapter.base import Adapter
 from ax.adapter.cross_validation import cross_validate, CVResult
 from ax.analysis.analysis import Analysis
+from ax.analysis.healthcheck.predictable_metrics import DEFAULT_MODEL_FIT_THRESHOLD
 from ax.analysis.plotly.color_constants import AX_BLUE
 from ax.analysis.plotly.plotly_analysis import create_plotly_analysis_card
 from ax.analysis.plotly.utils import get_scatter_point_color, Z_SCORE_95_CI
@@ -106,6 +107,7 @@ class CrossValidationPlot(Analysis):
         self.untransform = untransform
         self.trial_index = trial_index
         self.labels: dict[str, str] = {**labels} if labels is not None else {}
+        self._r2s: dict[str, float] = {}
 
     @override
     def validate_applicable_state(
@@ -144,6 +146,7 @@ class CrossValidationPlot(Analysis):
             relevant_adapter._experiment.signature_to_metric[signature].name
             for signature in relevant_adapter._metric_signatures
         ]
+        self._r2s = {}
         for metric_name in self.metric_names or relevant_adapter_metric_names:
             df = _prepare_data(
                 metric_name=metric_name, cv_results=cv_results, adapter=relevant_adapter
@@ -162,6 +165,7 @@ class CrossValidationPlot(Analysis):
                 y_obs=df["observed"].to_numpy(),
                 y_pred=df["predicted"].to_numpy(),
             )
+            self._r2s[metric_title] = r_squared
 
             # Define the cross-validation description based on the number of folds
             cv_description = (
@@ -201,6 +205,50 @@ class CrossValidationPlot(Analysis):
             )
 
             cards.append(card)
+
+        # Create a summary table of R2 values for all metrics
+        if self._r2s:
+            threshold = DEFAULT_MODEL_FIT_THRESHOLD
+            metric_names_list = list(self._r2s.keys())
+            r2_values = [f"{v:.2f}" for v in self._r2s.values()]
+            fill_colors = [
+                "rgba(0, 200, 0, 0.15)" if r2 >= threshold else "white"
+                for r2 in self._r2s.values()
+            ]
+            r2_fig = go.Figure(
+                data=[
+                    go.Table(
+                        columnwidth=[4, 1],
+                        header={
+                            "values": ["Metric", "R\u00b2"],
+                            "align": "left",
+                        },
+                        cells={
+                            "values": [metric_names_list, r2_values],
+                            "align": "left",
+                            "fill_color": [fill_colors, fill_colors],
+                        },
+                    )
+                ]
+            )
+            r2_card = create_plotly_analysis_card(
+                name=self.__class__.__name__,
+                title="Summary of model fits",
+                subtitle=(
+                    "R\u00b2 (coefficient of determination) measures how well"
+                    " the model predicts each metric. Higher values indicate"
+                    " better model fit. Metrics with R\u00b2 >="
+                    f" {threshold} are highlighted in green."
+                ),
+                df=pd.DataFrame(
+                    {
+                        "Metric": metric_names_list,
+                        "R\u00b2": list(self._r2s.values()),
+                    }
+                ),
+                fig=r2_fig,
+            )
+            cards.append(r2_card)
 
         return self._create_analysis_card_group(
             title=CV_CARDGROUP_TITLE,
