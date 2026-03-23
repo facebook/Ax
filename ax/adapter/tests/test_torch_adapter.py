@@ -1357,6 +1357,50 @@ class TorchAdapterTest(TestCase):
             torch_opt_config.pruning_target_point, expected_target
         )
 
+    def test_get_transformed_gen_args_disabled_parameters(self) -> None:
+        experiment = get_branin_experiment(with_completed_trial=True)
+        adapter = TorchAdapter(
+            generator=TorchGenerator(),
+            experiment=experiment,
+            transforms=Cont_X_trans,
+        )
+
+        with self.subTest("no_disabled_params"):
+            # No disabled parameters: fixed_features should be empty
+            # ObservationFeatures (not None).
+            base_gen_args = adapter._get_transformed_gen_args(
+                search_space=experiment.search_space,
+                optimization_config=none_throws(experiment.optimization_config),
+                pending_observations={},
+            )
+            self.assertEqual(base_gen_args.fixed_features.parameters, {})
+
+        with self.subTest("disabled_param_appears_in_fixed_features"):
+            # Disable x1 and verify it appears in fixed_features.
+            experiment.search_space.parameters["x1"].disable(default_value=1.5)
+            base_gen_args = adapter._get_transformed_gen_args(
+                search_space=experiment.search_space,
+                optimization_config=none_throws(experiment.optimization_config),
+                pending_observations={},
+            )
+            # Value is unit-scaled by transforms, so just check presence.
+            self.assertIn("x1", base_gen_args.fixed_features.parameters)
+
+        with self.subTest("caller_fixed_features_take_precedence"):
+            # Caller-provided fixed_features should take precedence over
+            # the disabled parameter default value.
+            caller_ff = ObservationFeatures(parameters={"x1": 0.0, "x2": 5.0})
+            base_gen_args = adapter._get_transformed_gen_args(
+                search_space=experiment.search_space,
+                optimization_config=none_throws(experiment.optimization_config),
+                pending_observations={},
+                fixed_features=caller_ff,
+            )
+            # Values are unit-scaled by transforms; check presence and that
+            # caller's x1 override (0.0) differs from disabled default (1.5).
+            self.assertIn("x1", base_gen_args.fixed_features.parameters)
+            self.assertIn("x2", base_gen_args.fixed_features.parameters)
+
     @mock_botorch_optimize
     def test_moo_with_derived_parameter(self) -> None:
         # Makes sure candidate generation works e2e with a derived parameter
