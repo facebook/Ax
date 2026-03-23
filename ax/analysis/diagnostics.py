@@ -35,14 +35,23 @@ class DiagnosticAnalysis(Analysis):
     of leave-one-out cross validation.
     """
 
-    def __init__(self, include_tracking_metrics: bool = False) -> None:
+    def __init__(
+        self,
+        include_tracking_metrics: bool = False,
+        test_trial_index: int | None = None,
+    ) -> None:
         """Initialize the DiagnosticAnalysis.
 
         Args:
             include_tracking_metrics: Whether to include tracking metrics or just use
                 the optimization config metrics.
+            test_trial_index: If provided, limits cross validation to only evaluate
+                predictions for observations from this trial. Other trials'
+                observations will still be used for training but will not
+                appear as test points.
         """
         self.include_tracking_metrics = include_tracking_metrics
+        self.test_trial_index = test_trial_index
 
     @override
     def validate_applicable_state(
@@ -78,7 +87,9 @@ class DiagnosticAnalysis(Analysis):
 
         cross_validation_plots = (
             [
-                CrossValidationPlot(metric_names=metric_names).compute_or_error_card(
+                CrossValidationPlot(
+                    metric_names=metric_names, test_trial_index=self.test_trial_index
+                ).compute_or_error_card(
                     experiment=experiment,
                     generation_strategy=generation_strategy,
                     adapter=adapter,

@@ -148,6 +148,22 @@ class TestCrossValidationPlot(TestCase):
                 card.df["arm_name"].unique(),
             )
 
+    def test_test_trial_index_filters_to_single_trial(self) -> None:
+        # test_trial_index filters CV to only evaluate predictions for observations
+        # from that trial. Use trial 0 which is in the model's training data.
+        analysis = CrossValidationPlot(metric_names=["bar"], test_trial_index=0)
+        card, _r2_card = analysis.compute(
+            generation_strategy=self.client.generation_strategy
+        ).flatten()
+        # Only the arm from trial 0 should appear as a test point
+        trial_0_arm_name = none_throws(
+            assert_is_instance(self.client.experiment.trials[0], Trial).arm
+        ).name
+        self.assertEqual(
+            list(card.df["arm_name"].unique()),
+            [trial_0_arm_name],
+        )
+
     @mock.patch(
         "ax.analysis.plotly.cross_validation.cross_validate", wraps=cross_validate
     )
