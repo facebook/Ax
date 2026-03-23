@@ -272,12 +272,13 @@ class EarlyStoppingAnalysis(Analysis):
             )
             return self._create_card(
                 subtitle=(
-                    f"This experiment has {n_stopped} early stopped trial(s), but no "
-                    "early stopping strategy was provided. For multi-objective or "
-                    "constrained experiments, please pass the original "
-                    "early_stopping_strategy used during the experiment to "
-                    "EarlyStoppingAnalysis for accurate reporting of metrics and "
-                    "savings."
+                    f"This experiment has {n_stopped} early stopped trial(s), but "
+                    "no early stopping strategy was provided to "
+                    "EarlyStoppingAnalysis. This typically happens when loading a "
+                    "historical experiment where early stopping was used, but the "
+                    "original strategy object was not passed to this analysis. "
+                    "To get accurate savings reporting, pass the original "
+                    "early_stopping_strategy to EarlyStoppingAnalysis."
                 ),
                 status=HealthcheckStatus.WARNING,
                 df=df,
@@ -340,9 +341,13 @@ class EarlyStoppingAnalysis(Analysis):
             )
             return self._create_card(
                 subtitle=(
-                    f"None of the {len(target_ess_metric_names)} metrics used for "
-                    f"early stopping are MapMetrics with map data. Early stopping "
-                    f"requires time-series data."
+                    f"Early stopping strategy is enabled, but none of the "
+                    f"{len(target_ess_metric_names)} metrics used for early "
+                    f"stopping are MapMetrics with map data. Early stopping "
+                    f"requires time-series (map) data to make stopping decisions. "
+                    f"To fix this, ensure that the metrics used by your early "
+                    f"stopping strategy are MapMetrics and that map data is "
+                    f"attached to the experiment."
                 ),
                 status=HealthcheckStatus.FAIL,
                 df=df,
