@@ -36,6 +36,7 @@ from ax.core.parameter import (
     ParameterType,
     RangeParameter,
 )
+from ax.core.parameter_constraint import ParameterConstraint
 from ax.core.search_space import SearchSpace
 from ax.core.types import ComparisonOp
 from ax.exceptions.core import (
@@ -426,6 +427,31 @@ class ExperimentTest(TestCase):
             self.assertIsNotNone(experiment.status_quo)
             self.assertIn("new_param", experiment.status_quo.parameters)
             self.assertEqual(experiment.status_quo.parameters["new_param"], 0.0)
+
+        with self.subTest("Add parameter with parameter constraints"):
+            experiment = self.experiment.clone_with(trial_indices=[])
+            num_existing_constraints = len(
+                experiment.search_space.parameter_constraints
+            )
+            constraint = ParameterConstraint(
+                inequality="new_param + w <= 5.0",
+            )
+            experiment.add_parameters_to_search_space(
+                parameters=[new_param],
+                status_quo_values={new_param.name: 0.0},
+                parameter_constraints=[constraint],
+            )
+            # Verify parameter was added
+            self.assertIn("new_param", experiment.search_space.parameters)
+            # Verify constraint was added
+            self.assertEqual(
+                len(experiment.search_space.parameter_constraints),
+                num_existing_constraints + 1,
+            )
+            added_constraint = experiment.search_space.parameter_constraints[-1]
+            self.assertIn("new_param", added_constraint.constraint_dict)
+            self.assertIn("w", added_constraint.constraint_dict)
+            self.assertEqual(added_constraint.bound, 5.0)
 
     def test_add_derived_parameter_to_search_space_with_trials(self) -> None:
         """Test adding DerivedParameters to an experiment that has existing trials.

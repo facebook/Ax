@@ -41,6 +41,7 @@ from ax.core.optimization_config import (
     OptimizationConfig,
 )
 from ax.core.parameter import DerivedParameter, Parameter
+from ax.core.parameter_constraint import ParameterConstraint
 from ax.core.runner import Runner
 from ax.core.search_space import SearchSpace
 from ax.core.trial import Trial
@@ -362,6 +363,7 @@ class Experiment(Base):
         self,
         parameters: Sequence[Parameter],
         status_quo_values: TParameterization | None = None,
+        parameter_constraints: Sequence[ParameterConstraint] | None = None,
     ) -> None:
         """
         Add new parameters to the experiment's search space. This allows extending
@@ -376,6 +378,8 @@ class Experiment(Base):
                 space.
             status_quo_values: Optional parameter values for the new parameters to
                 use in the status quo (baseline) arm, if one is defined.
+            parameter_constraints: Optional sequence of typed ParameterConstraint
+                objects to add to the search space after the parameters are added.
         """
         status_quo_values = status_quo_values or {}
 
@@ -428,6 +432,10 @@ class Experiment(Base):
 
         # Add parameters to search space
         self._search_space.add_parameters(parameters)
+
+        # Add parameter constraints to search space
+        if parameter_constraints:
+            self._search_space.add_parameter_constraints(list(parameter_constraints))
 
     def disable_parameters_in_search_space(
         self, default_parameter_values: TParameterization

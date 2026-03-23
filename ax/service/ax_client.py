@@ -30,6 +30,7 @@ from ax.core.multi_type_experiment import MultiTypeExperiment
 from ax.core.objective import Objective
 from ax.core.observation import ObservationFeatures
 from ax.core.parameter import RangeParameter
+from ax.core.parameter_constraint import ParameterConstraint
 from ax.core.runner import Runner
 from ax.core.trial import Trial
 from ax.core.trial_status import TrialStatus
@@ -555,6 +556,7 @@ class AxClient(AnalysisBase, BestPointMixin, InstantiationBase):
         parameters: Sequence[RangeParameterConfig | ChoiceParameterConfig],
         backfill_values: TParameterization,
         status_quo_values: TParameterization | None = None,
+        parameter_constraints: list[str] | None = None,
     ) -> None:
         """
         Add new parameters to the experiment's search space. This allows extending
@@ -574,6 +576,10 @@ class AxClient(AnalysisBase, BestPointMixin, InstantiationBase):
             status_quo_values: Optional parameter values for the new parameters to
                 use in the status quo (baseline) arm, if one is defined. If None,
                 the backfill values will be used for the status quo.
+            parameter_constraints: Optional list of string representations of
+                parameter constraints to add (e.g., ``"x1 + x2 <= 5.0"``
+                or ``"x1 <= x2"``). May reference both existing and new
+                parameters.
         """
         parameters_to_add = [
             parameter_from_config(parameter_config) for parameter_config in parameters
@@ -594,9 +600,25 @@ class AxClient(AnalysisBase, BestPointMixin, InstantiationBase):
         for parameter in parameters_to_add:
             if parameter.name in backfill_values:
                 parameter._backfill_value = backfill_values[parameter.name]
+
+        # Convert string constraints to typed ParameterConstraint objects.
+        typed_parameter_constraints: list[ParameterConstraint] = []
+        if parameter_constraints:
+            # Build a parameter map with both existing and new parameters so
+            # constraints can reference either.
+            parameter_map = {
+                **self.experiment.search_space.parameters,
+                **{p.name: p for p in parameters_to_add},
+            }
+            typed_parameter_constraints = [
+                InstantiationBase.constraint_from_str(c, parameter_map)
+                for c in parameter_constraints
+            ]
+
         self.experiment.add_parameters_to_search_space(
             parameters=parameters_to_add,
-            status_quo_values=status_quo_values,
+            status_quo_values=status_quo_values or backfill_values,
+            parameter_constraints=typed_parameter_constraints or None,
         )
         self._save_experiment_to_db_if_possible(experiment=self.experiment)
 
