@@ -65,9 +65,12 @@ class TestCrossValidationPlot(TestCase):
         ):
             analysis.compute()
 
-        (card,) = analysis.compute(
+        cards = analysis.compute(
             generation_strategy=self.client.generation_strategy
         ).flatten()
+        # Should have the CV plot card and the R2 summary card
+        self.assertEqual(len(cards), 2)
+        card = cards[0]
         self.assertEqual(
             card.name,
             "CrossValidationPlot",
@@ -106,6 +109,15 @@ class TestCrossValidationPlot(TestCase):
         )
         self.assertIsNotNone(card.blob)
 
+        # Assert that _r2s is populated after compute
+        self.assertIn("bar", analysis._r2s)
+        self.assertAlmostEqual(analysis._r2s["bar"], 0.85)
+
+        # Assert the R2 summary card
+        r2_card = cards[1]
+        self.assertEqual(r2_card.name, "CrossValidationPlot")
+        self.assertEqual(r2_card.title, "Summary of model fits")
+
         # Assert that all arms are in the cross validation df
         # because trial index is not specified
         for t in self.client.experiment.trials.values():
@@ -121,9 +133,10 @@ class TestCrossValidationPlot(TestCase):
 
     def test_it_can_specify_trial_index_correctly(self) -> None:
         analysis = CrossValidationPlot(metric_names=["bar"], trial_index=9)
-        (card,) = analysis.compute(
+        cards = analysis.compute(
             generation_strategy=self.client.generation_strategy
         ).flatten()
+        card = cards[0]
         for t in self.client.experiment.trials.values():
             # Skip the last trial because the model was used to generate it
             # and therefore hasn't observed it
@@ -159,15 +172,17 @@ class TestCrossValidationPlot(TestCase):
         cards = compute_cross_validation_adhoc(
             adapter=adapter, labels=metric_mapping
         ).flatten()
-        self.assertEqual(len(cards), 2)
+        self.assertEqual(len(cards), 3)
         titles = {
             "Cross Validation for spunky (R\u00b2 = 0.85)",
             "Cross Validation for foo2 (R\u00b2 = 0.85)",
         }
-        for card in cards:
+        for card in cards[:2]:
             self.assertEqual(card.name, "CrossValidationPlot")
             self.assertIn(card.title, titles)
             titles.remove(card.title)
+        # The last card is the R2 summary
+        self.assertEqual(cards[2].title, "Summary of model fits")
 
     @TestCase.ax_long_test(
         reason=(
