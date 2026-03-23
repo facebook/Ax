@@ -236,6 +236,9 @@ class TestScatterPlot(TestCase):
             **kwargs,
         )
 
+        # Normalize timestamps since cards are computed at different times
+        for card, adhoc_card in zip(cards.flatten(), adhoc_cards.flatten()):
+            adhoc_card._timestamp = card._timestamp
         self.assertEqual(cards, adhoc_cards)
 
     @TestCase.ax_long_test(

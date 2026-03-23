@@ -77,6 +77,7 @@ class CrossValidationPlot(Analysis):
         untransform: bool = False,
         trial_index: int | None = None,
         labels: Mapping[str, str] | None = None,
+        test_trial_index: int | None = None,
     ) -> None:
         """
         Args:
@@ -100,6 +101,10 @@ class CrossValidationPlot(Analysis):
                 trial.
             labels: Optional dictionary of labels for the plot. Useful for when metric
                 names are too long or otherwise challenging to read.
+            test_trial_index: If provided, limits cross validation to only evaluate
+                predictions for observations from this trial. Other trials'
+                observations will still be used for training but will not
+                appear as test points.
         """
 
         self.metric_names = metric_names
@@ -107,6 +112,7 @@ class CrossValidationPlot(Analysis):
         self.untransform = untransform
         self.trial_index = trial_index
         self.labels: dict[str, str] = {**labels} if labels is not None else {}
+        self.test_trial_index = test_trial_index
         self._r2s: dict[str, float] = {}
 
     @override
@@ -139,8 +145,17 @@ class CrossValidationPlot(Analysis):
         )
 
         cards = []
+
+        test_selector = (
+            (lambda obs: obs.features.trial_index == self.test_trial_index)
+            if self.test_trial_index is not None
+            else None
+        )
         cv_results = cross_validate(
-            adapter=relevant_adapter, folds=self.folds, untransform=self.untransform
+            adapter=relevant_adapter,
+            folds=self.folds,
+            untransform=self.untransform,
+            test_selector=test_selector,
         )
         relevant_adapter_metric_names = [
             relevant_adapter._experiment.signature_to_metric[signature].name
@@ -262,6 +277,7 @@ def compute_cross_validation_adhoc(
     folds: int = -1,
     untransform: bool = True,
     labels: Mapping[str, str] | None = None,
+    test_trial_index: int | None = None,
     experiment: Experiment | None = None,
     generation_strategy: GenerationStrategy | None = None,
     adapter: Adapter | None = None,
@@ -288,6 +304,10 @@ def compute_cross_validation_adhoc(
             is.
         labels: Optional dictionary of labels for the plot. Useful for when metric
             names are too long or otherwise challenging to read.
+        test_trial_index: If provided, limits cross validation to only evaluate
+            predictions for observations from this trial. Other trials'
+            observations will still be used for training but will not
+            appear as test points.
         experiment: Optional. The experiment to extract data from.
         generation_strategy: Optional. The generation strategy to extract the adapter
             from.
@@ -305,6 +325,7 @@ def compute_cross_validation_adhoc(
         folds=folds,
         untransform=untransform,
         labels=labels,
+        test_trial_index=test_trial_index,
     )
 
     return analysis.compute(
