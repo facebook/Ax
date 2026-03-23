@@ -693,6 +693,9 @@ class BaseTrial(ABC, SortableBase):
     def mark_as(self, status: TrialStatus, unsafe: bool = False, **kwargs: Any) -> Self:
         """Mark trial with a new TrialStatus.
 
+        If the trial is already in the given status, this is a no-op -- the
+        trial is returned unchanged and timestamps are not overwritten.
+
         Args:
             status: The new status of the trial.
             unsafe: Ignore sanity checks on state transitions.
@@ -702,6 +705,8 @@ class BaseTrial(ABC, SortableBase):
         Returns:
             The trial instance.
         """
+        if self._status == status:
+            return self
         if status == TrialStatus.STAGED:
             self.mark_staged(unsafe=unsafe)
         elif status == TrialStatus.RUNNING:

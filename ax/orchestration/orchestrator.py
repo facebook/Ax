@@ -1311,7 +1311,7 @@ class Orchestrator(WithDBSettingsBase, BestPointMixin):
         self._sleep_if_too_early_to_poll()
 
         # POLL TRIAL STATUSES
-        new_status_to_trial_idcs = self.poll_trial_status(
+        polled_status_to_trial_idcs = self.poll_trial_status(
             poll_all_trial_statuses=poll_all_trial_statuses
         )
 
@@ -1321,12 +1321,12 @@ class Orchestrator(WithDBSettingsBase, BestPointMixin):
         # This must be done before updating the trial statuses, so we can differentiate
         # newly and previously completed trials.
         trial_indices_to_fetch = self._get_trial_indices_to_fetch(
-            new_status_to_trial_idcs=new_status_to_trial_idcs
+            polled_status_to_trial_idcs=polled_status_to_trial_idcs
         )
 
         # UPDATE TRIAL STATUSES
-        trial_indices_with_updated_statuses = self._apply_new_trial_statuses(
-            new_status_to_trial_idcs=new_status_to_trial_idcs,
+        trial_indices_with_updated_statuses = self._apply_trial_statuses(
+            polled_status_to_trial_idcs=polled_status_to_trial_idcs,
         )
         updated_any_trial_status = len(trial_indices_with_updated_statuses) > 0
         trial_indices_with_updated_data_or_status.update(
@@ -1423,20 +1423,20 @@ class Orchestrator(WithDBSettingsBase, BestPointMixin):
         """Returns the number of trials that have been run by the orchestrator."""
         return len(self.experiment.trials) - self._num_preexisting_trials
 
-    def _apply_new_trial_statuses(
-        self, new_status_to_trial_idcs: dict[TrialStatus, set[int]]
+    def _apply_trial_statuses(
+        self, polled_status_to_trial_idcs: dict[TrialStatus, set[int]]
     ) -> set[int]:
-        """Apply new trial statuses to the experiment according to poll results.
+        """Apply polled trial statuses to the experiment.
 
         Args:
-            new_status_to_trial_idcs: Changes to be applied to trial statuses from
-                poll_trial_status.
+            polled_status_to_trial_idcs: Statuses as reported by poll_trial_status.
+                May include trials whose status has not changed.
 
         Returns:
-            Set of trial indices that were updated with new statuses.
+            Set of trial indices that were processed.
         """
         updated_trial_indices = set()
-        for status, trial_idcs in new_status_to_trial_idcs.items():
+        for status, trial_idcs in polled_status_to_trial_idcs.items():
             if status.is_candidate or status.is_deployed:
                 # No need to consider candidate, staged or running trials here (none of
                 # these trials should actually be candidates, but we can filter on that)
@@ -1465,7 +1465,7 @@ class Orchestrator(WithDBSettingsBase, BestPointMixin):
     def _identify_trial_indices_to_fetch(
         self,
         old_status_to_trial_idcs: Mapping[TrialStatus, set[int]],
-        new_status_to_trial_idcs: Mapping[TrialStatus, set[int]],
+        polled_status_to_trial_idcs: Mapping[TrialStatus, set[int]],
     ) -> set[int]:
         """
         Identify trial indices to fetch data for based on changes in trial statuses.
@@ -1473,7 +1473,7 @@ class Orchestrator(WithDBSettingsBase, BestPointMixin):
         Args:
             old_status_to_trial_idcs: Mapping of old trial statuses
                 to their corresponding trial indices.
-            new_status_to_trial_idcs: Mapping of new trial statuses
+            polled_status_to_trial_idcs: Mapping of new trial statuses
                 to their corresponding trial indices.
         Returns:
             Set of trial indices to fetch data for.
@@ -1484,7 +1484,7 @@ class Orchestrator(WithDBSettingsBase, BestPointMixin):
         ) | old_status_to_trial_idcs.get(TrialStatus.EARLY_STOPPED, set())
 
         newly_completed = (
-            new_status_to_trial_idcs.get(TrialStatus.COMPLETED, set())
+            polled_status_to_trial_idcs.get(TrialStatus.COMPLETED, set())
             - prev_completed_trial_idcs
         )
 
@@ -1499,11 +1499,11 @@ class Orchestrator(WithDBSettingsBase, BestPointMixin):
         if any(
             m.is_available_while_running() for m in self.experiment.metrics.values()
         ):
-            running_trial_indices_with_metrics = new_status_to_trial_idcs.get(
+            running_trial_indices_with_metrics = polled_status_to_trial_idcs.get(
                 TrialStatus.RUNNING, set()
             ) | old_status_to_trial_idcs.get(TrialStatus.RUNNING, set())
 
-            for status, indices in new_status_to_trial_idcs.items():
+            for status, indices in polled_status_to_trial_idcs.items():
                 if status.is_terminal and indices:
                     running_trial_indices_with_metrics -= indices
 
@@ -1533,17 +1533,17 @@ class Orchestrator(WithDBSettingsBase, BestPointMixin):
         return trial_indices_to_fetch
 
     def _get_trial_indices_to_fetch(
-        self, new_status_to_trial_idcs: Mapping[TrialStatus, set[int]]
+        self, polled_status_to_trial_idcs: Mapping[TrialStatus, set[int]]
     ) -> set[int]:
         """Get trial indices to fetch data for the experiment given
-        `new_status_to_trial_idcs` and metric properties.  This should include:
+        `polled_status_to_trial_idcs` and metric properties.  This should include:
             - newly completed trials
             - running trials if the experiment has metrics available while running
             - previously completed (or early stopped) trials if the experiment
                 has metrics with new data after completion which finished recently
 
         Args:
-            new_status_to_trial_idcs: Changes about to be applied to trial statuses.
+            polled_status_to_trial_idcs: Changes about to be applied to trial statuses.
 
         Returns:
             Set of trial indices to fetch data for.
@@ -1555,7 +1555,7 @@ class Orchestrator(WithDBSettingsBase, BestPointMixin):
 
         return self._identify_trial_indices_to_fetch(
             old_status_to_trial_idcs=old_status_to_trial_idcs,
-            new_status_to_trial_idcs=new_status_to_trial_idcs,
+            polled_status_to_trial_idcs=polled_status_to_trial_idcs,
         )
 
     def _get_recently_completed_trial_indices(self) -> set[int]:
