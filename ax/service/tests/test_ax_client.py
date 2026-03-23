@@ -1506,6 +1506,144 @@ class TestAxClient(TestCase):
         assert isinstance(param_x3, ChoiceParameter)
         self.assertEqual(param_x3.values, ["a", "b", "c"])
 
+    def test_add_parameters_backfill_values_used_for_status_quo(self) -> None:
+        """Test that backfill_values are used for the status quo arm when
+        status_quo_values is not provided.
+        """
+        ax_client = AxClient()
+        ax_client.create_experiment(
+            name="test_experiment",
+            parameters=[
+                {
+                    "name": "x1",
+                    "type": "range",
+                    "bounds": [0.0, 1.0],
+                    "value_type": "float",
+                },
+            ],
+            status_quo={"x1": 0.5},
+            is_test=True,
+            immutable_search_space_and_opt_config=False,
+        )
+
+        ax_client.add_parameters(
+            parameters=[
+                RangeParameterConfig(
+                    name="x2",
+                    bounds=(0.0, 10.0),
+                    parameter_type="float",
+                ),
+                ChoiceParameterConfig(
+                    name="x3",
+                    values=["a", "b", "c"],
+                    parameter_type="str",
+                ),
+            ],
+            backfill_values={"x2": 5.0, "x3": "a"},
+        )
+
+        # Verify the status quo arm was updated with backfill_values
+        status_quo = ax_client.experiment.status_quo
+        self.assertIsNotNone(status_quo)
+        assert status_quo is not None
+        self.assertEqual(status_quo.parameters["x1"], 0.5)
+        self.assertEqual(status_quo.parameters["x2"], 5.0)
+        self.assertEqual(status_quo.parameters["x3"], "a")
+
+    def test_add_parameters_with_constraints(self) -> None:
+        """Test that add_parameters correctly adds parameter constraints."""
+        ax_client = AxClient()
+        ax_client.create_experiment(
+            name="test_experiment",
+            parameters=[
+                {
+                    "name": "x1",
+                    "type": "range",
+                    "bounds": [0.0, 10.0],
+                    "value_type": "float",
+                },
+            ],
+            is_test=True,
+            immutable_search_space_and_opt_config=False,
+        )
+
+        with self.subTest("Sum constraint on new parameters"):
+            ax_client.add_parameters(
+                parameters=[
+                    RangeParameterConfig(
+                        name="x2",
+                        bounds=(0.0, 10.0),
+                        parameter_type="float",
+                    ),
+                ],
+                backfill_values={"x2": 5.0},
+                parameter_constraints=["x1 + x2 <= 5.0"],
+            )
+            search_space = ax_client.experiment.search_space
+            self.assertIn("x2", search_space.parameters)
+            self.assertEqual(len(search_space.parameter_constraints), 1)
+            constraint = search_space.parameter_constraints[0]
+            self.assertIn("x1", constraint.constraint_dict)
+            self.assertIn("x2", constraint.constraint_dict)
+            self.assertEqual(constraint.bound, 5.0)
+
+        with self.subTest("Order constraint referencing existing and new parameter"):
+            ax_client_2 = AxClient()
+            ax_client_2.create_experiment(
+                name="test_experiment_2",
+                parameters=[
+                    {
+                        "name": "x1",
+                        "type": "range",
+                        "bounds": [0.0, 10.0],
+                        "value_type": "float",
+                    },
+                ],
+                is_test=True,
+                immutable_search_space_and_opt_config=False,
+            )
+            ax_client_2.add_parameters(
+                parameters=[
+                    RangeParameterConfig(
+                        name="x2",
+                        bounds=(0.0, 10.0),
+                        parameter_type="float",
+                    ),
+                ],
+                backfill_values={"x2": 5.0},
+                parameter_constraints=["x1 <= x2"],
+            )
+            search_space = ax_client_2.experiment.search_space
+            self.assertEqual(len(search_space.parameter_constraints), 1)
+
+        with self.subTest("Constraint referencing non-existent parameter"):
+            ax_client_3 = AxClient()
+            ax_client_3.create_experiment(
+                name="test_experiment_3",
+                parameters=[
+                    {
+                        "name": "x1",
+                        "type": "range",
+                        "bounds": [0.0, 10.0],
+                        "value_type": "float",
+                    },
+                ],
+                is_test=True,
+                immutable_search_space_and_opt_config=False,
+            )
+            with self.assertRaises(ValueError):
+                ax_client_3.add_parameters(
+                    parameters=[
+                        RangeParameterConfig(
+                            name="x2",
+                            bounds=(0.0, 10.0),
+                            parameter_type="float",
+                        ),
+                    ],
+                    backfill_values={"x2": 5.0},
+                    parameter_constraints=["x1 + nonexistent <= 5.0"],
+                )
+
     def test_disable_parameters(self) -> None:
         """Test that disable_parameters correctly disables parameters in the search
         space."""
