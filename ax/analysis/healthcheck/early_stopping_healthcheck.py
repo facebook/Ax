@@ -413,7 +413,7 @@ class EarlyStoppingAnalysis(Analysis):
         try:
             savings = estimate_hypothetical_early_stopping_savings(
                 experiment=experiment,
-                metric=metric,
+                metrics=[metric],
                 max_pending_trials=self.max_pending_trials,
             )
         except Exception as e:
