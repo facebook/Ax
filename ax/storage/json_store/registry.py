@@ -47,7 +47,11 @@ from ax.core.optimization_config import (
     OptimizationConfig,
     PreferenceOptimizationConfig,
 )
-from ax.core.outcome_constraint import ObjectiveThreshold, OutcomeConstraint
+from ax.core.outcome_constraint import (
+    ObjectiveThreshold,
+    OutcomeConstraint,
+    ScalarizedOutcomeConstraint,
+)
 from ax.core.parameter import (
     ChoiceParameter,
     DerivedParameter,
@@ -159,6 +163,7 @@ from ax.storage.json_store.encoders import (
     range_parameter_to_dict,
     runner_to_dict,
     scalarized_objective_to_dict,
+    scalarized_outcome_constraint_to_dict,
     search_space_to_dict,
     surrogate_to_dict,
     threshold_early_stopping_strategy_to_dict,
@@ -255,6 +260,7 @@ CORE_ENCODER_REGISTRY: dict[type[Any], Callable[[Any], dict[str, Any]]] = {
     OptimizationConfig: optimization_config_to_dict,
     OrEarlyStoppingStrategy: logical_early_stopping_strategy_to_dict,
     OutcomeConstraint: outcome_constraint_to_dict,
+    ScalarizedOutcomeConstraint: scalarized_outcome_constraint_to_dict,
     ParameterConstraint: parameter_constraint_to_dict,
     pathlib.Path: pathlib_to_dict,
     pathlib.PurePath: pathlib_to_dict,
@@ -410,6 +416,7 @@ CORE_DECODER_REGISTRY: TDecoderRegistry = {
     "ReductionCriterion": ReductionCriterion,
     "Round": Round,
     "ScalarizedObjective": ScalarizedObjective,
+    "ScalarizedOutcomeConstraint": ScalarizedOutcomeConstraint,
     "SchedulerOptions": OrchestratorOptions,  # DEPRECATED; backward compatibility
     "SearchSpace": SearchSpace,
     "SimTrial": SimTrial,

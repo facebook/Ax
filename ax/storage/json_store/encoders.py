@@ -26,7 +26,7 @@ from ax.core.optimization_config import (
     OptimizationConfig,
     PreferenceOptimizationConfig,
 )
-from ax.core.outcome_constraint import OutcomeConstraint
+from ax.core.outcome_constraint import OutcomeConstraint, ScalarizedOutcomeConstraint
 from ax.core.parameter import (
     ChoiceParameter,
     DerivedParameter,
@@ -356,6 +356,21 @@ def outcome_constraint_to_dict(outcome_constraint: OutcomeConstraint) -> dict[st
     return {
         "__type": outcome_constraint.__class__.__name__,
         "metric": Metric(name=metric_name),
+        "op": outcome_constraint.op,
+        "bound": outcome_constraint.bound,
+        "relative": outcome_constraint.relative,
+    }
+
+
+def scalarized_outcome_constraint_to_dict(
+    outcome_constraint: ScalarizedOutcomeConstraint,
+) -> dict[str, Any]:
+    """Convert Ax scalarized outcome constraint to a dictionary."""
+    metrics = [Metric(name=name) for name, _ in outcome_constraint.metric_weights]
+    return {
+        "__type": outcome_constraint.__class__.__name__,
+        "metrics": metrics,
+        "weights": outcome_constraint.weights,
         "op": outcome_constraint.op,
         "bound": outcome_constraint.bound,
         "relative": outcome_constraint.relative,
