@@ -341,7 +341,8 @@ class BaseTrial(ABC, SortableBase):
         if self.runner is None:
             raise ValueError("No runner set on experiment.")
 
-        self.update_run_metadata(none_throws(self.runner).run(self))
+        run_metadata = none_throws(self.runner).run_trials(trials=[self])
+        self.update_run_metadata(run_metadata[self.index])
 
         if none_throws(self.runner).staging_required:
             self.mark_staged()
@@ -380,7 +381,7 @@ class BaseTrial(ABC, SortableBase):
             raise ValueError("No runner set on experiment.")
         runner = none_throws(self.runner)
 
-        self._stop_metadata = runner.stop(self, reason=reason)
+        self._stop_metadata = runner.stop_trial(trial=self, reason=reason)
         self.mark_as(new_status)
         return self
 
