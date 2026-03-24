@@ -6,14 +6,13 @@
 
 # pyre-strict
 
-from collections.abc import Iterable, Sequence
+from collections.abc import Sequence
 from typing import Any, Self
 
 from ax.core.arm import Arm
 from ax.core.base_trial import BaseTrial, TrialStatus
-from ax.core.data import Data
 from ax.core.experiment import Experiment
-from ax.core.metric import Metric, MetricFetchResult
+from ax.core.metric import Metric
 from ax.core.optimization_config import OptimizationConfig
 from ax.core.runner import Runner
 from ax.core.search_space import SearchSpace
@@ -170,40 +169,6 @@ class MultiTypeExperiment(Experiment):
         self._metric_to_trial_type.pop(metric_name, None)
         self._metric_to_canonical_name.pop(metric_name, None)
         return self
-
-    @copy_doc(Experiment.fetch_data)
-    def fetch_data(
-        self,
-        trial_indices: Iterable[int] | None = None,
-        metrics: list[Metric] | None = None,
-        **kwargs: Any,
-    ) -> Data:
-        # TODO: make this more efficient for fetching
-        # data for multiple trials of the same type
-        # by overriding Experiment._lookup_or_fetch_trials_results
-        return Data.from_multiple_data(
-            [
-                (
-                    trial.fetch_data(**kwargs, metrics=metrics)
-                    if trial.status.expecting_data
-                    else Data()
-                )
-                for trial in self.trials.values()
-            ]
-        )
-
-    @copy_doc(Experiment._fetch_trial_data)
-    def _fetch_trial_data(
-        self, trial_index: int, metrics: list[Metric] | None = None, **kwargs: Any
-    ) -> dict[str, MetricFetchResult]:
-        trial = self.trials[trial_index]
-        metrics = [
-            metric
-            for metric in (metrics or self.metrics.values())
-            if self.metric_to_trial_type[metric.name] == trial.trial_type
-        ]
-        # Invoke parent's fetch method using only metrics for this trial_type
-        return super()._fetch_trial_data(trial.index, metrics=metrics, **kwargs)
 
 
 def filter_trials_by_type(
