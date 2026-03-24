@@ -161,6 +161,11 @@ class Experiment(Base):
         self._trial_type_to_runner: dict[str | None, Runner | None] = {
             default_trial_type: runner
         }
+        # Maps each trial type to the set of metric names relevant to that type.
+        # This is the complement of _trial_type_to_runner and is used for
+        # multi-type experiments where different metrics apply to different
+        # trial types.
+        self._trial_type_to_metric_names: dict[str, set[str]] = {}
         # Used to keep track of whether any trials on the experiment
         # specify a TTL. Since trials need to be checked for their TTL's
         # expiration often, having this attribute helps avoid unnecessary
@@ -1927,6 +1932,57 @@ class Experiment(Base):
         with multiple trial types, use the MultiTypeExperiment class.
         """
         return self._default_trial_type
+
+    @property
+    def trial_type_to_metric_names(self) -> dict[str, set[str]]:
+        """Map from trial type to the set of metric names relevant to that
+        type.
+
+        Returns a shallow copy of the internal mapping.
+        """
+        return dict(self._trial_type_to_metric_names)
+
+    @property
+    def metric_to_trial_type(self) -> dict[str, str]:
+        """Map each metric name to its associated trial type.
+
+        Computed from ``_trial_type_to_metric_names``. When a
+        ``default_trial_type`` is set and an ``optimization_config`` exists,
+        optimization config metrics are pinned to the default trial type.
+        """
+        result: dict[str, str] = {}
+        for trial_type, metric_names in self._trial_type_to_metric_names.items():
+            for name in metric_names:
+                result[name] = trial_type
+        opt_config = self._optimization_config
+        default_trial_type = self._default_trial_type
+        if default_trial_type is not None and opt_config is not None:
+            for metric_name in opt_config.metric_names:
+                result[metric_name] = default_trial_type
+        return result
+
+    def metrics_for_trial_type(self, trial_type: str) -> list[Metric]:
+        """Return the metrics associated with a given trial type.
+
+        Args:
+            trial_type: The trial type to look up metrics for.
+
+        Raises:
+            ValueError: If the trial type is not supported.
+        """
+        if not self.supports_trial_type(trial_type):
+            raise ValueError(f"Trial type `{trial_type}` is not supported.")
+        valid_names = self._trial_type_to_metric_names.get(trial_type, set())
+        return [self._metrics[name] for name in valid_names if name in self._metrics]
+
+    @property
+    def default_trials(self) -> set[int]:
+        """Return the indices for trials of the default type."""
+        return {
+            idx
+            for idx, trial in self.trials.items()
+            if trial.trial_type == self.default_trial_type
+        }
 
     def runner_for_trial_type(self, trial_type: str | None) -> Runner | None:
         """The default runner to use for a given trial type.

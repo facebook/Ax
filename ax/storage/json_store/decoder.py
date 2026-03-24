@@ -720,6 +720,12 @@ def multi_type_experiment_from_json(
     experiment._metric_to_trial_type = _metric_to_trial_type
     experiment._trial_type_to_runner = _trial_type_to_runner
 
+    # Rebuild _trial_type_to_metric_names from _metric_to_trial_type
+    trial_type_to_metric_names: dict[str, set[str]] = {}
+    for metric_name, trial_type in _metric_to_trial_type.items():
+        trial_type_to_metric_names.setdefault(trial_type, set()).add(metric_name)
+    experiment._trial_type_to_metric_names = trial_type_to_metric_names
+
     _load_experiment_info(
         exp=experiment,
         exp_info=experiment_info,
