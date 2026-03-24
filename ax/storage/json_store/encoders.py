@@ -128,17 +128,20 @@ def experiment_to_dict(experiment: Experiment) -> dict[str, Any]:
         "is_test": experiment.is_test,
         "data_by_trial": data_to_data_by_trial(data=experiment.data),
         "properties": experiment._properties,
+        "default_trial_type": experiment._default_trial_type,
         "_trial_type_to_runner": experiment._trial_type_to_runner,
+        "_trial_type_to_metric_names": {
+            tt: sorted(names)
+            for tt, names in experiment._trial_type_to_metric_names.items()
+        },
     }
 
 
 def multi_type_experiment_to_dict(experiment: MultiTypeExperiment) -> dict[str, Any]:
     """Convert AE multitype experiment to a dictionary."""
     multi_type_dict = {
-        "default_trial_type": experiment._default_trial_type,
         "_metric_to_canonical_name": experiment._metric_to_canonical_name,
         "_metric_to_trial_type": experiment._metric_to_trial_type,
-        "_trial_type_to_runner": experiment._trial_type_to_runner,
     }
     multi_type_dict.update(experiment_to_dict(experiment))
     return multi_type_dict
