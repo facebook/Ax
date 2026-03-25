@@ -38,6 +38,7 @@ from ax.generators.torch.utils import (
     extract_objectives,
     get_feature_importances_from_botorch_model,
     get_rounding_func,
+    pick_best_out_of_sample_point_acqf_class,
     predict_from_model,
 )
 from ax.generators.torch_base import TorchOptConfig
@@ -50,6 +51,7 @@ from botorch.acquisition.logei import (
     qLogNoisyExpectedImprovement,
     qLogProbabilityOfFeasibility,
 )
+from botorch.acquisition.monte_carlo import qSimpleRegret
 from botorch.acquisition.multi_objective.logei import (
     qLogNoisyExpectedHypervolumeImprovement,
 )
@@ -1378,3 +1380,19 @@ class BoTorchGeneratorUtilsTest(TestCase):
         # points exist (after fixing MAP_KEY, the data can be merged properly)
         # We expect qLogNoisyExpectedImprovement for single-objective
         self.assertEqual(acqf_class, qLogNoisyExpectedImprovement)
+
+    def test_pick_best_out_of_sample_point_acqf_class(self) -> None:
+        # Unconstrained: PosteriorMean with no options.
+        acqf_class, acqf_options = pick_best_out_of_sample_point_acqf_class(
+            outcome_constraints=None,
+        )
+        self.assertEqual(acqf_class, PosteriorMean)
+        self.assertEqual(acqf_options, {})
+
+        # Constrained: qSimpleRegret with no explicit sampler (get_sampler
+        # auto-dispatches, which handles PosteriorList correctly).
+        acqf_class, acqf_options = pick_best_out_of_sample_point_acqf_class(
+            outcome_constraints=(torch.tensor([[1.0, 0.0]]), torch.tensor([[0.5]])),
+        )
+        self.assertEqual(acqf_class, qSimpleRegret)
+        self.assertEqual(acqf_options, {})
