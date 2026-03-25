@@ -146,6 +146,33 @@ class GenerationStrategy(Base):
         """
         return self._curr._fitted_adapter
 
+    def fit(
+        self,
+        experiment: Experiment,
+        data: Data | None = None,
+    ) -> Adapter | None:
+        """Transition to the appropriate node and fit the model.
+
+        This is the public API for fitting a model outside the ``gen`` flow.
+        It first transitions to the appropriate node so the strategy
+        advances to the correct node based on the current experiment state
+        (e.g. selecting a transfer-learning node when auxiliary experiments
+        are present), then fits all ``GeneratorSpec``s on that node.
+
+        Args:
+            experiment: The experiment to fit the model to.
+            data: Optional data to use for fitting. If not provided, the
+                node will use ``experiment.lookup_data()``.
+
+        Returns:
+            The fitted ``Adapter`` from the selected node, or ``None`` if
+            no adapter was fitted (e.g. the node is not model-based).
+        """
+        self.experiment = experiment
+        self._maybe_transition_to_next_node(raise_data_required_error=False)
+        self._curr._fit(experiment=experiment, data=data)
+        return self.adapter
+
     @property
     def experiment(self) -> Experiment:
         """Experiment, currently set on this generation strategy."""
@@ -543,7 +570,7 @@ class GenerationStrategy(Base):
                 # reset should skip as conditions may have changed, do not reset
                 # until now so node properties can be as up to date as possible
                 node_to_gen_from._should_skip = False
-            transitioned = self._maybe_transition_to_next_node()
+            transitioned = self._transition_to_next_node()
             try:
                 gr = self._curr.gen(
                     experiment=experiment,
@@ -604,24 +631,11 @@ class GenerationStrategy(Base):
 
     # ------------------------- Node selection logic helpers. -------------------------
 
-    def _maybe_transition_to_next_node(
-        self,
-        raise_data_required_error: bool = True,
-    ) -> bool:
-        """Moves this generation strategy to next node if the current node's
-        transition criteria are met. This method is safe to use both when generating
-        candidates or simply checking how many generator runs (to be made into trials)
-        can currently be produced.
-
-        NOTE: this method raises ``GenerationStrategyCompleted`` error if the
-        optimization is complete
-
-        Args:
-            raise_data_required_error: Whether to raise ``DataRequiredError`` in the
-                maybe_step_completed method in GenerationNode class.
+    def _transition_to_next_node(self, raise_data_required_error: bool = True) -> bool:
+        """Attempts a single transition to the next node if criteria are met.
 
         Returns:
-            Whether generation strategy moved to the next node.
+            Whether the generation strategy moved to the next node.
         """
         move_to_next_node, next_node = self._curr.should_transition_to_next_node(
             raise_data_required_error=raise_data_required_error
@@ -634,3 +648,29 @@ class GenerationStrategy(Base):
                 )
             self._curr = self.nodes_by_name[next_node]
         return move_to_next_node
+
+    def _maybe_transition_to_next_node(
+        self, raise_data_required_error: bool = True
+    ) -> bool:
+        """Moves this generation strategy to next node if the current node's
+        transition criteria are met, advancing through multiple nodes if
+        possible. This method is safe to use both when generating candidates or
+        simply checking how many generator runs (to be made into trials) can
+        currently be produced.
+
+        NOTE: this method raises ``GenerationStrategyCompleted`` error if the
+        optimization is complete
+
+        Args:
+            raise_data_required_error: Whether to raise ``DataRequiredError`` in the
+                maybe_step_completed method in GenerationNode class.
+
+        Returns:
+            Whether generation strategy moved to the next node.
+        """
+        moved = False
+        while self._transition_to_next_node(
+            raise_data_required_error=raise_data_required_error
+        ):
+            moved = True
+        return moved

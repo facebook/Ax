@@ -2923,8 +2923,7 @@ class TestAxClient(TestCase):
         ax_client, _ = get_branin_currin_optimization_with_N_sobol_trials(
             num_trials=20, include_objective_thresholds=False
         )
-        ax_client.generation_strategy._maybe_transition_to_next_node()
-        ax_client.generation_strategy._curr._fit(experiment=ax_client.experiment)
+        ax_client.fit_model()
         with with_rng_seed(seed=RANDOM_SEED):
             predicted_pareto = ax_client.get_pareto_optimal_parameters()
 
