@@ -1109,7 +1109,9 @@ class TestClient(TestCase):
         summary_df = client.summarize()
         self.assertTrue(summary_df.empty)
 
-        # Add manual trial (not at center so CenterGenerationNode won't be skipped).
+        # Add manual trial. With use_existing_trials_for_initialization=True
+        # (default), the CenterGenerationNode will be skipped because the
+        # experiment already has a trial.
         index = client.attach_trial(
             parameters={"x1": 0.3, "x2": 0.7}, arm_name="manual"
         )
@@ -1149,7 +1151,7 @@ class TestClient(TestCase):
                 "trial_index": {0: 0, 1: 1, 2: 2},
                 "arm_name": {0: "manual", 1: "1_0", 2: "2_0"},
                 "trial_status": {0: "RUNNING", 1: "COMPLETED", 2: "FAILED"},
-                "generation_node": {0: None, 1: "CenterOfSearchSpace", 2: "Sobol"},
+                "generation_node": {0: None, 1: "Sobol", 2: "Sobol"},
                 "foo": {0: 0.0, 1: 1.0, 2: np.nan},  # NaN because trial 2 failed
                 "bar": {0: 0.5, 1: 2.0, 2: np.nan},
                 "x1": {
@@ -1174,7 +1176,7 @@ class TestClient(TestCase):
                 "trial_index": {0: 0, 1: 1},
                 "arm_name": {0: "manual", 1: "1_0"},
                 "trial_status": {0: "RUNNING", 1: "COMPLETED"},
-                "generation_node": {0: None, 1: "CenterOfSearchSpace"},
+                "generation_node": {0: None, 1: "Sobol"},
                 "foo": {0: 0.0, 1: 1.0},
                 "bar": {0: 0.5, 1: 2.0},
                 "x1": {
@@ -1196,7 +1198,7 @@ class TestClient(TestCase):
                 "trial_index": {0: 1},
                 "arm_name": {0: "1_0"},
                 "trial_status": {0: "COMPLETED"},
-                "generation_node": {0: "CenterOfSearchSpace"},
+                "generation_node": {0: "Sobol"},
                 "foo": {0: 1.0},
                 "bar": {0: 2.0},
                 "x1": {0: trial_1_parameters["x1"]},
@@ -1212,7 +1214,7 @@ class TestClient(TestCase):
                 "trial_index": {0: 1},
                 "arm_name": {0: "1_0"},
                 "trial_status": {0: "COMPLETED"},
-                "generation_node": {0: "CenterOfSearchSpace"},
+                "generation_node": {0: "Sobol"},
                 "foo": {0: 1.0},
                 "bar": {0: 2.0},
                 "x1": {0: trial_1_parameters["x1"]},
@@ -1246,7 +1248,7 @@ class TestClient(TestCase):
                 "trial_index": {0: 0, 1: 1},
                 "arm_name": {0: "manual", 1: "1_0"},
                 "trial_status": {0: "RUNNING", 1: "COMPLETED"},
-                "generation_node": {0: None, 1: "CenterOfSearchSpace"},
+                "generation_node": {0: None, 1: "Sobol"},
                 "foo": {0: 0.0, 1: 1.0},
                 "bar": {0: 0.5, 1: 2.0},
                 "x1": {

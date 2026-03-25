@@ -1400,13 +1400,18 @@ class AxClient(AnalysisBase, BestPointMixin, InstantiationBase):
 
         NOTE: If the current generation node is not model-based, no model may be fit.
         """
-        if not self.experiment.trial_indices_by_status[TrialStatus.COMPLETED]:
+        completed_trial_indices = self.experiment.trial_indices_by_status[
+            TrialStatus.COMPLETED
+        ]
+        if not completed_trial_indices:
             raise DataRequiredError(
                 "At least one trial must be completed with data to fit a model."
             )
-        # Check if we should transition before generating the next candidate.
-        self.generation_strategy._maybe_transition_to_next_node()
-        self.generation_strategy._curr._fit(experiment=self.experiment)
+        if self.experiment.lookup_data(trial_indices=completed_trial_indices).df.empty:
+            raise DataRequiredError(
+                "At least one completed trial must have data attached to fit a model."
+            )
+        self.generation_strategy.fit(experiment=self.experiment)
 
     def verify_trial_parameterization(
         self, trial_index: int, parameterization: TParameterization

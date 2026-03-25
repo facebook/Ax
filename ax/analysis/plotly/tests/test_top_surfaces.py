@@ -55,7 +55,7 @@ class TestTopSurfacesAnalysis(TestCase):
                 )
 
         self.assertIn(
-            "Ax has not yet reached a GenerationNode",
+            "TorchAdapter is required",
             none_throws(
                 TopSurfacesAnalysis(
                     metric_name="bar", order="first"
