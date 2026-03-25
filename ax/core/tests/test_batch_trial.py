@@ -274,8 +274,10 @@ class BatchTrialTest(TestCase):
             with self.assertRaises(TrialMutationError):
                 self.batch.mark_staged()
 
-            with self.assertRaises(TrialMutationError):
-                self.batch.mark_completed()
+            # Re-marking as completed is a no-op (no error, no timestamp change)
+            time_completed_before = self.batch.time_completed
+            self.batch.mark_completed()
+            self.assertEqual(self.batch.time_completed, time_completed_before)
 
             with self.assertRaises(TrialMutationError):
                 self.batch.mark_running()
