@@ -238,6 +238,7 @@ class BaselineImprovementAnalysis(Analysis):
         subtitle = self._build_subtitle(
             num_improved=num_improved,
             num_total=num_total,
+            improved=improved,
             not_improved=not_improved,
             details=details,
             baseline_arm_name=baseline_arm_name,
@@ -318,6 +319,7 @@ class BaselineImprovementAnalysis(Analysis):
         self,
         num_improved: int,
         num_total: int,
+        improved: list[str],
         not_improved: list[str],
         details: list[dict[str, str]],
         baseline_arm_name: str,
@@ -333,14 +335,25 @@ class BaselineImprovementAnalysis(Analysis):
         elif num_improved > 0:
             parts.append(
                 f"{num_improved} out of {num_total} objective(s) "
-                "improved over baseline. The following metrics were not improved: "
-                f"{not_improved}."
+                "improved over baseline. "
+                f"The following metrics improved: {improved}."
             )
         elif self.no_improvement_message:
             parts.append(self.no_improvement_message)
         else:
             parts.append(
-                f"None of the {num_total} objective(s) improved over baseline."
+                f"None of the {num_total} objective(s) improved over baseline.\n\n"
+                "**Suggested next steps:**\n"
+                "- Run more trials to give the optimizer more opportunity "
+                "to find improvements.\n"
+                "- Verify that the baseline arm is a fair comparison "
+                "point (see baseline info below).\n"
+                "- Confirm that objective metrics and their optimization "
+                "directions (minimize/maximize) are configured correctly.\n"
+                "- Review the per-metric details below to check whether "
+                "comparison values are close to the baseline (suggesting more "
+                "trials may help) or moving in the wrong direction "
+                "(suggesting a configuration issue)."
             )
 
         # Baseline info
