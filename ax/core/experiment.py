@@ -2795,3 +2795,47 @@ def add_arm_and_prevent_naming_collision(
                 stacklevel=2,
             )
             new_trial.add_arm(none_throws(old_trial.arm).clone(clear_name=True))
+
+
+def filter_trials_by_type(
+    trials: Sequence[BaseTrial], trial_type: str | None
+) -> list[BaseTrial]:
+    """Filter trials by trial type if provided.
+
+    This filters trials by trial type if the experiment has multiple
+    trial types.
+
+    Args:
+        trials: Trials to filter.
+        trial_type: The trial type to filter by. If None, all trials are returned.
+
+    Returns:
+        Filtered trials.
+    """
+    if trial_type is not None:
+        return [t for t in trials if t.trial_type == trial_type]
+    return list(trials)
+
+
+def get_trial_indices_for_statuses(
+    experiment: Experiment, statuses: set[TrialStatus], trial_type: str | None = None
+) -> set[int]:
+    """Get trial indices for a set of statuses.
+
+    Args:
+        experiment: The experiment to get trial indices from.
+        statuses: Set of statuses to get trial indices for.
+        trial_type: If provided, only return indices for trials of this type.
+
+    Returns:
+        Set of trial indices for the given statuses.
+    """
+    return {
+        i
+        for i, t in experiment.trials.items()
+        if (t.status in statuses)
+        and (
+            (trial_type is None)
+            or ((trial_type is not None) and (t.trial_type == trial_type))
+        )
+    }

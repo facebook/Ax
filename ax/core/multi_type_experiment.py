@@ -6,12 +6,14 @@
 
 # pyre-strict
 
-from collections.abc import Sequence
 from typing import Any, Self
 
 from ax.core.arm import Arm
-from ax.core.base_trial import BaseTrial, TrialStatus
-from ax.core.experiment import Experiment
+from ax.core.experiment import (
+    Experiment,
+    filter_trials_by_type,
+    get_trial_indices_for_statuses,
+)
 from ax.core.metric import Metric
 from ax.core.optimization_config import OptimizationConfig
 from ax.core.runner import Runner
@@ -171,42 +173,9 @@ class MultiTypeExperiment(Experiment):
         return self
 
 
-def filter_trials_by_type(
-    trials: Sequence[BaseTrial], trial_type: str | None
-) -> list[BaseTrial]:
-    """Filter trials by trial type if provided.
-
-    This filters trials by trial type if the experiment is a
-    MultiTypeExperiment.
-
-    Args:
-        trials: Trials to filter.
-
-    Returns:
-        Filtered trials.
-    """
-    if trial_type is not None:
-        return [t for t in trials if t.trial_type == trial_type]
-    return list(trials)
-
-
-def get_trial_indices_for_statuses(
-    experiment: Experiment, statuses: set[TrialStatus], trial_type: str | None = None
-) -> set[int]:
-    """Get trial indices for a set of statuses.
-
-    Args:
-        statuses: Set of statuses to get trial indices for.
-
-    Returns:
-        Set of trial indices for the given statuses.
-    """
-    return {
-        i
-        for i, t in experiment.trials.items()
-        if (t.status in statuses)
-        and (
-            (trial_type is None)
-            or ((trial_type is not None) and (t.trial_type == trial_type))
-        )
-    }
+# Re-exported from ax.core.experiment for backward compatibility.
+__all__ = [
+    "MultiTypeExperiment",
+    "filter_trials_by_type",
+    "get_trial_indices_for_statuses",
+]
