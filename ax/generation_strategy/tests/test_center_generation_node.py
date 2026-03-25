@@ -219,7 +219,8 @@ class TestCenterGenerationNode(TestCase):
     def test_repr(self) -> None:
         self.assertEqual(
             repr(self.node),
-            "CenterGenerationNode(next_node_name='test')",
+            "CenterGenerationNode(next_node_name='test',"
+            " use_existing_trials_for_initialization=False)",
         )
 
     def test_equality(self) -> None:
@@ -329,3 +330,59 @@ class TestCenterGenerationNode(TestCase):
         # Should transition to regular Sobol node, not use Fallback_Sobol
         self.assertEqual(gr[0]._generation_node_name, "sobol")
         self.assertEqual(gr[0]._generator_key, "Sobol")
+
+    def test_skips_when_use_existing_trials_and_trials_exist(self) -> None:
+        """When use_existing_trials_for_initialization=True and the experiment
+        has trials, should_transition_to_next_node should skip the center node."""
+        node = CenterGenerationNode(
+            next_node_name="sobol",
+            use_existing_trials_for_initialization=True,
+        )
+        gs = GenerationStrategy(
+            name="test",
+            nodes=[
+                node,
+                GenerationNode(
+                    name="sobol",
+                    generator_specs=[GeneratorSpec(generator_enum=Generators.SOBOL)],
+                ),
+            ],
+        )
+        exp = get_branin_experiment()
+        gs.experiment = exp
+
+        # No trials yet -- should NOT skip.
+        self.assertFalse(node._should_skip)
+        should_transition, next_name = node.should_transition_to_next_node()
+        # AutoTransitionAfterGen hasn't fired, but _should_skip is still False
+        # because there are no trials.
+        self.assertFalse(node._should_skip)
+
+        # Add a trial -- now it should skip.
+        exp.new_trial()
+        should_transition, next_name = node.should_transition_to_next_node()
+        self.assertTrue(node._should_skip)
+        self.assertTrue(should_transition)
+        self.assertEqual(next_name, "sobol")
+
+    def test_does_not_skip_when_flag_is_false(self) -> None:
+        """When use_existing_trials_for_initialization=False (default),
+        existing trials should NOT cause the center node to skip."""
+        node = CenterGenerationNode(next_node_name="sobol")
+        gs = GenerationStrategy(
+            name="test",
+            nodes=[
+                node,
+                GenerationNode(
+                    name="sobol",
+                    generator_specs=[GeneratorSpec(generator_enum=Generators.SOBOL)],
+                ),
+            ],
+        )
+        exp = get_branin_experiment()
+        gs.experiment = exp
+        exp.new_trial()
+
+        should_transition, _ = node.should_transition_to_next_node()
+        self.assertFalse(node._should_skip)
+        self.assertFalse(should_transition)
