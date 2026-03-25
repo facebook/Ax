@@ -132,12 +132,10 @@ class GpDGSMGpMean:
             posterior = posterior_derivative(
                 model, self.input_mc_samples, none_throws(self.kernel_type)
             )
+            self._compute_gradient_quantities(posterior, Y_scale)
         else:
             self.input_mc_samples.requires_grad = True
-            posterior = assert_is_instance(
-                model.posterior(self.input_mc_samples), GPyTorchPosterior
-            )
-        self._compute_gradient_quantities(posterior, Y_scale)
+            self._compute_mean_gradients(model, Y_scale)
 
     def _compute_gradient_quantities(
         self, posterior: GPyTorchPosterior | MultivariateNormal, Y_scale: float
@@ -152,6 +150,30 @@ class GpDGSMGpMean:
             self.mean_gradients = (
                 assert_is_instance(self.input_mc_samples.grad, torch.Tensor) * Y_scale
             )
+        self._compute_bootstrap()
+
+    def _compute_mean_gradients(self, model: Model, Y_scale: float) -> None:
+        """Compute mean gradients with batched posterior to limit memory.
+
+        Processes MC samples in chunks to avoid OOM with models that have
+        large internal batch dimensions (e.g., SaasFullyBayesianSingleTaskGP
+        with 256 MCMC samples can use ~94 GiB when evaluated unbatched on
+        10,000 points with autograd enabled).
+        """
+        batch_size = 1024
+        all_grads = []
+        for batch in self.input_mc_samples.split(batch_size):
+            batch_input = batch.detach().requires_grad_(True)
+            posterior = assert_is_instance(
+                model.posterior(batch_input), GPyTorchPosterior
+            )
+            torch.sum(posterior.mean).backward()
+            all_grads.append(assert_is_instance(batch_input.grad, torch.Tensor).clone())
+            del posterior
+        self.mean_gradients = torch.cat(all_grads, dim=0) * Y_scale
+        self._compute_bootstrap()
+
+    def _compute_bootstrap(self) -> None:
         if self.bootstrap:
             subset_size = 2
             self.bootstrap_indices = torch.randint(
@@ -244,6 +266,13 @@ class GpDGSMGpMean:
 class GpDGSMGpSampling(GpDGSMGpMean):
     samples_gradients: torch.Tensor | None = None
     samples_gradients_btsp: list[torch.Tensor] | None = None
+
+    def _compute_mean_gradients(self, model: Model, Y_scale: float) -> None:
+        """Override: sampling needs the full posterior for rsample()."""
+        posterior = assert_is_instance(
+            model.posterior(self.input_mc_samples), GPyTorchPosterior
+        )
+        self._compute_gradient_quantities(posterior, Y_scale)
 
     def __init__(
         self,

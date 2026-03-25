@@ -111,6 +111,57 @@ class SensitivityAnalysisTest(TestCase):
         )
         self.assertEqual(res.shape, (2, 2))
 
+    def test_DgsmGpMean_batched_gradient_equivalence(self) -> None:
+        """Verify batched and unbatched gradient computations match."""
+        bounds = torch.tensor([(0.0, 1.0) for _ in range(2)]).t()
+        num_mc_samples = 20
+
+        # Compute gradients via the batched path (current default).
+        # Use input_qmc=True for deterministic samples.
+        sensitivity_batched = GpDGSMGpMean(
+            self.model,
+            bounds=bounds,
+            num_mc_samples=num_mc_samples,
+            input_qmc=True,
+        )
+        grad_batched = sensitivity_batched.gradient_measure()
+
+        # Compute gradients via the unbatched path on the same input samples.
+        input_mc_samples = sensitivity_batched.input_mc_samples.detach().clone()
+        input_mc_samples.requires_grad = True
+        posterior = self.model.posterior(input_mc_samples)
+        torch.sum(posterior.mean).backward()
+        grad_unbatched_raw = input_mc_samples.grad.clone()
+        # Aggregate the same way as gradient_measure(): mean per dimension
+        grad_unbatched = torch.tensor(
+            [torch.mean(grad_unbatched_raw[:, i]) for i in range(2)]
+        )
+
+        self.assertAllClose(grad_batched, grad_unbatched, rtol=1e-5, atol=1e-8)
+
+        # Also verify with SAASBO model (batched model with MCMC samples)
+        sensitivity_batched_saas = GpDGSMGpMean(
+            self.saas_model,
+            bounds=bounds,
+            num_mc_samples=num_mc_samples,
+            input_qmc=True,
+        )
+        grad_batched_saas = sensitivity_batched_saas.gradient_measure()
+
+        input_mc_samples_saas = (
+            sensitivity_batched_saas.input_mc_samples.detach().clone()
+        )
+        input_mc_samples_saas.requires_grad = True
+        posterior_saas = self.saas_model.posterior(input_mc_samples_saas)
+        torch.sum(posterior_saas.mean).backward()
+        grad_unbatched_saas = torch.tensor(
+            [torch.mean(input_mc_samples_saas.grad[:, i]) for i in range(2)]
+        )
+
+        self.assertAllClose(
+            grad_batched_saas, grad_unbatched_saas, rtol=1e-5, atol=1e-8
+        )
+
     def test_DgsmGpSampling(self) -> None:
         bounds = torch.tensor([(0.0, 1.0) for _ in range(2)]).t()
         sensitivity_sampling = GpDGSMGpSampling(
