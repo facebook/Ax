@@ -25,6 +25,24 @@ from pyre_extensions import none_throws, override
 class CanGenerateCandidatesAnalysis(Analysis):
     REASON_PREFIX: str = "This experiment cannot generate candidates.\nREASON: "
     LAST_RUN_TEMPLATE: str = "\n\nLAST TRIAL RUN: {days} day(s) ago"
+    NO_TRIALS_REMEDIATION: str = (
+        "\n\n**Suggested remediations:**\n"
+        "- Run or deploy any candidate trials so the experiment can "
+        "collect data.\n"
+        "- Ensure the experiment has an optimization config or preference "
+        "experiment configured.\n"
+        "- Check the runner and scheduler configuration to verify trials "
+        "can be dispatched."
+    )
+    STALE_TRIALS_REMEDIATION: str = (
+        "\n\n**Suggested remediations:**\n"
+        "- Check that completed trials have data for all required "
+        "metrics.\n"
+        "- Allocate or remove any staged trials before generating new "
+        "candidates.\n"
+        "- Look for errors in recent trial runs that may have prevented "
+        "new candidates from being generated."
+    )
 
     def __init__(
         self, can_generate_candidates: bool, reason: str, days_till_fail: int
@@ -70,11 +88,13 @@ class CanGenerateCandidatesAnalysis(Analysis):
             if most_recent_run_time is None:
                 status = HealthcheckStatus.FAIL
                 title_status = "Failure"
+                subtitle += self.NO_TRIALS_REMEDIATION
             else:
                 days_since_last_run = (datetime.now() - most_recent_run_time).days
                 if days_since_last_run > self.days_till_fail:
                     status = HealthcheckStatus.FAIL
                     title_status = "Failure"
+                    subtitle += self.STALE_TRIALS_REMEDIATION
                 else:
                     status = HealthcheckStatus.INFO
                     title_status = "Info"

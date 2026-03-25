@@ -101,6 +101,7 @@ class TestCanGenerateCandidates(TestCase):
                 "The candidate generation health check notifies users if key "
                 "criteria for candidate generation are missing. "
                 f"{CanGenerateCandidatesAnalysis.REASON_PREFIX}The data is gone."
+                f"{CanGenerateCandidatesAnalysis.NO_TRIALS_REMEDIATION}"
             ),
         )
         self.assertEqual(card.get_status(), HealthcheckStatus.FAIL)
@@ -135,8 +136,9 @@ class TestCanGenerateCandidates(TestCase):
                 "The candidate generation health check notifies users if key "
                 "criteria for candidate generation are missing. "
                 f"{CanGenerateCandidatesAnalysis.REASON_PREFIX}"
-                "The data is old.\n\n"
-                "LAST TRIAL RUN: 3 day(s) ago"
+                "The data is old."
+                f"{CanGenerateCandidatesAnalysis.STALE_TRIALS_REMEDIATION}"
+                "\n\nLAST TRIAL RUN: 3 day(s) ago"
             ),
         )
         self.assertEqual(card.get_status(), HealthcheckStatus.FAIL)
