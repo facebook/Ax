@@ -2075,6 +2075,34 @@ class Experiment(Base):
             if trial.trial_type == self.default_trial_type
         }
 
+    def add_trial_type(self, trial_type: str, runner: Runner | None = None) -> Self:
+        """Add a new trial type to be supported by this experiment.
+
+        Args:
+            trial_type: The new trial type to be added.
+            runner: The default runner for trials of this type.
+        """
+        if self.supports_trial_type(trial_type):
+            raise ValueError(f"Experiment already contains trial_type `{trial_type}`")
+
+        if runner is not None:
+            self._trial_type_to_runner[trial_type] = runner
+
+        return self
+
+    def update_runner(self, trial_type: str, runner: Runner) -> Self:
+        """Update the default runner for an existing trial type.
+
+        Args:
+            trial_type: The trial type whose runner should be updated.
+            runner: The new runner for trials of this type.
+        """
+        if not self.supports_trial_type(trial_type):
+            raise ValueError(f"Experiment does not contain trial_type `{trial_type}`")
+        self._trial_type_to_runner[trial_type] = runner
+        self._runner = runner
+        return self
+
     def runner_for_trial_type(self, trial_type: str | None) -> Runner | None:
         """The default runner to use for a given trial type.
 
@@ -2089,14 +2117,20 @@ class Experiment(Base):
     def supports_trial_type(self, trial_type: str | None) -> bool:
         """Whether this experiment allows trials of the given type.
 
-        The base experiment class only supports None. For experiments
-        with multiple trial types, use the MultiTypeExperiment class.
+        For experiments with a ``default_trial_type`` (multi-type experiments),
+        only trial types registered in ``_trial_type_to_runner`` are supported.
+        For single-type experiments, ``None`` is always supported, along with
+        ``SHORT_RUN`` and ``LONG_RUN`` for backward compatibility with
+        generation strategies that use those trial types.
         """
+        if self._default_trial_type is not None:
+            return trial_type in self._trial_type_to_runner
         return (
             trial_type is None
             or trial_type == Keys.SHORT_RUN
             or trial_type == Keys.LONG_RUN
             or trial_type == Keys.LILO_LABELING
+            or trial_type in self._trial_type_to_runner
         )
 
     def attach_trial(

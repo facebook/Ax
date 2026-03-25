@@ -104,19 +104,6 @@ class MultiTypeExperiment(Experiment):
                     self._default_trial_type
                 )
 
-    def add_trial_type(self, trial_type: str, runner: Runner) -> Self:
-        """Add a new trial_type to be supported by this experiment.
-
-        Args:
-            trial_type: The new trial_type to be added.
-            runner: The default runner for trials of this type.
-        """
-        if self.supports_trial_type(trial_type):
-            raise ValueError(f"Experiment already contains trial_type `{trial_type}`")
-
-        self._trial_type_to_runner[trial_type] = runner
-        return self
-
     # pyre does not support inferring the type of property setter decorators
     # or the `.fset` attribute on properties.
     # pyre-fixme[56]: Pyre was not able to infer the type of the decorator.
@@ -129,20 +116,6 @@ class MultiTypeExperiment(Experiment):
             self._metric_to_trial_type[metric_name] = none_throws(
                 self.default_trial_type
             )
-
-    def update_runner(self, trial_type: str, runner: Runner) -> Self:
-        """Update the default runner for an existing trial_type.
-
-        Args:
-            trial_type: The new trial_type to be added.
-            runner: The new runner for trials of this type.
-        """
-        if not self.supports_trial_type(trial_type):
-            raise ValueError(f"Experiment does not contain trial_type `{trial_type}`")
-
-        self._trial_type_to_runner[trial_type] = runner
-        self._runner = runner
-        return self
 
     def add_tracking_metric(
         self,
@@ -231,13 +204,6 @@ class MultiTypeExperiment(Experiment):
         ]
         # Invoke parent's fetch method using only metrics for this trial_type
         return super()._fetch_trial_data(trial.index, metrics=metrics, **kwargs)
-
-    def supports_trial_type(self, trial_type: str | None) -> bool:
-        """Whether this experiment allows trials of the given type.
-
-        Only trial types defined in the trial_type_to_runner are allowed.
-        """
-        return trial_type in self._trial_type_to_runner.keys()
 
 
 def filter_trials_by_type(
