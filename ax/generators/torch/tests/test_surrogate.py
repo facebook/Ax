@@ -1652,7 +1652,6 @@ class SurrogateTest(TestCase):
             candidate, acqf_value = surrogate.best_out_of_sample_point(
                 search_space_digest=self.search_space_digest,
                 torch_opt_config=torch_opt_config,
-                options=self.options,
             )
             candidate_in_bounds = all(
                 ((x >= b[0]) & (x <= b[1]) for x, b in zip(candidate, self.bounds))
