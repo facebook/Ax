@@ -252,48 +252,52 @@ class TrialAsTaskTransformTest(TestCase):
         self.assertTrue(p.is_task)
         self.assertEqual(p.target_value, 11)
 
-    def test_less_than_two_trials(self) -> None:
-        # test transform is a no-op with less than two trials
-        exp = get_branin_experiment(with_completed_trial=True, num_trial=1)
-        adapter = Adapter(experiment=exp, generator=Generator())
-        t = TrialAsTask(
-            search_space=exp.search_space,
-            experiment_data=adapter.get_training_data(),
-            adapter=adapter,
-        )
-        self.assertEqual(t.trial_level_map, {})
-        training_feats = [self.training_obs[0].features]
-        training_feats_clone = deepcopy(training_feats)
-        self.assertEqual(
-            t.transform_observation_features(training_feats_clone), training_feats
-        )
-        self.assertEqual(
-            t.untransform_observation_features(training_feats), training_feats_clone
-        )
-        ss2 = exp.search_space.clone()
-        self.assertEqual(t.transform_search_space(ss2), exp.search_space)
-
-    def test_less_than_two_levels(self) -> None:
-        # test transform is a no-op with less than two levels
-        exp = get_branin_experiment(with_completed_batch=True, num_batch_trial=2)
-        adapter = Adapter(experiment=exp, generator=Generator())
-        t = TrialAsTask(
-            search_space=exp.search_space,
-            experiment_data=adapter.get_training_data(),
-            adapter=adapter,
-            config={"trial_level_map": {"t": {0: "v1", 1: "v1"}}},
-        )
-        self.assertEqual(t.trial_level_map, {})
-        training_feats = [self.training_obs[0].features]
-        training_feats_clone = deepcopy(training_feats)
-        self.assertEqual(
-            t.transform_observation_features(training_feats_clone), training_feats
-        )
-        self.assertEqual(
-            t.untransform_observation_features(training_feats), training_feats_clone
-        )
-        ss2 = exp.search_space.clone()
-        self.assertEqual(t.transform_search_space(ss2), exp.search_space)
+    def test_less_than_two_trials_or_levels(self) -> None:
+        # Test transform is a no-op with insufficient trials or levels
+        experiments = [
+            # Only 1 trial -> fewer than 2 trials, transform should be a no-op
+            get_branin_experiment(with_completed_trial=True, num_trial=1),
+            # 2 batch trials but both mapped to same level "v1" -> only 1
+            # distinct level, transform should be a no-op
+            get_branin_experiment(with_completed_batch=True, num_batch_trial=2),
+        ]
+        configs: list[dict[str, dict[str, dict[int, str]]] | None] = [
+            None,
+            {"trial_level_map": {"t": {0: "v1", 1: "v1"}}},
+        ]
+        labels = ["less_than_two_trials", "less_than_two_levels"]
+        for label, exp, config in zip(labels, experiments, configs):
+            with self.subTest(scenario=label):
+                adapter = Adapter(experiment=exp, generator=Generator())
+                if config is not None:
+                    t = TrialAsTask(
+                        search_space=exp.search_space,
+                        experiment_data=adapter.get_training_data(),
+                        adapter=adapter,
+                        # pyre-fixme[6]: Expected `Optional[Dict[str,
+                        #  Union[...]]]` but got `Dict[str, Dict[str,
+                        #  Dict[int, str]]]`.
+                        config=config,
+                    )
+                else:
+                    t = TrialAsTask(
+                        search_space=exp.search_space,
+                        experiment_data=adapter.get_training_data(),
+                        adapter=adapter,
+                    )
+                self.assertEqual(t.trial_level_map, {})
+                training_feats = [self.training_obs[0].features]
+                training_feats_clone = deepcopy(training_feats)
+                self.assertEqual(
+                    t.transform_observation_features(training_feats_clone),
+                    training_feats,
+                )
+                self.assertEqual(
+                    t.untransform_observation_features(training_feats),
+                    training_feats_clone,
+                )
+                ss2 = exp.search_space.clone()
+                self.assertEqual(t.transform_search_space(ss2), exp.search_space)
 
     def test_transform_experiment_data(self) -> None:
         # Experiment data has 16 rows for trial 0 and 2 rows each for trials 1 & 2.

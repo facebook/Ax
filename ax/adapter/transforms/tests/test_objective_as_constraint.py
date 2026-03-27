@@ -338,37 +338,27 @@ class ObjectiveAsConstraintTest(TestCase):
 
     def test_leq_constraint_feasibility(self) -> None:
         """Test feasibility checking with LEQ constraints."""
-        # m2 <= 0.3 constraint. Both observations have m2 > 0.3, so infeasible.
-        _, adapter, experiment_data = self._make_experiment_adapter_and_data(
-            observations=[[1.0, 0.5], [2.0, 5.0]],
-            constraint_bound=0.3,
-            constraint_op=ComparisonOp.LEQ,
-        )
+        cases = [
+            # m2 <= 0.3: both obs have m2 > 0.3 -> infeasible, constraint added
+            (0.3, True, "infeasible"),
+            # m2 <= 10.0: both obs have m2 <= 10.0 -> feasible, no constraint
+            (10.0, False, "feasible"),
+        ]
+        for bound, expected_should_add, label in cases:
+            with self.subTest(bound=bound, scenario=label):
+                _, adapter, experiment_data = self._make_experiment_adapter_and_data(
+                    observations=[[1.0, 0.5], [2.0, 5.0]],
+                    constraint_bound=bound,
+                    constraint_op=ComparisonOp.LEQ,
+                )
 
-        t = ObjectiveAsConstraint(
-            search_space=adapter._experiment.search_space,
-            experiment_data=experiment_data,
-            adapter=adapter,
-        )
+                t = ObjectiveAsConstraint(
+                    search_space=adapter._experiment.search_space,
+                    experiment_data=experiment_data,
+                    adapter=adapter,
+                )
 
-        self.assertTrue(t._should_add_constraint)
-
-    def test_leq_constraint_feasible(self) -> None:
-        """Test that LEQ constraints with feasible points are correctly detected."""
-        # m2 <= 10.0 constraint. Both observations have m2 <= 10.0, so feasible.
-        _, adapter, experiment_data = self._make_experiment_adapter_and_data(
-            observations=[[1.0, 0.5], [2.0, 5.0]],
-            constraint_bound=10.0,
-            constraint_op=ComparisonOp.LEQ,
-        )
-
-        t = ObjectiveAsConstraint(
-            search_space=adapter._experiment.search_space,
-            experiment_data=experiment_data,
-            adapter=adapter,
-        )
-
-        self.assertFalse(t._should_add_constraint)
+                self.assertEqual(t._should_add_constraint, expected_should_add)
 
     def test_no_op_for_experiment_data(self) -> None:
         """Test that transform_experiment_data is a no-op."""

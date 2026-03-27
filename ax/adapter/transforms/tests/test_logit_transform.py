@@ -94,16 +94,15 @@ class LogitTransformTest(TestCase):
             self._create_logit_parameter(lower=0.1, upper=0.9, log_scale=True)
         self.assertEqual("x can't use both log and logit.", str(cm.exception))
 
+        # Each case violates "lower > 0 and upper < 1":
+        # (0.0, 0.5) -> lower == 0, (0.3, 1.0) -> upper == 1,
+        # (0.5, 10.0) -> upper >> 1
         str_exc = "x logit requires lower > 0 and upper < 1"
-        with self.assertRaises(UserInputError) as cm:
-            self._create_logit_parameter(lower=0.0, upper=0.5)
-        self.assertEqual(str_exc, str(cm.exception))
-        with self.assertRaises(UserInputError) as cm:
-            self._create_logit_parameter(lower=0.3, upper=1.0)
-        self.assertEqual(str_exc, str(cm.exception))
-        with self.assertRaises(UserInputError) as cm:
-            self._create_logit_parameter(lower=0.5, upper=10.0)
-        self.assertEqual(str_exc, str(cm.exception))
+        for lower, upper in [(0.0, 0.5), (0.3, 1.0), (0.5, 10.0)]:
+            with self.subTest(lower=lower, upper=upper):
+                with self.assertRaises(UserInputError) as cm:
+                    self._create_logit_parameter(lower=lower, upper=upper)
+                self.assertEqual(str_exc, str(cm.exception))
 
     def test_TransformSearchSpace(self) -> None:
         ss2 = deepcopy(self.search_space)
