@@ -53,6 +53,10 @@ from botorch.acquisition.multioutput_acquisition import (
     MultiOutputAcquisitionFunctionWrapper,
 )
 from botorch.acquisition.objective import MCAcquisitionObjective, PosteriorTransform
+from botorch.acquisition.preference import (
+    AnalyticExpectedUtilityOfBestOption,
+    qExpectedUtilityOfBestOption,
+)
 from botorch.exceptions.errors import BotorchError, InputDataError
 from botorch.generation.sampling import SamplingStrategy
 from botorch.models.model import Model
@@ -369,6 +373,20 @@ class Acquisition(Base):
         botorch_acqf_options: dict[str, Any],
         model: Model,
     ) -> AcquisitionFunction:
+        # EUBO (PBO / BOPE): bypass the generic path because EUBO input
+        # constructors don't accept training_data, bounds, X_baseline, etc.
+        # TODO: Update EUBO input constructors to accept and validate these
+        # kwargs so we can use the generic path.
+        # Guard: skip when pref_model was popped by PreferenceModelAcquisition
+        # (legacy BOPE) -- detected by multi-output model without pref_model.
+        if issubclass(
+            botorch_acqf_class,
+            (AnalyticExpectedUtilityOfBestOption, qExpectedUtilityOfBestOption),
+        ) and ("pref_model" in botorch_acqf_options or model.num_outputs == 1):
+            input_constructor = get_acqf_input_constructor(botorch_acqf_class)
+            acqf_inputs = input_constructor(model=model, **botorch_acqf_options)
+            return botorch_acqf_class(**acqf_inputs)  # pyre-ignore [45]
+
         objective, posterior_transform = self.get_botorch_objective_and_transform(
             botorch_acqf_class=botorch_acqf_class,
             model=model,

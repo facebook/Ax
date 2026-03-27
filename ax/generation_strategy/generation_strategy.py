@@ -388,6 +388,12 @@ class GenerationStrategy(Base):
             n._step_index = None
             if len(n.generator_specs) > 1:
                 n._generator_spec_to_gen_from = None
+            elif len(n.generator_specs) == 1:
+                # Reset to the sole spec, matching what __init__ sets on
+                # deserialized nodes. This is needed because
+                # _try_gen_with_fallback can override this field with a
+                # non-persisted fallback spec (e.g. Fallback_Sobol).
+                n._generator_spec_to_gen_from = n.generator_specs[0]
             # Reset cache fields that are used for performance optimization only
             # and should not affect equality comparisons.
             n._trials_from_node_cache = set()

@@ -34,6 +34,7 @@ from botorch.acquisition.multi_objective.logei import (
     qLogNoisyExpectedHypervolumeImprovement,
 )
 from botorch.acquisition.multi_objective.parego import qLogNParEGO
+from botorch.acquisition.preference import qExpectedUtilityOfBestOption
 from botorch.exceptions.errors import BotorchError, CandidateGenerationError
 from botorch.fit import fit_fully_bayesian_model_nuts, fit_gpytorch_mll
 from botorch.models import PairwiseLaplaceMarginalLogLikelihood
@@ -406,12 +407,30 @@ def choose_botorch_acqf_class(
             - `qLogProbabilityOfFeasibility` if no observed point simultaneously
                 satisfies all outcome constraints (if any) and dominates all
                 objective thresholds (if any, for MOO).
+            - `qExpectedUtilityOfBestOption` for single-objective
+                preference-only optimization (PBO / LILO) where the sole
+                objective is ``pairwise_pref_query`` with no constraints.
             - `qLogNoisyExpectedImprovement` for single-objective optimization.
             - `qLogNoisyExpectedHypervolumeImprovement` for multi-objective
                 optimization with <= 4 objectives.
             - `qLogNParEGO` for multi-objective optimization with > 4 objectives
                 to prevent slow optimization.
     """
+
+    # Preferential BO (PBO): single-objective preference-only optimization
+    # (e.g. LILO).  The sole objective is pairwise_pref_query with no
+    # constraints, so we optimize the preference model directly via qEUBO.
+    # This must come before the PFeasibility block to prevent PBO experiments
+    # from reaching convert_to_block_design (which is incompatible with
+    # RankingDatasets).
+    if (
+        not torch_opt_config.is_moo
+        and torch_opt_config.outcome_constraints is None
+        and Keys.PAIRWISE_PREFERENCE_QUERY.value in torch_opt_config.opt_config_metrics
+    ):
+        acqf_class = qExpectedUtilityOfBestOption
+        logger.debug(f"Chose BoTorch acquisition function class: {acqf_class}.")
+        return acqf_class
 
     if use_p_feasible and datasets is not None:
         has_outcome_constraints = torch_opt_config.outcome_constraints is not None

@@ -15,6 +15,7 @@ from unittest.mock import Mock
 import numpy as np
 import torch
 from ax.core.data import MAP_KEY
+from ax.core.metric import Metric
 from ax.core.search_space import SearchSpaceDigest
 from ax.exceptions.core import AxWarning, UnsupportedError, UserInputError
 from ax.generators.torch.botorch_modular.kernels import ScaleMaternKernel
@@ -47,6 +48,7 @@ from ax.utils.common.constants import Keys
 from ax.utils.common.testutils import TestCase
 from ax.utils.testing.torch_stubs import get_torch_test_data
 from botorch.acquisition.analytic import PosteriorMean
+from botorch.acquisition.input_constructors import get_acqf_input_constructor
 from botorch.acquisition.logei import (
     qLogNoisyExpectedImprovement,
     qLogProbabilityOfFeasibility,
@@ -56,6 +58,10 @@ from botorch.acquisition.multi_objective.logei import (
     qLogNoisyExpectedHypervolumeImprovement,
 )
 from botorch.acquisition.multi_objective.parego import qLogNParEGO
+from botorch.acquisition.preference import (
+    AnalyticExpectedUtilityOfBestOption,
+    qExpectedUtilityOfBestOption,
+)
 from botorch.models.fully_bayesian import SaasFullyBayesianSingleTaskGP
 from botorch.models.gp_regression import SingleTaskGP
 from botorch.models.gp_regression_fidelity import SingleTaskMultiFidelityGP
@@ -63,6 +69,7 @@ from botorch.models.gp_regression_mixed import MixedSingleTaskGP
 from botorch.models.heterogeneous_mtgp import HeterogeneousMTGP
 from botorch.models.model_list_gp_regression import ModelListGP
 from botorch.models.multitask import MultiTaskGP
+from botorch.models.pairwise_gp import PairwiseGP
 from botorch.models.transforms.input import Normalize, Warp
 from botorch.posteriors.ensemble import EnsemblePosterior
 from botorch.utils.datasets import MultiTaskDataset, SupervisedDataset
@@ -601,6 +608,84 @@ class BoTorchGeneratorUtilsTest(TestCase):
                 datasets=[dataset],
             ),
         )
+
+    def test_choose_botorch_acqf_class_pbo_dispatches_qeubo(self) -> None:
+        pref_metric = Keys.PAIRWISE_PREFERENCE_QUERY.value
+        pbo_opt_config = TorchOptConfig(
+            objective_weights=torch.tensor([[1.0]]),
+            opt_config_metrics={pref_metric: Metric(name=pref_metric)},
+        )
+        # Single-objective PBO with pairwise_pref_query → qEUBO.
+        self.assertEqual(
+            qExpectedUtilityOfBestOption,
+            choose_botorch_acqf_class(
+                search_space_digest=self.search_space_digest,
+                torch_opt_config=pbo_opt_config,
+                datasets=None,
+            ),
+        )
+        # Adding outcome constraints → should NOT dispatch qEUBO.
+        self.assertEqual(
+            qLogNoisyExpectedImprovement,
+            choose_botorch_acqf_class(
+                search_space_digest=self.search_space_digest,
+                torch_opt_config=TorchOptConfig(
+                    objective_weights=torch.tensor([[1.0, 0.0]]),
+                    outcome_constraints=(
+                        torch.tensor([[0.0, 1.0]]),
+                        torch.tensor([[5.0]]),
+                    ),
+                    opt_config_metrics={
+                        pref_metric: Metric(name=pref_metric),
+                        "other": Metric(name="other"),
+                    },
+                ),
+                datasets=[self.supervised_dataset],
+            ),
+        )
+        # Without pairwise_pref_query in opt_config_metrics → standard SOO.
+        self.assertEqual(
+            qLogNoisyExpectedImprovement,
+            choose_botorch_acqf_class(
+                search_space_digest=self.search_space_digest,
+                torch_opt_config=TorchOptConfig(
+                    objective_weights=torch.tensor([[1.0, 0.0]]),
+                ),
+                datasets=[self.supervised_dataset],
+            ),
+        )
+
+    def test_eubo_construction_pbo_and_bope_modes(self) -> None:
+        """Verify the EUBO construction path used by the early return in
+        _construct_botorch_acquisition: PBO mode (pref_model absent) and
+        BOPE mode (pref_model provided via botorch_acqf_options)."""
+        pref_model = PairwiseGP(
+            datapoints=torch.rand(3, 2),
+            comparisons=torch.tensor([[0, 1], [1, 2]], dtype=torch.long),
+        )
+        outcome_model = SingleTaskGP(train_X=torch.rand(5, 2), train_Y=torch.rand(5, 2))
+
+        for acqf_class in (
+            AnalyticExpectedUtilityOfBestOption,
+            qExpectedUtilityOfBestOption,
+        ):
+            with self.subTest(acqf_class=acqf_class.__name__):
+                # PBO mode: model IS the preference model, no pref_model kwarg.
+                input_constructor = get_acqf_input_constructor(acqf_class)
+                acqf_inputs = input_constructor(model=pref_model)
+                acqf = acqf_class(**acqf_inputs)
+                self.assertIsInstance(acqf, acqf_class)
+                self.assertIs(acqf.model, pref_model)
+                self.assertIsNone(acqf.outcome_model)
+
+                # BOPE mode: model is the outcome model, pref_model provided.
+                acqf_inputs = input_constructor(
+                    model=outcome_model, pref_model=pref_model
+                )
+                acqf = acqf_class(**acqf_inputs)
+                self.assertIsInstance(acqf, acqf_class)
+                self.assertIs(acqf.model, pref_model)
+                self.assertIsNotNone(acqf.outcome_model)
 
     def test_construct_acquisition_and_optimizer_options(self) -> None:
         # Two dicts for `Acquisition` should be concatenated
