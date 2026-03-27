@@ -121,12 +121,37 @@ class MetricFetchingErrorsAnalysis(Analysis):
         }
         subtitle = df.rename(columns=subtitle_df_columns)
 
+        # Determine status: WARNING at least, if any metric has errors.
+        # Escalate to FAIL if any metric on the optimization config has errors.
+        status = HealthcheckStatus.WARNING
+        if (opt_config := experiment.optimization_config) is not None:
+            errored_metric_names: set[str] = {
+                e["metric_name"] for e in metric_fetch_errors_for_card
+            }
+            critical_metric_names = set(opt_config.metric_names)
+            has_critical_errors = bool(errored_metric_names & critical_metric_names)
+            if has_critical_errors:
+                status = HealthcheckStatus.FAIL
+
+        remediation = (
+            "\n\n**What to do:**\n"
+            "1. **Check if errors are transient:** Metric fetch errors are "
+            "automatically retried on subsequent data-fetching calls and "
+            "cleared on success. If errors persist, they may require "
+            "investigation.\n"
+            "2. **Review the error messages:** The error messages and "
+            "tracebacks above can help identify the root cause.\n"
+            "3. **Contact the metric owner:** If errors persist, reach out "
+            "to the owner of the affected metric(s) to investigate the "
+            "underlying issue."
+        )
+
         return create_healthcheck_analysis_card(
             name=self.__class__.__name__,
             title="Metric Fetch Errors",
-            subtitle=subtitle.to_markdown(index=False),
+            subtitle=subtitle.to_markdown(index=False) + remediation,
             df=df,
-            status=HealthcheckStatus.WARNING,
+            status=status,
         )
 
     @staticmethod
