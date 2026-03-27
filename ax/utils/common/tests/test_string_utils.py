@@ -141,3 +141,81 @@ class StringUtilsTest(TestCase):
                     unsanitize_name(sanitize_name(name, sanitize_parens=True)),
                     name,
                 )
+
+    def test_sanitize_name_colon_space_and_paren_patterns(self) -> None:
+        """Test sanitization of colons adjacent to spaces, parens, and combos.
+
+        Covers colon-space, space-before-paren, paren-then-colon, and complex
+        production metric names. Each case also verifies the round-trip.
+        """
+        cases: list[tuple[str, str, bool]] = [
+            # (input, expected_sanitized, sanitize_parens)
+            # Colon followed by space.
+            ("scope: value", "scope__colon____space__value", False),
+            ("a: b: c", "a__colon____space__b__colon____space__c", False),
+            # Space before paren.
+            (
+                "Reliability (UserRID)",
+                "Reliability__space____lparen__UserRID__rparen__",
+                True,
+            ),
+            # Paren then colon.
+            (
+                "metric(p50): value",
+                "metric__lparen__p50__rparen____colon____space__value",
+                True,
+            ),
+            # Space after close-paren.
+            ("end) next", "end)__space__next", False),
+            (
+                "fn(x) next",
+                "fn__lparen__x__rparen____space__next",
+                True,
+            ),
+        ]
+        for name, expected, parens in cases:
+            with self.subTest(name=name):
+                sanitized = sanitize_name(name, sanitize_parens=parens)
+                self.assertEqual(sanitized, expected)
+                self.assertEqual(unsanitize_name(sanitized), name)
+
+    def test_sanitize_name_complex_metrics(self) -> None:
+        """Regression tests for production metric names (T261468156).
+
+        Complex metrics with colons, spaces, parens, and hyphens must
+        round-trip and must not contain raw special characters after
+        sanitization.
+        """
+        metrics = [
+            "Scope: Long Name (Qualifier): PROD:All: By Interface",
+            (
+                "Messaging: Threads Message Request TTRC"
+                " - Hidden Requests Inbox Reliability"
+                " (User RID): PROD:All: By Interface"
+            ),
+        ]
+        for metric in metrics:
+            with self.subTest(metric=metric):
+                sanitized = sanitize_name(metric, sanitize_parens=True)
+                for char in (":", " ", "(", ")"):
+                    self.assertNotIn(char, sanitized)
+                self.assertEqual(unsanitize_name(sanitized), metric)
+
+    def test_sanitize_name_hyphen_no_colon_is_subtraction(self) -> None:
+        """Without colons, ` - ` is left as subtraction (not sanitized)."""
+        self.assertEqual(
+            sanitize_name("m1 - m2", sanitize_parens=True),
+            "m1 - m2",
+        )
+
+    def test_sanitize_name_operators_unchanged(self) -> None:
+        """Spaces around mathematical operators must NOT be sanitized."""
+        cases = [
+            ("m1 + m2", "m1 + m2", False),
+            ("m1 * m2", "m1 * m2", False),
+            ("m1 >= 100", "m1 >= 100", False),
+            ("(a + b) * c", "(a + b) * c", True),
+        ]
+        for name, expected, parens in cases:
+            with self.subTest(name=name):
+                self.assertEqual(sanitize_name(name, sanitize_parens=parens), expected)

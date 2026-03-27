@@ -83,11 +83,31 @@ def sanitize_name(s: str, sanitize_parens: bool = False) -> str:
     """
     if _forbidden_re.search(s) is not None:
         raise ValueError(f"Expression {s} has forbidden control characters.")
-    # Replace spaces between word characters so metric names with spaces
-    # (e.g. "CIFAR10 Test Accuracy") become valid Python identifiers.
-    # Spaces around operators (e.g. "m1 + m2") are not affected because
-    # operators like +, -, *, are not word characters.
-    sans_space = re.sub(r"(?<=\w)\s+(?=\w)", SPACE_PLACEHOLDER, s)
+    # When in objective/constraint parsing mode (sanitize_parens=True) and
+    # the string contains a colon — a character that is never a valid SymPy
+    # operator — any `` - `` (space-hyphen-space) is very likely part of a
+    # metric name rather than mathematical subtraction.  Pre-sanitize the
+    # spaces around the hyphen so the hyphen regex below can match it.
+    # Without this, metric names like ``"TTRC - Hidden Requests"`` would be
+    # misinterpreted as ``Symbol("TTRC") - Symbol("Hidden...")``.
+    # We skip this when the string contains ``*`` because that indicates a
+    # mathematical expression (e.g. ``"-0.5*m:c1 - 0.5*m:c2"``) where
+    # `` - `` is genuine subtraction.
+    if sanitize_parens and ":" in s and "*" not in s:
+        s = re.sub(
+            r"(?<=\w) - (?=\w)",
+            f"{SPACE_PLACEHOLDER}-{SPACE_PLACEHOLDER}",
+            s,
+        )
+    # Replace spaces that appear inside metric/parameter names so they
+    # become valid Python identifiers.  We match spaces between word
+    # characters (e.g. "CIFAR10 Test Accuracy"), as well as spaces that
+    # follow colons or close-parens and precede word characters or
+    # open-parens (e.g. "scope: value", "metric(p50): next", "fn (arg)").
+    # Spaces around mathematical operators (+, -, *, >=, <=) are NOT
+    # affected because those operator characters are not in the
+    # lookbehind/lookahead character classes.
+    sans_space = re.sub(r"(?<=[\w:)])\s+(?=[\w(])", SPACE_PLACEHOLDER, s)
     # Replace occurrences of "." and "/" when they appear after a valid Python variable
     # name and before any alphanumeric character.  We use a lookahead (?=...)
     # for the trailing character so it is NOT consumed by the match; this
@@ -103,10 +123,24 @@ def sanitize_name(s: str, sanitize_parens: bool = False) -> str:
         rf"\1{SLASH_PLACEHOLDER}",
         sans_dots,
     )
+    # Optionally sanitize parentheses that are part of metric/parameter
+    # names BEFORE colons so that ``__rparen__:`` is recognised as an
+    # identifier–colon boundary by the colon regex below.
+    # Matches ``identifier(content)`` where content is purely [a-zA-Z0-9_].
+    # This intentionally also matches single-argument SymPy calls like
+    # ``log(x)``; callers that need SymPy function calls (e.g.
+    # ExpressionDerivedMetric) should leave sanitize_parens=False.
+    sans_parens = sans_slash
+    if sanitize_parens:
+        sans_parens = re.sub(
+            r"([a-zA-Z_][a-zA-Z0-9_]*)\(([a-zA-Z0-9_]+)\)",
+            rf"\1{LPAREN_PLACEHOLDER}\2{RPAREN_PLACEHOLDER}",
+            sans_slash,
+        )
     sans_colon = re.sub(
         r"([a-zA-Z_][a-zA-Z0-9_]*):(?=[a-zA-Z0-9_])",
         rf"\1{COLON_PLACEHOLDER}",
-        sans_slash,
+        sans_parens,
     )
     sans_pipe = re.sub(
         r"([a-zA-Z_][a-zA-Z0-9_]*)\|(?=[a-zA-Z0-9_])",
@@ -138,18 +172,6 @@ def sanitize_name(s: str, sanitize_parens: bool = False) -> str:
         sans_hyphen,
     )
     result = sans_at
-
-    # Optionally sanitize parentheses that are part of metric/parameter names.
-    # Matches ``identifier(content)`` where content is purely [a-zA-Z0-9_].
-    # This intentionally also matches single-argument SymPy calls like
-    # ``log(x)``; callers that need SymPy function calls (e.g.
-    # ExpressionDerivedMetric) should leave sanitize_parens=False.
-    if sanitize_parens:
-        result = re.sub(
-            r"([a-zA-Z_][a-zA-Z0-9_]*)\(([a-zA-Z0-9_]+)\)",
-            rf"\1{LPAREN_PLACEHOLDER}\2{RPAREN_PLACEHOLDER}",
-            result,
-        )
 
     # Check for conflicts with sympy's global dictionary
     _check_sympy_conflicts(result)
