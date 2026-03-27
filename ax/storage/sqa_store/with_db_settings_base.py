@@ -498,6 +498,7 @@ class WithDBSettingsBase:
     retries=3,
     default_return_on_suppression=False,
     exception_types=RETRY_EXCEPTION_TYPES,
+    initial_wait_seconds=5,
 )
 def _save_experiment_to_db_if_possible(
     experiment: Experiment,
@@ -521,6 +522,7 @@ def _save_experiment_to_db_if_possible(
     retries=3,
     default_return_on_suppression=False,
     exception_types=RETRY_EXCEPTION_TYPES,
+    initial_wait_seconds=5,
 )
 def _save_or_update_trials_in_db_if_possible(
     experiment: Experiment,
@@ -550,6 +552,7 @@ def _save_or_update_trials_in_db_if_possible(
     retries=3,
     default_return_on_suppression=False,
     exception_types=RETRY_EXCEPTION_TYPES,
+    initial_wait_seconds=5,
 )
 def _save_generation_strategy_to_db_if_possible(
     generation_strategy: GenerationStrategy,
@@ -573,6 +576,7 @@ def _save_generation_strategy_to_db_if_possible(
     retries=3,
     default_return_on_suppression=False,
     exception_types=RETRY_EXCEPTION_TYPES,
+    initial_wait_seconds=5,
 )
 def _update_generation_strategy_in_db_if_possible(
     generation_strategy: GenerationStrategy,
@@ -602,6 +606,7 @@ def _update_generation_strategy_in_db_if_possible(
     retries=3,
     default_return_on_suppression=False,
     exception_types=RETRY_EXCEPTION_TYPES,
+    initial_wait_seconds=5,
 )
 def _update_runner_on_experiment_in_db_if_possible(
     experiment: Experiment,
@@ -619,6 +624,7 @@ def _update_runner_on_experiment_in_db_if_possible(
     retries=3,
     default_return_on_suppression=False,
     exception_types=RETRY_EXCEPTION_TYPES,
+    initial_wait_seconds=5,
 )
 def _update_experiment_properties_in_db(
     experiment_with_updated_properties: Experiment,
@@ -635,6 +641,7 @@ def _update_experiment_properties_in_db(
     retries=3,
     default_return_on_suppression=False,
     exception_types=RETRY_EXCEPTION_TYPES,
+    initial_wait_seconds=5,
 )
 def _save_analysis_card_to_db(
     experiment: Experiment,
