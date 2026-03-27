@@ -39,6 +39,7 @@ from ax.exceptions.core import UnsupportedError, UserInputError
 from ax.exceptions.model import AdapterMethodNotImplementedError, ModelError
 from ax.generators.base import Generator
 from ax.generators.types import TConfig
+from ax.utils.common.constants import Keys
 from ax.utils.common.logger import get_logger
 from botorch.settings import validate_input_scaling
 from pandas import DataFrame
@@ -314,7 +315,28 @@ class Adapter:
         transform_configs: Mapping[str, TConfig],
         assign_transforms: bool = True,
     ) -> tuple[ExperimentData, SearchSpace]:
-        """Initialize transforms and apply them to provided data."""
+        """Initialize transforms and apply them to provided data.
+
+        Pairwise preference labels (binary 0/1) are popped before
+        transforms and reattached afterward to prevent corruption by
+        Y-transforms like StandardizeY or Winsorize.
+        """
+        pairwise_key = Keys.PAIRWISE_PREFERENCE_QUERY.value
+        obs_data = experiment_data.observation_data
+        saved_pairwise = None
+        if ("mean", pairwise_key) in obs_data.columns:
+            saved_pairwise = {
+                "mean": obs_data[("mean", pairwise_key)].copy(),
+                "sem": obs_data[("sem", pairwise_key)].copy(),
+            }
+            obs_data = obs_data.drop(
+                columns=[("mean", pairwise_key), ("sem", pairwise_key)]
+            )
+            experiment_data = ExperimentData(
+                arm_data=experiment_data.arm_data,
+                observation_data=obs_data,
+            )
+
         search_space = search_space.clone()
         if transforms is not None:
             for t in transforms:
@@ -332,6 +354,19 @@ class Adapter:
                 )
                 if assign_transforms:
                     self.transforms[t.__name__] = t_instance
+
+        if saved_pairwise is not None:
+            # Reattach by index alignment. Safe because pairwise labeling
+            # trials are in _non_relativizable_trial_indices and are never
+            # dropped by transforms like TransformToNewSQ.
+            obs_data = experiment_data.observation_data
+            obs_data[("mean", pairwise_key)] = saved_pairwise["mean"]
+            obs_data[("sem", pairwise_key)] = saved_pairwise["sem"]
+            experiment_data = ExperimentData(
+                arm_data=experiment_data.arm_data,
+                observation_data=obs_data,
+            )
+
         return experiment_data, search_space
 
     def _set_search_space(

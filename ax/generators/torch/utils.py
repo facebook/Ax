@@ -15,7 +15,6 @@ import numpy.typing as npt
 import torch
 from ax.exceptions.core import UnsupportedError
 from ax.generators.utils import filter_constraints_and_fixed_features, get_observed
-from ax.utils.common.constants import Keys
 from botorch.acquisition.acquisition import AcquisitionFunction
 from botorch.acquisition.analytic import PosteriorMean
 from botorch.acquisition.logei import qLogProbabilityOfFeasibility
@@ -41,7 +40,6 @@ from botorch.acquisition.utils import get_infeasible_cost
 from botorch.models.model import Model, ModelList
 from botorch.posteriors.ensemble import EnsemblePosterior
 from botorch.posteriors.fully_bayesian import GaussianMixturePosterior
-from botorch.sampling.normal import IIDNormalSampler, SobolQMCNormalSampler
 from botorch.utils.constraints import get_outcome_constraint_transforms
 from botorch.utils.datasets import SupervisedDataset
 from botorch.utils.objective import get_objective_weights_transform
@@ -423,12 +421,7 @@ def pick_best_out_of_sample_point_acqf_class(
         acqf_options = {}
     else:
         acqf_class = qSimpleRegret
-        sampler_class = SobolQMCNormalSampler if qmc else IIDNormalSampler
-        acqf_options = {
-            Keys.SAMPLER.value: sampler_class(
-                sample_shape=torch.Size([mc_samples]), seed=seed_inner
-            )
-        }
+        acqf_options = {}
 
     return cast(type[AcquisitionFunction], acqf_class), acqf_options
 

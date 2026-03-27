@@ -463,8 +463,9 @@ def choose_botorch_acqf_class(
                     )
 
             if not is_feasible.any().item():
-                # NOTE: Adding a new acqf class here requires a corresponding
-                # update in get_botorch_objective_and_transform.
+                # NOTE: Adding a new acqf class here requires a
+                # corresponding update in
+                # get_botorch_objective_and_transform.
                 acqf_class = qLogProbabilityOfFeasibility
                 logger.debug(f"Chose BoTorch acquisition function class: {acqf_class}.")
                 return acqf_class
