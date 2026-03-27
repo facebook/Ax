@@ -39,11 +39,7 @@ from ax.core.optimization_config import (
     OptimizationConfig,
     PreferenceOptimizationConfig,
 )
-from ax.core.outcome_constraint import (
-    ObjectiveThreshold,
-    OutcomeConstraint,
-    ScalarizedOutcomeConstraint,
-)
+from ax.core.outcome_constraint import OutcomeConstraint, ScalarizedOutcomeConstraint
 from ax.core.parameter import (
     ChoiceParameter,
     DerivedParameter,
@@ -772,7 +768,7 @@ class Encoder:
 
     def objective_threshold_to_sqa(
         self,
-        objective_threshold: ObjectiveThreshold,
+        objective_threshold: OutcomeConstraint,
         experiment_metrics: dict[str, Metric] | None = None,
     ) -> SQAMetric:
         """Convert Ax OutcomeConstraint to SQLAlchemy."""
@@ -847,9 +843,7 @@ class Encoder:
         ):
             for threshold in optimization_config.objective_thresholds:
                 threshold_sqa = self.objective_threshold_to_sqa(
-                    objective_threshold=assert_is_instance(
-                        threshold, ObjectiveThreshold
-                    ),
+                    objective_threshold=threshold,
                     experiment_metrics=experiment_metrics,
                 )
                 metrics_sqa.append(threshold_sqa)
