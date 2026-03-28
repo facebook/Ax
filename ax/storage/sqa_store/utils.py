@@ -28,6 +28,7 @@ COPY_DB_IDS_ATTRS_TO_SKIP = {
     "_best_arm_predictions",
     "_adapter_kwargs",
     "_candidate_metadata_by_arm_signature",
+    "_cached_session",
     "_curr",
     "_experiment",
     "_gen_metadata",
