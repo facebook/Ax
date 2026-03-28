@@ -152,9 +152,7 @@ class BoTorchGeneratorTest(TestCase):
         self.moo_objective_weights = torch.tensor(
             [[1.0, 0.0, 0.0], [0.0, 1.5, 0.0]], **tkwargs
         )
-        self.moo_objective_thresholds = torch.tensor(
-            [0.5, 1.5, float("nan")], **tkwargs
-        )
+        self.moo_objective_thresholds = torch.tensor([0.5, 1.5], **tkwargs)
         self.moo_outcome_constraints = (
             torch.tensor([[1.0, 0.0, 0.0]], **tkwargs),
             torch.tensor([[3.5]], **tkwargs),
@@ -1079,7 +1077,7 @@ class BoTorchGeneratorTest(TestCase):
             "training_data",
             "X_baseline",
             "model",
-            "objective_thresholds",
+            "ref_point",
             "eta",
             "constraints_tuple",
         }
@@ -1108,16 +1106,18 @@ class BoTorchGeneratorTest(TestCase):
                 torch.cat([ds.Yvar for ds in self.moo_training_data], dim=-1),
             )
         )
+        # BoTorch receives maximization-aligned thresholds directly as ref_point.
         self.assertTrue(
             torch.equal(
-                ckwargs["objective_thresholds"], self.moo_objective_thresholds[:2]
+                ckwargs["ref_point"],
+                self.moo_objective_thresholds,
             )
         )
         self.assertIs(ckwargs["constraints"], constraints)
 
+        # gen_metadata stores maximization-aligned thresholds.
         obj_t = gen_results.gen_metadata["objective_thresholds"]
-        self.assertTrue(torch.equal(obj_t[:2], self.moo_objective_thresholds[:2]))
-        self.assertTrue(np.isnan(obj_t[2].item()))
+        self.assertTrue(torch.equal(obj_t, self.moo_objective_thresholds))
 
         self.assertIsInstance(ckwargs["objective"], WeightedMCMultiOutputObjective)
         self.assertTrue(
@@ -1156,7 +1156,7 @@ class BoTorchGeneratorTest(TestCase):
             linear_constraints=linear_constraints,
         )
 
-        objective_thresholds = torch.tensor([9.9, 3.3, float("nan")])
+        objective_thresholds = torch.tensor([9.9, 3.3])
         with mock.patch(
             "ax.generators.torch.botorch_modular.acquisition"
             ".infer_objective_thresholds",
@@ -1191,8 +1191,7 @@ class BoTorchGeneratorTest(TestCase):
         self.assertEqual(m.num_outputs, 2)
         self.assertIn("objective_thresholds", gen_results.gen_metadata)
         obj_t = gen_results.gen_metadata["objective_thresholds"]
-        self.assertTrue(torch.equal(obj_t[:2], objective_thresholds[:2]))
-        self.assertTrue(np.isnan(obj_t[2].item()))
+        self.assertTrue(torch.equal(obj_t, objective_thresholds))
 
         # Avoid polluting the registry for other tests; re-register correct input
         # constructor for qLogNEHVI.

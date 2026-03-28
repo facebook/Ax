@@ -353,37 +353,28 @@ def _objective_threshold_to_outcome_constraints(
 ) -> tuple[Tensor, Tensor]:
     """Convert objective thresholds to outcome constraint format ``(A, b)``.
 
-    For each objective ``i`` with nonzero weight ``w_i`` and non-NaN threshold
-    ``t_i``, the constraint is ``w_i * Y_i >= w_i * t_i``, which is equivalent
-    to ``-w_i * Y_i <= -w_i * t_i`` in the standard ``A f(x) <= b`` format.
+    For each objective ``i`` with non-NaN threshold ``t_i``, the constraint is
+    that the objective value must exceed the threshold in the maximization-
+    aligned space. Since thresholds are already maximization-aligned, the
+    constraint is: ``objective_weights[i] @ Y >= t_i``, which in standard
+    ``A f(x) <= b`` format becomes ``-objective_weights[i] @ Y <= -t_i``.
 
     Args:
         objective_weights: A ``(n_objectives, n_outcomes)`` tensor of objective
             weights.
-        objective_thresholds: A ``m``-dim tensor of objective thresholds.
+        objective_thresholds: A ``(n_objectives,)`` tensor of maximization-
+            aligned objective thresholds.
 
     Returns:
         A tuple ``(A, b)`` of outcome constraint tensors.
     """
-    obj_idcs, obj_weights = extract_objectives(objective_weights)
     # Filter to objectives with non-NaN thresholds. Objective thresholds
     # can contain NaNs if the objective thresholds were inferred, but
     # there are no feasible points. In that case,
     # qLogProbabilityOfFeasibility is used.
-    non_nan_mask = ~objective_thresholds[obj_idcs].isnan()
-    obj_idcs = obj_idcs[non_nan_mask]
-    obj_weights = obj_weights[non_nan_mask]
-    m = objective_weights.shape[1]
-    k = len(obj_idcs)
-    A = torch.zeros(
-        k, m, dtype=objective_weights.dtype, device=objective_weights.device
-    )
-    b = torch.zeros(
-        k, 1, dtype=objective_weights.dtype, device=objective_weights.device
-    )
-    for i, (idx, w) in enumerate(zip(obj_idcs, obj_weights)):
-        A[i, idx] = -w
-        b[i] = -w * objective_thresholds[idx]
+    non_nan_mask = ~objective_thresholds.isnan()
+    A = -objective_weights[non_nan_mask]
+    b = -objective_thresholds[non_nan_mask].unsqueeze(-1)
     return A, b
 
 
@@ -470,15 +461,15 @@ def choose_botorch_acqf_class(
                 obj_weights = torch_opt_config.objective_weights
                 obj_thresholds = none_throws(torch_opt_config.objective_thresholds)
                 obj_idcs, weights = extract_objectives(obj_weights)
-                non_nan_mask = ~obj_thresholds[obj_idcs].isnan()
+                non_nan_mask = ~obj_thresholds.isnan()
                 if non_nan_mask.any():
-                    # Check: w_i * Y_i >= w_i * t_i for all objectives i.
+                    # Convert observations to maximization-aligned objective
+                    # values and compare against thresholds (already aligned).
                     weighted_Y = dataset.Y[:, obj_idcs] * weights
-                    weighted_t = obj_thresholds[obj_idcs] * weights
                     is_feasible = is_feasible & (
-                        (weighted_Y[:, non_nan_mask] >= weighted_t[non_nan_mask]).all(
-                            dim=-1
-                        )
+                        (
+                            weighted_Y[:, non_nan_mask] >= obj_thresholds[non_nan_mask]
+                        ).all(dim=-1)
                     )
 
             if not is_feasible.any().item():

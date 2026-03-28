@@ -56,7 +56,7 @@ class MultiAcquisition(Acquisition):
                 if len(models) == self.n:
                     self.acq_function_sequence = []
                     for model in models:
-                        model, _, _, _ = self._subset_model(
+                        model, _, _ = self._subset_model(
                             model=model, objective_weights=self._full_objective_weights
                         )
                         acqf = self._construct_botorch_acquisition(

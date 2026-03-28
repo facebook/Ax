@@ -1153,12 +1153,14 @@ class TorchAdapter(Adapter):
         """
         obj_indices, obj_weights = extract_objectives(objective_weights)
         thresholds = []
-        for idx, w in zip(obj_indices, obj_weights):
+        for i, (idx, w) in enumerate(zip(obj_indices, obj_weights)):
             sign = torch.sign(w)
+            # Thresholds are maximization-aligned; undo sign flip to get raw bound.
+            raw_bound = float(sign * objective_thresholds[i].item())
             thresholds.append(
                 ObjectiveThreshold(
                     metric=opt_config_metrics[self.outcomes[idx]],
-                    bound=float(objective_thresholds[idx].item()),
+                    bound=raw_bound,
                     relative=False,
                     op=ComparisonOp.LEQ if sign < 0 else ComparisonOp.GEQ,
                 )

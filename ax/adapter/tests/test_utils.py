@@ -140,7 +140,7 @@ class TestAdapterUtils(TestCase):
             for i, name in enumerate(outcomes[:3])
         ]
 
-        # None of no thresholds
+        # None if no thresholds
         self.assertIsNone(
             extract_objective_thresholds(
                 objective_thresholds=[],
@@ -150,17 +150,17 @@ class TestAdapterUtils(TestCase):
             )
         )
 
-        # Working case
+        # Working case: 3 objectives (all maximize), shape is (3,)
         obj_t = extract_objective_thresholds(
             objective_thresholds=objective_thresholds,
             objective=objective,
             outcomes=outcomes,
             metric_name_to_signature=metric_name_to_signature,
         )
-        expected_obj_t_not_nan = np.array([2.0, 3.0, 4.0])
-        self.assertTrue(np.array_equal(obj_t[:3], expected_obj_t_not_nan[:3]))
-        self.assertTrue(np.isnan(obj_t[-1]))
-        self.assertEqual(obj_t.shape[0], 4)
+        # All maximize, so thresholds are unchanged (sign = +1).
+        expected_obj_t = np.array([2.0, 3.0, 4.0])
+        self.assertTrue(np.array_equal(obj_t, expected_obj_t))
+        self.assertEqual(obj_t.shape[0], 3)
 
         # Returns NaN for objectives without a threshold.
         obj_t = extract_objective_thresholds(
@@ -169,8 +169,9 @@ class TestAdapterUtils(TestCase):
             outcomes=outcomes,
             metric_name_to_signature=metric_name_to_signature,
         )
-        self.assertTrue(np.array_equal(obj_t[:2], expected_obj_t_not_nan[:2]))
-        self.assertTrue(np.isnan(obj_t[-2:]).all())
+        self.assertTrue(np.array_equal(obj_t[:2], expected_obj_t[:2]))
+        self.assertTrue(np.isnan(obj_t[2]))
+        self.assertEqual(obj_t.shape[0], 3)
 
         # Fails if a threshold does not have a corresponding metric.
         objective2 = Objective(expression="m1")
@@ -182,16 +183,48 @@ class TestAdapterUtils(TestCase):
                 metric_name_to_signature=metric_name_to_signature,
             )
 
-        # Works with a single objective, single threshold
+        # Single objective returns None.
+        self.assertIsNone(
+            extract_objective_thresholds(
+                objective_thresholds=objective_thresholds[:1],
+                objective=objective2,
+                outcomes=outcomes,
+                metric_name_to_signature=metric_name_to_signature,
+            )
+        )
+
+        # Maximize-alignment: minimize objectives get negated thresholds.
+        objective_with_min = MultiObjective(
+            objectives=[
+                Objective(metric=Metric("m1"), minimize=False),
+                Objective(metric=Metric("m2"), minimize=True),
+            ]
+        )
+        obj_thresholds_for_min = [
+            ObjectiveThreshold(
+                metric=Metric("m1"),
+                op=ComparisonOp.LEQ,
+                bound=2.0,
+                relative=False,
+            ),
+            ObjectiveThreshold(
+                metric=Metric("m2"),
+                op=ComparisonOp.LEQ,
+                bound=3.0,
+                relative=False,
+            ),
+        ]
         obj_t = extract_objective_thresholds(
-            objective_thresholds=objective_thresholds[:1],
-            objective=objective2,
+            objective_thresholds=obj_thresholds_for_min,
+            objective=objective_with_min,
             outcomes=outcomes,
             metric_name_to_signature=metric_name_to_signature,
         )
+        # m1 maximize: sign=+1, threshold=2.0 → 2.0
+        # m2 minimize: sign=-1, threshold=3.0 → -3.0
+        self.assertEqual(obj_t.shape[0], 2)
         self.assertEqual(obj_t[0], 2.0)
-        self.assertTrue(np.all(np.isnan(obj_t[1:])))
-        self.assertEqual(obj_t.shape[0], 4)
+        self.assertEqual(obj_t[1], -3.0)
 
         # Fails if relative
         objective_thresholds[2] = ObjectiveThreshold(
