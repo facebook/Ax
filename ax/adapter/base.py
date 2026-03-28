@@ -773,11 +773,11 @@ class Adapter:
             optimization_config = optimization_config.clone()
 
         pending_observations = deepcopy(pending_observations)
-        fixed_features = (
-            ObservationFeatures(parameters={})
-            if fixed_features is None
-            else fixed_features.clone()
+        fixed_features = search_space.get_disabled_parameter_fixed_features(
+            fixed_features_to_overlay_on=fixed_features
         )
+        if fixed_features is None:
+            fixed_features = ObservationFeatures(parameters={})
         search_space = search_space.clone()
 
         # Transform
