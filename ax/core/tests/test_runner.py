@@ -28,7 +28,11 @@ class RunnerTest(TestCase):
     def test_base_runner_staging_required(self) -> None:
         self.assertFalse(self.dummy_runner.staging_required)
 
-    def test_base_runner_stop(self) -> None:
+    def test_base_runner_stop_trial(self) -> None:
+        with self.assertRaises(NotImplementedError):
+            self.dummy_runner.stop_trial(trial=mock.Mock(), reason="")
+
+    def test_base_runner_stop_deprecated(self) -> None:
         with self.assertRaises(NotImplementedError):
             self.dummy_runner.stop(trial=mock.Mock(), reason="")
 
@@ -37,24 +41,52 @@ class RunnerTest(TestCase):
         self.assertIsInstance(runner_clone, DummyRunner)
         self.assertEqual(runner_clone, self.dummy_runner)
 
-    def test_base_runner_run_multiple(self) -> None:
-        metadata = self.dummy_runner.run_multiple(trials=self.trials)
+    def test_base_runner_run_trials(self) -> None:
+        metadata = self.dummy_runner.run_trials(trials=self.trials)
         self.assertEqual(
             metadata,
             {t.index: {"metadatum": f"value_for_trial_{t.index}"} for t in self.trials},
         )
-        self.assertEqual({}, self.dummy_runner.run_multiple(trials=[]))
+        self.assertEqual({}, self.dummy_runner.run_trials(trials=[]))
+
+    def test_base_runner_run_multiple_deprecated(self) -> None:
+        with self.assertWarns(DeprecationWarning):
+            metadata = self.dummy_runner.run_multiple(trials=self.trials)
+        self.assertEqual(
+            metadata,
+            {t.index: {"metadatum": f"value_for_trial_{t.index}"} for t in self.trials},
+        )
 
     def test_base_runner_poll_trial_status(self) -> None:
         with self.assertRaises(NotImplementedError):
             self.dummy_runner.poll_trial_status(trials=self.trials)
 
-    def test_base_runner_poll_exception(self) -> None:
-        with self.assertRaises(NotImplementedError):
-            self.dummy_runner.poll_exception(trial=self.trials[0])
+    def test_base_runner_poll_exception_deprecated(self) -> None:
+        with self.assertWarns(DeprecationWarning):
+            with self.assertRaises(NotImplementedError):
+                self.dummy_runner.poll_exception(trial=self.trials[0])
 
     def test_poll_available_capacity(self) -> None:
         self.assertEqual(self.dummy_runner.poll_available_capacity(), -1)
 
     def test_run_metadata_report_keys(self) -> None:
         self.assertEqual(self.dummy_runner.run_metadata_report_keys, [])
+
+    def test_stage_trials(self) -> None:
+        # Default implementation does nothing.
+        self.dummy_runner.stage_trials(trials=self.trials)
+
+    def test_poll_run_metadata(self) -> None:
+        self.assertEqual(self.dummy_runner.poll_run_metadata(trials=self.trials), {})
+
+    def test_stop_arms(self) -> None:
+        with self.assertRaises(NotImplementedError):
+            self.dummy_runner.stop_arms(
+                trial=mock.Mock(), arm_names=["arm_0"], reason=""
+            )
+
+    def test_apply_status_change_side_effects(self) -> None:
+        self.assertEqual(
+            self.dummy_runner.apply_status_change_side_effects(trials=self.trials),
+            set(),
+        )
