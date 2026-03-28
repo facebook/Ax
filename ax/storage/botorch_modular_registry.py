@@ -60,6 +60,7 @@ from botorch.acquisition.preference import (
     AnalyticExpectedUtilityOfBestOption,
     qExpectedUtilityOfBestOption,
 )
+from botorch.models.classifier import SoftKNNClassifierModel
 from botorch.models.contextual import LCEAGP
 from botorch.models.fully_bayesian import (
     FullyBayesianLinearSingleTaskGP,
@@ -145,6 +146,8 @@ MODEL_REGISTRY: dict[type[Model], str] = {
     AdditiveMapSaasSingleTaskGP: "AdditiveMapSaasSingleTaskGP",
     EnsembleMapSaasSingleTaskGP: "EnsembleMapSaasSingleTaskGP",
     HeterogeneousMTGP: "HeterogeneousMTGP",
+    # Classifier models
+    SoftKNNClassifierModel: "SoftKNNClassifierModel",
 }
 
 
