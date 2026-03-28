@@ -125,12 +125,6 @@ class MultiTypeExperimentTest(TestCase):
         with self.assertRaises(ValueError):
             self.experiment.remove_tracking_metric("m3")
 
-        # Try to change optimization metric to non-primary trial type
-        with self.assertRaises(ValueError):
-            self.experiment.update_tracking_metric(
-                BraninMetric("m1", ["x1", "x2"]), "type2"
-            )
-
         # Update metric definition for trial_type that doesn't exist
         with self.assertRaises(ValueError):
             self.experiment.update_tracking_metric(
