@@ -8,6 +8,7 @@
 
 from unittest.mock import patch
 
+import jax.numpy as jnp
 import torch
 from ax.adapter.registry import Generators
 from ax.adapter.transforms.choice_encode import OrderedChoiceToIntegerRange
@@ -22,7 +23,6 @@ from botorch.acquisition.analytic import ExpectedImprovement, PosteriorMean
 from botorch.generation.gen import gen_candidates_scipy
 from botorch.optim.optimize_mixed import generate_starting_points
 from botorch.utils.testing import MockAcquisitionFunction, skip_if_import_error
-from pyro.infer import MCMC
 
 
 class TestMock(TestCase):
@@ -45,13 +45,25 @@ class TestMock(TestCase):
 
     def test_fully_bayesian_mocks(self) -> None:
         experiment = get_branin_experiment(with_completed_batch=True)
-        with patch("botorch.fit.MCMC", wraps=MCMC) as mock_mcmc:
+        num_mcmc_samples = 16
+        dim = len(experiment.search_space.parameters)
+        # Mock MCMC to return proper JAX arrays that postprocess_mcmc_samples
+        # can handle (it performs JAX operations on them).
+        mock_samples = {
+            "mean": jnp.ones(num_mcmc_samples),
+            "noise": jnp.ones(num_mcmc_samples),
+            "outputscale": jnp.ones(num_mcmc_samples),
+            "kernel_tausq": jnp.ones(num_mcmc_samples),
+            "_kernel_inv_length_sq": jnp.ones((num_mcmc_samples, dim)),
+        }
+        with patch("botorch.fit.MCMC") as mock_mcmc:
+            mock_mcmc.return_value.get_samples.return_value = mock_samples
             with mock_botorch_optimize_context_manager():
                 Generators.SAASBO(experiment=experiment, data=experiment.lookup_data())
         mock_mcmc.assert_called_once()
         kwargs = mock_mcmc.call_args.kwargs
         self.assertEqual(kwargs["num_samples"], 16)
-        self.assertEqual(kwargs["warmup_steps"], 0)
+        self.assertEqual(kwargs["num_warmup"], 0)
 
     def test_mixed_optimizer_mocks(self) -> None:
         experiment = get_branin_experiment(
