@@ -239,6 +239,31 @@ class TransferLearningAdapter(TorchAdapter):
 
         return experiment_data, search_space
 
+    def _compute_in_design(
+        self,
+        search_space: SearchSpace,
+        experiment_data: ExperimentData,
+    ) -> list[bool]:
+        """Compute in-design status for heterogeneous transfer learning.
+
+        Overrides base class to use check_all_parameters_present=False, which
+        tolerates extra columns in arm_data beyond the search space parameters.
+        This is necessary for heterogeneous TL where FillMissingParameters adds
+        columns for source-only parameters (e.g. 'z') to target arm data,
+        causing the default extra_params check to reject all rows.
+        """
+        experiment_data, _ = self._transform_data(
+            experiment_data=experiment_data,
+            search_space=search_space,
+            transforms=self._raw_transforms[:1],
+            transform_configs=self._transform_configs,
+            assign_transforms=False,
+        )
+        return search_space.check_membership_df(
+            arm_data=experiment_data.arm_data,
+            check_all_parameters_present=False,
+        )
+
     def get_training_data(self, filter_in_design: bool = False) -> ExperimentData:
         """Returns the training data for the current experiment, with its metadata
         updated to include the task value.

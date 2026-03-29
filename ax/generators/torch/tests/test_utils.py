@@ -198,12 +198,10 @@ class BoTorchGeneratorUtilsTest(TestCase):
         # Assert: Should select HeterogeneousMTGP for heterogeneous features
         self.assertEqual(HeterogeneousMTGP, model_class)
 
-    def test_choose_model_class_heterogeneous_overrides_specified(self) -> None:
-        # Test that HeterogeneousMTGP overrides a pre-specified model class
-        # when heterogeneous features are detected
+    def test_choose_model_class_heterogeneous_respects_specified(self) -> None:
+        # Test that specified model class is respected for heterogeneous datasets.
         mt_dataset = self._get_heterogeneous_mt_dataset()
 
-        # Execute: Try to specify MultiTaskGP explicitly
         model_class = choose_model_class(
             dataset=mt_dataset,
             search_space_digest=dataclasses.replace(
@@ -212,8 +210,7 @@ class BoTorchGeneratorUtilsTest(TestCase):
             specified_model_class=MultiTaskGP,
         )
 
-        # Assert: Should override to HeterogeneousMTGP despite specification
-        self.assertEqual(HeterogeneousMTGP, model_class)
+        self.assertEqual(MultiTaskGP, model_class)
 
     def test_choose_model_class_respects_specified_when_no_override_needed(
         self,
