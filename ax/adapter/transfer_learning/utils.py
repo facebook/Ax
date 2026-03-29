@@ -81,6 +81,9 @@ def merge_parameters(
     If both are choice parameters, they will be merged into a choice parameter that
     includes the union of the values of the two parameters.
 
+    If one is a fixed parameter and the other a choice parameter, they will be
+    merged into a choice parameter whose values include the fixed value.
+
     If the parameters have dependents (for hierarchical search spaces), then the
     dependents will be merged together.
     """
@@ -91,9 +94,12 @@ def merge_parameters(
         )
     p1_type = type(p1)
     p2_type = type(p2)
+    allowed_mixed_pairs = (
+        {FixedParameter, RangeParameter},
+        {FixedParameter, ChoiceParameter},
+    )
     if (
-        p1_type is not p2_type
-        and ({p1_type, p2_type} != {FixedParameter, RangeParameter})
+        p1_type is not p2_type and ({p1_type, p2_type} not in allowed_mixed_pairs)
     ) or p1.parameter_type != p2.parameter_type:
         raise ValueError(f"Cannot merge parameters of different types: {p1}, {p2}.")
     if isinstance(p1, RangeParameter) and isinstance(p2, RangeParameter):
@@ -140,6 +146,33 @@ def merge_parameters(
             upper=max(range_param.upper, range_param.cast(fixed_param.value)),
         )
         return new_range_param
+    elif (
+        isinstance(fixed_param := p1, FixedParameter)
+        and isinstance(choice_param := p2, ChoiceParameter)
+    ) or (
+        isinstance(fixed_param := p2, FixedParameter)
+        and isinstance(choice_param := p1, ChoiceParameter)
+    ):
+        # Merge FixedParameter into ChoiceParameter by including the fixed
+        # value in the set of choice values.
+        values = list(set(choice_param.values) | {fixed_param.value})
+        return ChoiceParameter(
+            name=p1.name,
+            parameter_type=p1.parameter_type,
+            values=values,
+            is_ordered=choice_param.is_ordered,
+            is_task=choice_param.is_task,
+            is_fidelity=choice_param.is_fidelity,
+            target_value=choice_param.target_value,
+            sort_values=choice_param.sort_values,
+            dependents=merge_dependents(
+                # pyre-ignore[6]: p1/p2 are FixedParameter | ChoiceParameter here.
+                p1=p1,
+                # pyre-ignore[6]: p1/p2 are FixedParameter | ChoiceParameter here.
+                p2=p2,
+                reverse_param_config=reverse_param_config,
+            ),
+        )
     elif isinstance(p1, ChoiceParameter) and isinstance(p2, ChoiceParameter):
         return ChoiceParameter(
             name=p1.name,
