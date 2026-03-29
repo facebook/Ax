@@ -338,3 +338,14 @@ def register_mll(mll_class: type[MarginalLogLikelihood]) -> None:
     class_name = mll_class.__name__
     CLASS_TO_REGISTRY[MarginalLogLikelihood].update({mll_class: class_name})
     CLASS_TO_REVERSE_REGISTRY[MarginalLogLikelihood].update({class_name: mll_class})
+
+
+def register_input_transform(
+    input_transform_class: type[InputTransform],
+) -> None:
+    """Add a custom input transform class to the SQA and JSON registries."""
+    class_name = input_transform_class.__name__
+    CLASS_TO_REGISTRY[InputTransform].update({input_transform_class: class_name})
+    CLASS_TO_REVERSE_REGISTRY[InputTransform].update(
+        {class_name: input_transform_class}
+    )
