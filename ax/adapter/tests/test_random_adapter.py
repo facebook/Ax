@@ -22,6 +22,7 @@ from ax.core.parameter_constraint import ParameterConstraint
 from ax.core.search_space import SearchSpace
 from ax.exceptions.core import SearchSpaceExhausted
 from ax.generators.random.base import RandomGenerator
+from ax.generators.random.in_sample import InSampleUniformGenerator
 from ax.generators.random.sobol import SobolGenerator
 from ax.generators.types import TConfig
 from ax.utils.common.testutils import TestCase
@@ -296,6 +297,60 @@ class RandomAdapterTest(TestCase):
 
         generated_points_all_out = mock_gen.call_args.kwargs["generated_points"]
         self.assertIsNone(generated_points_all_out)
+
+    def test_in_sample_excludes_non_data_bearing_trial_arms(self) -> None:
+        """For InSampleUniformGenerator, generated_points should only contain
+        arms from trials with expecting_data status (COMPLETED, RUNNING,
+        EARLY_STOPPED). Arms from CANDIDATE, FAILED, and ABANDONED trials
+        must be excluded even though they exist on the experiment."""
+        search_space = SearchSpace(self.parameters[:2])
+        exp = Experiment(search_space=search_space)
+
+        # Trial 0: COMPLETED -- should be included.
+        exp.new_trial().add_arm(Arm(parameters={"x": 0.5, "y": 1.5})).mark_running(
+            no_runner_required=True
+        )
+        exp.trials[0].mark_completed()
+
+        # Trial 1: CANDIDATE -- should be excluded.
+        exp.new_trial().add_arm(Arm(parameters={"x": 0.8, "y": 1.8}))
+
+        # Trial 2: RUNNING -- should be included.
+        exp.new_trial().add_arm(Arm(parameters={"x": 0.3, "y": 1.3})).mark_running(
+            no_runner_required=True
+        )
+
+        # Trial 3: FAILED -- should be excluded.
+        exp.new_trial().add_arm(Arm(parameters={"x": 0.1, "y": 1.1})).mark_running(
+            no_runner_required=True
+        )
+        exp.trials[3].mark_failed()
+
+        # Trial 4: ABANDONED -- should be excluded.
+        exp.new_trial().add_arm(Arm(parameters={"x": 0.9, "y": 1.9})).mark_running(
+            no_runner_required=True
+        )
+        exp.trials[4].mark_abandoned()
+
+        generator = InSampleUniformGenerator(seed=0)
+        adapter = RandomAdapter(
+            experiment=exp,
+            generator=generator,
+            transforms=Cont_X_trans,
+        )
+
+        with mock.patch.object(
+            generator,
+            "gen",
+            wraps=generator.gen,
+        ) as mock_gen:
+            adapter.gen(n=2)
+
+        # generated_points should have exactly 2 points (COMPLETED + RUNNING).
+        # CANDIDATE, FAILED, and ABANDONED arms must be excluded.
+        generated_points = mock_gen.call_args.kwargs["generated_points"]
+        assert generated_points is not None
+        self.assertEqual(len(generated_points), 2)
 
     def test_generation_with_all_fixed(self) -> None:
         # Make sure candidate generation succeeds and returns correct parameters

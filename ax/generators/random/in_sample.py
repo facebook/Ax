@@ -19,8 +19,10 @@ class InSampleUniformGenerator(RandomGenerator):
     """Randomly select candidates from existing experiment arms.
 
     Selects n arms uniformly at random without replacement from the
-    ``generated_points`` array passed by the adapter. This array contains
-    the in-design, non-failed arms on the experiment (deduplicated).
+    ``generated_points`` array passed by the adapter. For this generator,
+    the adapter restricts ``generated_points`` to arms from trials that
+    have or expect observed data (``status.expecting_data``), excluding
+    arms from CANDIDATE or STAGED trials that have never been evaluated.
 
     Used for model-free candidate selection in use cases like LILO
     (Language-in-the-Loop Optimization), where a labeling node needs
@@ -51,8 +53,8 @@ class InSampleUniformGenerator(RandomGenerator):
             model_gen_options: Not used. Accepted for interface compatibility.
             rounding_func: Not used. Accepted for interface compatibility.
             generated_points: A numpy array of shape ``(num_arms, d)`` containing
-                the existing experiment arms to select from. Constructed by the
-                adapter from in-design, non-failed arms (deduplicated).
+                the existing experiment arms to select from. The adapter
+                filters this to arms from trials with observed data.
 
         Returns:
             2-element tuple containing

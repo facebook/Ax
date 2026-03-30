@@ -26,6 +26,7 @@ from ax.core.observation import ObservationFeatures
 from ax.core.optimization_config import OptimizationConfig
 from ax.core.search_space import SearchSpace
 from ax.generators.random.base import RandomGenerator
+from ax.generators.random.in_sample import InSampleUniformGenerator
 from ax.generators.types import TConfig
 
 
@@ -97,8 +98,25 @@ class RandomAdapter(Adapter):
         # Exclude out-of-design arms (which can only be manual arms
         # instead of adapter-generated arms).
         generated_points = None
+        is_in_sample = isinstance(self.generator, InSampleUniformGenerator)
         if self.generator.deduplicate:
             arms_to_deduplicate = self._experiment.arms_by_signature_for_deduplication
+            # For in-sample generators, restrict to arms from trials that
+            # have or expect observed data (COMPLETED, EARLY_STOPPED,
+            # RUNNING). This prevents selecting arms from CANDIDATE/STAGED
+            # trials that have never been evaluated.
+            if is_in_sample:
+                expecting_sigs = {
+                    arm.signature
+                    for trial in self._experiment.trials.values()
+                    if trial.status.expecting_data
+                    for arm in trial.arms
+                }
+                arms_to_deduplicate = {
+                    sig: arm
+                    for sig, arm in arms_to_deduplicate.items()
+                    if sig in expecting_sigs
+                }
             generated_obs = [
                 ObservationFeatures.from_arm(arm=arm)
                 for arm in arms_to_deduplicate.values()
@@ -108,9 +126,16 @@ class RandomAdapter(Adapter):
             for t in self.transforms.values():
                 generated_obs = t.transform_observation_features(generated_obs)
             # Add pending observations -- already transformed.
-            generated_obs.extend(
-                [obs for obs_list in pending_observations.values() for obs in obs_list]
-            )
+            # Skipped for in-sample generators: pending observations include
+            # CANDIDATE arms that should not enter the selection pool.
+            if not is_in_sample:
+                generated_obs.extend(
+                    [
+                        obs
+                        for obs_list in pending_observations.values()
+                        for obs in obs_list
+                    ]
+                )
             if len(generated_obs) > 0:
                 # Extract generated points array (n x d).
                 generated_points = np.array(
