@@ -2581,6 +2581,28 @@ class TestAxClient(TestCase):
         ):
             ax_client.get_model_predictions()
 
+    def test_fit_model_partial_metric_data(self) -> None:
+        """Test that fit_model raises when completed trials only have data for
+        a subset of required metrics."""
+        ax_client = _set_up_client_for_get_model_predictions_no_next_trial()
+        # Attach a trial and complete it with data for only one of the two
+        # required metrics (test_metric1 is the objective, test_metric2 is the
+        # constraint). We bypass complete_trial() because it marks the trial as
+        # failed when required metrics are missing. Instead, we attach data and
+        # mark completed directly, simulating the case where the data check at
+        # completion time is skipped (e.g., data is attached asynchronously).
+        trial: TParameterization = {"x1": 0.1, "x2": 0.1}
+        _parameters, trial_index = ax_client.attach_trial(trial)
+        ax_trial = ax_client.get_trial(trial_index)
+        ax_trial.update_trial_data(raw_data={"test_metric1": (1.0, 0.0)})
+        ax_trial.mark_completed()
+
+        with self.assertRaisesRegex(
+            DataRequiredError,
+            "At least one completed trial must have data for all required metrics",
+        ):
+            ax_client.fit_model()
+
     def test_get_model_predictions_no_next_trial_filtered(self) -> None:
         ax_client = _set_up_client_for_get_model_predictions_no_next_trial()
         _attach_completed_trials(ax_client)

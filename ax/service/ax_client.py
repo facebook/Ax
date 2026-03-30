@@ -40,6 +40,7 @@ from ax.core.types import (
     TParameterization,
     TParamValue,
 )
+from ax.core.utils import compute_metric_availability, MetricAvailability
 from ax.early_stopping.strategies import BaseEarlyStoppingStrategy
 from ax.early_stopping.utils import estimate_early_stopping_savings
 from ax.exceptions.constants import CHOLESKY_ERROR_ANNOTATION
@@ -1407,9 +1408,14 @@ class AxClient(AnalysisBase, BestPointMixin, InstantiationBase):
             raise DataRequiredError(
                 "At least one trial must be completed with data to fit a model."
             )
-        if self.experiment.lookup_data(trial_indices=completed_trial_indices).df.empty:
+        availability = compute_metric_availability(
+            experiment=self.experiment,
+            trial_indices=completed_trial_indices,
+        )
+        if not any(v == MetricAvailability.COMPLETE for v in availability.values()):
             raise DataRequiredError(
-                "At least one completed trial must have data attached to fit a model."
+                "At least one completed trial must have data for all required "
+                "metrics to fit a model."
             )
         self.generation_strategy.fit(experiment=self.experiment)
 
