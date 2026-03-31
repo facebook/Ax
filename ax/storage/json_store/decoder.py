@@ -702,6 +702,9 @@ def multi_type_experiment_from_json(
     )
     # not relevant to multi type experiment
     del object_json["runner"]
+    # Pop _trial_type_to_metric_names if present (not a constructor argument;
+    # rebuilt from _metric_to_trial_type below).
+    object_json.pop("_trial_type_to_metric_names", None)
 
     kwargs = {
         k: object_from_json(
@@ -719,6 +722,12 @@ def multi_type_experiment_from_json(
     experiment._metric_to_canonical_name = _metric_to_canonical_name
     experiment._metric_to_trial_type = _metric_to_trial_type
     experiment._trial_type_to_runner = _trial_type_to_runner
+
+    # Rebuild _trial_type_to_metric_names from _metric_to_trial_type
+    trial_type_to_metric_names: dict[str, set[str]] = {}
+    for metric_name, trial_type in _metric_to_trial_type.items():
+        trial_type_to_metric_names.setdefault(trial_type, set()).add(metric_name)
+    experiment._trial_type_to_metric_names = trial_type_to_metric_names
 
     _load_experiment_info(
         exp=experiment,
@@ -746,6 +755,11 @@ def experiment_from_json(
         if _trial_type_to_runner_json is not None
         else None
     )
+    # Pop _trial_type_to_metric_names before constructing Experiment
+    # (it's not a constructor argument). Convert lists back to sets.
+    _trial_type_to_metric_names_json = object_json.pop(
+        "_trial_type_to_metric_names", None
+    )
 
     experiment = Experiment(
         **{
@@ -760,6 +774,10 @@ def experiment_from_json(
     experiment._arms_by_name = {}
     if _trial_type_to_runner is not None:
         experiment._trial_type_to_runner = _trial_type_to_runner
+    if _trial_type_to_metric_names_json is not None:
+        experiment._trial_type_to_metric_names = {
+            tt: set(names) for tt, names in _trial_type_to_metric_names_json.items()
+        }
 
     _load_experiment_info(
         exp=experiment,

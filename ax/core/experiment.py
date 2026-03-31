@@ -161,6 +161,11 @@ class Experiment(Base):
         self._trial_type_to_runner: dict[str | None, Runner | None] = {
             default_trial_type: runner
         }
+        # Maps each trial type to the set of metric names relevant to that type.
+        # This is the complement of _trial_type_to_runner and is used for
+        # multi-type experiments where different metrics apply to different
+        # trial types.
+        self._trial_type_to_metric_names: dict[str, set[str]] = {}
         # Used to keep track of whether any trials on the experiment
         # specify a TTL. Since trials need to be checked for their TTL's
         # expiration often, having this attribute helps avoid unnecessary
@@ -197,6 +202,10 @@ class Experiment(Base):
         # a naming collision occurs.
         for m in [*(tracking_metrics or []), *(metrics or [])]:
             self._metrics[m.name] = m
+            if self._default_trial_type is not None:
+                self._trial_type_to_metric_names.setdefault(
+                    self._default_trial_type, set()
+                ).add(m.name)
 
         # call setters defined below
         self.status_quo = status_quo
@@ -585,6 +594,12 @@ class Experiment(Base):
                     "but not found on experiment. Add it first with add_metric()."
                 )
         self._optimization_config = optimization_config
+        default_trial_type = self._default_trial_type
+        if default_trial_type is not None:
+            for metric_name in optimization_config.metric_names:
+                self._trial_type_to_metric_names.setdefault(
+                    default_trial_type, set()
+                ).add(metric_name)
 
     @property
     def is_moo_problem(self) -> bool:
@@ -837,7 +852,7 @@ class Experiment(Base):
             )
         return self._metrics[name]
 
-    def add_metric(self, metric: Metric) -> Self:
+    def add_metric(self, metric: Metric, trial_type: str | None = None) -> Self:
         """Add a new metric to the experiment.
 
         Metrics that are not referenced by the experiment's optimization config
@@ -846,54 +861,98 @@ class Experiment(Base):
 
         Args:
             metric: Metric to be added.
+            trial_type: If provided, associates the metric with this trial type.
+                When ``None`` and a ``default_trial_type`` is set, defaults to
+                the default trial type.
         """
         if metric.name in self._metrics:
             raise ValueError(
                 f"Metric `{metric.name}` already defined on experiment. "
                 "Use `update_metric` to update an existing metric definition."
             )
+        if trial_type is None and self._default_trial_type is not None:
+            trial_type = self._default_trial_type
+        if trial_type is not None:
+            if not self.supports_trial_type(trial_type):
+                raise ValueError(f"`{trial_type}` is not a supported trial type.")
+            self._trial_type_to_metric_names.setdefault(trial_type, set()).add(
+                metric.name
+            )
         self._metrics[metric.name] = metric
         return self
 
-    def add_tracking_metric(self, metric: Metric) -> Self:
+    def add_tracking_metric(
+        self,
+        metric: Metric,
+        trial_type: str | None = None,
+        canonical_name: str | None = None,
+    ) -> Self:
         """*Deprecated.* Use ``add_metric`` instead."""
         warnings.warn(
             "add_tracking_metric is deprecated. Use add_metric instead.",
             DeprecationWarning,
             stacklevel=2,
         )
-        return self.add_metric(metric)
+        return self.add_metric(metric, trial_type=trial_type)
 
-    def add_tracking_metrics(self, metrics: list[Metric]) -> Experiment:
+    def add_tracking_metrics(
+        self,
+        metrics: list[Metric],
+        metrics_to_trial_types: dict[str, str] | None = None,
+        canonical_names: dict[str, str] | None = None,
+    ) -> Experiment:
         """*Deprecated.* Use ``add_metric`` instead."""
         warnings.warn(
             "add_tracking_metrics is deprecated. Use add_metric instead.",
             DeprecationWarning,
             stacklevel=2,
         )
+        metrics_to_trial_types = metrics_to_trial_types or {}
         for metric in metrics:
-            self.add_metric(metric)
+            canonical_name = (canonical_names or {}).get(metric.name)
+            self.add_tracking_metric(
+                metric=metric,
+                trial_type=metrics_to_trial_types.get(metric.name),
+                canonical_name=canonical_name,
+            )
         return self
 
-    def update_metric(self, metric: Metric) -> Self:
+    def update_metric(self, metric: Metric, trial_type: str | None = None) -> Self:
         """Redefine a metric that already exists on the experiment.
 
         Args:
             metric: New metric definition.
+            trial_type: If provided, reassociates the metric with this trial
+                type. When ``None``, keeps the metric's existing trial type.
         """
         if metric.name not in self._metrics:
             raise ValueError(f"Metric `{metric.name}` doesn't exist on experiment.")
+        if trial_type is not None:
+            if not self.supports_trial_type(trial_type):
+                raise ValueError(f"`{trial_type}` is not a supported trial type.")
+            # Remove from any existing trial type set
+            for names in self._trial_type_to_metric_names.values():
+                names.discard(metric.name)
+            # Add to new trial type set
+            self._trial_type_to_metric_names.setdefault(trial_type, set()).add(
+                metric.name
+            )
         self._metrics[metric.name] = metric
         return self
 
-    def update_tracking_metric(self, metric: Metric) -> Experiment:
+    def update_tracking_metric(
+        self,
+        metric: Metric,
+        trial_type: str | None = None,
+        canonical_name: str | None = None,
+    ) -> Experiment:
         """*Deprecated.* Use ``update_metric`` instead."""
         warnings.warn(
             "update_tracking_metric is deprecated. Use update_metric instead.",
             DeprecationWarning,
             stacklevel=2,
         )
-        return self.update_metric(metric)
+        return self.update_metric(metric, trial_type=trial_type)
 
     def remove_metric(self, metric_name: str) -> Self:
         """Remove a metric from the experiment.
@@ -914,6 +973,9 @@ class Experiment(Base):
                 f"Metric `{metric_name}` is referenced by the optimization config "
                 "and cannot be removed. Update the optimization config first."
             )
+        # Clean up _trial_type_to_metric_names
+        for names in self._trial_type_to_metric_names.values():
+            names.discard(metric_name)
         del self._metrics[metric_name]
         return self
 
@@ -1084,6 +1146,37 @@ class Experiment(Base):
         Returns:
             Data for the experiment.
         """
+        if self._trial_type_to_metric_names:
+            # When metrics are mapped to trial types, group trials by type
+            # and bulk-fetch per group so each group only fetches its
+            # relevant metrics.
+            all_trials = (
+                list(self.trials.values())
+                if trial_indices is None
+                else self.get_trials_by_indices(trial_indices)
+            )
+            trials_by_type: dict[str | None, list[BaseTrial]] = defaultdict(list)
+            for trial in all_trials:
+                if trial.status.expecting_data:
+                    trials_by_type[trial.trial_type].append(trial)
+            all_results: dict[int, dict[str, MetricFetchResult]] = {}
+            for trial_type, type_trials in trials_by_type.items():
+                type_metrics = (
+                    metrics
+                    if metrics is not None
+                    else (
+                        self.metrics_for_trial_type(trial_type)
+                        if trial_type is not None
+                        else list(self.metrics.values())
+                    )
+                )
+                results = self._lookup_or_fetch_trials_results(
+                    trials=type_trials,
+                    metrics=type_metrics,
+                    **kwargs,
+                )
+                all_results.update(results)
+            return Metric._unwrap_experiment_data_multi(results=all_results)
         results = self._lookup_or_fetch_trials_results(
             trials=list(self.trials.values())
             if trial_indices is None
@@ -1223,6 +1316,14 @@ class Experiment(Base):
         self, trial_index: int, metrics: list[Metric] | None = None, **kwargs: Any
     ) -> dict[str, MetricFetchResult]:
         trial = self.trials[trial_index]
+
+        # When metrics are mapped to trial types, filter to only the
+        # metrics relevant to this trial's type.
+        trial_type = trial.trial_type
+        if self._trial_type_to_metric_names and trial_type is not None:
+            valid_names = self._trial_type_to_metric_names.get(trial_type, set())
+            all_metrics = list(metrics or self.metrics.values())
+            metrics = [m for m in all_metrics if m.name in valid_names]
 
         trial_data = self._lookup_or_fetch_trials_results(
             trials=[trial], metrics=metrics, **kwargs
@@ -1928,6 +2029,85 @@ class Experiment(Base):
         """
         return self._default_trial_type
 
+    @property
+    def trial_type_to_metric_names(self) -> dict[str, set[str]]:
+        """Map from trial type to the set of metric names relevant to that
+        type.
+
+        Returns a shallow copy of the internal mapping.
+        """
+        return dict(self._trial_type_to_metric_names)
+
+    @property
+    def metric_to_trial_type(self) -> dict[str, str]:
+        """Map each metric name to its associated trial type.
+
+        Computed from ``_trial_type_to_metric_names``. When a
+        ``default_trial_type`` is set and an ``optimization_config`` exists,
+        optimization config metrics are pinned to the default trial type.
+        """
+        result: dict[str, str] = {}
+        for trial_type, metric_names in self._trial_type_to_metric_names.items():
+            for name in metric_names:
+                result[name] = trial_type
+        opt_config = self._optimization_config
+        default_trial_type = self._default_trial_type
+        if default_trial_type is not None and opt_config is not None:
+            for metric_name in opt_config.metric_names:
+                result[metric_name] = default_trial_type
+        return result
+
+    def metrics_for_trial_type(self, trial_type: str) -> list[Metric]:
+        """Return the metrics associated with a given trial type.
+
+        Args:
+            trial_type: The trial type to look up metrics for.
+
+        Raises:
+            ValueError: If the trial type is not supported.
+        """
+        if not self.supports_trial_type(trial_type):
+            raise ValueError(f"Trial type `{trial_type}` is not supported.")
+        valid_names = self._trial_type_to_metric_names.get(trial_type, set())
+        return [self._metrics[name] for name in valid_names if name in self._metrics]
+
+    @property
+    def default_trials(self) -> set[int]:
+        """Return the indices for trials of the default type."""
+        return {
+            idx
+            for idx, trial in self.trials.items()
+            if trial.trial_type == self.default_trial_type
+        }
+
+    def add_trial_type(self, trial_type: str, runner: Runner | None = None) -> Self:
+        """Add a new trial type to be supported by this experiment.
+
+        Args:
+            trial_type: The new trial type to be added.
+            runner: The default runner for trials of this type.
+        """
+        if self.supports_trial_type(trial_type):
+            raise ValueError(f"Experiment already contains trial_type `{trial_type}`")
+
+        if runner is not None:
+            self._trial_type_to_runner[trial_type] = runner
+
+        return self
+
+    def update_runner(self, trial_type: str, runner: Runner) -> Self:
+        """Update the default runner for an existing trial type.
+
+        Args:
+            trial_type: The trial type whose runner should be updated.
+            runner: The new runner for trials of this type.
+        """
+        if not self.supports_trial_type(trial_type):
+            raise ValueError(f"Experiment does not contain trial_type `{trial_type}`")
+        self._trial_type_to_runner[trial_type] = runner
+        self._runner = runner
+        return self
+
     def runner_for_trial_type(self, trial_type: str | None) -> Runner | None:
         """The default runner to use for a given trial type.
 
@@ -1942,14 +2122,20 @@ class Experiment(Base):
     def supports_trial_type(self, trial_type: str | None) -> bool:
         """Whether this experiment allows trials of the given type.
 
-        The base experiment class only supports None. For experiments
-        with multiple trial types, use the MultiTypeExperiment class.
+        For experiments with a ``default_trial_type`` (multi-type experiments),
+        only trial types registered in ``_trial_type_to_runner`` are supported.
+        For single-type experiments, ``None`` is always supported, along with
+        ``SHORT_RUN`` and ``LONG_RUN`` for backward compatibility with
+        generation strategies that use those trial types.
         """
+        if self._default_trial_type is not None:
+            return trial_type in self._trial_type_to_runner
         return (
             trial_type is None
             or trial_type == Keys.SHORT_RUN
             or trial_type == Keys.LONG_RUN
             or trial_type == Keys.LILO_LABELING
+            or trial_type in self._trial_type_to_runner
         )
 
     def attach_trial(
