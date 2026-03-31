@@ -7,14 +7,16 @@
 
 
 from datetime import datetime
+from unittest.mock import patch
 
 import pandas as pd
 from ax.adapter.base import Adapter
 from ax.adapter.registry import Generators
-from ax.analysis.insights import InsightsAnalysis
+from ax.analysis.insights import _MAX_NUM_PARAMS_FOR_SECOND_ORDER, InsightsAnalysis
 from ax.analysis.overview import OverviewAnalysis
 from ax.analysis.plotly.arm_effects import ArmEffectsPlot
 from ax.analysis.plotly.scatter import ScatterPlot
+from ax.analysis.plotly.top_surfaces import TopSurfacesAnalysis
 from ax.analysis.results import ResultsAnalysis
 from ax.api.client import Client
 from ax.api.configs import RangeParameterConfig
@@ -448,3 +450,53 @@ class TestOverview(TestCase):
         # Check that none of the cards are error cards
         for card in all_cards:
             self.assertNotIsInstance(card, ErrorAnalysisCard)
+
+    @mock_botorch_optimize
+    def test_insights_analysis_many_parameters_uses_total_order(self) -> None:
+        """Test that InsightsAnalysis uses total-order sensitivity for
+        high-dimensional experiments (> _MAX_NUM_PARAMS_FOR_SECOND_ORDER
+        parameters) to avoid the O(p^2) cost of second-order analysis.
+        """
+        num_params = _MAX_NUM_PARAMS_FOR_SECOND_ORDER + 1
+        client = Client()
+        client.configure_experiment(
+            name="many_params",
+            parameters=[
+                RangeParameterConfig(
+                    name=f"x{i}",
+                    bounds=(0.0, 1.0),
+                    parameter_type="float",
+                )
+                for i in range(num_params)
+            ],
+        )
+        client.configure_optimization(objective="objective_metric")
+
+        for _ in range(num_params + 2):
+            for trial_index, parameters in client.get_next_trials(max_trials=1).items():
+                client.complete_trial(
+                    trial_index=trial_index,
+                    raw_data={
+                        "objective_metric": sum(float(v) for v in parameters.values()),
+                    },
+                )
+
+        # Patch TopSurfacesAnalysis.__init__ to capture the order argument
+        original_init: object = TopSurfacesAnalysis.__init__
+        captured_orders: list[object] = []
+
+        def patched_init(self_inner: TopSurfacesAnalysis, **kwargs: object) -> None:
+            captured_orders.append(kwargs.get("order", "second"))
+            # pyre-ignore[29]: `object` is not callable
+            original_init(self_inner, **kwargs)
+
+        with patch.object(TopSurfacesAnalysis, "__init__", patched_init):
+            InsightsAnalysis().compute(
+                experiment=client._experiment,
+                generation_strategy=client._generation_strategy,
+            )
+
+        # Should use total-order for many parameters
+        self.assertGreater(len(captured_orders), 0)
+        for order in captured_orders:
+            self.assertEqual(order, "total")
