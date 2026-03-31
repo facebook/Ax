@@ -216,10 +216,17 @@ GENERATOR_KEY_TO_GENERATOR_SETUP: dict[str, GeneratorSetup] = {
         generator_class=UniformGenerator,
         transforms=Cont_X_trans,
     ),
+    # In-sample generators only select existing arms -- they do not need
+    # arithmetic transforms (Log, Logit, UnitX) whose forward/reverse
+    # round-trip introduces ~1e-15 IEEE 754 rounding.  This rounding
+    # produces "ghost arms" with slightly different parameter values
+    # and signatures, preventing the experiment from reusing existing
+    # Arm objects.  Structural/type transforms are kept for compatibility
+    # with categorical, ordered-choice, integer, and fixed parameters.
     "InSampleUniform": GeneratorSetup(
         adapter_class=RandomAdapter,
         generator_class=InSampleUniformGenerator,
-        transforms=Cont_X_trans,
+        transforms=[RemoveFixed, OrderedChoiceToIntegerRange, OneHot, IntToFloat],
     ),
     "ST_MTGP": GeneratorSetup(
         adapter_class=TorchAdapter,
