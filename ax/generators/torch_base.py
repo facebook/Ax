@@ -41,10 +41,12 @@ class TorchOptConfig:
         outcome_constraints: A tuple of (A, b). For k outcome constraints
             and m outputs at f(x), A is (k x m) and b is (k x 1) such that
             A f(x) <= b.
-        objective_thresholds:  A tensor containing thresholds forming a
-            reference point from which to calculate pareto frontier hypervolume.
-            Points that do not dominate the objective_thresholds contribute
-            nothing to hypervolume.
+        objective_thresholds: A ``(n_objectives,)`` tensor of maximization-aligned
+            objective thresholds forming a reference point from which to calculate
+            Pareto frontier hypervolume. Points that do not dominate the
+            objective_thresholds contribute nothing to hypervolume. NaN entries
+            indicate thresholds that need to be inferred. ``None`` for single-
+            objective optimization.
         linear_constraints: A tuple of (A, b). For k linear constraints on
             d-dimensional x, A is (k x d) and b is (k x 1) such that
             A x <= b for feasible x.

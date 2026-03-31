@@ -75,6 +75,7 @@ from botorch.optim.optimize_mixed import optimize_acqf_mixed_alternating
 from botorch.utils.constraints import get_outcome_constraint_transforms
 from botorch.utils.datasets import SupervisedDataset
 from botorch.utils.testing import MockPosterior, skip_if_import_error
+from pyre_extensions import none_throws
 from torch import Tensor
 
 
@@ -272,7 +273,6 @@ class AcquisitionTest(TestCase):
             model=acquisition.surrogate.model,
             objective_weights=self.objective_weights,
             outcome_constraints=self.outcome_constraints,
-            objective_thresholds=self.objective_thresholds,
         )
 
     # Mock so that we can check that arguments are passed correctly.
@@ -280,8 +280,8 @@ class AcquisitionTest(TestCase):
     @mock.patch(
         f"{ACQUISITION_PATH}.subset_model",
         # pyre-fixme[6]: For 1st param expected `Model` but got `None`.
-        # pyre-fixme[6]: For 5th param expected `Tensor` but got `None`.
-        return_value=SubsetModelData(None, torch.ones(1), None, None, None),
+        # pyre-fixme[6]: For 4th param expected `Tensor` but got `None`.
+        return_value=SubsetModelData(None, torch.ones(1), None, None),
     )
     @mock.patch(
         f"{ACQUISITION_PATH}.get_botorch_objective_and_transform",
@@ -1207,8 +1207,10 @@ class AcquisitionTest(TestCase):
         moo_objective_weights = torch.tensor(
             [[-1.0, 0.0, 0.0], [0.0, -1.0, 0.0]], **self.tkwargs
         )
+        # (n_objectives,) maximization-aligned thresholds. Both objectives
+        # minimize (w=-1), so raw thresholds 0.5 and 1.5 become -0.5 and -1.5.
         moo_objective_thresholds = (
-            torch.tensor([0.5, 1.5, float("nan")], **self.tkwargs)
+            torch.tensor([-0.5, -1.5], **self.tkwargs)
             if with_objective_thresholds
             else None
         )
@@ -1244,14 +1246,14 @@ class AcquisitionTest(TestCase):
             botorch_acqf_options=self.botorch_acqf_options,
         )
         if moo_objective_thresholds is not None:
+            obj_thresholds = acquisition.objective_thresholds
+            self.assertIsNotNone(obj_thresholds)
             self.assertTrue(
                 torch.equal(
-                    moo_objective_thresholds[:2],
-                    # pyre-fixme[16]: Optional type has no attribute `__getitem__`.
-                    acquisition.objective_thresholds[:2],
+                    moo_objective_thresholds,
+                    none_throws(obj_thresholds),
                 )
             )
-        self.assertTrue(np.isnan(acquisition.objective_thresholds[2].item()))
         # test inferred objective_thresholds
         with ExitStack() as es:
             preds = torch.tensor(
@@ -1285,14 +1287,16 @@ class AcquisitionTest(TestCase):
             if with_no_X_observed:
                 self.assertIsNone(acquisition.objective_thresholds)
             else:
+                # Inferred thresholds are (n_objectives,) maximization-aligned.
+                inferred = none_throws(acquisition.objective_thresholds)
                 self.assertTrue(
                     torch.equal(
-                        acquisition.objective_thresholds[:2],
-                        torch.tensor([9.9, 3.3], **self.tkwargs),
+                        inferred,
+                        torch.tensor([-9.9, -3.3], **self.tkwargs),
                     )
                 )
-                self.assertTrue(np.isnan(acquisition.objective_thresholds[2].item()))
-            # With partial thresholds.
+            # With partial thresholds (n_objectives=2).
+            # Obj 1 (minimize) has known threshold -5.5 (maximization-aligned).
             acquisition = Acquisition(
                 surrogate=self.surrogate,
                 search_space_digest=self.search_space_digest,
@@ -1300,7 +1304,7 @@ class AcquisitionTest(TestCase):
                 torch_opt_config=dataclasses.replace(
                     torch_opt_config,
                     objective_thresholds=torch.tensor(
-                        [float("nan"), 5.5, float("nan")], **self.tkwargs
+                        [float("nan"), -5.5], **self.tkwargs
                     ),
                 ),
                 options=self.options,
@@ -1308,17 +1312,17 @@ class AcquisitionTest(TestCase):
             )
             if with_no_X_observed:
                 # Thresholds are not updated.
-                self.assertEqual(acquisition.objective_thresholds[1].item(), 5.5)
-                self.assertTrue(np.isnan(acquisition.objective_thresholds[0].item()))
-                self.assertTrue(np.isnan(acquisition.objective_thresholds[2].item()))
+                partial = none_throws(acquisition.objective_thresholds)
+                self.assertEqual(partial[1].item(), -5.5)
+                self.assertTrue(np.isnan(partial[0].item()))
             else:
+                partial = none_throws(acquisition.objective_thresholds)
                 self.assertTrue(
                     torch.equal(
-                        acquisition.objective_thresholds[:2],
-                        torch.tensor([9.9, 5.5], **self.tkwargs),
+                        partial,
+                        torch.tensor([-9.9, -5.5], **self.tkwargs),
                     )
                 )
-                self.assertTrue(np.isnan(acquisition.objective_thresholds[2].item()))
 
     def test_init_no_X_observed(self) -> None:
         self.test_init_moo(with_no_X_observed=True, with_outcome_constraints=False)
@@ -1364,7 +1368,7 @@ class AcquisitionTest(TestCase):
             any("Failed to infer objective thresholds." in str(log) for log in logs)
         )
         self.assertIsInstance(acquisition.acqf, qLogProbabilityOfFeasibility)
-        self.assertIsNone(acquisition._full_objective_thresholds)
+        self.assertIsNone(acquisition._objective_thresholds)
 
     @mock_botorch_optimize
     def test_p_feasible_moo(self) -> None:
@@ -1406,7 +1410,7 @@ class AcquisitionTest(TestCase):
             any("Failed to infer objective thresholds." in str(log) for log in logs)
         )
         self.assertIsInstance(acquisition.acqf, qLogProbabilityOfFeasibility)
-        self.assertIsNone(acquisition._full_objective_thresholds)
+        self.assertIsNone(acquisition._objective_thresholds)
         # Verify only outcome constraints are used (no threshold-derived ones).
         oc_transforms = get_outcome_constraint_transforms(
             outcome_constraints=outcome_constraints
@@ -1437,9 +1441,8 @@ class AcquisitionTest(TestCase):
         moo_objective_weights = torch.tensor(
             [[1.0, 0.0, 0.0], [0.0, 1.0, 0.0]], **self.tkwargs
         )
-        moo_objective_thresholds = torch.tensor(
-            [0.5, 1.5, float("nan")], **self.tkwargs
-        )
+        # (n_objectives,) maximization-aligned thresholds. Both maximize.
+        moo_objective_thresholds = torch.tensor([0.5, 1.5], **self.tkwargs)
         outcome_constraints = (
             torch.tensor([[0.0, 0.0, 1.0]], **self.tkwargs),
             torch.tensor([[0.5]], **self.tkwargs),
@@ -2280,8 +2283,8 @@ class MultiAcquisitionTest(AcquisitionTest):
     @mock.patch(
         f"{ACQUISITION_PATH}.subset_model",
         # pyre-fixme[6]: For 1st param expected `Model` but got `None`.
-        # pyre-fixme[6]: For 5th param expected `Tensor` but got `None`.
-        return_value=SubsetModelData(None, torch.ones(1), None, None, None),
+        # pyre-fixme[6]: For 4th param expected `Tensor` but got `None`.
+        return_value=SubsetModelData(None, torch.ones(1), None, None),
     )
     @mock.patch(
         f"{ACQUISITION_PATH}.get_botorch_objective_and_transform",

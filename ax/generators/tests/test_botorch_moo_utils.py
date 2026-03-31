@@ -11,12 +11,11 @@ from typing import Any
 from unittest import mock
 from warnings import catch_warnings, simplefilter
 
-import numpy as np
 import torch
 from ax.core.search_space import SearchSpaceDigest
 from ax.generators.torch.botorch_modular.generator import BoTorchGenerator
 from ax.generators.torch.botorch_moo_utils import (
-    get_weighted_mc_objective_and_objective_thresholds,
+    get_weighted_mc_objective,
     infer_objective_thresholds,
     pareto_frontier_evaluator,
 )
@@ -68,7 +67,8 @@ class FrontierEvaluatorTest(TestCase):
             ]
         )
         self.Yvar = torch.zeros(5, 3)
-        self.objective_thresholds = torch.tensor([0.5, 1.5, float("nan")])
+        # Thresholds are (n_objectives,) in maximization-aligned space.
+        self.objective_thresholds = torch.tensor([0.5, 1.5])
         self.objective_weights = torch.tensor([[1.0, 0.0, 0.0], [0.0, 1.0, 0.0]])
 
     def test_pareto_frontier_raise_error_when_missing_data(self) -> None:
@@ -110,11 +110,12 @@ class FrontierEvaluatorTest(TestCase):
         self.assertAllClose(expected_cov, cov)
         self.assertTrue(torch.equal(torch.arange(2, 5), indx))
 
-        # Change objective_weights so goal is to minimize b
+        # Change objective_weights so goal is to minimize b.
+        # Thresholds in maximization-aligned space: [0.5, -1.5].
         Y, cov, indx = pareto_frontier_evaluator(
             model=model,
             objective_weights=torch.tensor([[1.0, 0.0, 0.0], [0.0, -1.0, 0.0]]),
-            objective_thresholds=self.objective_thresholds,
+            objective_thresholds=torch.tensor([0.5, -1.5]),
             Y=self.Y,
             Yvar=Yvar,
         )
@@ -213,19 +214,13 @@ class FrontierEvaluatorTest(TestCase):
 
 
 class BotorchMOOUtilsTest(TestCase):
-    def test_get_weighted_mc_objective_and_objective_thresholds(self) -> None:
+    def test_get_weighted_mc_objective(self) -> None:
         objective_weights = torch.tensor([[0.0, 1.0, 0.0, 0.0], [0.0, 0.0, 0.0, 1.0]])
-        objective_thresholds = torch.arange(4, dtype=torch.float)
-        (
-            weighted_obj,
-            new_obj_thresholds,
-        ) = get_weighted_mc_objective_and_objective_thresholds(
+        weighted_obj = get_weighted_mc_objective(
             objective_weights=objective_weights,
-            objective_thresholds=objective_thresholds,
         )
         self.assertTrue(torch.equal(weighted_obj.weights, torch.tensor([1.0, 1.0])))
         self.assertEqual(weighted_obj.outcomes.tolist(), [1, 3])
-        self.assertTrue(torch.equal(new_obj_thresholds, objective_thresholds[[1, 3]]))
 
     # test infer objective thresholds alone
     @mock.patch(  # pyre-ignore
@@ -255,6 +250,10 @@ class BotorchMOOUtilsTest(TestCase):
             objective_weights = torch.tensor(
                 [[-1.0, 0.0, 0.0], [0.0, -1.0, 0.0]], **tkwargs
             )
+            # Expected: infer_reference_point returns (n_objectives,) in
+            # maximization-aligned space. With pareto_Y=[[-9, -3]] and
+            # scale=0.1, the result is [-9.9, -3.3].
+            expected_thresholds = torch.tensor([-9.9, -3.3], **tkwargs)
             with ExitStack() as es:
                 _mock_infer_reference_point = es.enter_context(
                     mock.patch(
@@ -282,10 +281,9 @@ class BotorchMOOUtilsTest(TestCase):
                     torch.tensor([[-9.0, -3.0]], **tkwargs),
                 )
             )
-            self.assertTrue(
-                torch.equal(obj_thresholds[:2], torch.tensor([9.9, 3.3], **tkwargs))
-            )
-            self.assertTrue(np.isnan(obj_thresholds[2].item()))
+            # Result is (n_objectives,) maximization-aligned.
+            self.assertEqual(obj_thresholds.shape[0], 2)
+            self.assertTrue(torch.equal(obj_thresholds, expected_thresholds))
 
             # test subset_model without subset_idcs
             with mock.patch.object(model, "posterior", return_value=posterior):
@@ -295,10 +293,8 @@ class BotorchMOOUtilsTest(TestCase):
                     outcome_constraints=outcome_constraints,
                     X_observed=Xs[0],
                 )
-            self.assertTrue(
-                torch.equal(obj_thresholds[:2], torch.tensor([9.9, 3.3], **tkwargs))
-            )
-            self.assertTrue(np.isnan(obj_thresholds[2].item()))
+            self.assertEqual(obj_thresholds.shape[0], 2)
+            self.assertTrue(torch.equal(obj_thresholds, expected_thresholds))
             # test passing subset_idcs
             subset_idcs = torch.tensor(
                 [0, 1], dtype=torch.long, device=tkwargs["device"]
@@ -312,10 +308,8 @@ class BotorchMOOUtilsTest(TestCase):
                     X_observed=Xs[0],
                     subset_idcs=subset_idcs,
                 )
-            self.assertTrue(
-                torch.equal(obj_thresholds[:2], torch.tensor([9.9, 3.3], **tkwargs))
-            )
-            self.assertTrue(np.isnan(obj_thresholds[2].item()))
+            self.assertEqual(obj_thresholds.shape[0], 2)
+            self.assertTrue(torch.equal(obj_thresholds, expected_thresholds))
             # test without subsetting (e.g. if there are
             # 3 metrics for 2 objectives + 1 outcome constraint)
             outcome_constraints = (
@@ -350,10 +344,8 @@ class BotorchMOOUtilsTest(TestCase):
                     X_observed=Xs[0],
                     outcome_constraints=outcome_constraints,
                 )
-            self.assertTrue(
-                torch.equal(obj_thresholds[:2], torch.tensor([9.9, 3.3], **tkwargs))
-            )
-            self.assertTrue(np.isnan(obj_thresholds[2].item()))
+            self.assertEqual(obj_thresholds.shape[0], 2)
+            self.assertTrue(torch.equal(obj_thresholds, expected_thresholds))
 
     def test_infer_objective_thresholds_cuda(self) -> None:
         if torch.cuda.is_available():

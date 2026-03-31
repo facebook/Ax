@@ -87,7 +87,6 @@ class SubsetModelData:
     model: Model
     objective_weights: Tensor
     outcome_constraints: tuple[Tensor, Tensor] | None
-    objective_thresholds: Tensor | None
     indices: Tensor
 
 
@@ -217,7 +216,6 @@ def subset_model(
     model: Model,
     objective_weights: Tensor,
     outcome_constraints: tuple[Tensor, Tensor] | None = None,
-    objective_thresholds: Tensor | None = None,
 ) -> SubsetModelData:
     """Subset a botorch model to the outputs used in the optimization.
 
@@ -227,17 +225,15 @@ def subset_model(
             input arguments.
         objective_weights: A ``(n_objectives, n_outcomes)`` tensor of objective
             weights.
-        objective_thresholds: A ``m``-dim tensor of objective thresholds. There
-            is one for each modeled metric.
         outcome_constraints: A tuple of (A, b). For k outcome constraints
             and m outputs at f(x), A is (k x m) and b is (k x 1) such that
             A f(x) <= b. (Not used by single task models)
 
     Returns:
         A SubsetModelData dataclass containing the model, objective_weights,
-        outcome_constraints, objective thresholds, all subset to only those
-        outputs that appear in either the objective weights or the outcome
-        constraints, along with the indices of the outputs.
+        outcome_constraints, all subset to only those outputs that appear in
+        either the objective weights or the outcome constraints, along with
+        the indices of the outputs.
     """
     nonzero = (objective_weights != 0).any(dim=0)
     if outcome_constraints is not None:
@@ -255,7 +251,6 @@ def subset_model(
             model=model,
             objective_weights=objective_weights,
             outcome_constraints=outcome_constraints,
-            objective_thresholds=objective_thresholds,
             indices=torch.arange(
                 num_outcomes,
                 device=objective_weights.device,
@@ -272,8 +267,6 @@ def subset_model(
         if outcome_constraints is not None:
             A, b = outcome_constraints
             outcome_constraints = A[:, nonzero], b
-        if objective_thresholds is not None:
-            objective_thresholds = objective_thresholds[nonzero]
     except NotImplementedError:
         idcs_t = torch.arange(
             model.num_outputs,
@@ -283,7 +276,6 @@ def subset_model(
         model=model,
         objective_weights=objective_weights,
         outcome_constraints=outcome_constraints,
-        objective_thresholds=objective_thresholds,
         indices=idcs_t,
     )
 
