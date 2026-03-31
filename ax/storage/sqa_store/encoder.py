@@ -88,6 +88,31 @@ from pyre_extensions import assert_is_instance, none_throws
 logger: Logger = get_logger(__name__)
 
 
+def prepare_experiment_properties_for_storage(
+    experiment: Experiment,
+) -> dict[str, Any]:
+    """Prepare experiment properties for JSON storage by converting non-JSON-
+    serializable objects (e.g. dataclasses) to plain dicts.
+
+    This is the single source of truth for experiment property serialization.
+    All code paths that persist experiment properties to the database should
+    use this function to ensure consistent handling.
+    """
+    properties = experiment._properties.copy()
+    if (
+        oc := experiment.optimization_config
+    ) is not None and oc.pruning_target_parameterization is not None:
+        properties["pruning_target_parameterization"] = arm_to_dict(
+            oc.pruning_target_parameterization
+        )
+    if Keys.LLM_MESSAGES in properties:
+        properties[Keys.LLM_MESSAGES] = [
+            dataclasses.asdict(m) if isinstance(m, LLMMessage) else m
+            for m in properties[Keys.LLM_MESSAGES]
+        ]
+    return properties
+
+
 class Encoder:
     """Class that contains methods for storing an Ax experiment to SQLAlchemy.
 
@@ -230,18 +255,7 @@ class Encoder:
                     ]
         elif experiment.runner:
             runners.append(self.runner_to_sqa(none_throws(experiment.runner)))
-        properties = experiment._properties.copy()
-        if (
-            oc := experiment.optimization_config
-        ) is not None and oc.pruning_target_parameterization is not None:
-            properties["pruning_target_parameterization"] = arm_to_dict(
-                oc.pruning_target_parameterization
-            )
-        if Keys.LLM_MESSAGES in properties:
-            properties[Keys.LLM_MESSAGES] = [
-                dataclasses.asdict(m) if isinstance(m, LLMMessage) else m
-                for m in properties[Keys.LLM_MESSAGES]
-            ]
+        properties = prepare_experiment_properties_for_storage(experiment)
 
         # pyre-ignore[9]: Expected `Base` for 1st...yping.Type[Experiment]`.
         experiment_class: type[SQAExperiment] = self.config.class_to_sqa_class[

@@ -29,7 +29,10 @@ from ax.generation_strategy.generation_strategy import GenerationStrategy
 from ax.storage.sqa_store import validation as _validation_listeners  # noqa: F401
 from ax.storage.sqa_store.db import session_scope, SQABase
 from ax.storage.sqa_store.decoder import Decoder
-from ax.storage.sqa_store.encoder import Encoder
+from ax.storage.sqa_store.encoder import (
+    Encoder,
+    prepare_experiment_properties_for_storage,
+)
 from ax.storage.sqa_store.sqa_classes import (
     SQAData,
     SQAExperiment,
@@ -540,10 +543,14 @@ def update_properties_on_experiment(
 
     exp_id = _assert_experiment_saved(experiment_with_updated_properties)
 
+    properties = prepare_experiment_properties_for_storage(
+        experiment_with_updated_properties
+    )
+
     with session_scope() as session:
         session.query(exp_sqa_class).filter_by(id=exp_id).update(
             {
-                "properties": experiment_with_updated_properties._properties,
+                "properties": properties,
             }
         )
 

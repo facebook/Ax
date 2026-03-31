@@ -34,6 +34,7 @@ from ax.core.auxiliary import (
 from ax.core.experiment import Experiment
 from ax.core.experiment_status import ExperimentStatus
 from ax.core.generator_run import GeneratorRun
+from ax.core.llm_provider import LLMMessage
 from ax.core.metric import Metric
 from ax.core.multi_type_experiment import MultiTypeExperiment
 from ax.core.objective import MultiObjective, Objective, ScalarizedObjective
@@ -2862,6 +2863,29 @@ class SQAStoreTest(TestCase):
 
         loaded_experiment = load_experiment(experiment.name)
         self.assertTrue(loaded_experiment.immutable_search_space_and_opt_config)
+
+    def test_update_properties_on_experiment_with_llm_messages(self) -> None:
+        """Test that LLMMessage objects in experiment properties are correctly
+        serialized through the incremental update_properties_on_experiment path,
+        not just the full experiment_to_sqa path."""
+        experiment = get_experiment_with_batch_trial()
+        save_experiment(experiment)
+
+        messages = [
+            LLMMessage(role="system", content="You are helpful."),
+            LLMMessage(role="user", content="Hello", metadata={"key": "val"}),
+        ]
+        experiment.llm_messages = messages
+        update_properties_on_experiment(
+            experiment_with_updated_properties=experiment,
+        )
+
+        loaded_experiment = load_experiment(experiment.name)
+        self.assertEqual(len(loaded_experiment.llm_messages), 2)
+        self.assertEqual(loaded_experiment.llm_messages[0].role, "system")
+        self.assertEqual(loaded_experiment.llm_messages[0].content, "You are helpful.")
+        self.assertEqual(loaded_experiment.llm_messages[1].role, "user")
+        self.assertEqual(loaded_experiment.llm_messages[1].metadata, {"key": "val"})
 
     def test_update_properties_on_trial(self) -> None:
         experiment = get_experiment_with_batch_trial()
