@@ -50,12 +50,8 @@ from ax.generators.torch_base import TorchOptConfig
 from ax.generators.types import TConfig
 from ax.generators.utils import best_in_sample_point
 from ax.utils.common.base import Base
-from ax.utils.common.constants import Keys
 from ax.utils.common.logger import get_logger
-from ax.utils.common.typeutils import (
-    _argparse_type_encoder,
-    assert_is_instance_optional,
-)
+from ax.utils.common.typeutils import _argparse_type_encoder
 from ax.utils.stats.model_fit_stats import (
     DIAGNOSTIC_FN_DIRECTIONS,
     DIAGNOSTIC_FNS,
@@ -1023,7 +1019,6 @@ class Surrogate(Base):
         self,
         search_space_digest: SearchSpaceDigest,
         torch_opt_config: TorchOptConfig,
-        options: TConfig | None = None,
     ) -> tuple[Tensor, Tensor]:
         """Finds the best predicted point and the corresponding value of the
         appropriate best point acquisition function.
@@ -1032,9 +1027,6 @@ class Surrogate(Base):
             search_space_digest: A `SearchSpaceDigest`.
             torch_opt_config: A `TorchOptConfig`; none-None `fixed_features` is
                 not supported.
-            options: Optional. If present, `seed_inner` (default None) and `qmc`
-                (default True) will be parsed from `options`; any other keys
-                will be ignored.
 
         Returns:
             A two-tuple (`candidate`, `acqf_value`), where `candidate` is a 1d
@@ -1048,18 +1040,8 @@ class Surrogate(Base):
             # TODO (ref: https://fburl.com/diff/uneqb3n9)
             raise NotImplementedError("Fixed features not yet supported.")
 
-        options = options or {}
-        botorch_acqf_class, botorch_acqf_options = (
-            pick_best_out_of_sample_point_acqf_class(
-                outcome_constraints=torch_opt_config.outcome_constraints,
-                seed_inner=assert_is_instance_optional(
-                    options.get(Keys.SEED_INNER, None), int
-                ),
-                qmc=assert_is_instance(
-                    options.get(Keys.QMC, True),
-                    bool,
-                ),
-            )
+        botorch_acqf_class = pick_best_out_of_sample_point_acqf_class(
+            outcome_constraints=torch_opt_config.outcome_constraints,
         )
 
         # Avoiding circular import between `Surrogate` and `Acquisition`.
@@ -1070,7 +1052,6 @@ class Surrogate(Base):
             botorch_acqf_class=botorch_acqf_class,
             search_space_digest=search_space_digest,
             torch_opt_config=torch_opt_config,
-            botorch_acqf_options=botorch_acqf_options,
         )
         candidates, acqf_value, _ = acqf.optimize(
             n=1,

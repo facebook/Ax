@@ -1467,17 +1467,14 @@ class BoTorchGeneratorUtilsTest(TestCase):
         self.assertEqual(acqf_class, qLogNoisyExpectedImprovement)
 
     def test_pick_best_out_of_sample_point_acqf_class(self) -> None:
-        # Unconstrained: PosteriorMean with no options.
-        acqf_class, acqf_options = pick_best_out_of_sample_point_acqf_class(
+        # Unconstrained: PosteriorMean.
+        acqf_class = pick_best_out_of_sample_point_acqf_class(
             outcome_constraints=None,
         )
         self.assertEqual(acqf_class, PosteriorMean)
-        self.assertEqual(acqf_options, {})
 
-        # Constrained: qSimpleRegret with no explicit sampler (get_sampler
-        # auto-dispatches, which handles PosteriorList correctly).
-        acqf_class, acqf_options = pick_best_out_of_sample_point_acqf_class(
+        # Constrained: qSimpleRegret.
+        acqf_class = pick_best_out_of_sample_point_acqf_class(
             outcome_constraints=(torch.tensor([[1.0, 0.0]]), torch.tensor([[0.5]])),
         )
         self.assertEqual(acqf_class, qSimpleRegret)
-        self.assertEqual(acqf_options, {})

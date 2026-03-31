@@ -9,7 +9,6 @@
 import logging
 from collections.abc import Callable, Sequence
 from dataclasses import dataclass
-from typing import Any, cast
 
 import numpy.typing as npt
 import torch
@@ -412,18 +411,10 @@ def get_botorch_objective_and_transform(
 
 def pick_best_out_of_sample_point_acqf_class(
     outcome_constraints: tuple[Tensor, Tensor] | None = None,
-    mc_samples: int = 512,
-    qmc: bool = True,
-    seed_inner: int | None = None,
-) -> tuple[type[AcquisitionFunction], dict[str, Any]]:
+) -> type[AcquisitionFunction]:
     if outcome_constraints is None:
-        acqf_class = PosteriorMean
-        acqf_options = {}
-    else:
-        acqf_class = qSimpleRegret
-        acqf_options = {}
-
-    return cast(type[AcquisitionFunction], acqf_class), acqf_options
+        return PosteriorMean
+    return qSimpleRegret
 
 
 def predict_from_model(
