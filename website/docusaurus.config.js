@@ -29,7 +29,11 @@ module.exports={
     "wrapPagesHTML": true
   },
   "onBrokenLinks": "throw",
-  "onBrokenMarkdownLinks": "warn",
+  markdown: {
+    hooks: {
+      onBrokenMarkdownLinks: "warn",
+    },
+  },
   "presets": [
     [
       "@docusaurus/preset-classic",
