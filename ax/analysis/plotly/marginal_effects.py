@@ -14,6 +14,7 @@ from ax.analysis.plotly.color_constants import COLOR_FOR_DECREASES, COLOR_FOR_IN
 from ax.analysis.plotly.plotly_analysis import create_plotly_analysis_card
 from ax.analysis.utils import extract_relevant_adapter, validate_experiment
 from ax.core.analysis_card import AnalysisCardGroup
+from ax.core.data_utils import _use_object_dtype_for_strings
 from ax.core.experiment import Experiment
 from ax.core.parameter import ChoiceParameter
 from ax.generation_strategy.generation_strategy import GenerationStrategy
@@ -195,6 +196,7 @@ def compute_marginal_effects_adhoc(
     )
 
 
+@_use_object_dtype_for_strings
 def _prepare_data(
     metric: str,
     adapter: Adapter,
