@@ -496,16 +496,6 @@ class GenerationNode(SerializationMixin, SortableBase):
             logger.debug(f"Skipping generation for node {self.name}.")
             return None
 
-        # TODO[drfreund]: Move this to `Adapter` or another more suitable place.
-        # Keeping here for now to limit the scope of the current changeset.
-        generator_gen_kwargs["fixed_features"] = (
-            experiment.search_space.get_disabled_parameter_fixed_features(
-                fixed_features_to_overlay_on=generator_gen_kwargs.get(
-                    "fixed_features", None
-                )
-            )
-        )
-
         # Step 2: Fit this node's underlying adapter and generator.
         if not skip_fit:
             self._fit(experiment=experiment, data=data)
