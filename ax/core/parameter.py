@@ -40,7 +40,7 @@ logger: Logger = get_logger(__name__)
 # TODO: Do a more comprehensive audit of how floating point precision issues
 # may creep up and implement a more principled fix
 EPS = 1.5e-7
-MAX_VALUES_CHOICE_PARAM = 1000
+MAX_VALUES_CHOICE_PARAM = 1001
 FIXED_CHOICE_PARAM_ERROR = (
     "ChoiceParameters require multiple feasible values. "
     "Please use FixedParameter instead when setting a single possible value."

@@ -490,17 +490,17 @@ class ChoiceParameterTest(TestCase):
         ChoiceParameter(
             name="x",
             parameter_type=ParameterType.INT,
-            values=list(range(999)),
+            values=list(range(1000)),
         )
         with self.assertRaisesRegex(
             UserInputError,
-            "`ChoiceParameter` with more than 1000 values is not supported! Use a "
+            "`ChoiceParameter` with more than 1001 values is not supported! Use a "
             "`RangeParameter` instead.",
         ):
             ChoiceParameter(
                 name="x",
                 parameter_type=ParameterType.INT,
-                values=list(range(1001)),
+                values=list(range(1002)),
             )
         # With bypass_cardinality_check=True, this should not raise an error.
         p = ChoiceParameter(
