@@ -997,6 +997,63 @@ class SearchSpaceTest(TestCase):
             result = search_space_1.get_overlapping_parameters(search_space_2)
             self.assertEqual(result, ["c"])
 
+    def test_get_disabled_parameter_fixed_features(self) -> None:
+        ss = SearchSpace(
+            parameters=[
+                RangeParameter(
+                    name="x1",
+                    parameter_type=ParameterType.FLOAT,
+                    lower=0.0,
+                    upper=1.0,
+                ),
+                RangeParameter(
+                    name="x2",
+                    parameter_type=ParameterType.FLOAT,
+                    lower=0.0,
+                    upper=1.0,
+                ),
+            ]
+        )
+
+        # No disabled params, no overlay: returns None.
+        with self.subTest("no_disabled_params_no_overlay"):
+            result = ss.get_disabled_parameter_fixed_features()
+            self.assertIsNone(result)
+
+        # No disabled params, with overlay: returns the overlay as-is.
+        with self.subTest("no_disabled_params_with_overlay"):
+            overlay = ObservationFeatures(parameters={"x1": 0.5})
+            result = ss.get_disabled_parameter_fixed_features(
+                fixed_features_to_overlay_on=overlay,
+            )
+            self.assertIsNotNone(result)
+            self.assertEqual(result.parameters, {"x1": 0.5})
+
+        # Disable x2: it appears in result with its default value.
+        ss.parameters["x2"].disable(default_value=0.75)
+
+        with self.subTest("disabled_params_no_overlay"):
+            result = ss.get_disabled_parameter_fixed_features()
+            self.assertIsNotNone(result)
+            self.assertEqual(result.parameters, {"x2": 0.75})
+
+        with self.subTest("disabled_params_with_overlay"):
+            overlay = ObservationFeatures(parameters={"x1": 0.5})
+            result = ss.get_disabled_parameter_fixed_features(
+                fixed_features_to_overlay_on=overlay,
+            )
+            self.assertIsNotNone(result)
+            self.assertEqual(result.parameters, {"x1": 0.5, "x2": 0.75})
+
+        # Overlay value takes precedence over disabled default.
+        with self.subTest("overlay_overrides_disabled_default"):
+            overlay = ObservationFeatures(parameters={"x2": 0.0})
+            result = ss.get_disabled_parameter_fixed_features(
+                fixed_features_to_overlay_on=overlay,
+            )
+            self.assertIsNotNone(result)
+            self.assertEqual(result.parameters, {"x2": 0.0})
+
 
 class SearchSpaceDigestTest(TestCase):
     def setUp(self) -> None:
