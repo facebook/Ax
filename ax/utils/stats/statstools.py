@@ -216,4 +216,4 @@ def marginal_effects(
             formatted_vals.append(
                 {"Name": cov, "Level": name, "Beta": effect, "SE": effect_sem}
             )
-    return pd.DataFrame(formatted_vals)[["Name", "Level", "Beta", "SE"]]
+    return pd.DataFrame(formatted_vals, columns=["Name", "Level", "Beta", "SE"])
