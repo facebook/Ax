@@ -62,7 +62,8 @@ from ax.generators.random.uniform import UniformGenerator
 from ax.generators.torch.botorch_modular.generator import (
     BoTorchGenerator as ModularBoTorchGenerator,
 )
-from ax.generators.torch.botorch_modular.surrogate import ModelConfig, SurrogateSpec
+from ax.generators.torch.botorch_modular.surrogate import SurrogateSpec
+from ax.generators.torch.botorch_modular.utils import ModelConfig
 from ax.utils.common.kwargs import (
     consolidate_kwargs,
     get_function_argument_names,
