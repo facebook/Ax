@@ -38,7 +38,7 @@ class TestCanGenerateCandidates(TestCase):
         )
         self.assertEqual(card.get_status(), HealthcheckStatus.PASS)
         self.assertDictEqual(
-            card.get_aditional_attrs(),
+            card.get_additional_attrs(),
             {
                 "status": HealthcheckStatus.PASS,
                 "reason": "No problems found.",
@@ -73,7 +73,7 @@ class TestCanGenerateCandidates(TestCase):
         )
         self.assertEqual(card.get_status(), HealthcheckStatus.INFO)
         self.assertDictEqual(
-            card.get_aditional_attrs(),
+            card.get_additional_attrs(),
             {
                 "status": HealthcheckStatus.INFO,
                 "reason": "The data is borked.",
@@ -106,7 +106,7 @@ class TestCanGenerateCandidates(TestCase):
         )
         self.assertEqual(card.get_status(), HealthcheckStatus.FAIL)
         self.assertDictEqual(
-            card.get_aditional_attrs(),
+            card.get_additional_attrs(),
             {
                 "status": HealthcheckStatus.FAIL,
                 "reason": "The data is gone.",
@@ -143,7 +143,7 @@ class TestCanGenerateCandidates(TestCase):
         )
         self.assertEqual(card.get_status(), HealthcheckStatus.FAIL)
         self.assertDictEqual(
-            card.get_aditional_attrs(),
+            card.get_additional_attrs(),
             {
                 "status": HealthcheckStatus.FAIL,
                 "reason": "The data is old.",

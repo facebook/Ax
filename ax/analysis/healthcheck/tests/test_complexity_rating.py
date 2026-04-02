@@ -61,7 +61,7 @@ class TestComplexityRatingAnalysis(TestCase):
         self.assertTrue(card.is_passing())
         self.assertEqual(card.get_status(), HealthcheckStatus.PASS)
         self.assertIn("Standard", card.subtitle)
-        self.assertEqual(card.get_aditional_attrs()["tier"], "Standard")
+        self.assertEqual(card.get_additional_attrs()["tier"], "Standard")
 
     def test_parameter_counts(self) -> None:
         test_cases = [
@@ -88,7 +88,7 @@ class TestComplexityRatingAnalysis(TestCase):
                 self.assertEqual(card.get_status(), expected_status)
                 self.assertIn(expected_tier, card.subtitle)
                 self.assertIn(expected_msg, card.subtitle)
-                self.assertEqual(card.get_aditional_attrs()["tier"], expected_tier)
+                self.assertEqual(card.get_additional_attrs()["tier"], expected_tier)
 
     def test_objectives_count(self) -> None:
         test_cases = [

@@ -39,7 +39,7 @@ class HealthcheckAnalysisCard(AnalysisCard):
         """
         return self.get_status() != HealthcheckStatus.PASS
 
-    def get_aditional_attrs(self) -> dict[str, str | int | float | bool]:
+    def get_additional_attrs(self) -> dict[str, str | int | float | bool]:
         return json.loads(self.blob)
 
 
