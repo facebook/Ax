@@ -78,7 +78,7 @@ class OverviewAnalysis(Analysis):
                 * BanditRollout
                 * UtilityProgressionAnalysis
                 * ProgressionPlots
-                * BestTrials
+                * BestArms
                 * Summary
             * Insights
                 * Sensitivity Plots

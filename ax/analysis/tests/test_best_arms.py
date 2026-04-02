@@ -5,15 +5,20 @@
 
 # pyre-strict
 
-from ax.analysis.best_trials import BestTrials
+from ax.analysis.best_arms import BestArms
 from ax.api.client import Client
 from ax.api.configs import RangeParameterConfig
 from ax.core.base_trial import TrialStatus
 from ax.exceptions.core import DataRequiredError
 from ax.utils.common.testutils import TestCase
+from ax.utils.testing.core_stubs import (
+    get_branin_experiment,
+    get_branin_experiment_with_multi_objective,
+)
+from ax.utils.testing.modeling_stubs import get_default_generation_strategy_at_MBM_node
 
 
-class TestBestTrials(TestCase):
+class TestBestArms(TestCase):
     def setUp(self) -> None:
         super().setUp()
         self.client = Client()
@@ -36,7 +41,7 @@ class TestBestTrials(TestCase):
         self.experiment = self.client._experiment
 
     def test_compute_soo(self) -> None:
-        """Test BestTrials for single-objective optimization."""
+        """Test BestArms for single-objective optimization."""
         client = self.client
         # Setup: Create multiple trials with different objective values
         client.get_next_trials(max_trials=3)
@@ -44,8 +49,8 @@ class TestBestTrials(TestCase):
         client.complete_trial(trial_index=1, raw_data={"foo": 1.0})
         client.complete_trial(trial_index=2, raw_data={"foo": 2.0})
 
-        # Execute: Compute BestTrials analysis
-        analysis = BestTrials()
+        # Execute: Compute BestArms analysis
+        analysis = BestArms()
 
         card = analysis.compute(
             experiment=self.experiment,
@@ -78,7 +83,7 @@ class TestBestTrials(TestCase):
         )
 
     def test_compute_moo(self) -> None:
-        """Test BestTrials for multi-objective optimization."""
+        """Test BestArms for multi-objective optimization."""
         client = self.client
         # Reconfigure as multi-objective
         client.configure_optimization(
@@ -97,8 +102,8 @@ class TestBestTrials(TestCase):
             trial_index=2, raw_data={"foo": 3.0, "bar": 1.0}
         )  # Pareto optimal
 
-        # Execute: Compute BestTrials analysis
-        analysis = BestTrials()
+        # Execute: Compute BestArms analysis
+        analysis = BestArms()
 
         card = analysis.compute(
             experiment=client._experiment,
@@ -116,15 +121,15 @@ class TestBestTrials(TestCase):
         self.assertEqual(pareto_indices, {0, 2})
 
     def test_no_eligible_trials_returns_validation_error(self) -> None:
-        """Test that BestTrials returns validation error when no eligible trials."""
+        """Test that BestArms returns validation error when no eligible trials."""
         client = self.client
         # Setup: Create and complete a trial, then filter by a different status
         client.get_next_trials(max_trials=1)
         client.complete_trial(trial_index=0, raw_data={"foo": 1.0})
 
-        # Execute: Attempt to validate BestTrials with FAILED status filter
+        # Execute: Attempt to validate BestArms with FAILED status filter
         # (no trials are FAILED, so this should return an error)
-        analysis = BestTrials(trial_statuses=[TrialStatus.FAILED])
+        analysis = BestArms(trial_statuses=[TrialStatus.FAILED])
 
         # Assert: Should return error string when no trials match the status filter
         error = analysis.validate_applicable_state(
@@ -144,7 +149,7 @@ class TestBestTrials(TestCase):
         with self.subTest(msg="GS not required for raw observations"):
             # Execute & Assert: Should succeed without generation_strategy
             # when using raw observations
-            analysis = BestTrials(use_model_predictions=False)
+            analysis = BestArms(use_model_predictions=False)
             card = analysis.compute(
                 experiment=self.experiment, generation_strategy=None
             )
@@ -157,7 +162,7 @@ class TestBestTrials(TestCase):
         with self.subTest(msg="GS required for model predictions"):
             # Execute & Assert: Should return error from validation
             # when generation_strategy is None with model predictions
-            analysis = BestTrials(use_model_predictions=True)
+            analysis = BestArms(use_model_predictions=True)
             error = analysis.validate_applicable_state(
                 experiment=self.experiment, generation_strategy=None
             )
@@ -176,8 +181,8 @@ class TestBestTrials(TestCase):
         # Mark trial 2 as failed
         self.experiment.trials[2].mark_failed()
 
-        # Execute: Compute BestTrials with only COMPLETED status filter
-        analysis = BestTrials(trial_statuses=[TrialStatus.COMPLETED])
+        # Execute: Compute BestArms with only COMPLETED status filter
+        analysis = BestArms(trial_statuses=[TrialStatus.COMPLETED])
         card = analysis.compute(
             experiment=self.experiment,
             generation_strategy=client._generation_strategy,
@@ -200,11 +205,45 @@ class TestBestTrials(TestCase):
         client.complete_trial(trial_index=2, raw_data={"foo": 3.0})
 
         # Execute & Assert: Should raise error when model cannot make predictions
-        analysis = BestTrials(use_model_predictions=True)
+        analysis = BestArms(use_model_predictions=True)
         with self.assertRaisesRegex(
-            DataRequiredError, "No best trial.*could be identified"
+            DataRequiredError, "No best arm.*could be identified"
         ):
             analysis.compute(
                 experiment=self.experiment,
                 generation_strategy=client._generation_strategy,
             )
+
+    def test_compute_soo_multi_batch(self) -> None:
+        """Test SOO with batch trials: card.name is 'BestArm' and output contains
+        all arms from the winning batch."""
+        exp = get_branin_experiment(
+            with_completed_batch=True, num_batch_trial=2, num_arms_per_trial=3
+        )
+
+        card = BestArms().compute(experiment=exp)
+
+        # Batch trials produce "BestArm" display name
+        self.assertEqual(card.name, "BestArm")
+        self.assertEqual(card.title, "Best Trial for Experiment")
+        # Output should contain all arms from the winning batch, not just one
+        self.assertGreater(len(card.df), 1)
+        # All returned arms should be from the same trial
+        self.assertEqual(len(card.df["trial_index"].unique()), 1)
+
+    def test_compute_moo_multi_batch(self) -> None:
+        """Test MOO Pareto frontier across multiple batch trials."""
+        exp = get_branin_experiment_with_multi_objective(
+            with_completed_batch=True,
+            with_status_quo=True,
+            has_objective_thresholds=True,
+        )
+        gs = get_default_generation_strategy_at_MBM_node(experiment=exp)
+
+        card = BestArms().compute(experiment=exp, generation_strategy=gs)
+
+        self.assertEqual(card.name, "BestArm")
+        self.assertEqual(card.title, "Pareto Frontier Trials for Experiment")
+        self.assertIn("pareto", card.subtitle.lower())
+        # Pareto frontier should return at least one trial
+        self.assertGreater(len(card.df), 0)

@@ -11,7 +11,7 @@ from typing import final
 
 from ax.adapter.base import Adapter
 from ax.analysis.analysis import Analysis
-from ax.analysis.best_trials import BestTrials
+from ax.analysis.best_arms import BestArms
 from ax.analysis.plotly.arm_effects import ArmEffectsPlot
 from ax.analysis.plotly.bandit_rollout import BanditRollout
 from ax.analysis.plotly.progression import (
@@ -207,19 +207,18 @@ class ResultsAnalysis(Analysis):
             else None
         )
 
-        # Compute best trials, skip for experiments with ScalarizedOutcomeConstraints or
-        # BatchTrials as it is not supported yet
+        # Compute best trials, skip for experiments with ScalarizedOutcomeConstraints
         has_scalarized_outcome_constraints = optimization_config is not None and any(
             isinstance(oc, ScalarizedOutcomeConstraint)
             for oc in optimization_config.outcome_constraints
         )
-        best_trials_card = (
-            BestTrials().compute_or_error_card(
+        best_arms_card = (
+            BestArms().compute_or_error_card(
                 experiment=experiment,
                 generation_strategy=generation_strategy,
                 adapter=adapter,
             )
-            if not has_batch_trials and not has_scalarized_outcome_constraints
+            if not has_scalarized_outcome_constraints
             else None
         )
 
@@ -286,7 +285,7 @@ class ResultsAnalysis(Analysis):
                     bandit_rollout_card,
                     utility_progression_card,
                     progression_group,
-                    best_trials_card,
+                    best_arms_card,
                     summary,
                 )
                 if child is not None

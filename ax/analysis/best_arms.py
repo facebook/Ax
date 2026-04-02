@@ -14,6 +14,7 @@ from ax.analysis.analysis import Analysis
 from ax.analysis.summary import Summary
 from ax.analysis.utils import validate_experiment
 from ax.core.analysis_card import AnalysisCard
+from ax.core.batch_trial import BatchTrial
 from ax.core.experiment import Experiment
 from ax.core.trial_status import TrialStatus
 from ax.exceptions.core import DataRequiredError
@@ -44,7 +45,7 @@ _SOO_DESCRIPTION = (
 
 
 @final
-class BestTrials(Analysis):
+class BestArms(Analysis):
     """
     High-level summary of the best trial(s) in the Experiment with one row per arm.
     Any values missing at compute time will be represented as None. Columns where
@@ -100,7 +101,7 @@ class BestTrials(Analysis):
         # Validate optimization config exists
         if experiment is None or experiment.optimization_config is None:
             return (
-                "`BestTrials` analysis requires an `OptimizationConfig`. "
+                "`BestArms` analysis requires an `OptimizationConfig`. "
                 "Ensure the `Experiment` has an `optimization_config` set to compute "
                 "this analysis."
             )
@@ -121,7 +122,7 @@ class BestTrials(Analysis):
         if self.use_model_predictions or optimization_config.is_moo_problem:
             if generation_strategy is None:
                 return (
-                    "`BestTrials` analysis requires a `GenerationStrategy` input "
+                    "`BestArms` analysis requires a `GenerationStrategy` input "
                     "when using model predictions or for multi-objective "
                     "optimization problems."
                 )
@@ -155,7 +156,7 @@ class BestTrials(Analysis):
 
         if not trial_indices:
             raise DataRequiredError(
-                "No best trial(s) could be identified. This could be due to "
+                "No best arm(s) could be identified. This could be due to "
                 "insufficient data or no trials meeting the optimization criteria."
             )
 
@@ -199,8 +200,15 @@ class BestTrials(Analysis):
         if "relativized" in summary_card.subtitle:
             subtitle += " Metric values are shown relative to the status quo baseline."
 
-        return self._create_analysis_card(
+        has_batch_trials = any(
+            isinstance(trial, BatchTrial) for trial in exp.trials.values()
+        )
+        display_name = "BestArm" if has_batch_trials else "BestTrials"
+
+        card = self._create_analysis_card(
             title=(f"{title_prefix} for Experiment"),
             subtitle=subtitle,
             df=summary_card.df,
         )
+        card.name = display_name
+        return card

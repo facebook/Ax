@@ -124,10 +124,13 @@ class TestResultsAnalysis(TestCase):
             "Should have arm effects in children",
         )
 
-        # Assert: Should have best trials
+        # Assert: Should have best arms
         self.assertTrue(
-            any("BestTrials" in name for name in child_names),
-            "Should have best trials in children",
+            any(
+                "BestArms" in name or "BestTrials" in name or "BestArm" in name
+                for name in child_names
+            ),
+            "Should have best arms in children",
         )
 
         # Assert: No error cards should be present
