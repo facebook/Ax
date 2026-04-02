@@ -20,6 +20,7 @@ from ax.adapter.adapter_utils import (
 from ax.adapter.base import Adapter, DataLoaderConfig, GenResults
 from ax.adapter.data_utils import ExperimentData
 from ax.adapter.transforms.base import Transform
+from ax.core.batch_trial import BatchTrial
 from ax.core.data import Data
 from ax.core.experiment import Experiment
 from ax.core.observation import ObservationFeatures
@@ -106,11 +107,21 @@ class RandomAdapter(Adapter):
             # RUNNING). This prevents selecting arms from CANDIDATE/STAGED
             # trials that have never been evaluated.
             if is_in_sample:
+                # Also exclude abandoned arms within data-expecting trials:
+                # they have no observed data and would cause downstream
+                # failures (e.g., LILO source resolution).
+                abandoned_arm_names: set[str] = {
+                    a.name
+                    for t in self._experiment.trials.values()
+                    if isinstance(t, BatchTrial)
+                    for a in t.abandoned_arms
+                }
                 expecting_sigs = {
                     arm.signature
                     for trial in self._experiment.trials.values()
                     if trial.status.expecting_data
                     for arm in trial.arms
+                    if arm.name not in abandoned_arm_names
                 }
                 arms_to_deduplicate = {
                     sig: arm

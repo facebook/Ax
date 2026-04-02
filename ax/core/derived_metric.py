@@ -285,6 +285,18 @@ class DerivedMetric(Metric):
         for arm in trial.arms:
             if arm.name in abandoned_names:
                 continue
+            # If cross-trial resolution was used but this arm has no
+            # source mapping, skip it -- no data is available (e.g.,
+            # the arm was abandoned in its original trial).
+            if (
+                source_trial_indices is not None
+                and arm.name not in source_trial_indices
+            ):
+                logger.warning(
+                    f"Skipping arm '{arm.name}' in trial {trial.index} for "
+                    f"DerivedMetric '{self.name}': no source data resolved."
+                )
+                continue
             if source_trial_indices is not None and arm.name in source_trial_indices:
                 src_trial_idx, src_arm_name = source_trial_indices[arm.name]
                 arm_df = df[
