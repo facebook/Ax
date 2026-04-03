@@ -9,7 +9,6 @@
 from __future__ import annotations
 
 import logging
-from collections.abc import Mapping
 from typing import TYPE_CHECKING
 
 import pandas as pd
@@ -26,6 +25,7 @@ from ax.core.search_space import SearchSpace
 from ax.core.types import ComparisonOp
 from ax.generators.types import TConfig
 from ax.utils.common.logger import get_logger
+from ax.utils.common.sympy import build_constraint_expression_str
 from pyre_extensions import none_throws
 
 
@@ -157,7 +157,6 @@ class ObjectiveAsConstraint(Transform):
                 row=row,
                 constraints=outcome_constraints,
                 sq_data=sq_data,
-                metric_name_to_signature=adapter.metric_name_to_signature,
             ):
                 return False
 
@@ -219,31 +218,31 @@ class ObjectiveAsConstraint(Transform):
             self._scalarized_objective_constraint_added = True
             return optimization_config
 
-        # Get list of (metric_name, weight) pairs for each objective metric.
-        # For multi-objective, each sub-expression has one metric.
-        # For single-objective, metric_weights has one entry.
-        obj_metric_weights = objective.metric_weights
-
         # Add a constraint for each objective at the status quo value.
-        for metric_name, weight in obj_metric_weights:
-            metric = none_throws(adapter or self.adapter)._experiment.get_metrics(
-                [metric_name]
-            )[0]
-            metric_idx = sq_data.metric_signatures.index(metric.signature)
+        for metric_name, (metric_sig, weight) in zip(
+            objective.metric_names, objective.metric_weights
+        ):
+            metric_idx = sq_data.metric_signatures.index(metric_sig)
             sq_value = sq_data.means[metric_idx]
 
             # Negative weight in the maximize-expression means minimize
             is_minimize = weight < 0
             op = ComparisonOp.LEQ if is_minimize else ComparisonOp.GEQ
-            new_constraint = OutcomeConstraint(
-                metric=metric.clone(),
-                op=op,
+            new_expr = build_constraint_expression_str(
+                metric_weights=[(metric_name, 1.0)],
+                op=">=" if op == ComparisonOp.GEQ else "<=",
                 bound=float(sq_value),
                 relative=False,
             )
+            new_constraint = OutcomeConstraint(
+                expression=new_expr,
+                metric_name_to_signature={
+                    metric_name: metric_sig,
+                },
+            )
 
             optimization_config._outcome_constraints.append(new_constraint)
-            self._objective_metrics_added.append(metric_name)
+            self._objective_metrics_added.append(metric_sig)
 
         return optimization_config
 
@@ -262,7 +261,7 @@ class ObjectiveAsConstraint(Transform):
             outcome_constraints = [
                 oc
                 for oc in outcome_constraints
-                if oc.metric_names[0] not in self._objective_metrics_added
+                if oc.metric_signatures[0] not in self._objective_metrics_added
             ]
         return outcome_constraints
 
@@ -271,7 +270,6 @@ def _is_point_feasible(
     row: pd.Series,
     constraints: list[OutcomeConstraint],
     sq_data: ObservationData | None = None,
-    metric_name_to_signature: Mapping[str, str] | None = None,
 ) -> bool:
     """Check if a single observation satisfies all outcome constraints.
 
@@ -285,18 +283,12 @@ def _is_point_feasible(
         sq_data: Status quo observation data, required for evaluating
             relative constraints. If None and a relative constraint is
             encountered, the constraint is skipped.
-        metric_name_to_signature: Mapping from metric names to signatures.
-            If None, the metric name is used as the signature.
 
     Returns:
         True if the point satisfies all constraints, False otherwise.
     """
     for constraint in constraints:
-        metric_name = constraint.metric_names[0]
-        if metric_name_to_signature is not None:
-            metric_sig = metric_name_to_signature[metric_name]
-        else:
-            metric_sig = metric_name
+        metric_sig = constraint.metric_signatures[0]
         try:
             mean_val = row["mean", metric_sig]
         except KeyError:

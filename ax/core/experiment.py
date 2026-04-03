@@ -584,6 +584,11 @@ class Experiment(Base):
                     f"Metric '{metric_name}' referenced in optimization config "
                     "but not found on experiment. Add it first with add_metric()."
                 )
+        # Inject the metric name → signature mapping so that Objective and
+        # OutcomeConstraint can resolve names to canonical signatures.
+        optimization_config.update_metric_name_to_signature_mapping(
+            {name: metric.signature for name, metric in self._metrics.items()}
+        )
         self._optimization_config = optimization_config
 
     @property
@@ -837,6 +842,14 @@ class Experiment(Base):
             )
         return self._metrics[name]
 
+    def _update_metric_name_to_signature_mapping(self) -> None:
+        """Re-sync the optimization config's metric-name-to-signature mapping
+        from the current set of experiment metrics."""
+        if self._optimization_config is not None:
+            self._optimization_config.update_metric_name_to_signature_mapping(
+                {name: metric.signature for name, metric in self._metrics.items()}
+            )
+
     def add_metric(self, metric: Metric) -> Self:
         """Add a new metric to the experiment.
 
@@ -853,6 +866,7 @@ class Experiment(Base):
                 "Use `update_metric` to update an existing metric definition."
             )
         self._metrics[metric.name] = metric
+        self._update_metric_name_to_signature_mapping()
         return self
 
     def add_tracking_metric(self, metric: Metric) -> Self:
@@ -884,6 +898,7 @@ class Experiment(Base):
         if metric.name not in self._metrics:
             raise ValueError(f"Metric `{metric.name}` doesn't exist on experiment.")
         self._metrics[metric.name] = metric
+        self._update_metric_name_to_signature_mapping()
         return self
 
     def update_tracking_metric(self, metric: Metric) -> Experiment:
@@ -915,6 +930,7 @@ class Experiment(Base):
                 "and cannot be removed. Update the optimization config first."
             )
         del self._metrics[metric_name]
+        self._update_metric_name_to_signature_mapping()
         return self
 
     def remove_tracking_metric(self, metric_name: str) -> Experiment:
@@ -2222,7 +2238,13 @@ class Experiment(Base):
             objective = opt_config.objective
             if objective.is_multi_objective:
                 parts = [p.strip() for p in objective.expression.split(",")]
-                sub_objectives = [Objective(expression=part) for part in parts]
+                sub_objectives = [
+                    Objective(
+                        expression=part,
+                        metric_name_to_signature=objective.metric_name_to_signature,
+                    )
+                    for part in parts
+                ]
                 for sub_obj in sub_objectives:
                     obj_name = sub_obj.metric_names[0]
                     if obj_name in records:

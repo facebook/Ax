@@ -23,15 +23,26 @@ class ObjectiveTest(TestCase):
             "m3": Metric(name="m3", lower_is_better=False),
         }
         # Expression-based objectives
-        self.objective = Objective(expression="m1")
-        self.objective_minimize = Objective(expression="-m1")
-        self.multi_objective = Objective(expression="-m1, -m2, m3")
-        self.scalarized_objective = Objective(expression="2*m1 + m2")
+        self.objective = Objective(
+            expression="m1", metric_name_to_signature={"m1": "m1"}
+        )
+        self.objective_minimize = Objective(
+            expression="-m1", metric_name_to_signature={"m1": "m1"}
+        )
+        self.multi_objective = Objective(
+            expression="-m1, -m2, m3",
+            metric_name_to_signature={"m1": "m1", "m2": "m2", "m3": "m3"},
+        )
+        self.scalarized_objective = Objective(
+            expression="2*m1 + m2", metric_name_to_signature={"m1": "m1", "m2": "m2"}
+        )
 
     def test_ExpressionInit(self) -> None:
         """Test creating objectives with expression strings."""
         # Single metric maximize
-        obj = Objective(expression="accuracy")
+        obj = Objective(
+            expression="accuracy", metric_name_to_signature={"accuracy": "accuracy"}
+        )
         self.assertEqual(obj.expression, "accuracy")
         self.assertEqual(obj.metric_names, ["accuracy"])
         self.assertFalse(obj.minimize)
@@ -40,13 +51,18 @@ class ObjectiveTest(TestCase):
         self.assertFalse(obj.is_scalarized_objective)
 
         # Single metric minimize
-        obj_min = Objective(expression="-loss")
+        obj_min = Objective(
+            expression="-loss", metric_name_to_signature={"loss": "loss"}
+        )
         self.assertEqual(obj_min.expression, "-loss")
         self.assertEqual(obj_min.metric_names, ["loss"])
         self.assertTrue(obj_min.minimize)
 
         # Scalarized
-        obj_scalar = Objective(expression="2*acc + recall")
+        obj_scalar = Objective(
+            expression="2*acc + recall",
+            metric_name_to_signature={"acc": "acc", "recall": "recall"},
+        )
         self.assertEqual(obj_scalar.metric_names, ["acc", "recall"])
         self.assertTrue(obj_scalar.is_scalarized_objective)
         self.assertFalse(obj_scalar.is_multi_objective)
@@ -54,7 +70,10 @@ class ObjectiveTest(TestCase):
         self.assertEqual(obj_scalar.metric_weights, [("acc", 2.0), ("recall", 1.0)])
 
         # Multi-objective
-        obj_multi = Objective(expression="acc, -loss")
+        obj_multi = Objective(
+            expression="acc, -loss",
+            metric_name_to_signature={"acc": "acc", "loss": "loss"},
+        )
         self.assertEqual(obj_multi.metric_names, ["acc", "loss"])
         self.assertTrue(obj_multi.is_multi_objective)
         self.assertFalse(obj_multi.is_single_objective)
@@ -99,38 +118,54 @@ class ObjectiveTest(TestCase):
 
     def test_MetricWeights(self) -> None:
         """Test metric_weights property."""
-        obj = Objective(expression="m1")
+        obj = Objective(expression="m1", metric_name_to_signature={"m1": "m1"})
         self.assertEqual(obj.metric_weights, [("m1", 1.0)])
 
-        obj_neg = Objective(expression="-m1")
+        obj_neg = Objective(expression="-m1", metric_name_to_signature={"m1": "m1"})
         self.assertEqual(obj_neg.metric_weights, [("m1", -1.0)])
 
-        obj_scalar = Objective(expression="2*m1 + 3*m2")
+        obj_scalar = Objective(
+            expression="2*m1 + 3*m2", metric_name_to_signature={"m1": "m1", "m2": "m2"}
+        )
         self.assertEqual(obj_scalar.metric_weights, [("m1", 2.0), ("m2", 3.0)])
 
         # metric_weights works for multi-objective too (flat list)
-        obj_multi = Objective(expression="m1, m2")
+        obj_multi = Objective(
+            expression="m1, m2", metric_name_to_signature={"m1": "m1", "m2": "m2"}
+        )
         self.assertEqual(obj_multi.metric_weights, [("m1", 1.0), ("m2", 1.0)])
 
-        obj_multi2 = Objective(expression="2*m1, -m2")
+        obj_multi2 = Objective(
+            expression="2*m1, -m2", metric_name_to_signature={"m1": "m1", "m2": "m2"}
+        )
         self.assertEqual(obj_multi2.metric_weights, [("m1", 2.0), ("m2", -1.0)])
 
     def test_Minimize(self) -> None:
         """Test minimize property."""
-        self.assertFalse(Objective(expression="m1").minimize)
-        self.assertTrue(Objective(expression="-m1").minimize)
+        self.assertFalse(
+            Objective(expression="m1", metric_name_to_signature={"m1": "m1"}).minimize
+        )
+        self.assertTrue(
+            Objective(expression="-m1", metric_name_to_signature={"m1": "m1"}).minimize
+        )
 
         # Should raise for scalarized
         with self.assertRaisesRegex(UserInputError, "single-metric"):
-            Objective(expression="m1 + m2").minimize
+            Objective(
+                expression="m1 + m2", metric_name_to_signature={"m1": "m1", "m2": "m2"}
+            ).minimize
 
         # Should raise for multi
         with self.assertRaisesRegex(UserInputError, "single-metric"):
-            Objective(expression="m1, m2").minimize
+            Objective(
+                expression="m1, m2", metric_name_to_signature={"m1": "m1", "m2": "m2"}
+            ).minimize
 
     def test_Clone(self) -> None:
         """Test clone method."""
-        obj = Objective(expression="2*m1 + m2")
+        obj = Objective(
+            expression="2*m1 + m2", metric_name_to_signature={"m1": "m1", "m2": "m2"}
+        )
         cloned = obj.clone()
         self.assertEqual(obj, cloned)
         self.assertIsNot(obj, cloned)
@@ -164,9 +199,6 @@ class ObjectiveTest(TestCase):
             _getattr(self.objective, "metrics")
 
         with self.assertRaises(AttributeError):
-            _getattr(self.objective, "metric_signatures")
-
-        with self.assertRaises(AttributeError):
             _getattr(self.objective, "get_unconstrainable_metrics")
 
     def test_MultiObjective(self) -> None:
@@ -174,9 +206,9 @@ class ObjectiveTest(TestCase):
         with warnings.catch_warnings(record=True) as w:
             warnings.simplefilter("always")
             objectives = [
-                Objective(expression="-m1"),
-                Objective(expression="-m2"),
-                Objective(expression="m3"),
+                Objective(expression="-m1", metric_name_to_signature={"m1": "m1"}),
+                Objective(expression="-m2", metric_name_to_signature={"m2": "m2"}),
+                Objective(expression="m3", metric_name_to_signature={"m3": "m3"}),
             ]
             mo = MultiObjective(objectives=objectives)
             # Check deprecation warning was emitted
@@ -219,9 +251,9 @@ class ObjectiveTest(TestCase):
         ):
             MultiObjective(
                 objectives=[
-                    Objective(expression="-m1"),
+                    Objective(expression="-m1", metric_name_to_signature={"m1": "m1"}),
                     scalarized,
-                    Objective(expression="m3"),
+                    Objective(expression="m3", metric_name_to_signature={"m3": "m3"}),
                 ]
             )
 
@@ -319,8 +351,8 @@ class ObjectiveTest(TestCase):
             warnings.simplefilter("always")
             mo = MultiObjective(
                 objectives=[
-                    Objective(expression="m1"),
-                    Objective(expression="-m2"),
+                    Objective(expression="m1", metric_name_to_signature={"m1": "m1"}),
+                    Objective(expression="-m2", metric_name_to_signature={"m2": "m2"}),
                 ]
             )
             so = ScalarizedObjective(
@@ -335,5 +367,5 @@ class ObjectiveTest(TestCase):
 
     def test_UniqueId(self) -> None:
         """Test _unique_id used for sorting."""
-        obj = Objective(expression="m1")
+        obj = Objective(expression="m1", metric_name_to_signature={"m1": "m1"})
         self.assertEqual(obj._unique_id, str(obj))

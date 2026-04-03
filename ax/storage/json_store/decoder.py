@@ -71,6 +71,10 @@ from ax.utils.common.serialization import (
     TClassDecoderRegistry,
     TDecoderRegistry,
 )
+from ax.utils.common.sympy import (
+    extract_metric_names_from_objective_expr,
+    parse_objective_expression,
+)
 from ax.utils.common.typeutils_torch import torch_type_from_str
 from botorch.utils.types import DEFAULT
 from pyre_extensions import assert_is_instance, none_throws
@@ -1463,7 +1467,16 @@ def objective_from_json(
     }
     # New expression-based format
     if "expression" in input_args:
-        return Objective(expression=input_args["expression"])
+        expr = input_args["expression"]
+        mapping = input_args.get("metric_name_to_signature")
+        if mapping is None:
+            parsed = parse_objective_expression(expr)
+            sub_exprs = parsed if isinstance(parsed, tuple) else (parsed,)
+            names: list[str] = []
+            for se in sub_exprs:
+                names.extend(extract_metric_names_from_objective_expr(se))
+            mapping = {n: n for n in names}
+        return Objective(expression=expr, metric_name_to_signature=mapping)
     # Legacy metric/minimize format
     metric = input_args.pop("metric")
     minimize = input_args.pop("minimize")

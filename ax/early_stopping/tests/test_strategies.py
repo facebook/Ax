@@ -300,7 +300,13 @@ class TestBaseEarlyStoppingStrategy(TestCase):
         test_experiment.add_tracking_metric(metric_b)
         # Scalarized objective: maximize metric_a, minimize metric_b
         test_experiment._optimization_config = OptimizationConfig(
-            objective=Objective(expression="2*metric_a + -3*metric_b"),
+            objective=Objective(
+                expression="2*metric_a + -3*metric_b",
+                metric_name_to_signature={
+                    "metric_a": "metric_a",
+                    "metric_b": "metric_b",
+                },
+            ),
         )
         es_strategy = FakeStrategy()
         directions = es_strategy._all_objectives_and_directions(

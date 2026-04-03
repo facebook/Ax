@@ -210,7 +210,6 @@ def extract_objective_thresholds(
     objective_thresholds: TRefPoint,
     objective: Objective,
     outcomes: list[str],
-    metric_name_to_signature: Mapping[str, str],
 ) -> npt.NDArray | None:
     """Extracts objective thresholds' values, in the order of objectives.
 
@@ -231,8 +230,7 @@ def extract_objective_thresholds(
     Args:
         objective_thresholds: Objective thresholds to extract values from.
         objective: The corresponding Objective, for validation purposes.
-        outcomes: n-length list of names of metrics.
-        metric_name_to_signature: Mapping from metric names to signatures.
+        outcomes: n-length list of metric signatures.
 
     Returns:
         ``(n_objectives,)`` array of maximization-aligned thresholds, or None.
@@ -242,7 +240,7 @@ def extract_objective_thresholds(
 
     objective_threshold_dict = {}
     for ot in objective_thresholds:
-        ot_signature = metric_name_to_signature[ot.metric_names[0]]
+        ot_signature = ot.metric_signatures[0]
         if ot.relative:
             raise ValueError(
                 f"Objective {ot_signature} has a relative threshold that "
@@ -251,9 +249,7 @@ def extract_objective_thresholds(
         objective_threshold_dict[ot_signature] = ot.bound
 
     # Check that all thresholds correspond to a metric.
-    obj_metric_signatures = [
-        metric_name_to_signature[name] for name in objective.metric_names
-    ]
+    obj_metric_signatures = objective.metric_signatures
     if set(objective_threshold_dict.keys()).difference(set(obj_metric_signatures)):
         raise ValueError(
             "Some objective thresholds do not have corresponding metrics. "
@@ -273,7 +269,7 @@ def extract_objective_thresholds(
         if len(sub_mw) > 1:
             continue  # Scalarized sub-objective — NaN, will be inferred later.
         name, weight = sub_mw[0]
-        sig = metric_name_to_signature[name]
+        sig = objective.metric_name_to_signature[name]
         if sig in objective_threshold_dict:
             sign = 1.0 if weight > 0 else -1.0
             obj_t[i] = sign * objective_threshold_dict[sig]
@@ -283,7 +279,6 @@ def extract_objective_thresholds(
 def extract_objective_weights(
     objective: Objective,
     outcomes: list[str],
-    metric_name_to_signature: Mapping[str, str],
 ) -> npt.NDArray:
     """Extract a weights for objectives.
 
@@ -301,25 +296,22 @@ def extract_objective_weights(
     Args:
         objective: Objective to extract weights from.
         outcomes: n-length list of metric signatures.
-        metric_name_to_signature: Mapping from metric names to signatures.
 
     Returns:
         n-length array of weights.
 
     """
     objective_weights = np.zeros(len(outcomes))
-    # metric_weights returns sign-encoded (name, weight) tuples for all
+    # metric_weights returns sign-encoded (signature, weight) tuples for all
     # objective types (single, scalarized, multi).
-    for obj_metric_name, obj_weight in objective.metric_weights:
-        sig = metric_name_to_signature[obj_metric_name]
-        objective_weights[outcomes.index(sig)] = obj_weight
+    for obj_metric_sig, obj_weight in objective.metric_weights:
+        objective_weights[outcomes.index(obj_metric_sig)] = obj_weight
     return objective_weights
 
 
 def extract_objective_weight_matrix(
     objective: Objective,
     outcomes: list[str],
-    metric_name_to_signature: Mapping[str, str],
 ) -> npt.NDArray:
     """Extract a 2D weight matrix for objectives.
 
@@ -333,20 +325,24 @@ def extract_objective_weight_matrix(
 
     Args:
         objective: Objective to extract weights from.
-        outcomes: n-length list of signatures of metrics.
-        metric_name_to_signature: Mapping from metric names to signatures.
+        outcomes: n-length list of metric signatures.
 
     Returns:
         ``(n_objectives, n)`` array of weights.
     """
     if objective.is_multi_objective:
         rows: list[npt.NDArray] = []
-        for name, weight in objective.metric_weights:
+        obj_names = objective.metric_names
+        obj_weights = [w for _, w in objective.metric_weights]
+        name_to_sig = objective.metric_name_to_signature
+        for name, weight in zip(obj_names, obj_weights):
             rows.append(
                 extract_objective_weights(
-                    objective=Objective(expression=f"{weight} * {name}"),
+                    objective=Objective(
+                        expression=f"{weight} * {name}",
+                        metric_name_to_signature={name: name_to_sig[name]},
+                    ),
                     outcomes=outcomes,
-                    metric_name_to_signature=metric_name_to_signature,
                 )
             )
         return np.stack(rows, axis=0)
@@ -355,14 +351,12 @@ def extract_objective_weight_matrix(
         return extract_objective_weights(
             objective=objective,
             outcomes=outcomes,
-            metric_name_to_signature=metric_name_to_signature,
         ).reshape(1, -1)
 
 
 def extract_outcome_constraints(
     outcome_constraints: list[OutcomeConstraint],
     outcomes: list[str],
-    metric_name_to_signature: Mapping[str, str],
 ) -> TBounds:
     if len(outcome_constraints) == 0:
         return None
@@ -372,11 +366,11 @@ def extract_outcome_constraints(
     for i, c in enumerate(outcome_constraints):
         s = 1 if c.op == ComparisonOp.LEQ else -1
         if isinstance(c, ScalarizedOutcomeConstraint):
-            for c_metric_name, c_weight in c.metric_weights:
-                j = outcomes.index(metric_name_to_signature[c_metric_name])
+            for c_metric_sig, c_weight in c.metric_weights:
+                j = outcomes.index(c_metric_sig)
                 A[i, j] = s * c_weight
         else:
-            j = outcomes.index(metric_name_to_signature[c.metric_names[0]])
+            j = outcomes.index(c.metric_signatures[0])
             A[i, j] = s
         b[i, 0] = s * c.bound
     return (A, b)
@@ -689,18 +683,15 @@ def get_pareto_frontier_and_configs(
     objective_weights = extract_objective_weight_matrix(
         objective=optimization_config.objective,
         outcomes=adapter.outcomes,
-        metric_name_to_signature=adapter.metric_name_to_signature,
     )
     outcome_constraints = extract_outcome_constraints(
         outcome_constraints=optimization_config.outcome_constraints,
         outcomes=adapter.outcomes,
-        metric_name_to_signature=adapter.metric_name_to_signature,
     )
     obj_t = extract_objective_thresholds(
         objective_thresholds=optimization_config.objective_thresholds,
         objective=optimization_config.objective,
         outcomes=adapter.outcomes,
-        metric_name_to_signature=adapter.metric_name_to_signature,
     )
     if obj_t is not None:
         obj_t = array_to_tensor(obj_t)
@@ -1155,26 +1146,23 @@ def observation_features_to_array(
 def feasible_hypervolume(
     optimization_config: MultiObjectiveOptimizationConfig,
     values: dict[str, npt.NDArray],
-    metric_name_to_signature: Mapping[str, str],
 ) -> npt.NDArray:
     """Compute the feasible hypervolume each iteration.
 
     Args:
         optimization_config: Optimization config.
-        values: Dictionary from metric name to array of value at each
+        values: Dictionary from metric signature to array of value at each
             iteration (each array is `n`-dim). If optimization config contains
             outcome constraints, values for them must be present in `values`.
-        metric_name_to_signature: Mapping from metric names to signatures.
 
     Returns: Array of feasible hypervolumes.
     """
     # Get objective at each iteration
     obj_threshold_dict = {
-        metric_name_to_signature[ot.metric_names[0]]: ot.bound
+        ot.metric_signatures[0]: ot.bound
         for ot in optimization_config.objective_thresholds
     }
-    obj_metric_names = optimization_config.objective.metric_names
-    obj_metric_sigs = [metric_name_to_signature[name] for name in obj_metric_names]
+    obj_metric_sigs = optimization_config.objective.metric_signatures
     f_vals = np.hstack([values[sig].reshape(-1, 1) for sig in obj_metric_sigs])
     obj_thresholds = np.array([obj_threshold_dict[sig] for sig in obj_metric_sigs])
     # Set infeasible points to be the objective threshold
@@ -1183,7 +1171,7 @@ def feasible_hypervolume(
             raise ValueError(
                 "Benchmark aggregation does not support relative constraints"
             )
-        oc_sig = metric_name_to_signature[oc.metric_names[0]]
+        oc_sig = oc.metric_signatures[0]
         g = values[oc_sig]
         feas = g <= oc.bound if oc.op == ComparisonOp.LEQ else g >= oc.bound
         f_vals[~feas] = obj_thresholds
@@ -1192,7 +1180,7 @@ def feasible_hypervolume(
     # Positive weight = maximize, negative weight = minimize.
     obj_weight_dict = dict(optimization_config.objective.metric_weights)
     obj_weights = np.array(
-        [1 if obj_weight_dict[name] > 0 else -1 for name in obj_metric_names]
+        [1 if obj_weight_dict[sig] > 0 else -1 for sig in obj_metric_sigs]
     )
     obj_thresholds = obj_thresholds * obj_weights
     f_vals = f_vals * obj_weights

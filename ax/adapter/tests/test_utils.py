@@ -78,14 +78,11 @@ class TestAdapterUtils(TestCase):
 
     def test_extract_outcome_constraints(self) -> None:
         outcomes = ["m1", "m2", "m3"]
-        # For plain Metric objects, signature == name.
-        metric_name_to_signature = {name: name for name in outcomes}
         # pass no outcome constraints
         self.assertIsNone(
             extract_outcome_constraints(
                 outcome_constraints=[],
                 outcomes=outcomes,
-                metric_name_to_signature=metric_name_to_signature,
             )
         )
 
@@ -95,7 +92,6 @@ class TestAdapterUtils(TestCase):
         res = extract_outcome_constraints(
             outcome_constraints=outcome_constraints,
             outcomes=outcomes,
-            metric_name_to_signature=metric_name_to_signature,
         )
         self.assertEqual(res[0].shape, (1, 3))
         self.assertListEqual(list(res[0][0]), [1, 0, 0])
@@ -113,7 +109,6 @@ class TestAdapterUtils(TestCase):
         res = extract_outcome_constraints(
             outcome_constraints=outcome_constraints,
             outcomes=outcomes,
-            metric_name_to_signature=metric_name_to_signature,
         )
         self.assertEqual(res[0].shape, (2, 3))
         self.assertListEqual(list(res[0][0]), [1, 0, 0])
@@ -123,8 +118,6 @@ class TestAdapterUtils(TestCase):
 
     def test_extract_objective_thresholds(self) -> None:
         outcomes = ["m1", "m2", "m3", "m4"]
-        # For plain Metric objects, signature == name.
-        metric_name_to_signature = {name: name for name in outcomes}
         objective = MultiObjective(
             objectives=[
                 Objective(metric=Metric(name), minimize=False) for name in outcomes[:3]
@@ -146,7 +139,6 @@ class TestAdapterUtils(TestCase):
                 objective_thresholds=[],
                 objective=objective,
                 outcomes=outcomes,
-                metric_name_to_signature=metric_name_to_signature,
             )
         )
 
@@ -155,7 +147,6 @@ class TestAdapterUtils(TestCase):
             objective_thresholds=objective_thresholds,
             objective=objective,
             outcomes=outcomes,
-            metric_name_to_signature=metric_name_to_signature,
         )
         # All maximize, so thresholds are unchanged (sign = +1).
         expected_obj_t = np.array([2.0, 3.0, 4.0])
@@ -167,20 +158,18 @@ class TestAdapterUtils(TestCase):
             objective_thresholds=objective_thresholds[:2],
             objective=objective,
             outcomes=outcomes,
-            metric_name_to_signature=metric_name_to_signature,
         )
         self.assertTrue(np.array_equal(obj_t[:2], expected_obj_t[:2]))
         self.assertTrue(np.isnan(obj_t[2]))
         self.assertEqual(obj_t.shape[0], 3)
 
         # Fails if a threshold does not have a corresponding metric.
-        objective2 = Objective(expression="m1")
+        objective2 = Objective(expression="m1", metric_name_to_signature={"m1": "m1"})
         with self.assertRaisesRegex(ValueError, "corresponding metrics"):
             extract_objective_thresholds(
                 objective_thresholds=objective_thresholds,
                 objective=objective2,
                 outcomes=outcomes,
-                metric_name_to_signature=metric_name_to_signature,
             )
 
         # Single objective returns None.
@@ -189,7 +178,6 @@ class TestAdapterUtils(TestCase):
                 objective_thresholds=objective_thresholds[:1],
                 objective=objective2,
                 outcomes=outcomes,
-                metric_name_to_signature=metric_name_to_signature,
             )
         )
 
@@ -218,7 +206,6 @@ class TestAdapterUtils(TestCase):
             objective_thresholds=obj_thresholds_for_min,
             objective=objective_with_min,
             outcomes=outcomes,
-            metric_name_to_signature=metric_name_to_signature,
         )
         # m1 maximize: sign=+1, threshold=2.0 → 2.0
         # m2 minimize: sign=-1, threshold=3.0 → -3.0
@@ -235,7 +222,6 @@ class TestAdapterUtils(TestCase):
                 objective_thresholds=objective_thresholds,
                 objective=objective,
                 outcomes=outcomes,
-                metric_name_to_signature=metric_name_to_signature,
             )
         objective_thresholds[2] = ObjectiveThreshold(
             metric=Metric("m3"), op=ComparisonOp.LEQ, bound=3, relative=True
@@ -245,7 +231,6 @@ class TestAdapterUtils(TestCase):
                 objective_thresholds=objective_thresholds,
                 objective=objective,
                 outcomes=outcomes,
-                metric_name_to_signature=metric_name_to_signature,
             )
 
     def test_observation_data_to_array(self) -> None:

@@ -166,17 +166,14 @@ class DiscreteAdapter(Adapter):
             validate_transformed_optimization_config(
                 optimization_config,
                 self.outcomes,
-                metric_name_to_signature=self.metric_name_to_signature,
             )
             objective_weights = extract_objective_weights(
                 objective=optimization_config.objective,
                 outcomes=self.outcomes,
-                metric_name_to_signature=self.metric_name_to_signature,
             )
             outcome_constraints = extract_outcome_constraints(
                 outcome_constraints=optimization_config.outcome_constraints,
                 outcomes=self.outcomes,
-                metric_name_to_signature=self.metric_name_to_signature,
             )
 
         # Get fixed features

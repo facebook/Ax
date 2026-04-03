@@ -480,7 +480,6 @@ class CrossValidationTest(TestCase):
         has_good_fit = has_good_opt_config_model_fit(
             optimization_config=optimization_config,
             assess_model_fit_result=assess_model_fit_result,
-            metric_name_to_signature={"m1": "m1", "m2": "m2"},
         )
         self.assertFalse(has_good_fit)
 
@@ -496,7 +495,6 @@ class CrossValidationTest(TestCase):
         has_good_fit = has_good_opt_config_model_fit(
             optimization_config=optimization_config,
             assess_model_fit_result=assess_model_fit_result,
-            metric_name_to_signature={"m1": "m1", "m2": "m2"},
         )
         self.assertFalse(has_good_fit)
 
@@ -510,7 +508,6 @@ class CrossValidationTest(TestCase):
         has_good_fit = has_good_opt_config_model_fit(
             optimization_config=optimization_config,
             assess_model_fit_result=assess_model_fit_result,
-            metric_name_to_signature={"m1": "m1", "m2": "m2"},
         )
         self.assertFalse(has_good_fit)
 

@@ -68,10 +68,10 @@ class BilogY(Transform):
         if adapter is not None and adapter._optimization_config is not None:
             # TODO @deriksson: Add support for relative outcome constraints
             self.metric_to_bound: dict[str, float] = {
-                adapter.metric_name_to_signature[name]: oc.bound
+                sig: oc.bound
                 for oc in adapter._optimization_config.outcome_constraints
                 if not oc.relative
-                for name in oc.metric_names
+                for sig in oc.metric_signatures
             }
         else:
             self.metric_to_bound = {}

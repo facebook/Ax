@@ -8,7 +8,6 @@
 
 from __future__ import annotations
 
-from collections.abc import Mapping
 from logging import Logger
 from typing import TYPE_CHECKING
 
@@ -94,7 +93,6 @@ class Derelativize(Transform):
                 raw_f=raw_f,
                 pred_f=f,
                 pred_cov=cov,
-                metric_name_to_signature=adapter.metric_name_to_signature,
             )
         else:
             f = raw_f
@@ -106,13 +104,23 @@ class Derelativize(Transform):
             if c.relative:
                 sq_val = _compute_sq_val(c, adapter, f)
                 new_bound = derelativize_bound(bound=c.bound, sq_val=sq_val)
+                # Build expression using metric names (not signatures)
+                # and pass through the original name→signature mapping.
+                metric_name_weights = [
+                    (name, w) for name, (_, w) in zip(c.metric_names, c.metric_weights)
+                ]
                 new_expr = build_constraint_expression_str(
-                    metric_weights=c.metric_weights,
+                    metric_weights=metric_name_weights,
                     op=">=" if c.op == ComparisonOp.GEQ else "<=",
                     bound=new_bound,
                     relative=False,
                 )
-                new_outcome_constraints.append(OutcomeConstraint(expression=new_expr))
+                new_outcome_constraints.append(
+                    OutcomeConstraint(
+                        expression=new_expr,
+                        metric_name_to_signature=c.metric_name_to_signature,
+                    )
+                )
             else:
                 new_outcome_constraints.append(c)
         optimization_config.outcome_constraints = new_outcome_constraints
@@ -123,13 +131,22 @@ class Derelativize(Transform):
                 if c.relative:
                     sq_val = _compute_sq_val(c, adapter, f)
                     new_bound = derelativize_bound(bound=c.bound, sq_val=sq_val)
+                    metric_name_weights = [
+                        (name, w)
+                        for name, (_, w) in zip(c.metric_names, c.metric_weights)
+                    ]
                     new_expr = build_constraint_expression_str(
-                        metric_weights=c.metric_weights,
+                        metric_weights=metric_name_weights,
                         op=">=" if c.op == ComparisonOp.GEQ else "<=",
                         bound=new_bound,
                         relative=False,
                     )
-                    new_thresholds.append(OutcomeConstraint(expression=new_expr))
+                    new_thresholds.append(
+                        OutcomeConstraint(
+                            expression=new_expr,
+                            metric_name_to_signature=c.metric_name_to_signature,
+                        )
+                    )
                 else:
                     new_thresholds.append(c)
             optimization_config.objective_thresholds = new_thresholds
@@ -193,21 +210,20 @@ def _warn_if_raw_sq_is_out_of_CI(
     raw_f: TModelMean,
     pred_f: TModelMean,
     pred_cov: TModelCov,
-    metric_name_to_signature: Mapping[str, str],
 ) -> None:
     """Warn if the raw SQ values for relative constraint metrics deviate
     by more than 1.96 standard deviation from the predictions.
     """
     relative_metrics = {
-        metric_name_to_signature[oc.metric_names[0]]
+        oc.metric_signatures[0]
         for oc in optimization_config.all_constraints
         if oc.relative and not isinstance(oc, ScalarizedOutcomeConstraint)
     }.union(
         {
-            metric_name_to_signature[name]
+            sig
             for oc in optimization_config.all_constraints
             if oc.relative and isinstance(oc, ScalarizedOutcomeConstraint)
-            for name in oc.metric_names
+            for sig in oc.metric_signatures
         }
     )
     for metric_signature in relative_metrics:

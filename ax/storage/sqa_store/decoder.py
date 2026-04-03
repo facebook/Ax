@@ -1323,7 +1323,19 @@ class Decoder:
         # directly to create an Objective (preserving the original expression).
         parent_properties = parent_metric_sqa.properties or {}
         if "expression" in parent_properties:
-            obj = Objective(expression=parent_properties["expression"])
+            expr = parent_properties["expression"]
+            from ax.utils.common.sympy import (
+                extract_metric_names_from_objective_expr,
+                parse_objective_expression,
+            )
+
+            parsed = parse_objective_expression(expr)
+            sub_exprs = parsed if isinstance(parsed, tuple) else (parsed,)
+            names: list[str] = []
+            for se in sub_exprs:
+                names.extend(extract_metric_names_from_objective_expr(se))
+            mapping = {n: n for n in names}
+            obj = Objective(expression=expr, metric_name_to_signature=mapping)
             obj.db_id = parent_metric_sqa.id
             return obj
 

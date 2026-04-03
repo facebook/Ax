@@ -167,7 +167,13 @@ class TestDispatchUtils(TestCase):
             )
         with self.subTest("MOO"):
             optimization_config = MultiObjectiveOptimizationConfig(
-                objective=Objective(expression="branin_a, branin_b")
+                objective=Objective(
+                    expression="branin_a, branin_b",
+                    metric_name_to_signature={
+                        "branin_a": "branin_a",
+                        "branin_b": "branin_b",
+                    },
+                )
             )
             sobol_gpei = choose_generation_strategy_legacy(
                 search_space=get_branin_search_space(),
@@ -338,7 +344,13 @@ class TestDispatchUtils(TestCase):
             search_space = get_branin_search_space(with_choice_parameter=True)
             search_space.parameters["x2"]._is_ordered = False
             optimization_config = MultiObjectiveOptimizationConfig(
-                objective=Objective(expression="branin_a, branin_b")
+                objective=Objective(
+                    expression="branin_a, branin_b",
+                    metric_name_to_signature={
+                        "branin_a": "branin_a",
+                        "branin_b": "branin_b",
+                    },
+                )
             )
             moo_mixed = choose_generation_strategy_legacy(
                 search_space=search_space,
@@ -410,7 +422,13 @@ class TestDispatchUtils(TestCase):
                 num_initialization_trials=3,
                 use_saasbo=True,
                 optimization_config=MultiObjectiveOptimizationConfig(
-                    objective=Objective(expression="branin_a, branin_b")
+                    objective=Objective(
+                        expression="branin_a, branin_b",
+                        metric_name_to_signature={
+                            "branin_a": "branin_a",
+                            "branin_b": "branin_b",
+                        },
+                    )
                 ),
             )
             self.assertEqual(

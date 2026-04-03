@@ -186,9 +186,7 @@ class StratifiedStandardizeY(Transform):
         # The constant term \sum (wi * mu_i) doesn't affect optimization.
         if optimization_config.objective.is_scalarized_objective:
             objective = optimization_config.objective
-            obj_sigs = [
-                self._get_metric_signature(n, adapter) for n in objective.metric_names
-            ]
+            obj_sigs = objective.metric_signatures
             old_weights = [w for _, w in objective.metric_weights]
             new_weights = [
                 old_weights[i] * float(self.Ystd[(sig, strata)])
@@ -199,7 +197,8 @@ class StratifiedStandardizeY(Transform):
                 for (name, _), new_w in zip(objective.metric_weights, new_weights)
             ]
             optimization_config.objective = _build_objective_from_metric_weights(
-                new_metric_weights
+                new_metric_weights,
+                metric_name_to_signature=objective.metric_name_to_signature,
             )
 
         optimization_config.outcome_constraints = self._transform_constraints(
@@ -228,9 +227,7 @@ class StratifiedStandardizeY(Transform):
                     f"constraint {c}"
                 )
             if len(c.metric_names) > 1:
-                c_sigs = [
-                    self._get_metric_signature(n, adapter) for n in c.metric_names
-                ]
+                c_sigs = c.metric_signatures
                 # Transform \sum (wi * yi) <= C to
                 # \sum (wi * si * zi) <= C - \sum (wi * mu_i)
                 # Update bound and weights.
@@ -246,10 +243,7 @@ class StratifiedStandardizeY(Transform):
                     old_weights[i] * self.Ystd[(sig, strata)]
                     for i, sig in enumerate(c_sigs)
                 ]
-                new_metric_weights = [
-                    (name, new_w)
-                    for (name, _), new_w in zip(c.metric_weights, new_weights)
-                ]
+                new_metric_weights = list(zip(c.metric_names, new_weights))
                 op_str = ">=" if c.op == ComparisonOp.GEQ else "<="
                 new_constraints.append(
                     OutcomeConstraint(
@@ -258,23 +252,28 @@ class StratifiedStandardizeY(Transform):
                             op=op_str,
                             bound=new_bound,
                             relative=False,
-                        )
+                        ),
+                        metric_name_to_signature=c.metric_name_to_signature,
                     )
                 )
             else:
-                c_sig = self._get_metric_signature(c.metric_names[0], adapter)
+                c_sig = c.metric_signatures[0]
                 new_bound = float(
                     (c.bound - self.Ymean[(c_sig, strata)]) / self.Ystd[(c_sig, strata)]
                 )
                 op_str = ">=" if c.op == ComparisonOp.GEQ else "<="
+                metric_name_weights = [
+                    (name, w) for name, (_, w) in zip(c.metric_names, c.metric_weights)
+                ]
                 new_constraints.append(
                     OutcomeConstraint(
                         expression=build_constraint_expression_str(
-                            metric_weights=c.metric_weights,
+                            metric_weights=metric_name_weights,
                             op=op_str,
                             bound=new_bound,
                             relative=c.relative,
-                        )
+                        ),
+                        metric_name_to_signature=c.metric_name_to_signature,
                     )
                 )
         return new_constraints
@@ -314,7 +313,7 @@ class StratifiedStandardizeY(Transform):
                     "StratifiedStandardizeY does not support relative constraints"
                 )
             if len(c.metric_names) > 1:
-                c_sigs = [self._get_metric_signature(n) for n in c.metric_names]
+                c_sigs = c.metric_signatures
                 # Untransform \sum (wi * si * zi) <= C' back to \sum (wi * yi) <= C
                 # where C' = C - \sum (wi * mu_i) and weights were multiplied by si.
                 # First untransform weights, then untransform bound.
@@ -342,11 +341,12 @@ class StratifiedStandardizeY(Transform):
                             op=op_str,
                             bound=new_bound,
                             relative=False,
-                        )
+                        ),
+                        metric_name_to_signature=c.metric_name_to_signature,
                     )
                 )
             else:
-                c_sig = self._get_metric_signature(c.metric_names[0])
+                c_sig = c.metric_signatures[0]
                 new_bound = float(
                     c.bound * self.Ystd[(c_sig, strata)] + self.Ymean[(c_sig, strata)]
                 )
@@ -358,7 +358,8 @@ class StratifiedStandardizeY(Transform):
                             op=op_str,
                             bound=new_bound,
                             relative=c.relative,
-                        )
+                        ),
+                        metric_name_to_signature=c.metric_name_to_signature,
                     )
                 )
         return new_constraints

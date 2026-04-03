@@ -9,6 +9,7 @@
 from __future__ import annotations
 
 import warnings
+from collections.abc import Mapping
 from typing import Self
 
 from ax.core.metric import Metric
@@ -43,6 +44,7 @@ class Objective(SortableBase):
         self,
         expression: str | None = None,
         *,
+        metric_name_to_signature: Mapping[str, str] | None = None,
         # Deprecated backward-compat kwargs
         metric: Metric | None = None,
         minimize: bool | None = None,
@@ -55,6 +57,10 @@ class Objective(SortableBase):
                 something to be **maximized**. Use negation to minimize (e.g.
                 ``"-loss"``). Comma-separated expressions define a
                 multi-objective (e.g. ``"accuracy, -loss"``).
+            metric_name_to_signature: Mapping from metric names to their
+                canonical signatures. Required when constructing from an
+                expression string. Automatically populated when using the
+                deprecated ``metric`` kwarg.
             metric: *Deprecated.* A single metric to optimize. Provide
                 ``expression`` instead.
             minimize: *Deprecated.* Only used together with ``metric``. If
@@ -90,6 +96,8 @@ class Objective(SortableBase):
                     f"{minimize=}."
                 )
             expression = f"-{metric.name}" if minimize else metric.name
+            if metric_name_to_signature is None:
+                metric_name_to_signature = {metric.name: metric.signature}
 
         if expression is None:
             raise UserInputError(
@@ -98,7 +106,14 @@ class Objective(SortableBase):
                 "Objective(expression='-loss')."
             )
 
+        if metric_name_to_signature is None:
+            raise UserInputError(
+                "`metric_name_to_signature` is required when constructing an "
+                "Objective from an expression string."
+            )
+
         self._expression_str: str = expression
+        self._metric_name_to_signature: dict[str, str] = {**metric_name_to_signature}
 
         # Eagerly validate: error on duplicate metric names
         parsed = parse_objective_expression(expression)
@@ -131,14 +146,48 @@ class Objective(SortableBase):
         return names
 
     @property
+    def metric_name_to_signature(self) -> dict[str, str]:
+        """Mapping from metric names to their canonical signatures.
+
+        All metric names must be present in the mapping -- missing entries
+        raise ``KeyError``.
+        """
+        return {
+            name: self._metric_name_to_signature[name] for name in self.metric_names
+        }
+
+    def update_metric_name_to_signature_mapping(
+        self, mapping: Mapping[str, str]
+    ) -> None:
+        """Replace the metric-name-to-signature mapping."""
+        self._metric_name_to_signature = {**mapping}
+
+    @property
+    def metric_signatures(self) -> list[str]:
+        """Metric signatures corresponding to metric_names, in the same order.
+
+        When a ``metric_name_to_signature`` mapping is provided, each metric
+        name is resolved to its canonical signature. Otherwise, signatures
+        are identical to names.
+        """
+        mapping = self.metric_name_to_signature
+        return [mapping[name] for name in self.metric_names]
+
+    @property
     def metric_weights(self) -> list[tuple[str, float]]:
-        """Get a list of (metric_name, weight) tuples in the expression."""
+        """Get a list of (metric_signature, weight) tuples in the expression.
+
+        Each metric name from the expression is resolved to its canonical
+        signature via ``metric_name_to_signature``.
+        """
         parsed = parse_objective_expression(self._expression_str)
         sub_exprs = parsed if isinstance(parsed, tuple) else (parsed,)
+        mapping = self.metric_name_to_signature
 
         result: list[tuple[str, float]] = []
         for sub_expr in sub_exprs:
-            result.extend(extract_metric_weights_from_objective_expr(sub_expr))
+            for name, weight in extract_metric_weights_from_objective_expr(sub_expr):
+                result.append((mapping[name], weight))
 
         return result
 
@@ -187,7 +236,26 @@ class Objective(SortableBase):
 
     def clone(self) -> Self:
         """Create a copy of the objective."""
-        return self.__class__(expression=self._expression_str)
+        return self.__class__(
+            expression=self._expression_str,
+            metric_name_to_signature=self._metric_name_to_signature,
+        )
+
+    def __eq__(self, other: object) -> bool:
+        if not isinstance(other, Objective):
+            return False
+        return (
+            self._expression_str == other._expression_str
+            and self.metric_name_to_signature == other.metric_name_to_signature
+        )
+
+    def __hash__(self) -> int:
+        return hash(
+            (
+                self._expression_str,
+                frozenset(self.metric_name_to_signature.items()),
+            )
+        )
 
     def __repr__(self) -> str:
         return f'Objective(expression="{self._expression_str}")'
@@ -225,11 +293,20 @@ class MultiObjective(Objective):
                 "Scalarized objectives are not supported for a `MultiObjective`."
             )
         expression = ", ".join(obj.expression for obj in objectives)
-        super().__init__(expression=expression)
+        merged_mapping: dict[str, str] = {}
+        for obj in objectives:
+            merged_mapping.update(obj.metric_name_to_signature)
+        super().__init__(
+            expression=expression,
+            metric_name_to_signature=merged_mapping,
+        )
 
     def clone(self) -> Objective:  # pyre-ignore[15]: Inconsistent override
         """Clone as a base Objective (MultiObjective is deprecated)."""
-        return Objective(expression=self._expression_str)
+        return Objective(
+            expression=self._expression_str,
+            metric_name_to_signature=self._metric_name_to_signature,
+        )
 
 
 class ScalarizedObjective(Objective):
@@ -289,8 +366,14 @@ class ScalarizedObjective(Objective):
                 parts.append(f"{effective_w}*{m.name}")
 
         expression_str = " + ".join(parts).replace(" + -", " - ")
-        super().__init__(expression=expression_str)
+        super().__init__(
+            expression=expression_str,
+            metric_name_to_signature={m.name: m.signature for m in metrics},
+        )
 
     def clone(self) -> Objective:  # pyre-ignore[15]: Inconsistent override
         """Clone as a base Objective (ScalarizedObjective is deprecated)."""
-        return Objective(expression=self._expression_str)
+        return Objective(
+            expression=self._expression_str,
+            metric_name_to_signature=self._metric_name_to_signature,
+        )

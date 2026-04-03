@@ -12,8 +12,31 @@ from ax.core.optimization_config import (
     MultiObjectiveOptimizationConfig,
     OptimizationConfig,
 )
-from ax.core.outcome_constraint import OutcomeConstraint
+from ax.core.outcome_constraint import _parse_constraint_expression, OutcomeConstraint
 from ax.exceptions.core import UserInputError
+from ax.utils.common.sympy import (
+    extract_metric_names_from_objective_expr,
+    parse_objective_expression,
+)
+
+
+def _identity_mapping_from_objective_str(expr: str) -> dict[str, str]:
+    """Extract metric names from an objective expression and build an identity
+    mapping. Used as a placeholder until the Experiment attaches real
+    signatures."""
+    parsed = parse_objective_expression(expr)
+    sub_exprs = parsed if isinstance(parsed, tuple) else (parsed,)
+    names: list[str] = []
+    for se in sub_exprs:
+        names.extend(extract_metric_names_from_objective_expr(se))
+    return {n: n for n in names}
+
+
+def _identity_mapping_from_constraint_str(expr: str) -> dict[str, str]:
+    """Extract metric names from a constraint expression and build an identity
+    mapping."""
+    metric_weights, _, _, _ = _parse_constraint_expression(expr)
+    return {name: name for name, _ in metric_weights}
 
 
 def optimization_config_from_string(
@@ -26,10 +49,19 @@ def optimization_config_from_string(
     the multi-objective case where they will be converted to objective thresholds.
     """
 
-    objective = Objective(expression=objective_str)
+    objective = Objective(
+        expression=objective_str,
+        metric_name_to_signature=_identity_mapping_from_objective_str(objective_str),
+    )
 
     outcome_constraints: list[OutcomeConstraint] | None = (
-        [OutcomeConstraint(expression=s) for s in outcome_constraint_strs]
+        [
+            OutcomeConstraint(
+                expression=s,
+                metric_name_to_signature=_identity_mapping_from_constraint_str(s),
+            )
+            for s in outcome_constraint_strs
+        ]
         if outcome_constraint_strs is not None
         else None
     )

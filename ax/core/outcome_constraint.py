@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import re
 import warnings
+from collections.abc import Mapping
 from functools import cached_property
 
 from ax.core.metric import Metric
@@ -51,6 +52,7 @@ class OutcomeConstraint(SortableBase):
         self,
         expression: str | None = None,
         *,
+        metric_name_to_signature: Mapping[str, str] | None = None,
         relative: bool | None = None,
         # Deprecated backward-compat kwargs
         metric: Metric | None = None,
@@ -62,6 +64,10 @@ class OutcomeConstraint(SortableBase):
         Args:
             expression: A string expression defining the constraint, e.g.
                 ``"qps >= 700"`` or ``"loss <= 0.5 * baseline"``.
+            metric_name_to_signature: Mapping from metric names to their
+                canonical signatures. Required when constructing from an
+                expression string. Automatically populated when using the
+                deprecated ``metric`` kwarg.
             relative: If provided, overrides the relativity inferred from the
                 expression string. If ``True``, the bound is interpreted as
                 a percent-difference from the status-quo arm's metric value.
@@ -97,6 +103,8 @@ class OutcomeConstraint(SortableBase):
                 relative=inferred_relative,
             )
             relative = inferred_relative
+            if metric_name_to_signature is None:
+                metric_name_to_signature = {metric.name: metric.signature}
 
         if expression is None:
             raise UserInputError(
@@ -105,7 +113,14 @@ class OutcomeConstraint(SortableBase):
                 "OutcomeConstraint(expression='loss <= 0.5')."
             )
 
+        if metric_name_to_signature is None:
+            raise UserInputError(
+                "`metric_name_to_signature` is required when constructing an "
+                "OutcomeConstraint from an expression string."
+            )
+
         self._expression_str: str = expression
+        self._metric_name_to_signature: dict[str, str] = {**metric_name_to_signature}
         # Eagerly validate the expression so errors surface at construction time.
         _ = self._parsed
 
@@ -134,9 +149,42 @@ class OutcomeConstraint(SortableBase):
         return [name for name, _ in self._parsed[0]]
 
     @property
+    def metric_name_to_signature(self) -> dict[str, str]:
+        """Mapping from metric names to their canonical signatures.
+
+        All metric names must be present in the mapping -- missing entries
+        raise ``KeyError``.
+        """
+        return {
+            name: self._metric_name_to_signature[name] for name in self.metric_names
+        }
+
+    def update_metric_name_to_signature_mapping(
+        self, mapping: Mapping[str, str]
+    ) -> None:
+        """Replace the metric-name-to-signature mapping."""
+        self._metric_name_to_signature = {**mapping}
+
+    @property
+    def metric_signatures(self) -> list[str]:
+        """Metric signatures corresponding to metric_names, in the same order.
+
+        When a ``metric_name_to_signature`` mapping is provided, each metric
+        name is resolved to its canonical signature. Otherwise, signatures
+        are identical to names.
+        """
+        mapping = self.metric_name_to_signature
+        return [mapping[name] for name in self.metric_names]
+
+    @property
     def metric_weights(self) -> list[tuple[str, float]]:
-        """Get (metric_name, weight) pairs for this constraint."""
-        return list(self._parsed[0])
+        """Get (metric_signature, weight) pairs for this constraint.
+
+        Each metric name from the expression is resolved to its canonical
+        signature via ``metric_name_to_signature``.
+        """
+        mapping = self.metric_name_to_signature
+        return [(mapping[name], w) for name, w in self._parsed[0]]
 
     @property
     def op(self) -> ComparisonOp:
@@ -155,7 +203,10 @@ class OutcomeConstraint(SortableBase):
 
     def clone(self) -> OutcomeConstraint:
         """Create a copy of this OutcomeConstraint."""
-        return OutcomeConstraint(expression=self._expression_str)
+        return OutcomeConstraint(
+            expression=self._expression_str,
+            metric_name_to_signature=self._metric_name_to_signature,
+        )
 
     def __repr__(self) -> str:
         return f"OutcomeConstraint({self._expression_str})"
@@ -214,12 +265,17 @@ class ObjectiveThreshold(OutcomeConstraint):
             bound=float(bound),
             relative=relative,
         )
-        super().__init__(expression=expression, relative=relative)
+        super().__init__(
+            expression=expression,
+            relative=relative,
+            metric_name_to_signature={metric.name: metric.signature},
+        )
 
     def clone(self) -> ObjectiveThreshold:
         """Create a copy of this ObjectiveThreshold."""
         ot = ObjectiveThreshold.__new__(ObjectiveThreshold)
         ot._expression_str = self._expression_str
+        ot._metric_name_to_signature = self._metric_name_to_signature
         return ot
 
     def __repr__(self) -> str:
@@ -266,7 +322,11 @@ class ScalarizedOutcomeConstraint(OutcomeConstraint):
             bound=float(bound),
             relative=relative,
         )
-        super().__init__(expression=expression, relative=relative)
+        super().__init__(
+            expression=expression,
+            relative=relative,
+            metric_name_to_signature={m.name: m.signature for m in metrics},
+        )
 
     @property
     def weights(self) -> list[float]:
@@ -277,6 +337,7 @@ class ScalarizedOutcomeConstraint(OutcomeConstraint):
         """Create a copy of this ScalarizedOutcomeConstraint."""
         cloned = ScalarizedOutcomeConstraint.__new__(ScalarizedOutcomeConstraint)
         cloned._expression_str = self._expression_str
+        cloned._metric_name_to_signature = self._metric_name_to_signature
         return cloned
 
     def __repr__(self) -> str:

@@ -464,7 +464,10 @@ class MultiObjectiveTorchAdapterTest(TestCase):
         first = sub_exprs[0]
         if not first.startswith("-"):
             sub_exprs[0] = f"-{first}"
-        oc.objective = Objective(expression=", ".join(sub_exprs))
+        oc.objective = Objective(
+            expression=", ".join(sub_exprs),
+            metric_name_to_signature={s.lstrip("-"): s.lstrip("-") for s in sub_exprs},
+        )
 
         for use_partial_thresholds in (False, True):
             if use_partial_thresholds:

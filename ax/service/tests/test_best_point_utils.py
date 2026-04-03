@@ -593,7 +593,8 @@ class TestBestPointUtils(TestCase):
                 op=">=" if old_c.op == ComparisonOp.GEQ else "<=",
                 bound=9999,
                 relative=True,
-            )
+            ),
+            metric_name_to_signature=old_c.metric_name_to_signature,
         )
 
         with self.assertRaisesRegex(
@@ -710,7 +711,8 @@ class TestBestPointUtils(TestCase):
                     op=">=" if c.op == ComparisonOp.GEQ else "<=",
                     bound=c.bound,
                     relative=True,
-                )
+                ),
+                metric_name_to_signature=c.metric_name_to_signature,
             )
 
         for i, c in enumerate(input_optimization_config.outcome_constraints):
@@ -840,7 +842,8 @@ class TestBestPointUtils(TestCase):
                 op=">=" if c.op == ComparisonOp.GEQ else "<=",
                 bound=c.bound,
                 relative=True,
-            )
+            ),
+            metric_name_to_signature={name: name for name, _ in c.metric_weights},
         )
         relative_constraint_warning = (
             "WARNING:ax.service.utils.best_point:Determining trial feasibility only "
@@ -878,7 +881,8 @@ class TestBestPointUtils(TestCase):
                     op=">=" if c.op == ComparisonOp.GEQ else "<=",
                     bound=c.bound,
                     relative=True,
-                )
+                ),
+                metric_name_to_signature=c.metric_name_to_signature,
             )
         if isinstance(opt_config, MultiObjectiveOptimizationConfig):
             for i, c in enumerate(opt_config.objective_thresholds):
@@ -888,7 +892,8 @@ class TestBestPointUtils(TestCase):
                         op=">=" if c.op == ComparisonOp.GEQ else "<=",
                         bound=c.bound,
                         relative=True,
-                    )
+                    ),
+                    metric_name_to_signature=c.metric_name_to_signature,
                 )
         optimization_config = derelativize_opt_config(
             optimization_config=none_throws(exp.optimization_config),

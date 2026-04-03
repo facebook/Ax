@@ -36,10 +36,19 @@ class TestBenchmarkProblem(TestCase):
             botorch_problem=Branin(), outcome_names=["Branin"]
         )
         opt_config = MultiObjectiveOptimizationConfig(
-            objective=Objective(expression="-Branin, -Currin"),
+            objective=Objective(
+                expression="-Branin, -Currin",
+                metric_name_to_signature={"Branin": "Branin", "Currin": "Currin"},
+            ),
             objective_thresholds=[
-                OutcomeConstraint(expression="Branin <= 0.0"),
-                OutcomeConstraint(expression="Currin <= 0.0"),
+                OutcomeConstraint(
+                    expression="Branin <= 0.0",
+                    metric_name_to_signature={"Branin": "Branin"},
+                ),
+                OutcomeConstraint(
+                    expression="Currin <= 0.0",
+                    metric_name_to_signature={"Currin": "Currin"},
+                ),
             ],
         )
         with self.assertRaisesRegex(
@@ -59,9 +68,13 @@ class TestBenchmarkProblem(TestCase):
             )
 
         opt_config2 = OptimizationConfig(
-            objective=Objective(expression="-Branin"),
+            objective=Objective(
+                expression="-Branin", metric_name_to_signature={"Branin": "Branin"}
+            ),
             outcome_constraints=[
-                OutcomeConstraint(expression="c <= 0.0"),
+                OutcomeConstraint(
+                    expression="c <= 0.0", metric_name_to_signature={"c": "c"}
+                ),
             ],
         )
         with self.assertRaisesRegex(
@@ -84,6 +97,10 @@ class TestBenchmarkProblem(TestCase):
     def test_missing_names_on_test_function_with_scalarized_objective(self) -> None:
         objective = Objective(
             expression="-BraninCurrin_0 - BraninCurrin_missing",
+            metric_name_to_signature={
+                "BraninCurrin_0": "BraninCurrin_0",
+                "BraninCurrin_missing": "BraninCurrin_missing",
+            },
         )
         test_function = BoTorchTestFunction(
             botorch_problem=BraninCurrin(),

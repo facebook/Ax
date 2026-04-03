@@ -122,6 +122,13 @@ class BenchmarkProblem(Base):
     opt_config_metrics: list[Metric] = field(default_factory=list)
 
     def __post_init__(self) -> None:
+        # Populate metric_name_to_signature from opt_config_metrics so that
+        # validation below (e.g. _is_minimizing) can access metric_weights.
+        if self.opt_config_metrics:
+            self.optimization_config.update_metric_name_to_signature_mapping(
+                {m.name: m.signature for m in self.opt_config_metrics}
+            )
+
         # Handle backward compatibility for noise_std parameter
         if self.noise_std is not None:
             warnings.warn(
@@ -273,7 +280,11 @@ def _get_constraints(
         for name in constraint_names
     ]
     outcome_constraints = [
-        OutcomeConstraint(expression=f"{name} >= 0.0") for name in constraint_names
+        OutcomeConstraint(
+            expression=f"{name} >= 0.0",
+            metric_name_to_signature={name: name},
+        )
+        for name in constraint_names
     ]
     return outcome_constraints, metrics
 
@@ -311,7 +322,10 @@ def get_soo_opt_config(
         observe_noise_sd=observe_noise_sd,
     )
     expression = f"-{outcome_names[0]}" if lower_is_better else outcome_names[0]
-    objective = Objective(expression=expression)
+    objective = Objective(
+        expression=expression,
+        metric_name_to_signature={outcome_names[0]: outcome_names[0]},
+    )
 
     outcome_constraints, constraint_metrics = _get_constraints(
         constraint_names=outcome_names[1:],
@@ -388,7 +402,10 @@ def get_moo_opt_config(
             obj_expressions.append(f"-{metric.name}")
         else:
             obj_expressions.append(metric.name)
-    objective = Objective(expression=", ".join(obj_expressions))
+    objective = Objective(
+        expression=", ".join(obj_expressions),
+        metric_name_to_signature={m.name: m.name for m in objective_metrics},
+    )
 
     # Build objective thresholds as OutcomeConstraints
     objective_thresholds = []
@@ -397,7 +414,12 @@ def get_moo_opt_config(
             expr = f"{metric.name} <= {ref_p}"
         else:
             expr = f"{metric.name} >= {ref_p}"
-        objective_thresholds.append(OutcomeConstraint(expression=expr))
+        objective_thresholds.append(
+            OutcomeConstraint(
+                expression=expr,
+                metric_name_to_signature={metric.name: metric.name},
+            )
+        )
 
     optimization_config = MultiObjectiveOptimizationConfig(
         objective=objective,

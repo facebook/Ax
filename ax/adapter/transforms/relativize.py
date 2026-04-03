@@ -51,7 +51,10 @@ def _constraint_with_relative(
         bound=c.bound,
         relative=relative,
     )
-    return OutcomeConstraint(expression=new_expr)
+    return OutcomeConstraint(
+        expression=new_expr,
+        metric_name_to_signature=c.metric_name_to_signature,
+    )
 
 
 class BaseRelativize(Transform, ABC):

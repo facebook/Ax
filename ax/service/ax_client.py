@@ -424,10 +424,13 @@ class AxClient(AnalysisBase, BestPointMixin, InstantiationBase):
             # Build lower_is_better map from the optimization config so
             # that auto-registered metrics carry the correct directionality.
             lower_is_better_map: dict[str, bool] = {}
-            for mn, weight in optimization_config.objective.metric_weights:
+            obj = optimization_config.objective
+            obj_names = obj.metric_names
+            obj_weights = [w for _, w in obj.metric_weights]
+            for mn, weight in zip(obj_names, obj_weights):
                 lower_is_better_map[mn] = weight < 0
             for constraint in optimization_config.outcome_constraints:
-                for mn, _ in constraint.metric_weights:
+                for mn in constraint.metric_names:
                     if mn not in lower_is_better_map:
                         lower_is_better_map[mn] = constraint.op is ComparisonOp.LEQ
 

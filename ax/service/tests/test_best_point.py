@@ -61,7 +61,12 @@ class TestBestPointMixin(TestCase):
 
         # Same experiment with maximize via new optimization config.
         opt_conf = none_throws(exp.optimization_config).clone()
-        opt_conf.objective = Objective(expression=opt_conf.objective.metric_names[0])
+        opt_conf.objective = Objective(
+            expression=opt_conf.objective.metric_names[0],
+            metric_name_to_signature={
+                opt_conf.objective.metric_names[0]: opt_conf.objective.metric_names[0]
+            },
+        )
         self.assertEqual(get_trace(exp, opt_conf), [11, 11, 11, 15, 15])
 
         with self.subTest("Single objective with constraints"):
@@ -123,7 +128,8 @@ class TestBestPointMixin(TestCase):
                 op=">=" if c.op == ComparisonOp.GEQ else "<=",
                 bound=1.0,
                 relative=True,
-            )
+            ),
+            metric_name_to_signature=c.metric_name_to_signature,
         )
         # Fails if there's no data for status quo.
         with self.assertRaisesRegex(DataRequiredError, "relative constraint"):
@@ -165,7 +171,8 @@ class TestBestPointMixin(TestCase):
                 op=">=" if c.op == ComparisonOp.GEQ else "<=",
                 bound=c.bound,
                 relative=False,
-            )
+            ),
+            metric_name_to_signature=c.metric_name_to_signature,
         )
         trial.mark_running(no_runner_required=True).mark_completed()
         df_dict = []
@@ -435,7 +442,12 @@ class TestBestPointMixin(TestCase):
         self.assertEqual(get_best(exp), 5)
         # Same experiment with maximize via new optimization config.
         opt_conf = none_throws(exp.optimization_config).clone()
-        opt_conf.objective = Objective(expression=opt_conf.objective.metric_names[0])
+        opt_conf.objective = Objective(
+            expression=opt_conf.objective.metric_names[0],
+            metric_name_to_signature={
+                opt_conf.objective.metric_names[0]: opt_conf.objective.metric_names[0]
+            },
+        )
         self.assertEqual(get_best(exp, opt_conf), 15)
 
         # Scalarized.
@@ -683,7 +695,10 @@ class InferReferencePointFromExperimentTest(TestCase):
             .metric_names[0]
         )
         none_throws(experiment.optimization_config).outcome_constraints[0] = (
-            OutcomeConstraint(expression=f"{oc_metric_name} >= 1000")
+            OutcomeConstraint(
+                expression=f"{oc_metric_name} >= 1000",
+                metric_name_to_signature={oc_metric_name: oc_metric_name},
+            )
         )
 
         experiments.append(experiment)
@@ -805,7 +820,10 @@ class InferReferencePointFromExperimentTest(TestCase):
         """_get_trace_by_progression raises UnsupportedError for scalarized."""
         experiment = get_experiment_with_trial()
         experiment._optimization_config = OptimizationConfig(
-            objective=Objective(expression="2*m1 + -1*m2"),
+            objective=Objective(
+                expression="2*m1 + -1*m2",
+                metric_name_to_signature={"m1": "m1", "m2": "m2"},
+            ),
         )
         with self.assertRaisesRegex(UnsupportedError, "not supported for scalarized"):
             BestPointMixin._get_trace_by_progression(experiment=experiment)
@@ -814,7 +832,10 @@ class InferReferencePointFromExperimentTest(TestCase):
         """get_improvement_over_baseline raises UnsupportedError for scalarized."""
         experiment = get_experiment_with_trial()
         experiment._optimization_config = OptimizationConfig(
-            objective=Objective(expression="2*m1 + -1*m2"),
+            objective=Objective(
+                expression="2*m1 + -1*m2",
+                metric_name_to_signature={"m1": "m1", "m2": "m2"},
+            ),
         )
         mixin = BestPointMixin.__new__(BestPointMixin)
         with self.assertRaisesRegex(UnsupportedError, "not supported for scalarized"):

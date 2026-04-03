@@ -34,7 +34,6 @@ from ax.core.arm import Arm
 from ax.core.experiment import Experiment
 from ax.core.map_metric import MapMetric
 from ax.core.metric import Metric
-from ax.core.objective import Objective
 from ax.core.observation import ObservationFeatures
 from ax.core.optimization_config import OptimizationConfig
 from ax.core.runner import Runner
@@ -207,15 +206,12 @@ class Client(WithDBSettingsBase):
         # Determine lower_is_better for objective metrics from weights.
         obj = optimization_config.objective
         objective_lower_is_better: dict[str, bool] = {}
-        if obj.is_multi_objective:
-            parts = [p.strip() for p in obj.expression.split(",")]
-            for part in parts:
-                sub = Objective(expression=part)
-                for name, weight in sub.metric_weights:
-                    objective_lower_is_better[name] = weight < 0
-        else:
-            for name, weight in obj.metric_weights:
-                objective_lower_is_better[name] = weight < 0
+        # metric_weights returns (signature, weight) tuples; use metric_names
+        # to key by name since downstream lookups use metric names.
+        obj_names = obj.metric_names
+        obj_weights = [w for _, w in obj.metric_weights]
+        for name, weight in zip(obj_names, obj_weights):
+            objective_lower_is_better[name] = weight < 0
 
         # Register objective metrics first (preserving expression order),
         # then constraint metrics.

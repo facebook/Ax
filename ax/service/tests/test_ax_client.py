@@ -3394,7 +3394,13 @@ class TestAxClient(TestCase):
         ax_client.complete_trial(trial_index=idx, raw_data={"branin": (1.0, 0.0)})
         ax_client.experiment.add_tracking_metric(Metric(name="other_metric"))
         ax_client.experiment._optimization_config = OptimizationConfig(
-            objective=Objective(expression="2*branin + -1*other_metric"),
+            objective=Objective(
+                expression="2*branin + -1*other_metric",
+                metric_name_to_signature={
+                    "branin": "branin",
+                    "other_metric": "other_metric",
+                },
+            ),
         )
         with self.assertRaisesRegex(UnsupportedError, "not supported for scalarized"):
             ax_client.get_optimization_trace()
@@ -3410,7 +3416,10 @@ class TestAxClient(TestCase):
         ax_client.experiment._optimization_config = OptimizationConfig(
             objective=Objective(metric=Metric(name="branin"), minimize=True),
             outcome_constraints=[
-                OutcomeConstraint(expression="2*m1 + 3*m2 <= 10"),
+                OutcomeConstraint(
+                    expression="2*m1 + 3*m2 <= 10",
+                    metric_name_to_signature={"m1": "m1", "m2": "m2"},
+                ),
             ],
         )
         with self.assertRaisesRegex(UnsupportedError, "not supported for scalarized"):

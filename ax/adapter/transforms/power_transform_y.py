@@ -157,10 +157,7 @@ class PowerTransformY(Transform):
         fixed_features: ObservationFeatures | None = None,
     ) -> OptimizationConfig:
         if optimization_config.objective.is_scalarized_objective:
-            objective_metric_sigs = [
-                self._get_metric_signature(n, adapter)
-                for n in optimization_config.objective.metric_names
-            ]
+            objective_metric_sigs = optimization_config.objective.metric_signatures
             intersection = set(objective_metric_sigs) & set(self.metric_signatures)
             if intersection:
                 raise NotImplementedError(
@@ -173,9 +170,7 @@ class PowerTransformY(Transform):
         new_outcome_constraints = []
         for c in optimization_config.outcome_constraints:
             if len(c.metric_names) > 1:
-                c_sigs = [
-                    self._get_metric_signature(n, adapter) for n in c.metric_names
-                ]
+                c_sigs = c.metric_signatures
                 intersection = set(c_sigs) & set(self.metric_signatures)
                 if intersection:
                     raise NotImplementedError(
@@ -185,7 +180,7 @@ class PowerTransformY(Transform):
                     )
                 new_outcome_constraints.append(c)
             else:
-                c_sig = self._get_metric_signature(c.metric_names[0], adapter)
+                c_sig = c.metric_signatures[0]
                 if c_sig in self.metric_signatures:
                     if c.relative:
                         raise ValueError(
@@ -203,7 +198,10 @@ class PowerTransformY(Transform):
                             relative=c.relative,
                         )
                         new_outcome_constraints.append(
-                            OutcomeConstraint(expression=new_expr)
+                            OutcomeConstraint(
+                                expression=new_expr,
+                                metric_name_to_signature=c.metric_name_to_signature,
+                            )
                         )
                 else:
                     new_outcome_constraints.append(c)
@@ -213,9 +211,7 @@ class PowerTransformY(Transform):
             new_thresholds = []
             for c in optimization_config.objective_thresholds:
                 if len(c.metric_names) > 1:
-                    c_sigs = [
-                        self._get_metric_signature(n, adapter) for n in c.metric_names
-                    ]
+                    c_sigs = c.metric_signatures
                     intersection = set(c_sigs) & set(self.metric_signatures)
                     if intersection:
                         raise NotImplementedError(
@@ -225,7 +221,7 @@ class PowerTransformY(Transform):
                         )
                     new_thresholds.append(c)
                 else:
-                    c_sig = self._get_metric_signature(c.metric_names[0], adapter)
+                    c_sig = c.metric_signatures[0]
                     if c_sig in self.metric_signatures:
                         if c.relative:
                             raise ValueError(
@@ -236,14 +232,23 @@ class PowerTransformY(Transform):
                         else:
                             transform = self.power_transforms[c_sig].transform
                             new_bound = transform(np.array(c.bound, ndmin=2)).item()
+                            metric_name_weights = [
+                                (name, w)
+                                for name, (_, w) in zip(
+                                    c.metric_names, c.metric_weights
+                                )
+                            ]
                             new_expr = build_constraint_expression_str(
-                                metric_weights=c.metric_weights,
+                                metric_weights=metric_name_weights,
                                 op=">=" if c.op == ComparisonOp.GEQ else "<=",
                                 bound=new_bound,
                                 relative=c.relative,
                             )
                             new_thresholds.append(
-                                OutcomeConstraint(expression=new_expr)
+                                OutcomeConstraint(
+                                    expression=new_expr,
+                                    metric_name_to_signature=c.metric_name_to_signature,
+                                )
                             )
                     else:
                         new_thresholds.append(c)
@@ -261,7 +266,7 @@ class PowerTransformY(Transform):
             if len(c.metric_names) > 1:
                 raise ValueError("ScalarizedOutcomeConstraint not supported here")
             else:
-                c_sig = self._get_metric_signature(c.metric_names[0])
+                c_sig = c.metric_signatures[0]
                 if c_sig in self.metric_signatures:
                     if c.relative:
                         raise ValueError("Relative constraints not supported here.")
@@ -274,7 +279,12 @@ class PowerTransformY(Transform):
                             bound=new_bound,
                             relative=c.relative,
                         )
-                        result.append(OutcomeConstraint(expression=new_expr))
+                        result.append(
+                            OutcomeConstraint(
+                                expression=new_expr,
+                                metric_name_to_signature=c.metric_name_to_signature,
+                            )
+                        )
                 else:
                     result.append(c)
         return result

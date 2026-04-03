@@ -805,7 +805,9 @@ def get_hypervolume_trace_of_outcomes_multi_objective(
     [0.0, 2.0, 0.0, 9.0]
     """
     objective = optimization_config.objective
-    for metric_name, weight in objective.metric_weights:
+    obj_names = objective.metric_names
+    obj_weights = [w for _, w in objective.metric_weights]
+    for metric_name, weight in zip(obj_names, obj_weights):
         if weight < 0:  # minimize
             df_wide[metric_name] *= -1
 
@@ -816,7 +818,7 @@ def get_hypervolume_trace_of_outcomes_multi_objective(
     }
     # First pass: collect explicit thresholds, mark missing ones with NaN.
     needs_inference = False
-    for metric_name, weight in objective.metric_weights:
+    for metric_name, weight in zip(obj_names, obj_weights):
         if metric_name in objective_thresholds_dict:
             threshold = objective_thresholds_dict[metric_name]
             if threshold.relative:
@@ -1403,12 +1405,17 @@ def infer_reference_point_from_experiment(
         inferred_rp = deepcopy(opt_config.objective_thresholds)
     else:
         inferred_rp = []
-        for metric_name, weight in opt_config.objective.metric_weights:
+        obj = opt_config.objective
+        names = obj.metric_names
+        weights = [w for _, w in obj.metric_weights]
+        name_to_sig = obj.metric_name_to_signature
+        for metric_name, weight in zip(names, weights):
             minimize = weight < 0
             op_str = "<=" if minimize else ">="
             ot = OutcomeConstraint(
                 expression=f"{metric_name} {op_str} 0.0",
                 relative=False,
+                metric_name_to_signature={metric_name: name_to_sig[metric_name]},
             )
             inferred_rp.append(ot)
 
@@ -1418,7 +1425,7 @@ def infer_reference_point_from_experiment(
         # `objective_orders`. If there is an objective that does not exist
         # in `obs_data`, a ValueError is raised.
         try:
-            objective_index = objective_orders.index(ot.metric_names[0])
+            objective_index = objective_orders.index(ot.metric_signatures[0])
         except ValueError:
             raise ValueError(
                 f"Metric {ot.metric_names[0]} does not exist in `obs_data`."
@@ -1427,12 +1434,18 @@ def infer_reference_point_from_experiment(
         # Note: Sympy interprets oo as infinity
         if ot.op == ComparisonOp.LEQ:
             processed_rp.append(
-                OutcomeConstraint(expression=f"{ot.metric_names[0]} <= oo")
+                OutcomeConstraint(
+                    expression=f"{ot.metric_names[0]} <= oo",
+                    metric_name_to_signature=ot.metric_name_to_signature,
+                )
             )
             multiplier[objective_index] = -1
         else:
             processed_rp.append(
-                OutcomeConstraint(expression=f"{ot.metric_names[0]} >= -oo")
+                OutcomeConstraint(
+                    expression=f"{ot.metric_names[0]} >= -oo",
+                    metric_name_to_signature=ot.metric_name_to_signature,
+                )
             )
             multiplier[objective_index] = 1
 
@@ -1503,7 +1516,8 @@ def infer_reference_point_from_experiment(
 
     return [
         OutcomeConstraint(
-            expression=f"{obj_threshold.metric_names[0]} {_op_to_str(obj_threshold.op)} {rp[objective_orders_reduced.index(obj_threshold.metric_names[0])].item()}"  # noqa: E501
+            expression=f"{obj_threshold.metric_names[0]} {_op_to_str(obj_threshold.op)} {rp[objective_orders_reduced.index(obj_threshold.metric_signatures[0])].item()}",  # noqa: E501
+            metric_name_to_signature=obj_threshold.metric_name_to_signature,
         )
         for obj_threshold in inferred_rp
     ]
@@ -1526,12 +1540,17 @@ def _get_objective_thresholds(
     if optimization_config.objective_thresholds is not None:
         return deepcopy(optimization_config.objective_thresholds)
     objective_thresholds = []
-    for metric_name, weight in optimization_config.objective.metric_weights:
+    obj = optimization_config.objective
+    names = obj.metric_names
+    weights = [w for _, w in obj.metric_weights]
+    name_to_sig = obj.metric_name_to_signature
+    for metric_name, weight in zip(names, weights):
         minimize = weight < 0
         op_str = "<=" if minimize else ">="
         ot = OutcomeConstraint(
             expression=f"{metric_name} {op_str} 0.0",
             relative=False,
+            metric_name_to_signature={metric_name: name_to_sig[metric_name]},
         )
         objective_thresholds.append(ot)
     return objective_thresholds

@@ -125,9 +125,7 @@ class StandardizeY(Transform):
         # Handle scalarized objective (linear combination of metrics).
         if optimization_config.objective.is_scalarized_objective:
             objective = optimization_config.objective
-            obj_sigs = [
-                self._get_metric_signature(n, adapter) for n in objective.metric_names
-            ]
+            obj_sigs = objective.metric_signatures
             self._check_metrics_available(obj_sigs, context="objective")
             old_weights = [w for _, w in objective.metric_weights]
             new_weights = self._transform_scalarized_weights(obj_sigs, old_weights)
@@ -136,7 +134,8 @@ class StandardizeY(Transform):
                 for (name, _), new_w in zip(objective.metric_weights, new_weights)
             ]
             optimization_config.objective = _build_objective_from_metric_weights(
-                new_metric_weights
+                new_metric_weights,
+                metric_name_to_signature=objective.metric_name_to_signature,
             )
 
         new_constraints = self._transform_constraints(
@@ -166,9 +165,7 @@ class StandardizeY(Transform):
                     f"StandardizeY transform does not support relative constraint {c}"
                 )
             if len(c.metric_names) > 1:
-                c_sigs = [
-                    self._get_metric_signature(n, adapter) for n in c.metric_names
-                ]
+                c_sigs = c.metric_signatures
                 self._check_metrics_available(c_sigs, context="constraint")
 
                 # Transform Σ(wi * yi) <= C to Σ(wi * σi * zi) <= C - Σ(wi * μi)
@@ -182,10 +179,7 @@ class StandardizeY(Transform):
                 )
                 new_bound = float(c.bound - agg_mean)
                 new_weights = self._transform_scalarized_weights(c_sigs, old_weights)
-                new_metric_weights = [
-                    (name, new_w)
-                    for (name, _), new_w in zip(c.metric_weights, new_weights)
-                ]
+                new_metric_weights = list(zip(c.metric_names, new_weights))
                 op_str = ">=" if c.op == ComparisonOp.GEQ else "<="
                 new_constraints.append(
                     OutcomeConstraint(
@@ -194,22 +188,27 @@ class StandardizeY(Transform):
                             op=op_str,
                             bound=new_bound,
                             relative=False,
-                        )
+                        ),
+                        metric_name_to_signature=c.metric_name_to_signature,
                     )
                 )
             else:
-                c_sig = self._get_metric_signature(c.metric_names[0], adapter)
+                c_sig = c.metric_signatures[0]
                 self._check_metrics_available([c_sig], context="constraint")
                 new_bound = float((c.bound - self.Ymean[c_sig]) / self.Ystd[c_sig])
                 op_str = ">=" if c.op == ComparisonOp.GEQ else "<="
+                metric_name_weights = [
+                    (name, w) for name, (_, w) in zip(c.metric_names, c.metric_weights)
+                ]
                 new_constraints.append(
                     OutcomeConstraint(
                         expression=build_constraint_expression_str(
-                            metric_weights=c.metric_weights,
+                            metric_weights=metric_name_weights,
                             op=op_str,
                             bound=new_bound,
                             relative=c.relative,
-                        )
+                        ),
+                        metric_name_to_signature=c.metric_name_to_signature,
                     )
                 )
         return new_constraints
@@ -238,7 +237,7 @@ class StandardizeY(Transform):
                 )
             if len(c.metric_names) > 1:
                 raise ValueError("ScalarizedOutcomeConstraint not supported")
-            c_sig = self._get_metric_signature(c.metric_names[0])
+            c_sig = c.metric_signatures[0]
             new_bound = float(c.bound * self.Ystd[c_sig] + self.Ymean[c_sig])
             op_str = ">=" if c.op == ComparisonOp.GEQ else "<="
             new_constraints.append(
@@ -248,7 +247,8 @@ class StandardizeY(Transform):
                         op=op_str,
                         bound=new_bound,
                         relative=c.relative,
-                    )
+                    ),
+                    metric_name_to_signature=c.metric_name_to_signature,
                 )
             )
         return new_constraints
@@ -275,11 +275,14 @@ class StandardizeY(Transform):
 
 def _build_objective_from_metric_weights(
     metric_weights: list[tuple[str, float]],
+    metric_name_to_signature: dict[str, str] | None = None,
 ) -> Objective:
     """Build a new Objective from (metric_name, weight) pairs.
 
     Args:
         metric_weights: List of (metric_name, weight) tuples.
+        metric_name_to_signature: Mapping from metric names to their canonical
+            signatures. If None, an identity mapping is used.
 
     Returns:
         A new Objective with the corresponding expression.
@@ -293,7 +296,12 @@ def _build_objective_from_metric_weights(
         else:
             parts.append(f"{w}*{name}")
     expr_str = " + ".join(parts).replace(" + -", " - ")
-    return Objective(expression=expr_str)
+    if metric_name_to_signature is None:
+        metric_name_to_signature = {name: name for name, _ in metric_weights}
+    return Objective(
+        expression=expr_str,
+        metric_name_to_signature=metric_name_to_signature,
+    )
 
 
 _TYKey = TypeVar("_TYKey", bound=str | tuple[str, TParamValue])

@@ -93,7 +93,7 @@ class LogY(Transform):
     ) -> OptimizationConfig:
         new_outcome_constraints = []
         for c in optimization_config.outcome_constraints:
-            sig = self._get_metric_signature(c.metric_names[0], adapter)
+            sig = c.metric_signatures[0]
             if sig in self.metric_signatures:
                 base_str = (
                     f"LogY transform cannot be applied to metric {c.metric_names[0]}"
@@ -114,7 +114,10 @@ class LogY(Transform):
                         relative=c.relative,
                     )
                     new_outcome_constraints.append(
-                        OutcomeConstraint(expression=new_expr)
+                        OutcomeConstraint(
+                            expression=new_expr,
+                            metric_name_to_signature=c.metric_name_to_signature,
+                        )
                     )
             else:
                 new_outcome_constraints.append(c)
@@ -123,7 +126,7 @@ class LogY(Transform):
         if isinstance(optimization_config, MultiObjectiveOptimizationConfig):
             new_thresholds = []
             for c in optimization_config.objective_thresholds:
-                sig = self._get_metric_signature(c.metric_names[0], adapter)
+                sig = c.metric_signatures[0]
                 if sig in self.metric_signatures:
                     base_str = (
                         f"LogY transform cannot be applied to metric "
@@ -139,13 +142,22 @@ class LogY(Transform):
                             f"got: {c.bound}."
                         )
                     else:
+                        metric_name_weights = [
+                            (name, w)
+                            for name, (_, w) in zip(c.metric_names, c.metric_weights)
+                        ]
                         new_expr = build_constraint_expression_str(
-                            metric_weights=c.metric_weights,
+                            metric_weights=metric_name_weights,
                             op=">=" if c.op == ComparisonOp.GEQ else "<=",
                             bound=np.log(c.bound),
                             relative=c.relative,
                         )
-                        new_thresholds.append(OutcomeConstraint(expression=new_expr))
+                        new_thresholds.append(
+                            OutcomeConstraint(
+                                expression=new_expr,
+                                metric_name_to_signature=c.metric_name_to_signature,
+                            )
+                        )
                 else:
                     new_thresholds.append(c)
             optimization_config.objective_thresholds = new_thresholds
@@ -209,7 +221,7 @@ class LogY(Transform):
     ) -> list[OutcomeConstraint]:
         result = []
         for c in outcome_constraints:
-            sig = self._get_metric_signature(c.metric_names[0])
+            sig = c.metric_signatures[0]
             if sig in self.metric_signatures:
                 if c.relative:
                     raise ValueError("Unexpected relative transform.")
@@ -219,7 +231,12 @@ class LogY(Transform):
                     bound=np.exp(c.bound),
                     relative=c.relative,
                 )
-                result.append(OutcomeConstraint(expression=new_expr))
+                result.append(
+                    OutcomeConstraint(
+                        expression=new_expr,
+                        metric_name_to_signature=c.metric_name_to_signature,
+                    )
+                )
             else:
                 result.append(c)
         return result

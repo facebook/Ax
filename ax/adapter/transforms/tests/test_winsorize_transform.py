@@ -372,7 +372,9 @@ class WinsorizeTransformTest(TestCase):
         # ScalarizedObjective(metrics=[m1, m2], weights=[1, -1], minimize=False)
         # since expressions are always maximized.
         experiment.optimization_config = OptimizationConfig(
-            objective=Objective(expression="m1 - m2")
+            objective=Objective(
+                expression="m1 - m2", metric_name_to_signature={"m1": "m1", "m2": "m2"}
+            )
         )
         adapter = Adapter(experiment=experiment, generator=Generator())
         transform = Winsorize(experiment_data=experiment_data, adapter=adapter)
@@ -382,7 +384,9 @@ class WinsorizeTransformTest(TestCase):
         )
         # Negated expression "-m1 + m2" is equivalent to minimize=True above.
         experiment.optimization_config = OptimizationConfig(
-            objective=Objective(expression="-m1 + m2")
+            objective=Objective(
+                expression="-m1 + m2", metric_name_to_signature={"m1": "m1", "m2": "m2"}
+            )
         )
         adapter = Adapter(experiment=experiment, generator=Generator())
         transform = Winsorize(experiment_data=experiment_data, adapter=adapter)

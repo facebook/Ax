@@ -888,7 +888,10 @@ class UtilsTest(TestCase):
         )
         exp.add_tracking_metric(pairwise_metric)
         exp.optimization_config = OptimizationConfig(
-            objective=Objective(expression=pairwise_name),
+            objective=Objective(
+                expression=pairwise_name,
+                metric_name_to_signature={pairwise_name: pairwise_name},
+            ),
         )
         exp.llm_messages = [LLMMessage(role="system", content="test")]
 
@@ -944,7 +947,10 @@ class UtilsTest(TestCase):
         )
         exp.add_tracking_metric(pairwise_metric)
         exp.optimization_config = OptimizationConfig(
-            objective=Objective(expression=pairwise_name),
+            objective=Objective(
+                expression=pairwise_name,
+                metric_name_to_signature={pairwise_name: pairwise_name},
+            ),
         )
         self.assertFalse(is_lilo_experiment(exp))
 

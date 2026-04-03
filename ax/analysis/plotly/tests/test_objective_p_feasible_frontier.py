@@ -43,6 +43,7 @@ class TestObjectivePFeasibleFrontierPlot(TestCase):
         oc = opt_config.outcome_constraints[0]
         opt_config.outcome_constraints[0] = OutcomeConstraint(
             expression=f"{oc.metric_names[0]} <= 10.0",
+            metric_name_to_signature={oc.metric_names[0]: oc.metric_names[0]},
         )
 
     def test_trial_statuses_behavior(self) -> None:
@@ -197,7 +198,13 @@ class TestObjectivePFeasibleFrontierPlot(TestCase):
             ),
         )
         opt_config.outcome_constraints = [
-            OutcomeConstraint(expression="1.0*branin_b + 1.0*branin_c <= 10.0"),
+            OutcomeConstraint(
+                expression="1.0*branin_b + 1.0*branin_c <= 10.0",
+                metric_name_to_signature={
+                    "branin_b": "branin_b",
+                    "branin_c": "branin_c",
+                },
+            ),
         ]
         self.assertIn(
             "Scalarized outcome constraints are not supported yet.",
@@ -211,7 +218,13 @@ class TestObjectivePFeasibleFrontierPlot(TestCase):
     def test_scalarized_objective_raises(self) -> None:
         """Scalarized objectives should be rejected in validate_applicable_state."""
         self.experiment.optimization_config = OptimizationConfig(
-            objective=Objective(expression="2*branin_a + -1*branin_b"),
+            objective=Objective(
+                expression="2*branin_a + -1*branin_b",
+                metric_name_to_signature={
+                    "branin_a": "branin_a",
+                    "branin_b": "branin_b",
+                },
+            ),
             outcome_constraints=none_throws(
                 self.experiment.optimization_config
             ).outcome_constraints,

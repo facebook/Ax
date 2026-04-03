@@ -78,8 +78,6 @@ class TestAdapterUtils(TestCase):
                 ),
             ],
         )
-        # For plain Metric objects, signature == name.
-        metric_name_to_signature = {m.name: m.name for m in [ma, mb, mc]}
         feas_hv = feasible_hypervolume(
             optimization_config,
             values={
@@ -108,7 +106,6 @@ class TestAdapterUtils(TestCase):
                     ]
                 ),
             },
-            metric_name_to_signature=metric_name_to_signature,
         )
         self.assertEqual(list(feas_hv), [0.0, 0.0, 1.0, 1.0])
 
@@ -540,15 +537,12 @@ class TestAdapterUtils(TestCase):
     def test_extract_objective_weight_matrix(self) -> None:
         m1, m2, m3 = Metric(name="m1"), Metric(name="m2"), Metric(name="m3")
         outcomes = ["m1", "m2", "m3"]
-        # For plain Metric objects, signature == name.
-        metric_name_to_signature = {name: name for name in outcomes}
 
         # Single Objective: one row, nonzero only in matching column.
         obj = Objective(metric=m1, minimize=False)
         result = extract_objective_weight_matrix(
             objective=obj,
             outcomes=outcomes,
-            metric_name_to_signature=metric_name_to_signature,
         )
         np.testing.assert_array_equal(result, [[1.0, 0.0, 0.0]])
 
@@ -557,7 +551,6 @@ class TestAdapterUtils(TestCase):
         result = extract_objective_weight_matrix(
             objective=obj_min,
             outcomes=outcomes,
-            metric_name_to_signature=metric_name_to_signature,
         )
         np.testing.assert_array_equal(result, [[0.0, -1.0, 0.0]])
 
@@ -566,7 +559,6 @@ class TestAdapterUtils(TestCase):
         result = extract_objective_weight_matrix(
             objective=scal,
             outcomes=outcomes,
-            metric_name_to_signature=metric_name_to_signature,
         )
         np.testing.assert_array_almost_equal(result, [[0.3, 0.0, 0.7]])
 
@@ -580,7 +572,6 @@ class TestAdapterUtils(TestCase):
         result = extract_objective_weight_matrix(
             objective=multi,
             outcomes=outcomes,
-            metric_name_to_signature=metric_name_to_signature,
         )
         np.testing.assert_array_equal(result, [[1.0, 0.0, 0.0], [0.0, 0.0, -1.0]])
 

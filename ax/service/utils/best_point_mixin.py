@@ -306,7 +306,9 @@ class BestPointMixin(ABC):
         objective = optimization_config.objective
         if isinstance(objective, ScalarizedObjective):
             value = 0
-            for metric_name, weight in objective.metric_weights:
+            names = objective.metric_names
+            weights = [w for _, w in objective.metric_weights]
+            for metric_name, weight in zip(names, weights):
                 value += means[metric_name] * weight
             return value
         else:

@@ -1031,17 +1031,14 @@ class TorchAdapter(Adapter):
         validate_transformed_optimization_config(
             optimization_config,
             self.outcomes,
-            metric_name_to_signature=self.metric_name_to_signature,
         )
         objective_weights = extract_objective_weight_matrix(
             objective=optimization_config.objective,
             outcomes=self.outcomes,
-            metric_name_to_signature=self.metric_name_to_signature,
         )
         outcome_constraints = extract_outcome_constraints(
             outcome_constraints=optimization_config.outcome_constraints,
             outcomes=self.outcomes,
-            metric_name_to_signature=self.metric_name_to_signature,
         )
         pruning_target_point = arm_to_np_array(
             arm=optimization_config.pruning_target_parameterization,
@@ -1057,7 +1054,6 @@ class TorchAdapter(Adapter):
                 objective_thresholds=optimization_config.objective_thresholds,
                 objective=optimization_config.objective,
                 outcomes=self.outcomes,
-                metric_name_to_signature=self.metric_name_to_signature,
             )
         else:
             objective_thresholds = None
@@ -1286,14 +1282,12 @@ class TorchAdapter(Adapter):
 def validate_transformed_optimization_config(
     optimization_config: OptimizationConfig,
     outcomes: list[str],
-    metric_name_to_signature: Mapping[str, str],
 ) -> None:
     """Validate optimization config against generator fitted outcomes.
 
     Args:
         optimization_config: Config to validate.
-        outcomes: List of metric names w/ valid generator fits.
-        metric_name_to_signature: Mapping from metric names to signatures.
+        outcomes: List of metric signatures w/ valid generator fits.
 
     Raises if:
             1. In the modeling layer, absolute constraints are required, however,
@@ -1313,24 +1307,19 @@ def validate_transformed_optimization_config(
                 " applied but was not."
             )
         if isinstance(c, ScalarizedOutcomeConstraint):
-            for c_name in c.metric_names:
-                c_sig = metric_name_to_signature[c_name]
+            for c_sig in c.metric_signatures:
                 if c_sig not in outcomes:
                     raise DataRequiredError(
                         f"Scalarized constraint metric component "
                         f"{c_sig} not found in fitted data."
                     )
         else:
-            c_sig = metric_name_to_signature[c.metric_names[0]]
+            c_sig = c.metric_signatures[0]
             if c_sig not in outcomes:
                 raise DataRequiredError(
                     f"Outcome constraint metric {c_sig} not found in fitted data."
                 )
-    obj_metric_signatures = [
-        metric_name_to_signature[name]
-        for name in optimization_config.objective.metric_names
-    ]
-    for obj_metric_signature in obj_metric_signatures:
+    for obj_metric_signature in optimization_config.objective.metric_signatures:
         if obj_metric_signature not in outcomes:
             raise DataRequiredError(
                 f"Objective metric {obj_metric_signature} not found in fitted data."

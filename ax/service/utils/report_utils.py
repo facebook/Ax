@@ -1348,7 +1348,9 @@ def maybe_extract_baseline_comparison_values(
     if experiment.is_moo_problem:
         objective = optimization_config.objective
         result_list = []
-        for metric_name, weight in objective.metric_weights:
+        obj_names = objective.metric_names
+        obj_weights = [w for _, w in objective.metric_weights]
+        for metric_name, weight in zip(obj_names, obj_weights):
             minimize = weight < 0
 
             # Check if metric column exists in both comparison and baseline dataframes

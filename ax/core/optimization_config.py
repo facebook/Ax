@@ -8,6 +8,7 @@
 
 from __future__ import annotations
 
+from collections.abc import Mapping
 from itertools import groupby
 from typing import Self
 
@@ -22,10 +23,16 @@ TRefPoint = list[OutcomeConstraint]
 
 # Sentinels for default arguments when None is a valid input
 _NO_OUTCOME_CONSTRAINTS: list[OutcomeConstraint] = [
-    OutcomeConstraint(expression="__placeholder__ >= 0")
+    OutcomeConstraint(
+        expression="__placeholder__ >= 0",
+        metric_name_to_signature={"__placeholder__": "__placeholder__"},
+    )
 ]
 _NO_OBJECTIVE_THRESHOLDS: list[OutcomeConstraint] = [
-    OutcomeConstraint(expression="__placeholder__ >= 0")
+    OutcomeConstraint(
+        expression="__placeholder__ >= 0",
+        metric_name_to_signature={"__placeholder__": "__placeholder__"},
+    )
 ]
 
 _NO_PRUNING_TARGET_PARAMETERIZATION = Arm(parameters={})
@@ -143,6 +150,33 @@ class OptimizationConfig(Base):
         for oc in self.all_constraints:
             names.update(oc.metric_names)
         return names
+
+    @property
+    def metric_name_to_signature(self) -> dict[str, str]:
+        """Aggregated mapping from all metric names to their canonical
+        signatures, across the objective and all constraints.
+        """
+        mapping: dict[str, str] = {}
+        mapping.update(self.objective.metric_name_to_signature)
+        for constraint in self.all_constraints:
+            mapping.update(constraint.metric_name_to_signature)
+        return mapping
+
+    def update_metric_name_to_signature_mapping(
+        self, mapping: Mapping[str, str]
+    ) -> None:
+        """Set the metric name to signature mapping on the objective and all
+        constraints.
+        """
+        self.objective.update_metric_name_to_signature_mapping(mapping)
+        for constraint in self.all_constraints:
+            constraint.update_metric_name_to_signature_mapping(mapping)
+
+    @property
+    def metric_signatures(self) -> set[str]:
+        """All metric signatures referenced by the objective and constraints."""
+        mapping = self.metric_name_to_signature
+        return {mapping[name] for name in self.metric_names}
 
     @property
     def is_moo_problem(self) -> bool:
@@ -416,7 +450,10 @@ class MultiObjectiveOptimizationConfig(OptimizationConfig):
             parts = [p.strip() for p in objective.expression.split(",")]
             objectives_by_name: dict[str, Objective] = {}
             for part in parts:
-                sub_obj = Objective(expression=part)
+                sub_obj = Objective(
+                    expression=part,
+                    metric_name_to_signature=objective.metric_name_to_signature,
+                )
                 for name in sub_obj.metric_names:
                     objectives_by_name[name] = sub_obj
 

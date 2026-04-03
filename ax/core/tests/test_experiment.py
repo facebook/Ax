@@ -305,9 +305,12 @@ class ExperimentTest(TestCase):
         # Add a new metric and set optimization config using it as constraint
         self.experiment.add_metric(Metric(name="m3"))
         opt_config = OptimizationConfig(
-            objective=Objective(expression="m1"),
+            objective=Objective(expression="m1", metric_name_to_signature={"m1": "m1"}),
             outcome_constraints=[
-                OutcomeConstraint(expression="m3 >= -0.25 * baseline")
+                OutcomeConstraint(
+                    expression="m3 >= -0.25 * baseline",
+                    metric_name_to_signature={"m3": "m3"},
+                )
             ],
         )
         self.experiment.optimization_config = opt_config
@@ -555,8 +558,13 @@ class ExperimentTest(TestCase):
 
         # Setting an opt config with an unregistered metric should raise
         new_opt_config = OptimizationConfig(
-            objective=Objective(expression="m1"),
-            outcome_constraints=[OutcomeConstraint(expression="unknown_metric >= 0.5")],
+            objective=Objective(expression="m1", metric_name_to_signature={"m1": "m1"}),
+            outcome_constraints=[
+                OutcomeConstraint(
+                    expression="unknown_metric >= 0.5",
+                    metric_name_to_signature={"unknown_metric": "unknown_metric"},
+                )
+            ],
         )
         with self.assertRaisesRegex(ValueError, "not found on experiment"):
             self.experiment.optimization_config = new_opt_config
@@ -1656,7 +1664,13 @@ class ExperimentTest(TestCase):
             name="test_experiment",
             search_space=SearchSpace(parameters=[]),
             optimization_config=OptimizationConfig(
-                objective=Objective(expression="2*metric_a + -3*metric_b"),
+                objective=Objective(
+                    expression="2*metric_a + -3*metric_b",
+                    metric_name_to_signature={
+                        "metric_a": "metric_a",
+                        "metric_b": "metric_b",
+                    },
+                ),
             ),
             tracking_metrics=[
                 Metric(name="metric_a", lower_is_better=False),

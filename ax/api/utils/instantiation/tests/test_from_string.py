@@ -21,7 +21,9 @@ class TestFromString(TestCase):
         self.assertEqual(
             only_objective,
             OptimizationConfig(
-                objective=Objective(expression="ne"),
+                objective=Objective(
+                    expression="ne", metric_name_to_signature={"ne": "ne"}
+                ),
             ),
         )
 
@@ -31,9 +33,13 @@ class TestFromString(TestCase):
         self.assertEqual(
             with_constraints,
             OptimizationConfig(
-                objective=Objective(expression="ne"),
+                objective=Objective(
+                    expression="ne", metric_name_to_signature={"ne": "ne"}
+                ),
                 outcome_constraints=[
-                    OutcomeConstraint(expression="qps >= 0"),
+                    OutcomeConstraint(
+                        expression="qps >= 0", metric_name_to_signature={"qps": "qps"}
+                    ),
                 ],
             ),
         )
@@ -45,12 +51,21 @@ class TestFromString(TestCase):
         self.assertEqual(
             with_constraints_and_objective_threshold,
             MultiObjectiveOptimizationConfig(
-                objective=Objective(expression="-ne, qps"),
+                objective=Objective(
+                    expression="-ne, qps",
+                    metric_name_to_signature={"ne": "ne", "qps": "qps"},
+                ),
                 outcome_constraints=[
-                    OutcomeConstraint(expression="flops <= 1000000"),
+                    OutcomeConstraint(
+                        expression="flops <= 1000000",
+                        metric_name_to_signature={"flops": "flops"},
+                    ),
                 ],
                 objective_thresholds=[
-                    OutcomeConstraint(expression="qps >= 1000"),
+                    OutcomeConstraint(
+                        expression="qps >= 1000",
+                        metric_name_to_signature={"qps": "qps"},
+                    ),
                 ],
             ),
         )

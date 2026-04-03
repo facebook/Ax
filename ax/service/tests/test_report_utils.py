@@ -450,7 +450,8 @@ class ReportUtilsTest(TestCase):
         # Create a new Objective rather than mutating _expression_str to
         # avoid stale _parsed cached_property.
         none_throws(exp.optimization_config)._objective = Objective(
-            expression=f"{names[0]}, -{names[1]}"
+            expression=f"{names[0]}, -{names[1]}",
+            metric_name_to_signature={n: n for n in names},
         )
         exp.get_metric(names[0]).lower_is_better = False
         assert_is_instance(
@@ -494,7 +495,8 @@ class ReportUtilsTest(TestCase):
         obj = none_throws(exp.optimization_config).objective
         names = obj.metric_names
         none_throws(exp.optimization_config)._objective = Objective(
-            expression=f"{names[0]}, -{names[1]}"
+            expression=f"{names[0]}, -{names[1]}",
+            metric_name_to_signature={n: n for n in names},
         )
         exp.trials[0].run()
         plots = get_standard_plots(
@@ -740,6 +742,9 @@ class ReportUtilsTest(TestCase):
         moo = none_throws(exp.optimization_config).objective
         names = list(moo.metric_names)
         moo._expression_str = f"-nonexistent_metric, -{names[1]}"
+        new_mapping = dict(moo._metric_name_to_signature)
+        new_mapping["nonexistent_metric"] = "nonexistent_metric"
+        moo._metric_name_to_signature = new_mapping
 
         result = maybe_extract_baseline_comparison_values(
             experiment=exp,
@@ -754,7 +759,10 @@ class ReportUtilsTest(TestCase):
         exp = get_branin_experiment(with_completed_trial=True)
         exp.add_tracking_metric(get_branin_metric(name="branin2"))
         exp._optimization_config = OptimizationConfig(
-            objective=Objective(expression="2*branin + -1*branin2"),
+            objective=Objective(
+                expression="2*branin + -1*branin2",
+                metric_name_to_signature={"branin": "branin", "branin2": "branin2"},
+            ),
         )
         with self.assertRaisesRegex(UnsupportedError, "not supported for scalarized"):
             _get_objective_trace_plot(experiment=exp)
@@ -767,7 +775,13 @@ class ReportUtilsTest(TestCase):
         exp.fetch_data()
         arm_names = list(exp.arms_by_name.keys())
         exp._optimization_config = OptimizationConfig(
-            objective=Objective(expression="2*branin_a + -1*branin_b"),
+            objective=Objective(
+                expression="2*branin_a + -1*branin_b",
+                metric_name_to_signature={
+                    "branin_a": "branin_a",
+                    "branin_b": "branin_b",
+                },
+            ),
         )
         with self.assertRaisesRegex(UnsupportedError, "not supported for scalarized"):
             maybe_extract_baseline_comparison_values(

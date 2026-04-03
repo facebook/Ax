@@ -22,12 +22,20 @@ from ax.utils.common.testutils import TestCase
 class OutcomeConstraintTest(TestCase):
     def setUp(self) -> None:
         super().setUp()
-        self.constraint = OutcomeConstraint(expression="foo >= 0", relative=False)
+        self.constraint = OutcomeConstraint(
+            expression="foo >= 0",
+            metric_name_to_signature={"foo": "foo"},
+            relative=False,
+        )
 
     def test_ExpressionInit(self) -> None:
         """Test creating constraints with expression strings."""
         # GEQ constraint
-        oc = OutcomeConstraint(expression="qps >= 700", relative=False)
+        oc = OutcomeConstraint(
+            expression="qps >= 700",
+            metric_name_to_signature={"qps": "qps"},
+            relative=False,
+        )
         self.assertEqual(oc.expression, "qps >= 700")
         self.assertEqual(oc.metric_names, ["qps"])
         self.assertEqual(oc.op, ComparisonOp.GEQ)
@@ -35,20 +43,31 @@ class OutcomeConstraintTest(TestCase):
         self.assertFalse(oc.relative)
 
         # LEQ constraint
-        oc2 = OutcomeConstraint(expression="loss <= 0.5", relative=False)
+        oc2 = OutcomeConstraint(
+            expression="loss <= 0.5",
+            metric_name_to_signature={"loss": "loss"},
+            relative=False,
+        )
         self.assertEqual(oc2.metric_names, ["loss"])
         self.assertEqual(oc2.op, ComparisonOp.LEQ)
         self.assertEqual(oc2.bound, 0.5)
         self.assertFalse(oc2.relative)
 
         # Relative constraint via * baseline
-        oc3 = OutcomeConstraint(expression="latency <= 1.05 * baseline")
+        oc3 = OutcomeConstraint(
+            expression="latency <= 1.05 * baseline",
+            metric_name_to_signature={"latency": "latency"},
+        )
         self.assertEqual(oc3.metric_names, ["latency"])
         self.assertEqual(oc3.bound, 5.0)  # (1.05 - 1) * 100
         self.assertTrue(oc3.relative)
 
         # relative kwarg without baseline in expression has no effect
-        oc4 = OutcomeConstraint(expression="qps >= 700", relative=True)
+        oc4 = OutcomeConstraint(
+            expression="qps >= 700",
+            metric_name_to_signature={"qps": "qps"},
+            relative=True,
+        )
         self.assertFalse(oc4.relative)  # expression has no baseline
 
         # No expression should error
@@ -59,7 +78,9 @@ class OutcomeConstraintTest(TestCase):
 
         # Missing operator should error
         with self.assertRaisesRegex(UserInputError, "Expected an inequality"):
-            OutcomeConstraint(expression="qps 700")
+            OutcomeConstraint(
+                expression="qps 700", metric_name_to_signature={"qps": "qps"}
+            )
 
     def test_DeprecatedMetricInit(self) -> None:
         """Test the deprecated metric-based init path."""
@@ -92,34 +113,69 @@ class OutcomeConstraintTest(TestCase):
             OutcomeConstraint(metric=metric, op=ComparisonOp.GEQ)
 
     def test_Eq(self) -> None:
-        constraint1 = OutcomeConstraint(expression="foo >= 0", relative=False)
-        constraint2 = OutcomeConstraint(expression="foo >= 0", relative=False)
+        constraint1 = OutcomeConstraint(
+            expression="foo >= 0",
+            metric_name_to_signature={"foo": "foo"},
+            relative=False,
+        )
+        constraint2 = OutcomeConstraint(
+            expression="foo >= 0",
+            metric_name_to_signature={"foo": "foo"},
+            relative=False,
+        )
         self.assertEqual(constraint1, constraint2)
 
-        constraint3 = OutcomeConstraint(expression="foo <= 0", relative=False)
+        constraint3 = OutcomeConstraint(
+            expression="foo <= 0",
+            metric_name_to_signature={"foo": "foo"},
+            relative=False,
+        )
         self.assertNotEqual(constraint1, constraint3)
 
     def test_Sortable(self) -> None:
-        constraint1 = OutcomeConstraint(expression="foo <= 0", relative=False)
-        constraint2 = OutcomeConstraint(expression="foo >= 0", relative=False)
+        constraint1 = OutcomeConstraint(
+            expression="foo <= 0",
+            metric_name_to_signature={"foo": "foo"},
+            relative=False,
+        )
+        constraint2 = OutcomeConstraint(
+            expression="foo >= 0",
+            metric_name_to_signature={"foo": "foo"},
+            relative=False,
+        )
         self.assertTrue(constraint1 < constraint2)
 
     def test_Clone(self) -> None:
-        oc = OutcomeConstraint(expression="foo >= 10", relative=False)
+        oc = OutcomeConstraint(
+            expression="foo >= 10",
+            metric_name_to_signature={"foo": "foo"},
+            relative=False,
+        )
         cloned = oc.clone()
         self.assertEqual(oc, cloned)
         self.assertIsNot(oc, cloned)
         self.assertEqual(oc.expression, cloned.expression)
 
     def test_Repr(self) -> None:
-        oc = OutcomeConstraint(expression="foo >= 10", relative=False)
+        oc = OutcomeConstraint(
+            expression="foo >= 10",
+            metric_name_to_signature={"foo": "foo"},
+            relative=False,
+        )
         self.assertEqual(str(oc), "OutcomeConstraint(foo >= 10)")
 
-        oc_rel = OutcomeConstraint(expression="bar <= 5 * baseline")
+        oc_rel = OutcomeConstraint(
+            expression="bar <= 5 * baseline",
+            metric_name_to_signature={"bar": "bar"},
+        )
         self.assertEqual(str(oc_rel), "OutcomeConstraint(bar <= 5 * baseline)")
 
     def test_DeprecatedMetricProperty(self) -> None:
-        oc = OutcomeConstraint(expression="foo >= 10", relative=False)
+        oc = OutcomeConstraint(
+            expression="foo >= 10",
+            metric_name_to_signature={"foo": "foo"},
+            relative=False,
+        )
 
         # Use a helper to prevent Pyre from resolving the attribute name
         # statically; the .metric attribute was intentionally removed.
@@ -131,7 +187,11 @@ class OutcomeConstraintTest(TestCase):
 
     def test_ScalarizedExpression(self) -> None:
         """Test a constraint with multiple weighted metrics."""
-        oc = OutcomeConstraint(expression="2*m1 + 3*m2 <= 10", relative=False)
+        oc = OutcomeConstraint(
+            expression="2*m1 + 3*m2 <= 10",
+            metric_name_to_signature={"m1": "m1", "m2": "m2"},
+            relative=False,
+        )
         self.assertEqual(sorted(oc.metric_names), ["m1", "m2"])
         self.assertEqual(oc.op, ComparisonOp.LEQ)
         self.assertEqual(oc.bound, 10.0)
@@ -142,19 +202,28 @@ class OutcomeConstraintTest(TestCase):
     def test_RelativeRoundTrip(self) -> None:
         """Test that relative constraints round-trip correctly."""
         # GEQ relative constraint
-        oc = OutcomeConstraint(expression="qps >= 0.95 * baseline")
+        oc = OutcomeConstraint(
+            expression="qps >= 0.95 * baseline",
+            metric_name_to_signature={"qps": "qps"},
+        )
         self.assertEqual(oc.bound, -5.0)
         self.assertEqual(oc.op, ComparisonOp.GEQ)
         self.assertTrue(oc.relative)
 
         # LEQ relative constraint
-        oc2 = OutcomeConstraint(expression="latency <= 1.05 * baseline")
+        oc2 = OutcomeConstraint(
+            expression="latency <= 1.05 * baseline",
+            metric_name_to_signature={"latency": "latency"},
+        )
         self.assertEqual(oc2.bound, 5.0)
         self.assertEqual(oc2.op, ComparisonOp.LEQ)
         self.assertTrue(oc2.relative)
 
         # Standalone baseline (multiplier = 1)
-        oc3 = OutcomeConstraint(expression="qps >= baseline")
+        oc3 = OutcomeConstraint(
+            expression="qps >= baseline",
+            metric_name_to_signature={"qps": "qps"},
+        )
         self.assertEqual(oc3.bound, 0.0)
         self.assertTrue(oc3.relative)
 
