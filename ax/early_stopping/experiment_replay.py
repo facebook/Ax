@@ -49,12 +49,10 @@ def replay_experiment(
     historical_experiment: Experiment,
     num_samples_per_curve: int,
     max_replay_trials: int,
-    metrics: list[Metric] | None = None,
-    max_pending_trials: int = MAX_PENDING_TRIALS,
-    early_stopping_strategy: BaseEarlyStoppingStrategy | None = None,
+    metrics: list[Metric],
+    max_pending_trials: int,
+    early_stopping_strategy: BaseEarlyStoppingStrategy | None,
     logging_level: int = logging.ERROR,
-    # Deprecated backward-compat kwarg
-    metric: Metric | None = None,
 ) -> Experiment | None:
     """Replay a historical experiment's data through an Orchestrator.
 
@@ -73,20 +71,7 @@ def replay_experiment(
             replay orchestrator.
         early_stopping_strategy: The early stopping strategy to evaluate.
         logging_level: Logging level for the orchestrator.
-        metric: Deprecated. Use ``metrics`` instead.
     """
-    # Backward compat: accept metric= (singular) and wrap in list
-    if metric is not None:
-        warnings.warn(
-            "The `metric` parameter is deprecated. Use `metrics` instead.",
-            DeprecationWarning,
-            stacklevel=2,
-        )
-        if metrics is not None:
-            raise ValueError("Cannot specify both `metric` and `metrics`.")
-        metrics = [metric]
-    if metrics is None:
-        raise ValueError("Must specify `metrics`.")
     warnings.warn(
         "The `num_samples_per_curve` parameter is deprecated and will be "
         "removed in a future release. The `step_size` parameter on "
@@ -195,10 +180,8 @@ def replay_experiment(
 
 def estimate_hypothetical_early_stopping_savings(
     experiment: Experiment,
-    metrics: list[Metric] | None = None,
+    metrics: list[Metric],
     max_pending_trials: int = MAX_PENDING_TRIALS,
-    # Deprecated backward-compat kwarg
-    metric: Metric | None = None,
 ) -> float:
     """Estimate hypothetical early stopping savings using experiment replay.
 
@@ -211,7 +194,6 @@ def estimate_hypothetical_early_stopping_savings(
         metrics: The metrics to use for early stopping replay.
         max_pending_trials: Maximum number of pending trials for the replay
             orchestrator. Defaults to 5.
-        metric: Deprecated. Use ``metrics`` instead.
 
     Returns:
         Estimated savings as a fraction (0.0 to 1.0).
@@ -224,18 +206,6 @@ def estimate_hypothetical_early_stopping_savings(
             - The experiment data does not have progression data for replay
             - The experiment replay fails due to invalid experiment state
     """
-    # Backward compat: accept metric= (singular) and wrap in list
-    if metric is not None:
-        warnings.warn(
-            "The `metric` parameter is deprecated. Use `metrics` instead.",
-            DeprecationWarning,
-            stacklevel=2,
-        )
-        if metrics is not None:
-            raise ValueError("Cannot specify both `metric` and `metrics`.")
-        metrics = [metric]
-    if metrics is None:
-        raise ValueError("Must specify `metrics`.")
     default_ess = get_default_ess_or_none(experiment=experiment)
     if default_ess is None:
         raise UnsupportedError(
