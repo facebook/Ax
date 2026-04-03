@@ -21,14 +21,13 @@ import ax.service.utils.early_stopping as early_stopping_utils
 from ax.adapter.adapter_utils import get_fixed_features_from_experiment
 from ax.adapter.base import Adapter
 from ax.core.base_trial import BaseTrial
-from ax.core.experiment import Experiment
-from ax.core.generator_run import GeneratorRun
-from ax.core.metric import Metric, MetricFetchE, MetricFetchResult
-from ax.core.multi_type_experiment import (
+from ax.core.experiment import (
+    Experiment,
     filter_trials_by_type,
     get_trial_indices_for_statuses,
-    MultiTypeExperiment,
 )
+from ax.core.generator_run import GeneratorRun
+from ax.core.metric import Metric, MetricFetchE, MetricFetchResult
 from ax.core.runner import Runner
 from ax.core.trial import Trial
 from ax.core.trial_status import TrialStatus
@@ -58,7 +57,7 @@ from ax.utils.common.logger import (
     set_ax_logger_levels,
 )
 from ax.utils.common.timeutils import current_timestamp_in_millis
-from pyre_extensions import assert_is_instance, none_throws
+from pyre_extensions import none_throws
 
 
 NOT_IMPLEMENTED_IN_BASE_CLASS_MSG = """ \
@@ -367,13 +366,16 @@ class Orchestrator(WithDBSettingsBase, BestPointMixin):
     def trial_type(self) -> str | None:
         """Trial type for the experiment this Orchestrator is running.
 
-        This returns None if the experiment is not a MultitypeExperiment
+        Returns ``None`` for single-type experiments (where
+        ``default_trial_type`` is ``None``). For multi-type experiments,
+        ``_validate_options`` guarantees that ``mt_experiment_trial_type`` is
+        set, so the returned value is always a valid ``str`` in that case.
 
         Returns:
             Trial type for the experiment this Orchestrator is running if the
-            experiment is a MultiTypeExperiment and None otherwise.
+            experiment has multiple trial types and None otherwise.
         """
-        if isinstance(self.experiment, MultiTypeExperiment):
+        if self.experiment.default_trial_type is not None:
             return self.options.mt_experiment_trial_type
         return None
 
@@ -381,7 +383,7 @@ class Orchestrator(WithDBSettingsBase, BestPointMixin):
     def running_trials(self) -> list[BaseTrial]:
         """Currently running trials.
 
-        Note: if the experiment is a MultiTypeExperiment, then this will
+        Note: if the experiment has multiple trial types, then this will
         only fetch trials of type `orchestrator.trial_type`.
 
 
@@ -397,7 +399,7 @@ class Orchestrator(WithDBSettingsBase, BestPointMixin):
     def trials(self) -> list[BaseTrial]:
         """All trials.
 
-        Note: if the experiment is a MultiTypeExperiment, then this will
+        Note: if the experiment has multiple trial types, then this will
         only fetch trials of type `orchestrator.trial_type`.
 
         Returns:
@@ -424,7 +426,7 @@ class Orchestrator(WithDBSettingsBase, BestPointMixin):
     def failed_abandoned_trial_indices(self) -> set[int]:
         """Failed or abandoned trials.
 
-        Note: if the experiment is a MultiTypeExperiment, then this will
+        Note: if the experiment has multiple trial types, then this will
         only fetch trials of type `orchestrator.trial_type`.
 
         Returns:
@@ -441,7 +443,7 @@ class Orchestrator(WithDBSettingsBase, BestPointMixin):
         """Running or staged trials on the experiment this Orchestrator is
         running.
 
-        Note: if the experiment is a MultiTypeExperiment, then this will
+        Note: if the experiment has multiple trial types, then this will
         only fetch trials of type `orchestrator.trial_type`.
 
         Returns:
@@ -457,7 +459,7 @@ class Orchestrator(WithDBSettingsBase, BestPointMixin):
     def candidate_trials(self) -> list[BaseTrial]:
         """Candidate trials on the experiment this Orchestrator is running.
 
-        Note: if the experiment is a MultiTypeExperiment, then this will
+        Note: if the experiment has multiple trial types, then this will
         only fetch trials of type `orchestrator.trial_type`.
 
         Returns:
@@ -472,7 +474,7 @@ class Orchestrator(WithDBSettingsBase, BestPointMixin):
     def trials_expecting_data(self) -> list[BaseTrial]:
         """Trials expecting data.
 
-        Note: if the experiment is a MultiTypeExperiment, then this will
+        Note: if the experiment has multiple trial types, then this will
         only fetch trials of type `orchestrator.trial_type`.
         """
         trials = []
@@ -488,9 +490,9 @@ class Orchestrator(WithDBSettingsBase, BestPointMixin):
         instance.
         """
         if self.trial_type is not None:
-            runner = assert_is_instance(
-                self.experiment, MultiTypeExperiment
-            ).runner_for_trial_type(trial_type=none_throws(self.trial_type))
+            runner = self.experiment.runner_for_trial_type(
+                trial_type=none_throws(self.trial_type)
+            )
         else:
             runner = self.experiment.runner
         if runner is None:
@@ -1626,10 +1628,11 @@ class Orchestrator(WithDBSettingsBase, BestPointMixin):
                     "will be unable to fetch intermediate results with which to "
                     "evaluate early stopping criteria."
                 )
-        if isinstance(self.experiment, MultiTypeExperiment):
+        if self.experiment.default_trial_type is not None:
             if options.mt_experiment_trial_type is None:
                 raise UserInputError(
-                    "Must specify `mt_experiment_trial_type` for MultiTypeExperiment."
+                    "Must specify `mt_experiment_trial_type` for experiments "
+                    "with multiple trial types."
                 )
             if not self.experiment.supports_trial_type(
                 options.mt_experiment_trial_type
@@ -1640,8 +1643,8 @@ class Orchestrator(WithDBSettingsBase, BestPointMixin):
                 )
         elif options.mt_experiment_trial_type is not None:
             raise UserInputError(
-                "`mt_experiment_trial_type` must be None unless the experiment is a "
-                "MultiTypeExperiment."
+                "`mt_experiment_trial_type` must be None unless the experiment "
+                "has multiple trial types."
             )
 
     def _get_max_pending_trials(self) -> int:
@@ -2040,9 +2043,9 @@ class Orchestrator(WithDBSettingsBase, BestPointMixin):
         try:
             kwargs = deepcopy(self.options.fetch_kwargs)
             if self.trial_type is not None:
-                metrics = assert_is_instance(
-                    self.experiment, MultiTypeExperiment
-                ).metrics_for_trial_type(trial_type=none_throws(self.trial_type))
+                metrics = self.experiment.metrics_for_trial_type(
+                    trial_type=none_throws(self.trial_type)
+                )
                 kwargs["metrics"] = metrics
             results = self.experiment.fetch_trials_data_results(
                 trial_indices=trial_indices,
