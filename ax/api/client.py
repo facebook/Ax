@@ -571,12 +571,18 @@ class Client(WithDBSettingsBase):
         progression: int | None = None,
     ) -> None:
         """
-        Attach data without indicating the trial is complete. Missing metrics are,
+        Attach data without indicating the trial is complete. Missing metrics are
         allowed, and unexpected metric values will be added to the Experiment as
         tracking metrics.
 
         Saves to database on completion if ``storage_config`` is present.
         """
+
+        # Auto-register any metrics present in raw_data but not yet on the
+        # experiment as tracking metrics, matching the docstring contract.
+        extra_metrics = set(raw_data.keys()) - set(self._experiment.metrics.keys())
+        if extra_metrics:
+            self.configure_tracking_metrics(metric_names=list(extra_metrics))
 
         # If no progression is provided assume the data is not timeseries-like and
         # set step=NaN

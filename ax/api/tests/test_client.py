@@ -41,7 +41,7 @@ from ax.core.trial import Trial
 from ax.core.trial_status import TrialStatus
 from ax.core.utils import compute_metric_availability, MetricAvailability
 from ax.early_stopping.strategies import PercentileEarlyStoppingStrategy
-from ax.exceptions.core import UnsupportedError, UserInputError
+from ax.exceptions.core import UnsupportedError
 from ax.storage.sqa_store.db import init_test_engine_and_session_factory
 from ax.storage.sqa_store.with_db_settings_base import (
     _save_generation_strategy_to_db_if_possible,
@@ -656,21 +656,14 @@ class TestClient(TestCase):
         )
 
         # With extra metrics
-        # Try and attach data for a metric that doesn't exist
-        with self.assertRaisesRegex(
-            UserInputError,
-            "Unable to find the metric signature for one or more metrics.",
-        ):
-            client.attach_data(
-                trial_index=trial_index,
-                raw_data={"foo": 1.0, "bar": 2.0},
-            )
-
-        client.configure_metrics(metrics=[DummyMetric(name="bar")])
+        # Extraneous metrics should be auto-registered as tracking metrics
+        self.assertNotIn("bar", client._experiment.metrics)
         client.attach_data(
             trial_index=trial_index,
             raw_data={"foo": 1.0, "bar": 2.0},
         )
+        self.assertIn("bar", client._experiment.metrics)
+        self.assertIn("bar", [m.name for m in client._experiment.tracking_metrics])
         self.assertEqual(
             client._experiment.trials[trial_index].status,
             TrialStatus.RUNNING,
