@@ -21,6 +21,7 @@ from ax.utils.testing.core_stubs import (
 )
 from pandas import DataFrame
 from pandas.testing import assert_frame_equal
+from pyre_extensions import none_throws
 
 
 def _make_map_data(
@@ -131,13 +132,16 @@ class MapDataReplayStateTest(TestCase):
 
         with self.subTest("empty_metric_data"):
             map_data = _make_map_data({0: {"m1": [(0.0, 1.0, 0.0), (1.0, 2.0, 0.0)]}})
+            # Request a metric signature that has no data
             state = MapDataReplayState(
                 map_data=map_data, metric_signatures=["m1", "m_empty"]
             )
+            # m1 should be present, m_empty should return empty
             self.assertTrue(state.has_trial_data(trial_index=0))
             self.assertTrue(
                 state.get_data(trial_index=0, metric_signature="m_empty").empty
             )
+            # min/max should be computed from m1 data only
             self.assertEqual(state.min_prog, 0.0)
             self.assertEqual(state.max_prog, 1.0)
 
@@ -207,6 +211,7 @@ class MapDataReplayStateTest(TestCase):
             self.assertTrue(state.is_trial_complete(trial_index=1))
 
         with self.subTest("heterogeneous_max_prog_completion"):
+            # Trial with lower max_prog completes before trial with higher
             map_data = _make_map_data(
                 {
                     0: {"m1": [(0.0, 1.0, 0.0), (0.5, 2.0, 0.0)]},
@@ -216,8 +221,10 @@ class MapDataReplayStateTest(TestCase):
             state = MapDataReplayState(
                 map_data=map_data, metric_signatures=["m1"], step_size=0.5
             )
+            # Global range [0.0, 1.0]; trial 0 max=0.5, trial 1 max=1.0
             state.advance_trial(trial_index=0)
             state.advance_trial(trial_index=1)
+            # cursor=0.5, curr_prog=0.5: trial 0 complete, trial 1 not
             self.assertTrue(state.is_trial_complete(trial_index=0))
             self.assertFalse(state.is_trial_complete(trial_index=1))
 
@@ -259,40 +266,41 @@ class MapDataReplayStateTest(TestCase):
 
 
 class MapDataReplayMetricTest(TestCase):
-    def test_map_replay(self) -> None:
+    def test_map_replay_uniform(self) -> None:
+        """Test metric data fetching with uniform steps."""
         historical_experiment = get_test_map_data_experiment(
             num_trials=2, num_fetches=2, num_complete=2
         )
         historical_data: Data = historical_experiment.lookup_data()
+        state = MapDataReplayState(
+            map_data=historical_data,
+            metric_signatures=["branin_map"],
+            step_size=1.0,
+        )
         replay_metric = MapDataReplayMetric(
             name="test_metric",
-            map_data=historical_data,
-            metric_name="branin_map",
+            replay_state=state,
+            metric_signature="branin_map",
             lower_is_better=True,
         )
-
-        # Verify offset and scaling factor for uniform step data.
-        self.assertEqual(replay_metric.offset, 0)
-        self.assertEqual(replay_metric.scaling_factor, 0.5)
 
         experiment = Experiment(
             name="dummy_experiment",
             search_space=get_branin_search_space(),
             optimization_config=OptimizationConfig(
-                objective=Objective(
-                    metric=replay_metric,
-                    minimize=True,
-                )
+                objective=Objective(metric=replay_metric, minimize=True)
             ),
             tracking_metrics=[replay_metric],
             runner=SyntheticRunner(),
         )
-        for i in range(0, 2):
+        for i in range(2):
             trial = experiment.new_trial()
             trial.add_arm(Arm(parameters={"x1": float(i), "x2": 0.0}))
             trial.run()
 
-        experiment.fetch_data()
+        state.advance_trial(trial_index=0)
+        state.advance_trial(trial_index=1)
+
         data = experiment.fetch_data()
         metric_name = [replay_metric.name] * 4
         expected_df = Data(
@@ -311,34 +319,36 @@ class MapDataReplayMetricTest(TestCase):
         assert_frame_equal(data.full_df, expected_df)
 
     def test_map_replay_non_uniform(self) -> None:
+        """Test metric data fetching with non-uniform steps and progressive
+        cursor advancement."""
         historical_experiment = get_test_map_data_experiment(
             num_trials=2, num_fetches=2, num_complete=2
         )
         full_df = historical_experiment.lookup_data().full_df
         full_df[MAP_KEY] = pd.Series([0.25, 0.0, 0.95, 0.25, 0.0, 1.0])
         historical_data = Data(df=full_df)
+        state = MapDataReplayState(
+            map_data=historical_data,
+            metric_signatures=["branin_map"],
+            step_size=0.5,
+        )
         replay_metric = MapDataReplayMetric(
             name="test_metric",
-            map_data=historical_data,
-            metric_name="branin_map",
+            replay_state=state,
+            metric_signature="branin_map",
             lower_is_better=True,
         )
-        self.assertEqual(replay_metric.offset, 0.25)
-        self.assertEqual(replay_metric.scaling_factor, 0.3625)
 
         experiment = Experiment(
             name="dummy_experiment",
             search_space=get_branin_search_space(),
             optimization_config=OptimizationConfig(
-                objective=Objective(
-                    metric=replay_metric,
-                    minimize=True,
-                )
+                objective=Objective(metric=replay_metric, minimize=True)
             ),
             tracking_metrics=[replay_metric],
             runner=SyntheticRunner(),
         )
-        for i in range(0, 2):
+        for i in range(2):
             trial = experiment.new_trial()
             trial.add_arm(Arm(parameters={"x1": float(i), "x2": 0.0}))
             trial.run()
@@ -358,13 +368,69 @@ class MapDataReplayMetricTest(TestCase):
             )
         ).full_df
 
-        data = experiment.fetch_data()
-        assert_frame_equal(
-            data.full_df, full_expected_df.iloc[[0, 2]].reset_index(drop=True)
+        with self.subTest("cursor_0_only_first_points"):
+            data = experiment.fetch_data()
+            assert_frame_equal(
+                data.full_df, full_expected_df.iloc[[0, 2]].reset_index(drop=True)
+            )
+
+        with self.subTest("cursor_0_5_intermediate"):
+            state.advance_trial(trial_index=0)
+            state.advance_trial(trial_index=1)
+            data = experiment.fetch_data()
+            assert_frame_equal(
+                data.full_df, full_expected_df.iloc[[0, 2]].reset_index(drop=True)
+            )
+
+        with self.subTest("cursor_1_0_all_data"):
+            state.advance_trial(trial_index=0)
+            state.advance_trial(trial_index=1)
+            data = experiment.fetch_data()
+            assert_frame_equal(data.full_df, full_expected_df)
+
+    def test_fetch_trial_data_multi_metric(self) -> None:
+        """Test that fetch_trial_data returns data filtered by metric
+        signature when multiple metrics share the same state."""
+        map_data = _make_map_data(
+            {
+                0: {
+                    "m1": [(0.0, 1.0, 0.0), (1.0, 2.0, 0.0)],
+                    "m2": [(0.0, 10.0, 0.0), (1.0, 20.0, 0.0)],
+                },
+            }
+        )
+        state = MapDataReplayState(
+            map_data=map_data, metric_signatures=["m1", "m2"], step_size=1.0
+        )
+        metric_m1 = MapDataReplayMetric(
+            name="replay_m1", replay_state=state, metric_signature="m1"
+        )
+        metric_m2 = MapDataReplayMetric(
+            name="replay_m2", replay_state=state, metric_signature="m2"
         )
 
-        data = experiment.fetch_data()
-        assert_frame_equal(data.full_df, full_expected_df.iloc[:3])
+        experiment = Experiment(
+            name="dummy",
+            search_space=get_branin_search_space(),
+            runner=SyntheticRunner(),
+        )
+        trial = experiment.new_trial()
+        trial.add_arm(Arm(parameters={"x1": 0.0, "x2": 0.0}))
+        trial.run()
+        state.advance_trial(trial_index=0)
 
-        data = experiment.fetch_data()
-        assert_frame_equal(data.full_df, full_expected_df.iloc[:4])
+        with self.subTest("m1_filtered"):
+            result_m1 = metric_m1.fetch_trial_data(trial=trial)
+            self.assertTrue(result_m1.is_ok())
+            df_m1 = none_throws(result_m1.ok).full_df
+            self.assertEqual(len(df_m1), 2)
+            self.assertTrue((df_m1["metric_name"] == "replay_m1").all())
+            self.assertListEqual(df_m1["mean"].tolist(), [1.0, 2.0])
+
+        with self.subTest("m2_filtered"):
+            result_m2 = metric_m2.fetch_trial_data(trial=trial)
+            self.assertTrue(result_m2.is_ok())
+            df_m2 = none_throws(result_m2.ok).full_df
+            self.assertEqual(len(df_m2), 2)
+            self.assertTrue((df_m2["metric_name"] == "replay_m2").all())
+            self.assertListEqual(df_m2["mean"].tolist(), [10.0, 20.0])
