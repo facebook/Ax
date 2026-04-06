@@ -112,14 +112,12 @@ class ThresholdEarlyStoppingStrategy(BaseEarlyStoppingStrategy):
         metric_signature, minimize = self._default_objective_and_direction(
             experiment=experiment
         )
-        data = self._lookup_and_validate_data(
+        df = self._lookup_and_validate(
             experiment=experiment, metric_signatures=[metric_signature]
         )
-        if data is None:
+        if df is None:
             # don't stop any trials if we don't get data back
             return {}
-
-        df = data.full_df
 
         # default checks on `min_progression` and `min_curves`; if not met, don't do
         # early stopping at all and return {}

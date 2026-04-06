@@ -6,7 +6,6 @@
 
 # pyre-strict
 
-from logging import Logger
 from typing import Any
 
 import numpy.typing as npt
@@ -14,10 +13,6 @@ import pandas as pd
 from ax.core.data import MAP_KEY
 from ax.core.experiment import Experiment
 from ax.core.trial_status import TrialStatus
-from ax.exceptions.core import UnsupportedError
-from ax.utils.common.logger import get_logger
-
-logger: Logger = get_logger(__name__)
 
 # Early stopping message constants for use in analysis and reporting
 EARLY_STOPPING_STATUS_MSG = (
@@ -163,40 +158,7 @@ def align_partial_results(
             )
         }
     """
-    missing_metrics = set(metrics) - set(df["metric_signature"])
-    if missing_metrics:
-        raise ValueError(f"Metrics {missing_metrics} not found in input dataframe")
-    # select relevant metrics
     df = df[df["metric_signature"].isin(metrics)]
-    # log some information about raw data
-    for m in metrics:
-        df_m = df[df["metric_signature"] == m]
-        if len(df_m) > 0:
-            logger.debug(
-                f"Metric {m} raw data has observations from "
-                f"{df_m[MAP_KEY].min()} to {df_m[MAP_KEY].max()}."
-            )
-        else:
-            logger.info(f"No data from metric {m} yet.")
-    # drop arm names (assumes 1:1 map between trial indices and arm names)
-    # NOTE: this is not the case for BatchTrials and repeated arms
-    # if we didn't catch that there were multiple arms per trial, the interpolation
-    # code below would interpolate between data points from potentially different arms,
-    # as only the trial index is used to differentiate distinct data for interpolation.
-    for trial_index, trial_group in df.groupby("trial_index"):
-        if len(trial_group["arm_name"].unique()) != 1:
-            raise UnsupportedError(
-                f"Trial {trial_index} has multiple arm names: "
-                f"{trial_group['arm_name'].unique()}."
-            )
-
-    for arm_name, arm_group in df.groupby("arm_name"):
-        if len(arm_group["trial_index"].unique()) != 1:
-            raise UnsupportedError(
-                f"Arm {arm_name} has multiple trial indices: "
-                f"{arm_group['trial_index'].unique()}."
-            )
-
     df = df.drop("arm_name", axis=1)
     # remove duplicates (same trial, metric, step), which can happen
     # if the same progression is erroneously reported more than once

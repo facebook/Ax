@@ -124,10 +124,63 @@ class PercentileEarlyStoppingStrategy(BaseEarlyStoppingStrategy):
                 "with multiple metrics."
             )
 
+    def should_stop_trials_early(
+        self,
+        trial_indices: set[int],
+        experiment: Experiment,
+        current_node: GenerationNode | None = None,
+    ) -> dict[int, str | None]:
+        """Decide whether trials should be stopped before evaluation is fully concluded.
+
+        Overrides the base class to compute aligned data once and reuse it for
+        both the safety check (``_is_harmful``) and the stopping decision
+        (``_should_stop_trials_early``), avoiding redundant data lookups and
+        alignment when ``check_safe=True``.
+
+        Args:
+            trial_indices: Indices of candidate trials to stop early.
+            experiment: Experiment that contains the trials and other contextual data.
+            current_node: The current ``GenerationNode`` on the ``GenerationStrategy``
+                used to generate trials for the ``Experiment``.
+
+        Returns:
+            A dictionary mapping trial indices that should be early stopped to
+            (optional) messages with the associated reason.
+        """
+        metric_signature, minimize = self._default_objective_and_direction(
+            experiment=experiment
+        )
+        aligned_frames = self._prepare_aligned_frames(
+            experiment=experiment, metric_signatures=[metric_signature]
+        )
+        if aligned_frames is None:
+            return {}
+
+        if self.check_safe and self._is_harmful(
+            trial_indices=trial_indices,
+            experiment=experiment,
+            metric_signature=metric_signature,
+            minimize=minimize,
+            aligned_frames=aligned_frames,
+        ):
+            return {}
+
+        return self._should_stop_trials_early(
+            trial_indices=trial_indices,
+            experiment=experiment,
+            current_node=current_node,
+            metric_signature=metric_signature,
+            minimize=minimize,
+            aligned_frames=aligned_frames,
+        )
+
     def _is_harmful(
         self,
         trial_indices: set[int],
         experiment: Experiment,
+        metric_signature: str,
+        minimize: bool,
+        aligned_frames: tuple[pd.DataFrame, pd.DataFrame],
     ) -> bool:
         """Check if the early stopping strategy would stop the globally best trial.
 
@@ -139,21 +192,16 @@ class PercentileEarlyStoppingStrategy(BaseEarlyStoppingStrategy):
         Args:
             trial_indices: Set of trial indices being evaluated (ignored).
             experiment: Experiment that contains the trials and other contextual data.
+            metric_signature: The metric signature to evaluate.
+            minimize: Whether the metric is being minimized.
+            aligned_frames: Pre-computed ``(long_df, multilevel_wide_df)`` tuple
+                from ``_prepare_aligned_frames``.
 
         Returns:
             True if the strategy would have stopped the globally best trial,
             False otherwise.
         """
-        metric_signature, minimize = self._default_objective_and_direction(
-            experiment=experiment
-        )
-        maybe_aligned_dataframes = self._prepare_aligned_data(
-            experiment=experiment, metric_signatures=[metric_signature]
-        )
-        if maybe_aligned_dataframes is None:
-            return False
-
-        long_df, multilevel_wide_df = maybe_aligned_dataframes
+        long_df, multilevel_wide_df = aligned_frames
         wide_df = multilevel_wide_df["mean"][metric_signature]
 
         # Get completed trials
@@ -179,6 +227,9 @@ class PercentileEarlyStoppingStrategy(BaseEarlyStoppingStrategy):
         self,
         trial_indices: set[int],
         experiment: Experiment,
+        metric_signature: str,
+        minimize: bool,
+        aligned_frames: tuple[pd.DataFrame, pd.DataFrame],
         current_node: GenerationNode | None = None,
     ) -> dict[int, str | None]:
         """Stop a trial if its performance is in the bottom `percentile_threshold`
@@ -187,6 +238,10 @@ class PercentileEarlyStoppingStrategy(BaseEarlyStoppingStrategy):
         Args:
             trial_indices: Indices of candidate trials to consider for early stopping.
             experiment: Experiment that contains the trials and other contextual data.
+            metric_signature: The metric signature to evaluate.
+            minimize: Whether the metric is being minimized.
+            aligned_frames: Pre-computed ``(long_df, multilevel_wide_df)`` tuple
+                from ``_prepare_aligned_frames``.
             current_node: The current ``GenerationNode`` on the ``GenerationStrategy``
                 used to generate trials for the ``Experiment``. Early stopping
                 strategies may utilize components of the current node when making
@@ -197,16 +252,7 @@ class PercentileEarlyStoppingStrategy(BaseEarlyStoppingStrategy):
             (optional) messages with the associated reason. An empty dictionary
             means no suggested updates to any trial's status.
         """
-        metric_signature, minimize = self._default_objective_and_direction(
-            experiment=experiment
-        )
-        maybe_aligned_dataframes = self._prepare_aligned_data(
-            experiment=experiment, metric_signatures=[metric_signature]
-        )
-        if maybe_aligned_dataframes is None:
-            return {}
-
-        long_df, multilevel_wide_df = maybe_aligned_dataframes
+        long_df, multilevel_wide_df = aligned_frames
         wide_df = multilevel_wide_df["mean"][metric_signature]
 
         # default checks on `min_progression` and `min_curves`; if not met, don't do

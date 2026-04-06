@@ -15,7 +15,7 @@ from typing import cast
 import pandas as pd
 from ax.adapter.data_utils import _maybe_normalize_map_key
 from ax.core.batch_trial import BatchTrial
-from ax.core.data import Data, MAP_KEY
+from ax.core.data import MAP_KEY
 from ax.core.experiment import Experiment
 from ax.core.trial_status import TrialStatus
 from ax.early_stopping.utils import (
@@ -217,13 +217,10 @@ class BaseEarlyStoppingStrategy(ABC, Base):
 
         return estimate_early_stopping_savings(experiment=experiment)
 
-    def _lookup_and_validate_data(
+    def _lookup_and_validate(
         self, experiment: Experiment, metric_signatures: list[str]
-    ) -> Data | None:
-        """Looks up and validates the `Data` used for early stopping that
-        is associated with `metric_signatures`. This function also handles normalizing
-        progressions.
-        """
+    ) -> pd.DataFrame | None:
+        """Look up and validate experiment data for early stopping."""
         data = experiment.lookup_data()
         if data.df.empty:
             logger.info(
@@ -250,6 +247,17 @@ class BaseEarlyStoppingStrategy(ABC, Base):
         full_df = data.full_df
         full_df = full_df[full_df["metric_signature"].isin(metric_signatures)]
 
+        # Check that no arm name appears across multiple trials.
+        # This can happen with duplicate arm parameterizations that reuse arm
+        # names across trials, which would corrupt the alignment step.
+        arm_trial_counts = full_df.groupby("arm_name")["trial_index"].nunique()
+        bad_arms = arm_trial_counts[arm_trial_counts > 1]
+        if len(bad_arms) > 0:
+            raise UnsupportedError(
+                f"Arm(s) {bad_arms.index.tolist()} appear across multiple "
+                f"trial indices. Each arm name must map to exactly one trial."
+            )
+
         # Drop rows with NaN values in MAP_KEY column to prevent issues in
         # align_partial_results which uses MAP_KEY as the pivot index
         nan_mask = full_df[MAP_KEY].isna()
@@ -264,7 +272,7 @@ class BaseEarlyStoppingStrategy(ABC, Base):
 
         if self.normalize_progressions:
             full_df = _maybe_normalize_map_key(df=full_df)
-        return Data(df=full_df)
+        return full_df
 
     @staticmethod
     def _log_and_return_no_data(
@@ -547,7 +555,7 @@ class BaseEarlyStoppingStrategy(ABC, Base):
 
         return directions
 
-    def _prepare_aligned_data(
+    def _prepare_aligned_frames(
         self, experiment: Experiment, metric_signatures: list[str]
     ) -> tuple[pd.DataFrame, pd.DataFrame] | None:
         """Get raw experiment data and align it for early stopping evaluation.
@@ -564,15 +572,15 @@ class BaseEarlyStoppingStrategy(ABC, Base):
               with first level ["mean", "sem"] and second level metric signatures
             Returns None if data cannot be retrieved or aligned.
         """
-        data = self._lookup_and_validate_data(
+        long_df = self._lookup_and_validate(
             experiment=experiment, metric_signatures=metric_signatures
         )
-        if data is None:
+        if long_df is None:
             return None
 
         try:
             multilevel_wide_df = align_partial_results(
-                df=(long_df := data.full_df),
+                df=long_df,
                 metrics=metric_signatures,
             )
         except Exception as e:
@@ -651,18 +659,15 @@ class ModelBasedEarlyStoppingStrategy(BaseEarlyStoppingStrategy):
         )
         self.min_progression_modeling = min_progression_modeling
 
-    def _lookup_and_validate_data(
+    def _lookup_and_validate(
         self, experiment: Experiment, metric_signatures: list[str]
-    ) -> Data | None:
-        """Looks up and validates the `Data` used for early stopping that
-        is associated with `metric_signatures`. This function also handles normalizing
-        progressions.
+    ) -> pd.DataFrame | None:
+        """Look up and validate experiment data for early stopping, applying
+        ``min_progression_modeling`` filter if configured.
         """
-        map_data = super()._lookup_and_validate_data(
+        df = super()._lookup_and_validate(
             experiment=experiment, metric_signatures=metric_signatures
         )
-        if map_data is not None and self.min_progression_modeling is not None:
-            full_df = map_data.full_df
-            full_df = full_df[full_df[MAP_KEY] >= self.min_progression_modeling]
-            map_data = Data(df=full_df)
-        return map_data
+        if df is not None and self.min_progression_modeling is not None:
+            df = df[df[MAP_KEY] >= self.min_progression_modeling]
+        return df
