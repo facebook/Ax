@@ -1346,20 +1346,39 @@ class Orchestrator(WithDBSettingsBase, BestPointMixin):
         # stopping decisions are based on trial data. This avoids redundant
         # expensive checks when no new data has been fetched.
         if len(trial_indices_with_new_data) > 0:
-            stop_trial_info = early_stopping_utils.should_stop_trials_early(
+            stop_arm_info = early_stopping_utils.should_stop_arms(
                 early_stopping_strategy=self.options.early_stopping_strategy,
                 trial_indices=self.running_trial_indices,
                 experiment=self.experiment,
                 current_node=self.generation_strategy._curr,
             )
+            # For each trial, check if ALL arms are stopped.
+            # Partial arm stopping is not yet supported.
+            trials_to_stop: list[int] = []
+            for trial_idx, arm_decisions in stop_arm_info.items():
+                trial = self.experiment.trials[trial_idx]
+                trial_arm_names = {a.name for a in trial.arms}
+                if set(arm_decisions.keys()) == trial_arm_names:
+                    trials_to_stop.append(trial_idx)
+                else:
+                    raise NotImplementedError(
+                        "Partial arm stopping is not yet supported. "
+                        f"Trial {trial_idx} has arms {trial_arm_names} but "
+                        f"only arms {set(arm_decisions.keys())} were stopped. "
+                        "Runner.stop_arm() is needed."
+                    )
+            # Build reasons list from first arm's reason for each trial
+            reasons = [
+                next(iter(stop_arm_info[idx].values())) for idx in trials_to_stop
+            ]
             self.experiment.stop_trial_runs(
                 trials=[
-                    self.experiment.trials[trial_idx] for trial_idx in stop_trial_info
+                    self.experiment.trials[trial_idx] for trial_idx in trials_to_stop
                 ],
-                reasons=list(stop_trial_info.values()),
+                reasons=reasons,
             )
-            if len(stop_trial_info) > 0:
-                trial_indices_with_updated_data_or_status.update(set(stop_trial_info))
+            if len(trials_to_stop) > 0:
+                trial_indices_with_updated_data_or_status.update(set(trials_to_stop))
                 updated_any_trial_status = True
 
         # UPDATE TRIALS IN DB

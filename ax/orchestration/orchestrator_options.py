@@ -94,7 +94,7 @@ class OrchestratorOptions:
         debug_log_run_metadata: Whether to log run_metadata for debugging purposes.
         early_stopping_strategy: A ``BaseEarlyStoppingStrategy`` that determines
             whether a trial should be stopped given the current state of
-            the experiment. Used in ``should_stop_trials_early``.
+            the experiment. Used in ``should_stop_arms``.
         global_stopping_strategy: A ``BaseGlobalStoppingStrategy`` that determines
             whether the full optimization should be stopped or not.
         suppress_storage_errors_after_retries: Whether to fully suppress SQL

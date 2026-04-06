@@ -7,8 +7,11 @@
 # pyre-strict
 
 from ax.early_stopping.strategies.base import (
+    BaseArmStoppingStrategy,
     BaseEarlyStoppingStrategy,
+    ModelBasedArmStoppingStrategy,
     ModelBasedEarlyStoppingStrategy,
+    TArmsToStop,
 )
 from ax.early_stopping.strategies.logical import (
     AndEarlyStoppingStrategy,
@@ -20,8 +23,11 @@ from ax.early_stopping.strategies.threshold import ThresholdEarlyStoppingStrateg
 
 
 __all__ = [
+    "BaseArmStoppingStrategy",
     "BaseEarlyStoppingStrategy",
+    "ModelBasedArmStoppingStrategy",
     "ModelBasedEarlyStoppingStrategy",
+    "TArmsToStop",
     "PercentileEarlyStoppingStrategy",
     "ThresholdEarlyStoppingStrategy",
     "AndEarlyStoppingStrategy",

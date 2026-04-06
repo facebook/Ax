@@ -9,7 +9,7 @@ from collections.abc import Sequence
 from functools import reduce
 
 from ax.core.experiment import Experiment
-from ax.early_stopping.strategies.base import BaseEarlyStoppingStrategy
+from ax.early_stopping.strategies.base import BaseEarlyStoppingStrategy, TArmsToStop
 from ax.exceptions.core import UserInputError
 from ax.generation_strategy.generation_node import GenerationNode
 
@@ -41,25 +41,35 @@ class AndEarlyStoppingStrategy(LogicalEarlyStoppingStrategy):
             experiment=experiment,
         )
 
-    def _should_stop_trials_early(
+    def _should_stop_arms(
         self,
         trial_indices: set[int],
         experiment: Experiment,
         current_node: GenerationNode | None = None,
-    ) -> dict[int, str | None]:
-        left = self.left.should_stop_trials_early(
+    ) -> TArmsToStop:
+        left = self.left.should_stop_arms(
             trial_indices=trial_indices,
             experiment=experiment,
             current_node=current_node,
         )
-        right = self.right.should_stop_trials_early(
+        right = self.right.should_stop_arms(
             trial_indices=trial_indices,
             experiment=experiment,
             current_node=current_node,
         )
-        return {
-            trial: f"{left[trial]}, {right[trial]}" for trial in left if trial in right
-        }
+        # Combine at the arm level: only stop arms that both strategies agree on
+        result: TArmsToStop = {}
+        for trial in left:
+            if trial in right:
+                combined_arms: dict[str, str | None] = {}
+                for arm_name in left[trial]:
+                    if arm_name in right[trial]:
+                        combined_arms[arm_name] = (
+                            f"{left[trial][arm_name]}, {right[trial][arm_name]}"
+                        )
+                if combined_arms:
+                    result[trial] = combined_arms
+        return result
 
 
 class OrEarlyStoppingStrategy(LogicalEarlyStoppingStrategy):
@@ -91,21 +101,36 @@ class OrEarlyStoppingStrategy(LogicalEarlyStoppingStrategy):
             experiment=experiment,
         )
 
-    def _should_stop_trials_early(
+    def _should_stop_arms(
         self,
         trial_indices: set[int],
         experiment: Experiment,
         current_node: GenerationNode | None = None,
-    ) -> dict[int, str | None]:
-        return {
-            **self.left.should_stop_trials_early(
-                trial_indices=trial_indices,
-                experiment=experiment,
-                current_node=current_node,
-            ),
-            **self.right.should_stop_trials_early(
-                trial_indices=trial_indices,
-                experiment=experiment,
-                current_node=current_node,
-            ),
-        }
+    ) -> TArmsToStop:
+        left = self.left.should_stop_arms(
+            trial_indices=trial_indices,
+            experiment=experiment,
+            current_node=current_node,
+        )
+        right = self.right.should_stop_arms(
+            trial_indices=trial_indices,
+            experiment=experiment,
+            current_node=current_node,
+        )
+        # Merge at arm level: stop arms that either strategy wants to stop
+        result: TArmsToStop = {}
+        all_trials = set(left) | set(right)
+        for trial in all_trials:
+            left_arms = left.get(trial, {})
+            right_arms = right.get(trial, {})
+            merged_arms: dict[str, str | None] = {}
+            for arm_name in set(left_arms) | set(right_arms):
+                reasons = []
+                if arm_name in left_arms and left_arms[arm_name] is not None:
+                    reasons.append(left_arms[arm_name])
+                if arm_name in right_arms and right_arms[arm_name] is not None:
+                    reasons.append(right_arms[arm_name])
+                merged_arms[arm_name] = ", ".join(reasons) if reasons else None
+            if merged_arms:
+                result[trial] = merged_arms
+        return result

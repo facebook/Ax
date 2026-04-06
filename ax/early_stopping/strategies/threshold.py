@@ -12,7 +12,7 @@ from logging import Logger
 import pandas as pd
 from ax.core.data import MAP_KEY
 from ax.core.experiment import Experiment
-from ax.early_stopping.strategies.base import BaseEarlyStoppingStrategy
+from ax.early_stopping.strategies.base import BaseEarlyStoppingStrategy, TArmsToStop
 from ax.exceptions.core import UnsupportedError
 from ax.generation_strategy.generation_node import GenerationNode
 from ax.utils.common.logger import get_logger
@@ -87,12 +87,12 @@ class ThresholdEarlyStoppingStrategy(BaseEarlyStoppingStrategy):
     ) -> bool:
         return False
 
-    def _should_stop_trials_early(
+    def _should_stop_arms(
         self,
         trial_indices: set[int],
         experiment: Experiment,
         current_node: GenerationNode | None = None,
-    ) -> dict[int, str | None]:
+    ) -> TArmsToStop:
         """Stop a trial if its performance doesn't reach a pre-specified threshold
         by `min_progression`.
 
@@ -105,9 +105,9 @@ class ThresholdEarlyStoppingStrategy(BaseEarlyStoppingStrategy):
                 stopping decisions.
 
         Returns:
-            A dictionary mapping trial indices that should be early stopped to
-            (optional) messages with the associated reason. An empty dictionary
-            means no suggested updates to any trial's status.
+            A dictionary mapping trial indices to arm-level stopping decisions.
+            Each value is a dict mapping arm names to (optional) reason strings.
+            An empty dictionary means no suggested updates.
         """
         metric_signature, minimize = self._default_objective_and_direction(
             experiment=experiment
@@ -129,20 +129,18 @@ class ThresholdEarlyStoppingStrategy(BaseEarlyStoppingStrategy):
             return {}
 
         df_objective = df[df["metric_signature"] == metric_signature]
-        decisions = {
-            trial_index: self._should_stop_trial_early(
+        result: TArmsToStop = {}
+        for trial_index in trial_indices:
+            should_stop, reason = self._should_stop_trial_early(
                 trial_index=trial_index,
                 experiment=experiment,
                 df=df_objective,
                 minimize=minimize,
             )
-            for trial_index in trial_indices
-        }
-        return {
-            trial_index: reason
-            for trial_index, (should_stop, reason) in decisions.items()
-            if should_stop
-        }
+            if should_stop:
+                trial = experiment.trials[trial_index]
+                result[trial_index] = {a.name: reason for a in trial.arms}
+        return result
 
     def _should_stop_trial_early(
         self,

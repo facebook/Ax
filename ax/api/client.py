@@ -659,17 +659,17 @@ class Client(WithDBSettingsBase):
 
         es_response = none_throws(
             self._early_stopping_strategy_or_choose()
-        ).should_stop_trials_early(
+        ).should_stop_arms(
             trial_indices={trial_index},
             experiment=self._experiment,
             current_node=self._generation_strategy_or_choose()._curr,
         )
 
         if trial_index in es_response:
-            logger.info(
-                f"Trial {trial_index} should be stopped early: "
-                f"{es_response[trial_index]}"
-            )
+            # Extract reason from arm-level decisions (use first arm's reason)
+            arm_decisions = es_response[trial_index]
+            reason = next(iter(arm_decisions.values())) if arm_decisions else None
+            logger.info(f"Trial {trial_index} should be stopped early: {reason}")
             return True
 
         return False

@@ -42,6 +42,7 @@ from ax.core.types import (
 )
 from ax.core.utils import compute_metric_availability, MetricAvailability
 from ax.early_stopping.strategies import BaseEarlyStoppingStrategy
+from ax.early_stopping.strategies.base import TArmsToStop
 from ax.early_stopping.utils import estimate_early_stopping_savings
 from ax.exceptions.constants import CHOLESKY_ERROR_ANNOTATION
 from ax.exceptions.core import (
@@ -168,7 +169,7 @@ class AxClient(AnalysisBase, BestPointMixin, InstantiationBase):
 
         early_stopping_strategy: A ``BaseEarlyStoppingStrategy`` that determines
             whether a trial should be stopped given the current state of
-            the experiment. Used in ``should_stop_trials_early``.
+            the experiment. Used in ``should_stop_arms``.
 
         global_stopping_strategy: A ``BaseGlobalStoppingStrategy`` that determines
             whether the full optimization should be stopped or not.
@@ -1432,24 +1433,22 @@ class AxClient(AnalysisBase, BestPointMixin, InstantiationBase):
             none_throws(self.get_trial(trial_index).arm).parameters == parameterization
         )
 
-    def should_stop_trials_early(
-        self, trial_indices: set[int]
-    ) -> dict[int, str | None]:
+    def should_stop_arms(self, trial_indices: set[int]) -> TArmsToStop:
         """Evaluate whether to early-stop running trials.
 
         Args:
             trial_indices: Indices of trials to consider for early stopping.
 
         Returns:
-            A dictionary mapping trial indices that should be early stopped to
-            (optional) messages with the associated reason.
+            A dictionary mapping trial indices to arm-level stopping decisions.
+            Each value is a dict mapping arm names to (optional) reason strings.
         """
         if self._early_stopping_strategy is None:
             logger.warning(
                 "No early_stopping_strategy was passed to AxClient. "
                 "Defaulting to never stopping any trials early."
             )
-        return early_stopping_utils.should_stop_trials_early(
+        return early_stopping_utils.should_stop_arms(
             early_stopping_strategy=self._early_stopping_strategy,
             trial_indices=trial_indices,
             experiment=self.experiment,

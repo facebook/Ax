@@ -72,6 +72,7 @@ from ax.core.types import (
 from ax.early_stopping.strategies import (
     BaseEarlyStoppingStrategy,
     PercentileEarlyStoppingStrategy,
+    TArmsToStop,
     ThresholdEarlyStoppingStrategy,
 )
 from ax.early_stopping.strategies.logical import (
@@ -2782,9 +2783,12 @@ def get_or_early_stopping_strategy() -> OrEarlyStoppingStrategy:
 
 
 class DummyEarlyStoppingStrategy(BaseEarlyStoppingStrategy):
-    def __init__(self, early_stop_trials: dict[int, str | None] | None = None) -> None:
+    def __init__(
+        self,
+        early_stop_trials: TArmsToStop | None = None,
+    ) -> None:
         super().__init__()
-        self.early_stop_trials: dict[int, str | None] = early_stop_trials or {}
+        self.early_stop_trials: TArmsToStop = early_stop_trials or {}
 
     def _is_harmful(
         self,
@@ -2793,12 +2797,12 @@ class DummyEarlyStoppingStrategy(BaseEarlyStoppingStrategy):
     ) -> bool:
         return False
 
-    def _should_stop_trials_early(
+    def _should_stop_arms(
         self,
         trial_indices: set[int],
         experiment: Experiment,
         current_node: GenerationNode | None = None,
-    ) -> dict[int, str | None]:
+    ) -> TArmsToStop:
         return self.early_stop_trials
 
 

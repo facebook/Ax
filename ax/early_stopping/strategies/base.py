@@ -14,7 +14,6 @@ from typing import cast
 
 import pandas as pd
 from ax.adapter.data_utils import _maybe_normalize_map_key
-from ax.core.batch_trial import BatchTrial
 from ax.core.data import Data, MAP_KEY
 from ax.core.experiment import Experiment
 from ax.core.trial_status import TrialStatus
@@ -36,10 +35,19 @@ logger: Logger = get_logger(__name__)
 # backwards compatibility when loading old strategies.
 REMOVED_EARLY_STOPPING_STRATEGY_KWARGS: set[str] = {"trial_indices_to_ignore"}
 
+# Type alias for arm-level stopping decisions:
+# trial_index -> {arm_name -> optional_reason}
+TArmsToStop = dict[int, dict[str, str | None]]
 
-class BaseEarlyStoppingStrategy(ABC, Base):
+
+class BaseArmStoppingStrategy(ABC, Base):
     """Interface for heuristics that halt trials early, typically based on early
-    results from that trial."""
+    results from that trial.
+
+    Stopping decisions are made at the arm level: the return type of
+    ``should_stop_arms`` is ``dict[int, dict[str, str | None]]``
+    mapping ``trial_index -> {arm_name -> optional_reason}``. For single-arm
+    ``Trial`` objects this dict will contain exactly one entry per trial."""
 
     def __init__(
         self,
@@ -120,12 +128,12 @@ class BaseEarlyStoppingStrategy(ABC, Base):
         self._last_check_progressions: dict[int, float] = {}
 
     @abstractmethod
-    def _should_stop_trials_early(
+    def _should_stop_arms(
         self,
         trial_indices: set[int],
         experiment: Experiment,
         current_node: GenerationNode | None = None,
-    ) -> dict[int, str | None]:
+    ) -> TArmsToStop:
         """Decide whether to complete trials before evaluation is fully concluded.
 
         Typical examples include stopping a machine learning model's training, or
@@ -140,8 +148,9 @@ class BaseEarlyStoppingStrategy(ABC, Base):
                 stopping decisions.
 
         Returns:
-            A dictionary mapping trial indices that should be early stopped to
-            (optional) messages with the associated reason.
+            A dictionary mapping trial indices to arm-level stopping decisions.
+            Each value is a dict mapping arm names to (optional) reason strings
+            for arms that should be stopped.
         """
         pass
 
@@ -163,12 +172,12 @@ class BaseEarlyStoppingStrategy(ABC, Base):
         """
         pass
 
-    def should_stop_trials_early(
+    def should_stop_arms(
         self,
         trial_indices: set[int],
         experiment: Experiment,
         current_node: GenerationNode | None = None,
-    ) -> dict[int, str | None]:
+    ) -> TArmsToStop:
         """Decide whether trials should be stopped before evaluation is fully concluded.
         This method identifies trials that should be stopped based on early signals that
         are indicative of final performance. Early stopping is not applied if doing so
@@ -183,17 +192,17 @@ class BaseEarlyStoppingStrategy(ABC, Base):
                 stopping decisions.
 
         Returns:
-            A dictionary mapping trial indices that should be early stopped to
-            (optional) messages with the associated reason. Returns an empty
-            dictionary if early stopping would be harmful (when safety check is
-            enabled).
+            A dictionary mapping trial indices to arm-level stopping decisions.
+            Each value is a dict mapping arm names to (optional) reason strings
+            for arms that should be stopped. Returns an empty dictionary if
+            early stopping would be harmful (when safety check is enabled).
         """
         if self.check_safe and self._is_harmful(
             trial_indices=trial_indices,
             experiment=experiment,
         ):
             return {}
-        return self._should_stop_trials_early(
+        return self._should_stop_arms(
             trial_indices=trial_indices,
             experiment=experiment,
             current_node=current_node,
@@ -340,17 +349,6 @@ class BaseEarlyStoppingStrategy(ABC, Base):
         then we can skip costly steps, such as model fitting, that occur before
         individual trials are considered for stopping.
         """
-        # check for batch trials
-        for idx, trial in experiment.trials.items():
-            if isinstance(trial, BatchTrial):
-                # In particular, align_partial_results requires a 1-1 mapping between
-                # trial indices and arm names, which is not the case for batch trials.
-                # See align_partial_results for more details.
-                raise ValueError(
-                    f"Trial {idx} is a BatchTrial, which is not yet supported by "
-                    "early stopping strategies."
-                )
-
         # check that there are sufficient completed trials
         num_completed = len(experiment.trial_indices_by_status[TrialStatus.COMPLETED])
         if self.min_curves is not None and num_completed < self.min_curves:
@@ -585,7 +583,7 @@ class BaseEarlyStoppingStrategy(ABC, Base):
         return long_df, multilevel_wide_df
 
 
-class ModelBasedEarlyStoppingStrategy(BaseEarlyStoppingStrategy):
+class ModelBasedArmStoppingStrategy(BaseArmStoppingStrategy):
     """A base class for model based early stopping strategies. Includes
     a helper function for processing Data into arrays."""
 
@@ -666,3 +664,8 @@ class ModelBasedEarlyStoppingStrategy(BaseEarlyStoppingStrategy):
             full_df = full_df[full_df[MAP_KEY] >= self.min_progression_modeling]
             map_data = Data(df=full_df)
         return map_data
+
+
+# Deprecated aliases for backward compatibility.
+BaseEarlyStoppingStrategy = BaseArmStoppingStrategy
+ModelBasedEarlyStoppingStrategy = ModelBasedArmStoppingStrategy

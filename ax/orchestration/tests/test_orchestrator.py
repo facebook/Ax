@@ -38,6 +38,7 @@ from ax.core.utils import (
     get_pending_observation_features_based_on_trial_status,
 )
 from ax.early_stopping.strategies import BaseEarlyStoppingStrategy
+from ax.early_stopping.strategies.base import TArmsToStop
 from ax.exceptions.core import (
     AxError,
     OptimizationComplete,
@@ -1161,12 +1162,24 @@ class TestAxOrchestrator(TestCase):
             ),
             db_settings=self.db_settings_if_always_needed,
         )
+
+        def _mock_stop_all(
+            early_stopping_strategy: Any,
+            trial_indices: set[int],
+            experiment: Any,
+            **kwargs: Any,
+        ) -> TArmsToStop:
+            return {
+                idx: {a.name: None for a in experiment.trials[idx].arms}
+                for idx in trial_indices
+            }
+
         # All trials should be marked complete after one run.
         with (
             patch(
-                "ax.service.utils.early_stopping.should_stop_trials_early",
-                wraps=lambda trial_indices, **kwargs: dict.fromkeys(trial_indices),
-            ) as mock_should_stop_trials_early,
+                "ax.service.utils.early_stopping.should_stop_arms",
+                wraps=_mock_stop_all,
+            ) as mock_should_stop_arms,
             patch.object(
                 InfinitePollRunner, "stop", return_value=None
             ) as mock_stop_trial_run,
@@ -1189,9 +1202,7 @@ class TestAxOrchestrator(TestCase):
             )
             # Third trial in second batch of parallelism will be early stopped
             self.assertEqual(len(res_list[1]["trials_early_stopped_so_far"]), 3)
-            self.assertEqual(
-                mock_should_stop_trials_early.call_count, expected_num_polls
-            )
+            self.assertEqual(mock_should_stop_arms.call_count, expected_num_polls)
             self.assertEqual(
                 mock_stop_trial_run.call_count,
                 len(res_list[1]["trials_early_stopped_so_far"]),
@@ -1249,7 +1260,7 @@ class TestAxOrchestrator(TestCase):
 
         with (
             patch(
-                "ax.service.utils.early_stopping.should_stop_trials_early",
+                "ax.service.utils.early_stopping.should_stop_arms",
                 return_value={},
             ) as mock_should_stop,
             patch.object(
@@ -1279,17 +1290,22 @@ class TestAxOrchestrator(TestCase):
 
             # Trials with odd indices will be early stopped
             # Thus, with 3 total trials, trial #1 will be early stopped
-            def _should_stop_trials_early(
+            def _should_stop_arms(
                 self,
                 trial_indices: set[int],
                 experiment: Experiment,
                 current_node: GenerationNode | None = None,
-            ) -> dict[int, str | None]:
-                return {
-                    idx: f"Trial {idx} stopped by OddIndexEarlyStoppingStrategy"
-                    for idx in trial_indices
-                    if idx % 2 == 1
-                }
+            ) -> TArmsToStop:
+                result: TArmsToStop = {}
+                for idx in trial_indices:
+                    if idx % 2 == 1:
+                        trial = experiment.trials[idx]
+                        result[idx] = {
+                            a.name: f"Trial {idx} stopped by "
+                            "OddIndexEarlyStoppingStrategy"
+                            for a in trial.arms
+                        }
+                return result
 
         self.branin_timestamp_map_metric_experiment.runner = (
             RunnerWithEarlyStoppingStrategy()

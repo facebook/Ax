@@ -20,6 +20,7 @@ from ax.early_stopping.strategies import (
     BaseEarlyStoppingStrategy,
     ModelBasedEarlyStoppingStrategy,
     PercentileEarlyStoppingStrategy,
+    TArmsToStop,
     ThresholdEarlyStoppingStrategy,
 )
 from ax.early_stopping.strategies.base import logger
@@ -49,12 +50,12 @@ class FakeStrategy(BaseEarlyStoppingStrategy):
     ) -> bool:
         return False
 
-    def _should_stop_trials_early(
+    def _should_stop_arms(
         self,
         trial_indices: set[int],
         experiment: Experiment,
         current_node: GenerationNode | None = None,
-    ) -> dict[int, str | None]:
+    ) -> TArmsToStop:
         return {}
 
 
@@ -66,12 +67,12 @@ class FakeStrategyRequiresNode(BaseEarlyStoppingStrategy):
     ) -> bool:
         return False
 
-    def _should_stop_trials_early(
+    def _should_stop_arms(
         self,
         trial_indices: set[int],
         experiment: Experiment,
         current_node: GenerationNode | None = None,
-    ) -> dict[int, str | None]:
+    ) -> TArmsToStop:
         if current_node is None:
             raise ValueError("current_node is required")
         return {}
@@ -85,12 +86,12 @@ class ModelBasedFakeStrategy(ModelBasedEarlyStoppingStrategy):
     ) -> bool:
         return False
 
-    def _should_stop_trials_early(
+    def _should_stop_arms(
         self,
         trial_indices: set[int],
         experiment: Experiment,
         current_node: GenerationNode | None = None,
-    ) -> dict[int, str | None]:
+    ) -> TArmsToStop:
         return {}
 
 
@@ -460,16 +461,15 @@ class TestBaseEarlyStoppingStrategy(TestCase):
             )[0]
         )
 
-        # testing batch trial error
+        # BatchTrials are now supported at the type level (stopping decisions
+        # are wrapped with arm names). Verify no error is raised.
         experiment.new_batch_trial()
-        with self.assertRaisesRegex(
-            ValueError, "is a BatchTrial, which is not yet supported"
-        ):
-            es_strategy.is_eligible_any(
-                trial_indices={0},
-                experiment=experiment,
-                df=map_data.full_df,
-            )
+        # is_eligible_any should not raise for batch trials
+        es_strategy.is_eligible_any(
+            trial_indices={0},
+            experiment=experiment,
+            df=map_data.full_df,
+        )
 
     def test_progression_interval(self) -> None:
         """Test progression interval with min_progression=0."""
@@ -695,7 +695,7 @@ class TestBaseEarlyStoppingStrategy(TestCase):
 
             # Execute: Patch _is_harmful to verify it's not called
             with patch.object(strategy, "_is_harmful") as mock_is_harmful:
-                strategy.should_stop_trials_early(
+                strategy.should_stop_arms(
                     trial_indices=trial_indices,
                     experiment=experiment,
                 )
@@ -711,7 +711,7 @@ class TestBaseEarlyStoppingStrategy(TestCase):
             with patch.object(
                 strategy, "_is_harmful", return_value=False
             ) as mock_is_harmful:
-                strategy.should_stop_trials_early(
+                strategy.should_stop_arms(
                     trial_indices=trial_indices,
                     experiment=experiment,
                 )
@@ -728,7 +728,7 @@ class TestBaseEarlyStoppingStrategy(TestCase):
 
             # Execute: Patch _is_harmful to return True (indicating harmful)
             with patch.object(strategy, "_is_harmful", return_value=True):
-                result = strategy.should_stop_trials_early(
+                result = strategy.should_stop_arms(
                     trial_indices=trial_indices,
                     experiment=experiment,
                 )
@@ -752,12 +752,12 @@ class TestBaseEarlyStoppingStrategy(TestCase):
         es_strategy = FakeStrategyRequiresNode(min_progression=3, max_progression=5)
 
         with self.assertRaisesRegex(ValueError, "current_node is required"):
-            es_strategy.should_stop_trials_early(
+            es_strategy.should_stop_arms(
                 trial_indices={0},
                 experiment=exp,
             )
 
-        es_strategy.should_stop_trials_early(
+        es_strategy.should_stop_arms(
             trial_indices={0}, experiment=exp, current_node=Mock()
         )
 
@@ -777,7 +777,7 @@ class TestPercentileEarlyStoppingStrategy(TestCase):
         exp.attach_data(data=exp.fetch_data())
 
         # data without "step" attached
-        should_stop = early_stopping_strategy.should_stop_trials_early(
+        should_stop = early_stopping_strategy.should_stop_arms(
             trial_indices=idcs, experiment=exp
         )
         self.assertEqual(should_stop, {})
@@ -788,7 +788,7 @@ class TestPercentileEarlyStoppingStrategy(TestCase):
             trial.run()
 
         # No data attached
-        should_stop = early_stopping_strategy.should_stop_trials_early(
+        should_stop = early_stopping_strategy.should_stop_arms(
             trial_indices=idcs, experiment=exp
         )
         self.assertEqual(should_stop, {})
@@ -799,7 +799,7 @@ class TestPercentileEarlyStoppingStrategy(TestCase):
         early_stopping_strategy = PercentileEarlyStoppingStrategy(
             min_curves=6,
         )
-        should_stop = early_stopping_strategy.should_stop_trials_early(
+        should_stop = early_stopping_strategy.should_stop_arms(
             trial_indices=idcs, experiment=exp
         )
         self.assertEqual(should_stop, {})
@@ -808,7 +808,7 @@ class TestPercentileEarlyStoppingStrategy(TestCase):
         early_stopping_strategy = PercentileEarlyStoppingStrategy(
             min_progression=3,
         )
-        should_stop = early_stopping_strategy.should_stop_trials_early(
+        should_stop = early_stopping_strategy.should_stop_arms(
             trial_indices=idcs, experiment=exp
         )
         self.assertEqual(should_stop, {})
@@ -892,7 +892,7 @@ class TestPercentileEarlyStoppingStrategy(TestCase):
             min_curves=4,
             min_progression=0.1,
         )
-        should_stop = early_stopping_strategy.should_stop_trials_early(
+        should_stop = early_stopping_strategy.should_stop_arms(
             trial_indices=idcs, experiment=exp
         )
         if metric_signatures is None:
@@ -912,13 +912,13 @@ class TestPercentileEarlyStoppingStrategy(TestCase):
             min_curves=4,
             min_progression=0.1,
         )
-        should_stop = early_stopping_strategy.should_stop_trials_early(
+        should_stop = early_stopping_strategy.should_stop_arms(
             trial_indices=idcs, experiment=exp
         )
         self.assertEqual(set(should_stop), {0, 3})
 
         # respect trial_indices argument
-        should_stop = early_stopping_strategy.should_stop_trials_early(
+        should_stop = early_stopping_strategy.should_stop_arms(
             trial_indices={0}, experiment=exp
         )
         self.assertEqual(set(should_stop), {0})
@@ -929,7 +929,7 @@ class TestPercentileEarlyStoppingStrategy(TestCase):
             min_curves=4,
             min_progression=0.1,
         )
-        should_stop = early_stopping_strategy.should_stop_trials_early(
+        should_stop = early_stopping_strategy.should_stop_arms(
             trial_indices=idcs, experiment=exp
         )
         self.assertEqual(set(should_stop), {0, 3, 1})
@@ -941,7 +941,7 @@ class TestPercentileEarlyStoppingStrategy(TestCase):
             min_curves=5,
             min_progression=0.1,
         )
-        should_stop = early_stopping_strategy.should_stop_trials_early(
+        should_stop = early_stopping_strategy.should_stop_arms(
             trial_indices=idcs, experiment=exp
         )
         self.assertEqual(should_stop, {})
@@ -974,7 +974,7 @@ class TestPercentileEarlyStoppingStrategy(TestCase):
             min_progression=0.1,
             n_best_trials_to_complete=3,
         )
-        should_stop = early_stopping_strategy.should_stop_trials_early(
+        should_stop = early_stopping_strategy.should_stop_arms(
             trial_indices=idcs, experiment=exp
         )
         # Only trials 0 and 3 should be stopped (trial 1 is protected as it's in top 3)
@@ -987,7 +987,7 @@ class TestPercentileEarlyStoppingStrategy(TestCase):
             min_progression=0.1,
             n_best_trials_to_complete=4,
         )
-        should_stop = early_stopping_strategy.should_stop_trials_early(
+        should_stop = early_stopping_strategy.should_stop_arms(
             trial_indices=idcs, experiment=exp
         )
         # Only trial 0 should be stopped (trials 1, 2, 3, 4 are protected as top 4)
@@ -1000,7 +1000,7 @@ class TestPercentileEarlyStoppingStrategy(TestCase):
             min_progression=0.1,
             n_best_trials_to_complete=5,
         )
-        should_stop = early_stopping_strategy.should_stop_trials_early(
+        should_stop = early_stopping_strategy.should_stop_arms(
             trial_indices=idcs, experiment=exp
         )
         # No trials should be stopped (all 5 are protected)
@@ -1013,7 +1013,7 @@ class TestPercentileEarlyStoppingStrategy(TestCase):
             min_progression=0.1,
             n_best_trials_to_complete=10,
         )
-        should_stop = early_stopping_strategy.should_stop_trials_early(
+        should_stop = early_stopping_strategy.should_stop_arms(
             trial_indices=idcs, experiment=exp
         )
         # No trials should be stopped (all 5 are protected)
@@ -1027,7 +1027,7 @@ class TestPercentileEarlyStoppingStrategy(TestCase):
             min_progression=0.1,
             n_best_trials_to_complete=2,
         )
-        should_stop = early_stopping_strategy.should_stop_trials_early(
+        should_stop = early_stopping_strategy.should_stop_arms(
             trial_indices=idcs, experiment=exp
         )
         # Trial 0 is worst and not in top 2, so should be stopped
@@ -1058,12 +1058,13 @@ class TestPercentileEarlyStoppingStrategy(TestCase):
             min_curves=4,
             min_progression=0.1,
         )
-        should_stop = early_stopping_strategy.should_stop_trials_early(
+        should_stop = early_stopping_strategy.should_stop_arms(
             trial_indices=trial_indices, experiment=experiment
         )
         # Trial 0 should be stopped
         self.assertIn(0, should_stop)
-        reason = none_throws(should_stop[0])
+        arm_decisions = should_stop[0]
+        reason = none_throws(next(iter(arm_decisions.values())))
         # Verify reason contains key information in correct format
         self.assertRegex(
             reason,
@@ -1304,7 +1305,7 @@ class TestPercentileEarlyStoppingStrategy(TestCase):
                 min_curves=4,
                 patience=0,
             )
-            should_stop = early_stopping_strategy.should_stop_trials_early(
+            should_stop = early_stopping_strategy.should_stop_arms(
                 trial_indices=set(exp.trials.keys()), experiment=exp
             )
             self.assertEqual(set(should_stop), {0})
@@ -1319,7 +1320,7 @@ class TestPercentileEarlyStoppingStrategy(TestCase):
                 min_curves=4,
                 patience=2,
             )
-            should_stop = early_stopping_strategy.should_stop_trials_early(
+            should_stop = early_stopping_strategy.should_stop_arms(
                 trial_indices=set(exp.trials.keys()), experiment=exp
             )
             self.assertEqual(set(should_stop), {0})
@@ -1369,7 +1370,7 @@ class TestPercentileEarlyStoppingStrategy(TestCase):
                 min_progression=2,  # Must be >= patience
                 patience=2,
             )
-            should_stop = early_stopping_strategy.should_stop_trials_early(
+            should_stop = early_stopping_strategy.should_stop_arms(
                 trial_indices={0}, experiment=exp
             )
             # Trial 0 should NOT be stopped due to inconsistent performance
@@ -1418,7 +1419,7 @@ class TestPercentileEarlyStoppingStrategy(TestCase):
                 patience=2,
             )
 
-            should_stop = early_stopping_strategy.should_stop_trials_early(
+            should_stop = early_stopping_strategy.should_stop_arms(
                 trial_indices={0}, experiment=exp
             )
 
@@ -1510,7 +1511,7 @@ class TestPercentileEarlyStoppingStrategy(TestCase):
             patience=2,
             n_best_trials_to_complete=3,
         )
-        should_stop = early_stopping_strategy.should_stop_trials_early(
+        should_stop = early_stopping_strategy.should_stop_arms(
             trial_indices=set(exp.trials.keys()), experiment=exp
         )
 
@@ -1663,27 +1664,14 @@ class TestPercentileEarlyStoppingStrategy(TestCase):
         )
         self.assertEqual(set(should_stop), {0, 1})
 
-        # test error throwing in align partial results, with non-unique trial / arm name
+        # Multi-arm and multi-trial arm mappings are now allowed (arm_name
+        # is dropped before pivoting). Verify no error is raised.
         exp = get_test_map_data_experiment(num_trials=5, num_fetches=3, num_complete=2)
-
-        # manually "unalign" timestamps to simulate real-world scenario
-        # where each curve reports results at different steps
         data = exp.fetch_data()
         df_with_single_arm_name = data.full_df.copy()
         df_with_single_arm_name["arm_name"] = "0_0"
-        with self.assertRaisesRegex(
-            UnsupportedError,
-            "Arm 0_0 has multiple trial indices",
-        ):
-            align_partial_results(df=df_with_single_arm_name, metrics=["branin_map"])
-
-        df_with_single_trial_index = data.full_df.copy()
-        df_with_single_trial_index["trial_index"] = 0
-        with self.assertRaisesRegex(
-            UnsupportedError,
-            "Trial 0 has multiple arm names",
-        ):
-            align_partial_results(df=df_with_single_trial_index, metrics=["branin_map"])
+        # Should not raise -- arm_name is dropped before pivot
+        align_partial_results(df=df_with_single_arm_name, metrics=["branin_map"])
 
 
 class TestThresholdEarlyStoppingStrategy(TestCase):
@@ -1716,13 +1704,13 @@ class TestThresholdEarlyStoppingStrategy(TestCase):
         early_stopping_strategy = ThresholdEarlyStoppingStrategy(
             metric_threshold=50, min_progression=1
         )
-        should_stop = early_stopping_strategy.should_stop_trials_early(
+        should_stop = early_stopping_strategy.should_stop_arms(
             trial_indices=idcs, experiment=exp
         )
         self.assertEqual(set(should_stop), {0, 1, 3})
 
         # respect trial_indices argument
-        should_stop = early_stopping_strategy.should_stop_trials_early(
+        should_stop = early_stopping_strategy.should_stop_arms(
             trial_indices={0}, experiment=exp
         )
         self.assertEqual(set(should_stop), {0})
@@ -1731,7 +1719,7 @@ class TestThresholdEarlyStoppingStrategy(TestCase):
         early_stopping_strategy = ThresholdEarlyStoppingStrategy(
             metric_threshold=50, min_progression=3
         )
-        should_stop = early_stopping_strategy.should_stop_trials_early(
+        should_stop = early_stopping_strategy.should_stop_arms(
             trial_indices=idcs, experiment=exp
         )
         self.assertEqual(should_stop, {})
@@ -1774,13 +1762,13 @@ class TestLogicalEarlyStoppingStrategy(TestCase):
             left=left_early_stopping_strategy, right=right_early_stopping_strategy
         )
 
-        left_should_stop = left_early_stopping_strategy.should_stop_trials_early(
+        left_should_stop = left_early_stopping_strategy.should_stop_arms(
             trial_indices=idcs, experiment=exp
         )
-        right_should_stop = right_early_stopping_strategy.should_stop_trials_early(
+        right_should_stop = right_early_stopping_strategy.should_stop_arms(
             trial_indices=idcs, experiment=exp
         )
-        and_should_stop = and_early_stopping_strategy.should_stop_trials_early(
+        and_should_stop = and_early_stopping_strategy.should_stop_arms(
             trial_indices=idcs, experiment=exp
         )
 
@@ -1835,17 +1823,17 @@ class TestLogicalEarlyStoppingStrategy(TestCase):
             )
         )
 
-        left_should_stop = left_early_stopping_strategy.should_stop_trials_early(
+        left_should_stop = left_early_stopping_strategy.should_stop_arms(
             trial_indices=idcs, experiment=exp
         )
-        right_should_stop = right_early_stopping_strategy.should_stop_trials_early(
+        right_should_stop = right_early_stopping_strategy.should_stop_arms(
             trial_indices=idcs, experiment=exp
         )
-        or_should_stop = or_early_stopping_strategy.should_stop_trials_early(
+        or_should_stop = or_early_stopping_strategy.should_stop_arms(
             trial_indices=idcs, experiment=exp
         )
         or_from_collection_should_stop = (
-            or_early_stopping_strategy_from_collection.should_stop_trials_early(
+            or_early_stopping_strategy_from_collection.should_stop_arms(
                 trial_indices=idcs, experiment=exp
             )
         )

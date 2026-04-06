@@ -14,7 +14,6 @@ import pandas as pd
 from ax.core.data import MAP_KEY
 from ax.core.experiment import Experiment
 from ax.core.trial_status import TrialStatus
-from ax.exceptions.core import UnsupportedError
 from ax.utils.common.logger import get_logger
 
 logger: Logger = get_logger(__name__)
@@ -178,25 +177,13 @@ def align_partial_results(
             )
         else:
             logger.info(f"No data from metric {m} yet.")
-    # drop arm names (assumes 1:1 map between trial indices and arm names)
-    # NOTE: this is not the case for BatchTrials and repeated arms
-    # if we didn't catch that there were multiple arms per trial, the interpolation
-    # code below would interpolate between data points from potentially different arms,
-    # as only the trial index is used to differentiate distinct data for interpolation.
-    for trial_index, trial_group in df.groupby("trial_index"):
-        if len(trial_group["arm_name"].unique()) != 1:
-            raise UnsupportedError(
-                f"Trial {trial_index} has multiple arm names: "
-                f"{trial_group['arm_name'].unique()}."
-            )
-
-    for arm_name, arm_group in df.groupby("arm_name"):
-        if len(arm_group["trial_index"].unique()) != 1:
-            raise UnsupportedError(
-                f"Arm {arm_name} has multiple trial indices: "
-                f"{arm_group['trial_index'].unique()}."
-            )
-
+    # Drop arm_name column before pivoting. The pivot operates on trial_index
+    # only. For single-arm trials (the common case) this is a no-op. For batch
+    # trials with multiple arms, rows are currently aggregated by trial_index;
+    # per-arm early stopping decisions are handled at the strategy level (each
+    # strategy natively returns arm-level results).
+    # TODO: For true per-arm stopping with BatchTrials, pivot on
+    # (trial_index, arm_name) and update downstream indexing logic.
     df = df.drop("arm_name", axis=1)
     # remove duplicates (same trial, metric, step), which can happen
     # if the same progression is erroneously reported more than once

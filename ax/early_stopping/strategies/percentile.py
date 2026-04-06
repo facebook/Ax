@@ -13,7 +13,7 @@ import pandas as pd
 from ax.core.experiment import Experiment
 from ax.core.trial_status import TrialStatus
 from ax.early_stopping.simulation import best_trial_vulnerable
-from ax.early_stopping.strategies.base import BaseEarlyStoppingStrategy
+from ax.early_stopping.strategies.base import BaseEarlyStoppingStrategy, TArmsToStop
 from ax.early_stopping.utils import _is_worse
 from ax.exceptions.core import UnsupportedError, UserInputError
 from ax.generation_strategy.generation_node import GenerationNode
@@ -175,12 +175,12 @@ class PercentileEarlyStoppingStrategy(BaseEarlyStoppingStrategy):
 
         return simulated_result.best_stopped
 
-    def _should_stop_trials_early(
+    def _should_stop_arms(
         self,
         trial_indices: set[int],
         experiment: Experiment,
         current_node: GenerationNode | None = None,
-    ) -> dict[int, str | None]:
+    ) -> TArmsToStop:
         """Stop a trial if its performance is in the bottom `percentile_threshold`
         of the trials at the same step.
 
@@ -193,9 +193,9 @@ class PercentileEarlyStoppingStrategy(BaseEarlyStoppingStrategy):
                 stopping decisions.
 
         Returns:
-            A dictionary mapping trial indices that should be early stopped to
-            (optional) messages with the associated reason. An empty dictionary
-            means no suggested updates to any trial's status.
+            A dictionary mapping trial indices to arm-level stopping decisions.
+            Each value is a dict mapping arm names to (optional) reason strings.
+            An empty dictionary means no suggested updates.
         """
         metric_signature, minimize = self._default_objective_and_direction(
             experiment=experiment
@@ -216,21 +216,19 @@ class PercentileEarlyStoppingStrategy(BaseEarlyStoppingStrategy):
         ):
             return {}
 
-        decisions = {
-            trial_index: self._should_stop_trial_early(
+        result: TArmsToStop = {}
+        for trial_index in trial_indices:
+            should_stop, reason = self._should_stop_trial_early(
                 trial_index=trial_index,
                 experiment=experiment,
                 wide_df=wide_df,
                 long_df=long_df,
                 minimize=minimize,
             )
-            for trial_index in trial_indices
-        }
-        return {
-            trial_index: reason
-            for trial_index, (should_stop, reason) in decisions.items()
-            if should_stop
-        }
+            if should_stop:
+                trial = experiment.trials[trial_index]
+                result[trial_index] = {a.name: reason for a in trial.arms}
+        return result
 
     def _should_stop_trial_early(
         self,
@@ -287,7 +285,7 @@ class PercentileEarlyStoppingStrategy(BaseEarlyStoppingStrategy):
         window_num_active_trials: pd.Series = window_active_trials.sum(axis=1)
 
         # Verify that sufficiently many trials have data at each progression in
-        # the patience window. Note: `is_eligible_any` in `should_stop_trials_early`
+        # the patience window. Note: `is_eligible_any` in `should_stop_arms`
         # already checks that at least `min_curves` trials have completed and uses
         # `align_partial_results` to interpolate missing values. This condition
         # should only trigger if `align_partial_results` fails or if this method
