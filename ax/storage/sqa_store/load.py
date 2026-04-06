@@ -787,18 +787,22 @@ def _query_historical_experiments_given_parameters(
             experiments_params[exp_name].append(sqa_param)
             experiments_time_created[exp_name] = time_created
 
-        return {
-            exp_name: (
-                decoder.search_space_from_sqa(
+        results: dict[str, tuple[SearchSpace | None, datetime]] = {}
+        for exp_name, parameters_sqa in experiments_params.items():
+            try:
+                search_space = decoder.search_space_from_sqa(
                     parameters_sqa=parameters_sqa,
                     # Parameter constraints don't matter for search space
                     # compatibility
                     parameter_constraints_sqa=[],
-                ),
-                experiments_time_created[exp_name],
-            )
-            for exp_name, parameters_sqa in experiments_params.items()
-        }
+                )
+            except Exception as e:
+                logger.warning(
+                    f"Failed to decode search space for experiment '{exp_name}': {e}"
+                )
+                search_space = None
+            results[exp_name] = (search_space, experiments_time_created[exp_name])
+        return results
 
 
 def identify_transferable_experiments(
