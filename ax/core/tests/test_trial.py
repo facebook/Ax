@@ -26,6 +26,7 @@ from ax.core.runner import Runner
 from ax.exceptions.core import TrialMutationError, UnsupportedError, UserInputError
 from ax.metrics.branin import BraninMetric
 from ax.runners.synthetic import SyntheticRunner
+from ax.utils.common.constants import Keys
 from ax.utils.common.result import Ok
 from ax.utils.common.testutils import TestCase
 from ax.utils.testing.core_stubs import (
@@ -271,8 +272,22 @@ class TrialTest(TestCase):
                     TrialStatus.COMPLETED,
                 ]:
                     self.assertTrue(self.trial.status.expecting_data)
+                    # trial.expecting_data follows status for normal trials.
+                    self.assertTrue(self.trial.expecting_data)
                 else:
                     self.assertFalse(self.trial.status.expecting_data)
+                    self.assertFalse(self.trial.expecting_data)
+
+    def test_expecting_data_excludes_lilo(self) -> None:
+        """LILO labeling trials never expect data via the standard pipeline."""
+        self.trial._trial_type = Keys.LILO_LABELING
+        self.trial.mark_running(no_runner_required=True)
+        self.assertTrue(self.trial.status.expecting_data)
+        self.assertFalse(self.trial.expecting_data)
+
+        self.trial.mark_completed()
+        self.assertTrue(self.trial.status.expecting_data)
+        self.assertFalse(self.trial.expecting_data)
 
     def test_stop(self) -> None:
         # test bad old status

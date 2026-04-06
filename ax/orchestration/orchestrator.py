@@ -477,7 +477,7 @@ class Orchestrator(WithDBSettingsBase, BestPointMixin):
         """
         trials = []
         for trial in self.experiment.trials.values():
-            if trial.status.expecting_data:
+            if trial.expecting_data:
                 if self.trial_type is None or trial.trial_type == self.trial_type:
                     trials.append(trial)
         return trials

@@ -198,6 +198,16 @@ class BaseTrial(ABC, SortableBase):
         self._mark_stale_if_past_TTL()
         return none_throws(self._status)
 
+    @property
+    def expecting_data(self) -> bool:
+        """Whether this trial expects data via the standard data-fetch pipeline.
+
+        Returns ``False`` for LILO labeling trials because their pairwise
+        preference data is fetched inline during the labeling loop and is
+        never refetched through the normal orchestration path.
+        """
+        return self.status.expecting_data and self.trial_type != Keys.LILO_LABELING
+
     @status.setter
     def status(self, status: TrialStatus) -> None:
         raise NotImplementedError("Use `trial.mark_*` methods to set trial status.")

@@ -45,11 +45,7 @@ from ax.core.parameter_constraint import ParameterConstraint
 from ax.core.runner import Runner
 from ax.core.search_space import SearchSpace
 from ax.core.trial import Trial
-from ax.core.trial_status import (
-    DEFAULT_STATUSES_TO_WARM_START,
-    STATUSES_EXPECTING_DATA,
-    TrialStatus,
-)
+from ax.core.trial_status import DEFAULT_STATUSES_TO_WARM_START, TrialStatus
 from ax.core.types import ComparisonOp, TParameterization
 from ax.exceptions.core import (
     AxError,
@@ -1406,10 +1402,10 @@ class Experiment(Base):
 
     @property
     def trials_expecting_data(self) -> list[BaseTrial]:
-        """list[BaseTrial]: the list of all trials for which data has arrived
-        or is expected to arrive.
+        """list[BaseTrial]: the list of all trials that expect data via the
+        standard data-fetch pipeline.
         """
-        return [trial for trial in self.trials.values() if trial.status.expecting_data]
+        return [trial for trial in self.trials.values() if trial.expecting_data]
 
     @property
     def completed_trials(self) -> list[BaseTrial]:
@@ -1433,15 +1429,10 @@ class Experiment(Base):
 
     @property
     def trial_indices_expecting_data(self) -> set[int]:
-        """Set of indices of trials, statuses of which indicate that we expect
-        these trials to have data, either already or in the future.
+        """Set of indices of trials that expect data via the standard
+        data-fetch pipeline.
         """
-        return set.union(
-            *(
-                self.trial_indices_by_status[status]
-                for status in STATUSES_EXPECTING_DATA
-            )
-        )
+        return {trial.index for trial in self.trials.values() if trial.expecting_data}
 
     def trial_indices_with_data(
         self, critical_metrics_only: bool | None = True

@@ -275,7 +275,7 @@ class MultiTypeExperiment(Experiment):
             [
                 (
                     trial.fetch_data(**kwargs, metrics=metrics)
-                    if trial.status.expecting_data
+                    if trial.expecting_data
                     else Data()
                 )
                 for trial in self.trials.values()

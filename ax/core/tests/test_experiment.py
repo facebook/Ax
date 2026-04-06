@@ -881,14 +881,26 @@ class ExperimentTest(TestCase):
         candidate_batch.run()
         candidate_batch._status = TrialStatus.CANDIDATE
         self.assertEqual(self.experiment.trials_expecting_data, [batch])
+
+        # LILO labeling trials are excluded from trials_expecting_data
+        # (their data is fetched inline during the labeling loop).
+        lilo_batch = self.experiment.new_batch_trial(
+            trial_type=Keys.LILO_LABELING,
+        )
+        lilo_batch.run()
+        lilo_batch.mark_completed()
+        self.assertEqual(self.experiment.trials_expecting_data, [batch])
+
         tbs = self.experiment.trials_by_status  # All statuses should be present
         self.assertEqual(len(tbs), len(TrialStatus))
         self.assertEqual(tbs[TrialStatus.RUNNING], [batch])
         self.assertEqual(tbs[TrialStatus.CANDIDATE], [candidate_batch])
+        self.assertEqual(tbs[TrialStatus.COMPLETED], [lilo_batch])
         tibs = self.experiment.trial_indices_by_status
         self.assertEqual(len(tibs), len(TrialStatus))
         self.assertEqual(tibs[TrialStatus.RUNNING], {0})
         self.assertEqual(tibs[TrialStatus.CANDIDATE], {1})
+        self.assertEqual(tibs[TrialStatus.COMPLETED], {2})
 
         identifier = {"new_runner": True}
         # pyre-fixme[6]: For 1st param expected `Optional[str]` but got `Dict[str,
@@ -1725,6 +1737,12 @@ class ExperimentTest(TestCase):
         experiment.trials[5].mark_running(no_runner_required=True).mark_early_stopped(
             unsafe=True
         )
+        self.assertEqual(experiment.trial_indices_expecting_data, {2, 5})
+
+        # LILO labeling trials are excluded from trial_indices_expecting_data.
+        lilo_trial = experiment.new_batch_trial(trial_type=Keys.LILO_LABELING)
+        lilo_trial.mark_running(no_runner_required=True)
+        lilo_trial.mark_completed()
         self.assertEqual(experiment.trial_indices_expecting_data, {2, 5})
 
     def test_trial_indices_with_data(self) -> None:
