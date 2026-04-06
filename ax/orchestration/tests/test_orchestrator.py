@@ -1549,7 +1549,7 @@ class TestAxOrchestrator(TestCase):
         # We override the optimization config but not objectives, so a
         # ValueError results when extract_objective_weights tries to find
         # the MOO metric signature in the outcomes list.
-        with self.assertRaisesRegex(ValueError, "branin_a"):
+        with self.assertRaisesRegex(ValueError, "not in list"):
             orchestrator.get_pareto_optimal_parameters(
                 optimization_config=get_branin_multi_objective_optimization_config(
                     has_objective_thresholds=True
