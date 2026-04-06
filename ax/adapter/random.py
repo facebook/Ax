@@ -95,13 +95,26 @@ class RandomAdapter(Adapter):
         linear_constraints = extract_parameter_constraints(
             search_space.parameter_constraints, self.parameters
         )
-        # Extract generated points to deduplicate against.
-        # Exclude out-of-design arms (which can only be manual arms
-        # instead of adapter-generated arms).
+        # Extract generated points.
+        # For normal generators these are used to deduplicate against.
+        # For in-sample generators (LILO labeling) they are the selection
+        # pool from which arms are drawn — not a dedup set.  The two use
+        # cases have been shoehorned into the same code path; consider
+        # splitting them into separate methods in a future refactor.
         generated_points = None
         is_in_sample = isinstance(self.generator, InSampleUniformGenerator)
         if self.generator.deduplicate:
-            arms_to_deduplicate = self._experiment.arms_by_signature_for_deduplication
+            # For normal generators, exclude arms from FAILED trials so the
+            # model may re-suggest them.  For in-sample generators this
+            # exclusion is harmful: LILO labeling trials borrow arms from
+            # regular trials, so a FAILED labeling trial would incorrectly
+            # remove the original arm from the selection pool.  Use the
+            # full arms_by_signature instead.
+            arms_to_deduplicate = (
+                self._experiment.arms_by_signature
+                if is_in_sample
+                else self._experiment.arms_by_signature_for_deduplication
+            )
             # For in-sample generators, restrict to arms from trials that
             # have or expect observed data (COMPLETED, EARLY_STOPPED,
             # RUNNING). This prevents selecting arms from CANDIDATE/STAGED

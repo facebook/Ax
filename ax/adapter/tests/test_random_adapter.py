@@ -352,6 +352,65 @@ class RandomAdapterTest(TestCase):
         assert generated_points is not None
         self.assertEqual(len(generated_points), 2)
 
+    def test_in_sample_failed_lilo_trial_does_not_poison_arm_pool(self) -> None:
+        """A FAILED LILO labeling trial shares arm signatures with COMPLETED
+        regular trials.  The in-sample pool must still include those arms —
+        the FAILED trial should not remove them from the selection pool.
+
+        Regression test for the arm-pool exhaustion bug where
+        ``arms_by_signature_for_deduplication`` blindly excluded signatures
+        that appeared in *any* FAILED trial, even if the same arm existed
+        in a non-FAILED trial.
+        """
+        search_space = SearchSpace(self.parameters[:2])
+        exp = Experiment(search_space=search_space)
+
+        # Trials 0 and 1: COMPLETED regular trials with 1 arm each.
+        arm_a = Arm(parameters={"x": 0.5, "y": 1.5})
+        arm_b = Arm(parameters={"x": 0.3, "y": 1.3})
+        t0 = exp.new_trial()
+        t0.add_arm(arm_a)
+        t0.mark_running(no_runner_required=True)
+        exp.trials[0].mark_completed()
+
+        t1 = exp.new_trial()
+        t1.add_arm(arm_b)
+        t1.mark_running(no_runner_required=True)
+        exp.trials[1].mark_completed()
+
+        # Trial 2: FAILED LILO labeling trial re-using the same arms.
+        # Simulates a LILO labeling trial that borrowed arm_a but whose
+        # LLM metric call failed.
+        t2 = exp.new_trial()
+        t2.add_arm(Arm(parameters={"x": 0.5, "y": 1.5}))  # same as arm_a
+        t2.mark_running(no_runner_required=True)
+        t2.mark_failed()
+
+        # Sanity: arms_by_signature_for_deduplication removes arm_a's sig.
+        dedup = exp.arms_by_signature_for_deduplication
+        self.assertNotIn(arm_a.signature, dedup)
+
+        # But InSampleUniformGenerator should still see both arms.
+        generator = InSampleUniformGenerator(seed=0)
+        adapter = RandomAdapter(
+            experiment=exp,
+            generator=generator,
+            transforms=Cont_X_trans,
+        )
+
+        with mock.patch.object(
+            generator,
+            "gen",
+            wraps=generator.gen,
+        ) as mock_gen:
+            adapter.gen(n=2)
+
+        # Both arms from COMPLETED trials must be in generated_points,
+        # despite arm_a's signature also appearing in a FAILED trial.
+        generated_points = mock_gen.call_args.kwargs["generated_points"]
+        assert generated_points is not None
+        self.assertEqual(len(generated_points), 2)
+
     def test_generation_with_all_fixed(self) -> None:
         # Make sure candidate generation succeeds and returns correct parameters
         # when all parameters are fixed.
