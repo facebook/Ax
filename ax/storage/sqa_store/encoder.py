@@ -29,6 +29,7 @@ from ax.core.batch_trial import AbandonedArm, BatchTrial
 from ax.core.data import Data
 from ax.core.evaluations_to_data import DataType
 from ax.core.experiment import Experiment
+from ax.core.experiment_design import EXPERIMENT_DESIGN_KEY, ExperimentDesign
 from ax.core.generator_run import GeneratorRun
 from ax.core.llm_provider import LLMMessage
 from ax.core.metric import Metric
@@ -99,6 +100,8 @@ def prepare_experiment_properties_for_storage(
     use this function to ensure consistent handling.
     """
     properties = experiment._properties.copy()
+    if experiment.design != ExperimentDesign():
+        properties[EXPERIMENT_DESIGN_KEY] = experiment.design.to_json()
     if (
         oc := experiment.optimization_config
     ) is not None and oc.pruning_target_parameterization is not None:

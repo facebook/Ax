@@ -18,6 +18,7 @@ from ax.utils.testing.core_stubs import (
     get_choice_parameter,
     get_experiment_with_batch_and_single_trial,
     get_experiment_with_batch_trial,
+    get_experiment_with_concurrency_limit,
     get_experiment_with_data,
     get_experiment_with_map_data,
     get_experiment_with_multi_objective,
@@ -125,6 +126,12 @@ TEST_CASES = [
     (
         "Experiment",
         get_hierarchical_search_space_experiment,
+        Encoder.experiment_to_sqa,
+        Decoder.experiment_from_sqa,
+    ),
+    (
+        "Experiment",
+        get_experiment_with_concurrency_limit,
         Encoder.experiment_to_sqa,
         Decoder.experiment_from_sqa,
     ),
