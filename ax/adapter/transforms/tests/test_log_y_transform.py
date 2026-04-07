@@ -138,14 +138,14 @@ class LogYTransformTest(TestCase):
         # basic test
         m1 = Metric(name="m1")
         objective_m1 = Objective(metric=m1, minimize=False)
-        oc = OptimizationConfig(objective=objective_m1, outcome_constraints=[])
+        oc = OptimizationConfig(objectives=[objective_m1], outcome_constraints=[])
         tf = LogY(search_space=None, config={"metrics": ["m1"]})
         oc_tf = tf.transform_optimization_config(deepcopy(oc), None, None)
         self.assertEqual(oc_tf, oc)
         # output constraint on a different metric should work
         m2 = Metric(name="m2")
         oc = OptimizationConfig(
-            objective=objective_m1,
+            objectives=[objective_m1],
             outcome_constraints=[
                 get_outcome_constraint(metric=m2, bound=-1, relative=False)
             ],
@@ -155,7 +155,7 @@ class LogYTransformTest(TestCase):
         # output constraint with a negative bound should fail
         objective_m2 = Objective(metric=m2, minimize=False)
         oc = OptimizationConfig(
-            objective=objective_m2,
+            objectives=[objective_m2],
             outcome_constraints=[
                 get_outcome_constraint(metric=m1, bound=-1.234, relative=False)
             ],
@@ -170,7 +170,7 @@ class LogYTransformTest(TestCase):
         )
         # output constraint with a zero bound should also fail
         oc = OptimizationConfig(
-            objective=objective_m2,
+            objectives=[objective_m2],
             outcome_constraints=[
                 get_outcome_constraint(metric=m1, bound=0, relative=False)
             ],
@@ -185,7 +185,7 @@ class LogYTransformTest(TestCase):
         )
         # output constraint with a positive bound should work
         oc = OptimizationConfig(
-            objective=objective_m2,
+            objectives=[objective_m2],
             outcome_constraints=[
                 get_outcome_constraint(metric=m1, bound=2.345, relative=False)
             ],
@@ -200,7 +200,7 @@ class LogYTransformTest(TestCase):
         self.assertEqual(oc_tf, oc)
         # output constraint with a relative bound should fail
         oc = OptimizationConfig(
-            objective=objective_m2,
+            objectives=[objective_m2],
             outcome_constraints=[
                 get_outcome_constraint(metric=m1, bound=2.345, relative=True)
             ],

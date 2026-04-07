@@ -111,7 +111,7 @@ class StandardizeYTransformTest(TestCase):
             ),
         ]
 
-        oc = OptimizationConfig(objective=objective, outcome_constraints=cons)
+        oc = OptimizationConfig(objectives=[objective], outcome_constraints=cons)
         with self.assertRaisesRegex(
             DataRequiredError, "`StandardizeY` transform requires constraint metric"
         ):
@@ -125,7 +125,7 @@ class StandardizeYTransformTest(TestCase):
                 relative=False,
             ),
         ]
-        oc = OptimizationConfig(objective=objective, outcome_constraints=cons)
+        oc = OptimizationConfig(objectives=[objective], outcome_constraints=cons)
         with self.assertRaisesRegex(
             DataRequiredError, "`StandardizeY` transform requires constraint metric"
         ):
@@ -145,7 +145,7 @@ class StandardizeYTransformTest(TestCase):
                 relative=False,
             ),
         ]
-        oc = OptimizationConfig(objective=objective, outcome_constraints=cons)
+        oc = OptimizationConfig(objectives=[objective], outcome_constraints=cons)
         oc = self.t.transform_optimization_config(oc, None, None)
         # Verify the transformed constraints have the expected values.
         # We compare properties individually to avoid floating-point string
@@ -174,7 +174,7 @@ class StandardizeYTransformTest(TestCase):
         con = OutcomeConstraint(
             metric=m1, op=ComparisonOp.GEQ, bound=2.0, relative=True
         )
-        oc = OptimizationConfig(objective=objective, outcome_constraints=[con])
+        oc = OptimizationConfig(objectives=[objective], outcome_constraints=[con])
         with self.assertRaises(ValueError):
             oc = self.t.transform_optimization_config(oc, None, None)
 
@@ -229,7 +229,7 @@ class StandardizeYTransformTest(TestCase):
         objective = ScalarizedObjective(
             metrics=[m1, m2], weights=[0.5, 0.5], minimize=False
         )
-        oc = OptimizationConfig(objective=objective)
+        oc = OptimizationConfig(objectives=[objective])
         oc_transformed = self.t.transform_optimization_config(oc, None, None)
 
         # Check that weights are scaled by standard deviations
@@ -245,7 +245,7 @@ class StandardizeYTransformTest(TestCase):
         objective_missing = ScalarizedObjective(
             metrics=[m1, m3], weights=[0.5, 0.5], minimize=False
         )
-        oc_missing = OptimizationConfig(objective=objective_missing)
+        oc_missing = OptimizationConfig(objectives=[objective_missing])
         with self.assertRaisesRegex(
             DataRequiredError, "`StandardizeY` transform requires objective metric"
         ):
@@ -255,7 +255,7 @@ class StandardizeYTransformTest(TestCase):
         objective_minimize = ScalarizedObjective(
             metrics=[m1, m2], weights=[1.0, -2.0], minimize=True
         )
-        oc_minimize = OptimizationConfig(objective=objective_minimize)
+        oc_minimize = OptimizationConfig(objectives=[objective_minimize])
         oc_minimize_transformed = self.t.transform_optimization_config(
             oc_minimize, None, None
         )

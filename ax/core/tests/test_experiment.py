@@ -305,7 +305,9 @@ class ExperimentTest(TestCase):
         # Add a new metric and set optimization config using it as constraint
         self.experiment.add_metric(Metric(name="m3"))
         opt_config = OptimizationConfig(
-            objective=Objective(expression="m1", metric_name_to_signature={"m1": "m1"}),
+            objectives=[
+                Objective(expression="m1", metric_name_to_signature={"m1": "m1"})
+            ],
             outcome_constraints=[
                 OutcomeConstraint(
                     expression="m3 >= -0.25 * baseline",
@@ -558,7 +560,9 @@ class ExperimentTest(TestCase):
 
         # Setting an opt config with an unregistered metric should raise
         new_opt_config = OptimizationConfig(
-            objective=Objective(expression="m1", metric_name_to_signature={"m1": "m1"}),
+            objectives=[
+                Objective(expression="m1", metric_name_to_signature={"m1": "m1"})
+            ],
             outcome_constraints=[
                 OutcomeConstraint(
                     expression="unknown_metric >= 0.5",
@@ -930,7 +934,7 @@ class ExperimentTest(TestCase):
             name="test",
             search_space=get_branin_search_space(),
             optimization_config=OptimizationConfig(
-                objective=Objective(metric=Metric(name="a", lower_is_better=True))
+                objectives=[Objective(metric=Metric(name="a", lower_is_better=True))]
             ),
             tracking_metrics=[Metric(name="b"), Metric(name="c")],
             runner=SyntheticRunner(),
@@ -1024,7 +1028,7 @@ class ExperimentTest(TestCase):
             name="test",
             search_space=get_branin_search_space(),
             optimization_config=OptimizationConfig(
-                objective=Objective(metric=Metric(name="a", lower_is_better=True))
+                objectives=[Objective(metric=Metric(name="a", lower_is_better=True))]
             ),
             tracking_metrics=[Metric(name="b"), Metric(name="c")],
             runner=SyntheticRunner(),
@@ -1676,13 +1680,15 @@ class ExperimentTest(TestCase):
             name="test_experiment",
             search_space=SearchSpace(parameters=[]),
             optimization_config=OptimizationConfig(
-                objective=Objective(
-                    expression="2*metric_a + -3*metric_b",
-                    metric_name_to_signature={
-                        "metric_a": "metric_a",
-                        "metric_b": "metric_b",
-                    },
-                ),
+                objectives=[
+                    Objective(
+                        expression="2*metric_a + -3*metric_b",
+                        metric_name_to_signature={
+                            "metric_a": "metric_a",
+                            "metric_b": "metric_b",
+                        },
+                    )
+                ],
             ),
             tracking_metrics=[
                 Metric(name="metric_a", lower_is_better=False),

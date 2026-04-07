@@ -314,7 +314,7 @@ class StratifiedStandardizeYTransformTest(TestCase):
 
     def test_TransformOptimizationConfig(self) -> None:
         cons2 = deepcopy(self.cons)
-        oc = OptimizationConfig(objective=self.objective, outcome_constraints=cons2)
+        oc = OptimizationConfig(objectives=[self.objective], outcome_constraints=cons2)
         fixed_features = ObservationFeatures({"z": "a"})
         oc = self.t.transform_optimization_config(oc, None, fixed_features)
         # Verify constraint values approximately (expression-string equality
@@ -330,7 +330,7 @@ class StratifiedStandardizeYTransformTest(TestCase):
         self.assertTrue(oc.objective == self.objective)
 
         # No constraints
-        oc2 = OptimizationConfig(objective=self.objective)
+        oc2 = OptimizationConfig(objectives=[self.objective])
         oc3 = deepcopy(oc2)
         fixed_features = ObservationFeatures({"z": "a"})
         oc3 = self.t.transform_optimization_config(oc3, None, fixed_features)
@@ -340,7 +340,7 @@ class StratifiedStandardizeYTransformTest(TestCase):
         con = OutcomeConstraint(
             metric=self.m1, op=ComparisonOp.GEQ, bound=2.0, relative=True
         )
-        oc = OptimizationConfig(objective=self.objective, outcome_constraints=[con])
+        oc = OptimizationConfig(objectives=[self.objective], outcome_constraints=[con])
         with self.assertRaises(ValueError):
             oc = self.t.transform_optimization_config(oc, None, fixed_features)
         # Fail without strat param fixed
@@ -350,10 +350,10 @@ class StratifiedStandardizeYTransformTest(TestCase):
 
     def test_TransformOptimizationConfigWithStrataMapping(self) -> None:
         cons2 = deepcopy(self.cons)
-        oc = OptimizationConfig(objective=self.objective, outcome_constraints=cons2)
+        oc = OptimizationConfig(objectives=[self.objective], outcome_constraints=cons2)
         fixed_features = ObservationFeatures({"z": "a"})
         cons2 = deepcopy(self.cons)
-        oc = OptimizationConfig(objective=self.objective, outcome_constraints=cons2)
+        oc = OptimizationConfig(objectives=[self.objective], outcome_constraints=cons2)
         oc = self.t2.transform_optimization_config(oc, None, fixed_features)
         # Verify constraint values approximately.
         self.assertEqual(len(oc.outcome_constraints), 2)
@@ -367,7 +367,7 @@ class StratifiedStandardizeYTransformTest(TestCase):
         self.assertTrue(oc.objective == self.objective)
         fixed_features = ObservationFeatures({"z": "c"})
         cons2 = deepcopy(self.cons)
-        oc = OptimizationConfig(objective=self.objective, outcome_constraints=cons2)
+        oc = OptimizationConfig(objectives=[self.objective], outcome_constraints=cons2)
         oc = self.t2.transform_optimization_config(oc, None, fixed_features)
         # Verify constraint values approximately.
         self.assertEqual(len(oc.outcome_constraints), 2)
@@ -441,7 +441,7 @@ class StratifiedStandardizeYTransformTest(TestCase):
         objective = ScalarizedObjective(
             metrics=[self.m1, self.m2], weights=[0.5, 0.5], minimize=False
         )
-        oc = OptimizationConfig(objective=objective)
+        oc = OptimizationConfig(objectives=[objective])
         expected_weights = {
             "a": [0.5 * 1.0, 0.5 * sqrt(2) * 3],
             "b": [0.5 * 2 * sqrt(2), 0.5 * sqrt(2) * 0.5],
@@ -476,7 +476,7 @@ class StratifiedStandardizeYTransformTest(TestCase):
             relative=False,
         )
         oc = OptimizationConfig(
-            objective=self.objective, outcome_constraints=[scalarized_constraint]
+            objectives=[self.objective], outcome_constraints=[scalarized_constraint]
         )
         fixed_features = ObservationFeatures({"z": "a"})
         oc_transformed = self.t.transform_optimization_config(oc, None, fixed_features)

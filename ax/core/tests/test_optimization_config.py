@@ -81,7 +81,7 @@ class OptimizationConfigTest(TestCase):
 
     def test_Init(self) -> None:
         config1 = OptimizationConfig(
-            objective=self.objective, outcome_constraints=self.outcome_constraints
+            objectives=[self.objective], outcome_constraints=self.outcome_constraints
         )
         self.assertEqual(str(config1), OC_STR)
         # updating constraints is fine.
@@ -89,7 +89,7 @@ class OptimizationConfigTest(TestCase):
         self.assertEqual(len(config1.metric_names), 2)
 
         # objective without outcome_constraints is also supported
-        config2 = OptimizationConfig(objective=self.objective)
+        config2 = OptimizationConfig(objectives=[self.objective])
         self.assertEqual(config2.outcome_constraints, [])
 
         config2.outcome_constraints = self.outcome_constraints
@@ -97,11 +97,11 @@ class OptimizationConfigTest(TestCase):
 
     def test_Eq(self) -> None:
         config1 = OptimizationConfig(
-            objective=self.objective,
+            objectives=[self.objective],
             outcome_constraints=self.outcome_constraints,
         )
         config2 = OptimizationConfig(
-            objective=self.objective,
+            objectives=[self.objective],
             outcome_constraints=self.outcome_constraints,
         )
         self.assertEqual(config1, config2)
@@ -112,15 +112,15 @@ class OptimizationConfigTest(TestCase):
                 metric=self.metrics["m2"], op=ComparisonOp.LEQ, bound=0.5
             )
         config3 = OptimizationConfig(
-            objective=self.objective,
+            objectives=[self.objective],
             outcome_constraints=[self.outcome_constraint, new_outcome_constraint],
         )
         self.assertNotEqual(config1, config3)
 
     def test_ConstraintValidation(self) -> None:
-        # Can build OptimizationConfig with MultiObjective
+        # Can't build OptimizationConfig with MultiObjective
         with self.assertRaises(ValueError):
-            OptimizationConfig(objective=self.multi_objective)
+            OptimizationConfig(objectives=[self.multi_objective])
 
         # Can't constrain on objective metric.
         with warnings.catch_warnings():
@@ -130,14 +130,14 @@ class OptimizationConfigTest(TestCase):
             )
         with self.assertRaises(ValueError):
             OptimizationConfig(
-                objective=self.objective, outcome_constraints=[objective_constraint]
+                objectives=[self.objective], outcome_constraints=[objective_constraint]
             )
         # Using an outcome constraint for ScalarizedObjective should also raise
         with self.assertRaisesRegex(
             ValueError, "Cannot constrain on objective metric."
         ):
             OptimizationConfig(
-                objective=self.m2_objective,
+                objectives=[self.m2_objective],
                 outcome_constraints=[objective_constraint],
             )
         # Two outcome_constraints on the same metric with the same op
@@ -151,7 +151,7 @@ class OptimizationConfigTest(TestCase):
             )
         with self.assertRaises(ValueError):
             OptimizationConfig(
-                objective=self.objective,
+                objectives=[self.objective],
                 outcome_constraints=[self.outcome_constraint, duplicate_constraint],
             )
 
@@ -166,7 +166,7 @@ class OptimizationConfigTest(TestCase):
             )
         with self.assertRaises(ValueError):
             OptimizationConfig(
-                objective=self.objective,
+                objectives=[self.objective],
                 outcome_constraints=self.outcome_constraints + [opposing_constraint],
             )
 
@@ -183,7 +183,7 @@ class OptimizationConfigTest(TestCase):
             )
         with self.assertRaises(ValueError):
             OptimizationConfig(
-                objective=self.objective,
+                objectives=[self.objective],
                 outcome_constraints=([self.outcome_constraint, opposing_constraint]),
             )
 
@@ -198,7 +198,7 @@ class OptimizationConfigTest(TestCase):
                 bound=self.outcome_constraint.bound + 1,
             )
         config = OptimizationConfig(
-            objective=self.objective,
+            objectives=[self.objective],
             outcome_constraints=([self.outcome_constraint, opposing_constraint]),
         )
         self.assertEqual(
@@ -208,7 +208,7 @@ class OptimizationConfigTest(TestCase):
         # Test with ScalarizedOutcomeConstraint
         # should work when not constraining obj
         config_with_scalarized = OptimizationConfig(
-            objective=self.objective,
+            objectives=[self.objective],
             outcome_constraints=[self.scalarized_outcome_constraint],
         )
         self.assertEqual(len(config_with_scalarized.outcome_constraints), 1)
@@ -230,24 +230,24 @@ class OptimizationConfigTest(TestCase):
             ValueError, "Cannot constrain on objective metric."
         ):
             OptimizationConfig(
-                objective=self.objective,
+                objectives=[self.objective],
                 outcome_constraints=[scalarized_with_objective_metric],
             )
 
     def test_Clone(self) -> None:
         config1 = OptimizationConfig(
-            objective=self.objective,
+            objectives=[self.objective],
             outcome_constraints=self.outcome_constraints,
         )
         self.assertEqual(config1, config1.clone())
 
     def test_CloneWithArgs(self) -> None:
         config1 = OptimizationConfig(
-            objective=self.objective,
+            objectives=[self.objective],
             outcome_constraints=self.outcome_constraints,
         )
         config2 = OptimizationConfig(
-            objective=self.objective,
+            objectives=[self.objective],
         )
 
         # Empty args produce exact clone
