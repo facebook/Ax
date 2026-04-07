@@ -2727,7 +2727,7 @@ class TestAxOrchestrator(TestCase):
         )
         self.branin_experiment.add_tracking_metric(custom_metric)
         self.branin_experiment.optimization_config = OptimizationConfig(
-            Objective(
+            objective=Objective(
                 metric=CustomTestMetric(
                     name="custom_test_metric", test_attribute="test"
                 ),
@@ -2974,7 +2974,7 @@ class TestAxOrchestratorMultiTypeExperiment(TestAxOrchestrator):
         self.branin_experiment_no_impl_runner_or_metrics = MultiTypeExperiment(
             search_space=get_branin_search_space(),
             optimization_config=OptimizationConfig(
-                Objective(metric=Metric(name="branin"), minimize=True)
+                objective=Objective(metric=Metric(name="branin"), minimize=True)
             ),
             default_trial_type="type1",
             default_runner=None,

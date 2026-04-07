@@ -159,6 +159,7 @@ from ax.utils.testing.core_stubs import (
     get_fixed_parameter,
     get_generator_run,
     get_model_predictions_per_arm,
+    get_moo_optimization_config,
     get_multi_objective_optimization_config,
     get_multi_type_experiment,
     get_objective,
@@ -1423,6 +1424,18 @@ class SQAStoreTest(TestCase):
             loaded_pruning_target_parameterization.parameters["y"], "choice_1"
         )
         self.assertEqual(loaded_pruning_target_parameterization.parameters["z"], False)
+
+    def test_moo_optimization_config_sqa_roundtrip(self) -> None:
+        """Test SQA round-trip for OptimizationConfig with multiple objectives."""
+        experiment = get_experiment_with_batch_trial()
+        experiment.add_tracking_metric(Metric(name="m3", lower_is_better=True))
+        experiment.optimization_config = get_moo_optimization_config()
+        save_experiment(experiment)
+        loaded_experiment = load_experiment(experiment.name)
+        self.assertEqual(experiment, loaded_experiment)
+        loaded_oc = none_throws(loaded_experiment.optimization_config)
+        self.assertEqual(len(loaded_oc.objectives), 2)
+        self.assertTrue(loaded_oc.is_moo_problem)
 
     def test_multi_objective_optimization_config_pruning_target_sqa_roundtrip(
         self,

@@ -640,7 +640,7 @@ class Decoder:
             register the full metric types (e.g. BraninMetric) rather than
             plain Metric placeholders.
         """
-        objective = None
+        objectives: list[Objective] = []
         objective_thresholds = []
         outcome_constraints = []
         tracking_metrics = []
@@ -659,7 +659,7 @@ class Decoder:
 
             result = self.metric_from_sqa(metric_sqa=metric_sqa)
             if isinstance(result, Objective):
-                objective = result
+                objectives.append(result)
                 # Collect metrics from the objective
                 if metric_sqa.intent in (
                     MetricIntent.MULTI_OBJECTIVE,
@@ -729,7 +729,7 @@ class Decoder:
                 tracking_metrics.append(result)
                 all_metrics.append(raw_metric)
 
-        if objective is None:
+        if not objectives:
             return None, tracking_metrics, all_metrics
 
         if preference_objective_sqa is not None:
@@ -737,6 +737,7 @@ class Decoder:
                 raise SQADecodeError(
                     "PreferenceOptimizationConfig cannot have objective thresholds."
                 )
+            objective = objectives[0]
             properties = preference_objective_sqa.properties or {}
             optimization_config = PreferenceOptimizationConfig(
                 objective=assert_is_instance(objective, MultiObjective),
@@ -747,7 +748,8 @@ class Decoder:
                 outcome_constraints=outcome_constraints,
                 pruning_target_parameterization=pruning_target_parameterization,
             )
-        elif objective_thresholds or type(objective) is MultiObjective:
+        elif objective_thresholds or type(objectives[0]) is MultiObjective:
+            objective = objectives[0]
             optimization_config = MultiObjectiveOptimizationConfig(
                 objective=assert_is_instance(
                     objective, Union[MultiObjective, ScalarizedObjective]
@@ -758,7 +760,7 @@ class Decoder:
             )
         else:
             optimization_config = OptimizationConfig(
-                objective=objective,
+                objectives=objectives,
                 outcome_constraints=outcome_constraints,
                 pruning_target_parameterization=pruning_target_parameterization,
             )

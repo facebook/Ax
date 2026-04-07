@@ -839,13 +839,14 @@ class Encoder:
                 ),
                 experiment_metrics=experiment_metrics,
             )
+            metrics_sqa.append(obj_sqa)
         else:
-            obj_sqa = self.objective_to_sqa(
-                objective=optimization_config.objective,
-                experiment_metrics=experiment_metrics,
-            )
-
-        metrics_sqa.append(obj_sqa)
+            for obj in optimization_config.objectives:
+                obj_sqa = self.objective_to_sqa(
+                    objective=obj,
+                    experiment_metrics=experiment_metrics,
+                )
+                metrics_sqa.append(obj_sqa)
         for constraint in optimization_config.outcome_constraints:
             constraint_sqa = self.outcome_constraint_to_sqa(
                 outcome_constraint=constraint,
