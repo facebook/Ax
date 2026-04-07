@@ -209,7 +209,7 @@ class TestGenerationStrategyWithoutAdapterMocks(TestCase):
 
         # Create generation strategy with Sobol
         gs = GenerationStrategy(
-            steps=[
+            nodes=[
                 GenerationStep(
                     generator=Generators.SOBOL,
                     num_trials=10,
@@ -308,7 +308,7 @@ class TestGenerationStrategy(TestCase):
         self.step_generator_kwargs = {"silently_filter_kwargs": True}
         self.hss_experiment = get_hierarchical_search_space_experiment()
         self.sobol_GS = GenerationStrategy(
-            steps=[
+            nodes=[
                 GenerationStep(
                     Generators.SOBOL,
                     num_trials=-1,
@@ -465,7 +465,7 @@ class TestGenerationStrategy(TestCase):
     ) -> GenerationStrategy:
         return GenerationStrategy(
             name="Sobol+MBM",
-            steps=[
+            nodes=[
                 GenerationStep(
                     generator=Generators.SOBOL,
                     num_trials=num_sobol_trials,
@@ -502,7 +502,7 @@ class TestGenerationStrategy(TestCase):
         # num_trials can be positive or -1.
         with self.assertRaises(UserInputError):
             GenerationStrategy(
-                steps=[
+                nodes=[
                     GenerationStep(generator=Generators.SOBOL, num_trials=5),
                     GenerationStep(
                         generator=Generators.BOTORCH_MODULAR, num_trials=-10
@@ -515,7 +515,7 @@ class TestGenerationStrategy(TestCase):
         )
         with self.assertRaisesRegex(UserInputError, "Maximum concurrency should be"):
             GenerationStrategy(
-                steps=[
+                nodes=[
                     GenerationStep(
                         generator=Generators.SOBOL, num_trials=5, max_parallelism=-1
                     ),
@@ -527,7 +527,7 @@ class TestGenerationStrategy(TestCase):
         with self.assertRaises(UserInputError):
             GenerationStrategy(
                 # pyre-ignore [6]: Testing deprecated input.
-                steps=[GenerationStep(generator=get_sobol, num_trials=-1)]
+                nodes=[GenerationStep(generator=get_sobol, num_trials=-1)]
             )
 
     def test_string_representation(self) -> None:
@@ -548,7 +548,7 @@ class TestGenerationStrategy(TestCase):
             "pausing_criteria=None)])",
         )
         gs2 = GenerationStrategy(
-            steps=[GenerationStep(generator=Generators.SOBOL, num_trials=-1)]
+            nodes=[GenerationStep(generator=Generators.SOBOL, num_trials=-1)]
         )
         self.assertEqual(
             str(gs2),
@@ -601,7 +601,7 @@ class TestGenerationStrategy(TestCase):
         # pyre-fixme[6]: For 1st param expected `bool` but got `Experiment`.
         exp = get_branin_experiment(get_branin_experiment())
         gs = GenerationStrategy(
-            steps=[
+            nodes=[
                 GenerationStep(
                     generator=Generators.SOBOL, num_trials=5, min_trials_observed=5
                 ),
@@ -619,7 +619,7 @@ class TestGenerationStrategy(TestCase):
         # pyre-fixme[6]: For 1st param expected `bool` but got `Experiment`.
         exp = get_branin_experiment(get_branin_experiment())
         gs = GenerationStrategy(
-            steps=[
+            nodes=[
                 GenerationStep(generator=Generators.SOBOL, num_trials=5),
             ]
         )
@@ -634,7 +634,7 @@ class TestGenerationStrategy(TestCase):
         # case the previous model should be used until there is enough data.
         exp = get_branin_experiment()
         gs = GenerationStrategy(
-            steps=[
+            nodes=[
                 GenerationStep(
                     generator=Generators.SOBOL,
                     num_trials=1,
@@ -711,7 +711,7 @@ class TestGenerationStrategy(TestCase):
     def test_sobol_strategy(self) -> None:
         exp = get_branin_experiment()
         sobol_generation_strategy = GenerationStrategy(
-            steps=[
+            nodes=[
                 GenerationStep(
                     generator=Generators.SOBOL,
                     num_trials=5,
@@ -730,7 +730,7 @@ class TestGenerationStrategy(TestCase):
     def test_factorial_thompson_strategy(self, _: MagicMock) -> None:
         exp = get_branin_experiment()
         factorial_thompson_gs = GenerationStrategy(
-            steps=[
+            nodes=[
                 GenerationStep(
                     generator=Generators.FACTORIAL,
                     num_trials=1,
@@ -761,7 +761,7 @@ class TestGenerationStrategy(TestCase):
 
     def test_clone_reset(self) -> None:
         ftgs = GenerationStrategy(
-            steps=[
+            nodes=[
                 GenerationStep(generator=Generators.FACTORIAL, num_trials=1),
                 GenerationStep(generator=Generators.THOMPSON, num_trials=2),
             ]
@@ -774,7 +774,7 @@ class TestGenerationStrategy(TestCase):
 
     def test_kwargs_passed(self) -> None:
         gs = GenerationStrategy(
-            steps=[
+            nodes=[
                 GenerationStep(
                     generator=Generators.SOBOL,
                     num_trials=1,
@@ -817,7 +817,7 @@ class TestGenerationStrategy(TestCase):
     def test_store_experiment(self) -> None:
         exp = get_branin_experiment()
         sobol_generation_strategy = GenerationStrategy(
-            steps=[GenerationStep(generator=Generators.SOBOL, num_trials=5)]
+            nodes=[GenerationStep(generator=Generators.SOBOL, num_trials=5)]
         )
         self.assertIsNone(sobol_generation_strategy._experiment)
         sobol_generation_strategy.gen_single_trial(exp)
@@ -828,7 +828,7 @@ class TestGenerationStrategy(TestCase):
         experiment when none are passed in."""
         exp = get_branin_experiment()
         gs = GenerationStrategy(
-            steps=[GenerationStep(generator=Generators.SOBOL, num_trials=5)]
+            nodes=[GenerationStep(generator=Generators.SOBOL, num_trials=5)]
         )
         # Create a trial and mark it as running so it becomes a pending observation.
         trial = exp.new_trial(generator_run=gs.gen_single_trial(exp))
@@ -856,7 +856,7 @@ class TestGenerationStrategy(TestCase):
         """Test that gen_single_trial raises AxError if gen returns multiple trials."""
         exp = get_branin_experiment()
         gs = GenerationStrategy(
-            steps=[GenerationStep(generator=Generators.SOBOL, num_trials=5)]
+            nodes=[GenerationStep(generator=Generators.SOBOL, num_trials=5)]
         )
         gr = gs.gen_single_trial(exp)
         # Mock gen to return multiple trials
@@ -869,7 +869,7 @@ class TestGenerationStrategy(TestCase):
         GeneratorRuns for a single trial."""
         exp = get_branin_experiment()
         gs = GenerationStrategy(
-            steps=[GenerationStep(generator=Generators.SOBOL, num_trials=5)]
+            nodes=[GenerationStep(generator=Generators.SOBOL, num_trials=5)]
         )
         gr = gs.gen_single_trial(exp)
         # Mock gen to return a single trial with multiple GeneratorRuns
@@ -880,7 +880,7 @@ class TestGenerationStrategy(TestCase):
     def test_max_parallelism_reached(self) -> None:
         exp = get_branin_experiment()
         sobol_generation_strategy = GenerationStrategy(
-            steps=[
+            nodes=[
                 GenerationStep(
                     generator=Generators.SOBOL, num_trials=5, max_parallelism=1
                 )
@@ -983,7 +983,7 @@ class TestGenerationStrategy(TestCase):
         NUM_ROUNDS = 4
         exp = get_branin_experiment()
         sobol_gs_with_parallelism_limits = GenerationStrategy(
-            steps=[
+            nodes=[
                 GenerationStep(
                     generator=Generators.SOBOL,
                     num_trials=NUM_INIT_TRIALS,
@@ -1026,7 +1026,7 @@ class TestGenerationStrategy(TestCase):
         NUM_ROUNDS = 4
         exp = get_branin_experiment()
         sobol_gs_with_parallelism_limits = GenerationStrategy(
-            steps=[
+            nodes=[
                 GenerationStep(
                     generator=Generators.SOBOL,
                     num_trials=NUM_INIT_TRIALS,
@@ -1281,7 +1281,7 @@ class TestGenerationStrategy(TestCase):
     ) -> None:
         exp = get_branin_experiment()
         gs = GenerationStrategy(
-            steps=[
+            nodes=[
                 GenerationStep(
                     generator=Generators.SOBOL,
                     num_trials=1,
@@ -1377,29 +1377,6 @@ class TestGenerationStrategy(TestCase):
                     node_3,
                 ],
             )
-        # check error raised if provided both steps and nodes
-        with self.assertRaisesRegex(
-            GenerationStrategyMisconfiguredException, "contain either steps or nodes"
-        ):
-            GenerationStrategy(
-                nodes=[
-                    node_1,
-                    node_3,
-                ],
-                steps=[
-                    GenerationStep(
-                        generator=Generators.SOBOL,
-                        num_trials=5,
-                        generator_kwargs=self.step_generator_kwargs,
-                    ),
-                    GenerationStep(
-                        generator=Generators.BOTORCH_MODULAR,
-                        num_trials=-1,
-                        generator_kwargs=self.step_generator_kwargs,
-                    ),
-                ],
-            )
-
         # check error raised if two transition criterion defining a single edge have
         # differing `continue_trial_generation` settings
         with self.assertRaisesRegex(

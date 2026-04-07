@@ -363,7 +363,7 @@ class TestManagedLoop(TestCase):
         """Managed loop with custom generation strategy"""
         strategy0 = GenerationStrategy(
             name="Sobol",
-            steps=[GenerationStep(generator=Generators.SOBOL, num_trials=-1)],
+            nodes=[GenerationStep(generator=Generators.SOBOL, num_trials=-1)],
         )
         loop = OptimizationLoop.with_evaluation_function(
             parameters=[
@@ -406,7 +406,7 @@ class TestManagedLoop(TestCase):
             total_trials=6,
             generation_strategy=GenerationStrategy(
                 name="Sobol",
-                steps=[GenerationStep(generator=Generators.SOBOL, num_trials=3)],
+                nodes=[GenerationStep(generator=Generators.SOBOL, num_trials=3)],
             ),
         )
         self.assertEqual(len(exp.trials), 3)  # Check that we stopped at 3 trials.
@@ -425,7 +425,7 @@ class TestManagedLoop(TestCase):
     def test_annotate_exception(self, _: Mock) -> None:
         strategy0 = GenerationStrategy(
             name="Sobol",
-            steps=[GenerationStep(generator=Generators.SOBOL, num_trials=-1)],
+            nodes=[GenerationStep(generator=Generators.SOBOL, num_trials=-1)],
         )
         loop = OptimizationLoop.with_evaluation_function(
             parameters=[

@@ -8,10 +8,10 @@
 
 from __future__ import annotations
 
-import warnings
+from collections.abc import Sequence
 from copy import deepcopy
 from logging import Logger
-from typing import Any, TypeVar
+from typing import cast, TypeVar
 
 from ax.adapter.base import Adapter
 from ax.core.data import Data
@@ -52,14 +52,14 @@ class GenerationStrategy(Base):
     numbers of trials.
 
     Args:
-        nodes: A list of `GenerationNode`. Each `GenerationNode` in the list
-            represents a single node in a `GenerationStrategy` which, when
-            composed of `GenerationNodes`, can be conceptualized as a graph instead
-            of a linear list. `TransitionCriterion` defined in each `GenerationNode`
-            represent the edges in the `GenerationStrategy` graph. `GenerationNodes`
-            are more flexible than `GenerationSteps` and new `GenerationStrategies`
-            should use nodes. Notably, either, but not both, of `nodes` and `steps`
-            must be provided.
+        nodes: A list of `GenerationNode` (or legacy `GenerationStep`). Each
+            `GenerationNode` in the list represents a single node in a
+            `GenerationStrategy` which, when composed of `GenerationNodes`, can
+            be conceptualized as a graph instead of a linear list.
+            `TransitionCriterion` defined in each `GenerationNode` represent the
+            edges in the `GenerationStrategy` graph. `GenerationNodes` are more
+            flexible than `GenerationSteps` and new `GenerationStrategies`
+            should use nodes.
         name: An optional name for this generation strategy. If not specified,
             strategy's name will be names of its nodes' generators joined with '+'.
     """
@@ -77,28 +77,13 @@ class GenerationStrategy(Base):
     def __init__(
         self,
         *,
-        nodes: list[GenerationNode] | None = None,
+        nodes: Sequence[GenerationNode | GenerationStep],
         name: str | None = None,
-        **kwargs: Any,
     ) -> None:
         self._generator_runs = []
-        if not (bool(steps := kwargs.get("steps")) ^ bool(nodes)):  # Steps XOR nodes
-            raise GenerationStrategyMisconfiguredException(
-                "GenerationStrategy must contain either steps or nodes. "
-                f"Got: nodes={nodes}, steps={steps}."
-            )
-
-        if steps:
-            warnings.warn(
-                DeprecationWarning(
-                    "Specifying `steps` input is no longer supported. Please use "
-                    "`nodes`. `steps` argument will be removed in early 2026."
-                ),
-                stacklevel=2,
-            )
-            nodes = steps
-
-        self._validate_and_set_node_graph(nodes=nodes)
+        # GenerationStep.__new__ returns GenerationNode, so all elements
+        # are GenerationNode at runtime despite the union type signature.
+        self._validate_and_set_node_graph(nodes=cast(list[GenerationNode], list(nodes)))
 
         # Set name to an explicit value ahead of time to avoid
         # adding properties during equality checks
@@ -399,7 +384,6 @@ class GenerationStrategy(Base):
             n._trials_from_node_cache = set()
             n._cached_trial_count = None
 
-    # TODO: Deprecate `steps` argument fully in Q1'26.
     def _validate_and_set_step_sequence(self, steps: list[GenerationNode]) -> None:
         """Initialize and validate the steps provided to this GenerationStrategy.
 

@@ -1262,7 +1262,7 @@ def generation_strategy_from_json(
         class_decoder_registry=class_decoder_registry,
     )
     if len(steps) > 0:
-        gs = GenerationStrategy(steps=steps, name=generation_strategy_json.pop("name"))
+        gs = GenerationStrategy(nodes=steps, name=generation_strategy_json.pop("name"))
         gs._curr = gs._nodes[generation_strategy_json.pop("curr_index")]
     else:
         gs = GenerationStrategy(nodes=nodes, name=generation_strategy_json.pop("name"))

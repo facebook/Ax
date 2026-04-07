@@ -17,7 +17,7 @@ from ax.generation_strategy.generation_strategy import (
 def get_sobol_generation_strategy() -> GenerationStrategy:
     return GenerationStrategy(
         name="Sobol",
-        steps=[
+        nodes=[
             GenerationStep(generator=Generators.SOBOL, num_trials=-1),
         ],
     )

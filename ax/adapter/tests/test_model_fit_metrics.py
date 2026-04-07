@@ -44,7 +44,7 @@ class TestAdapterFitMetrics(TestCase):
             True
         )
         self.generation_strategy = GenerationStrategy(
-            steps=[
+            nodes=[
                 GenerationStep(
                     generator=Generators.SOBOL,
                     num_trials=NUM_SOBOL,

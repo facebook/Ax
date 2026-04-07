@@ -97,7 +97,7 @@ def get_sobol_mbm_generation_strategy(
 
     generation_strategy = GenerationStrategy(
         name=name,
-        steps=[
+        nodes=[
             GenerationStep(
                 generator=Generators.SOBOL,
                 num_trials=num_sobol_trials,

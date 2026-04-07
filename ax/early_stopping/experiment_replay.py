@@ -95,7 +95,7 @@ def replay_experiment(
     # Setup a Orchestrator with a dummy gs to replay the historical experiment
     dummy_sobol_gs = GenerationStrategy(
         name="sobol",
-        steps=[
+        nodes=[
             GenerationStep(generator=Generators.SOBOL, num_trials=-1),
         ],
     )

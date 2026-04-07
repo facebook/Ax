@@ -313,7 +313,6 @@ def sobol_gpei_generation_node_gs(
     sobol_mbm_GS_nodes = GenerationStrategy(
         name="Sobol+MBM_Nodes",
         nodes=[sobol_node, mbm_node],
-        steps=None,
     )
     return sobol_mbm_GS_nodes
 

@@ -224,7 +224,7 @@ def get_client_with_simple_discrete_moo_problem(
     use_y2_constraint: bool,
 ) -> AxClient:
     gs = GenerationStrategy(
-        steps=[
+        nodes=[
             GenerationStep(generator=Generators.SOBOL, num_trials=3),
             GenerationStep(
                 generator=Generators.BOTORCH_MODULAR,
@@ -587,7 +587,7 @@ class TestAxClient(TestCase):
     def test_sobol_generation_strategy_completion(self) -> None:
         ax_client = get_branin_optimization(
             generation_strategy=GenerationStrategy(
-                steps=[GenerationStep(Generators.SOBOL, num_trials=3)]
+                nodes=[GenerationStep(Generators.SOBOL, num_trials=3)]
             )
         )
         # All Sobol trials should be able to be generated at once and optimization
@@ -607,7 +607,7 @@ class TestAxClient(TestCase):
         decoder = Decoder(config=config)
         db_settings = DBSettings(encoder=encoder, decoder=decoder)
         generation_strategy = GenerationStrategy(
-            steps=[GenerationStep(Generators.SOBOL, num_trials=-1)]
+            nodes=[GenerationStep(Generators.SOBOL, num_trials=-1)]
         )
         ax_client = AxClient(
             db_settings=db_settings, generation_strategy=generation_strategy
@@ -752,7 +752,7 @@ class TestAxClient(TestCase):
         """Test basic experiment creation."""
         ax_client = AxClient(
             GenerationStrategy(
-                steps=[GenerationStep(generator=Generators.SOBOL, num_trials=30)]
+                nodes=[GenerationStep(generator=Generators.SOBOL, num_trials=30)]
             )
         )
         with self.assertRaisesRegex(AssertionError, "Experiment not set on Ax client"):
@@ -914,7 +914,7 @@ class TestAxClient(TestCase):
         """
         ax_client = AxClient(
             GenerationStrategy(
-                steps=[GenerationStep(generator=Generators.SOBOL, num_trials=30)]
+                nodes=[GenerationStep(generator=Generators.SOBOL, num_trials=30)]
             )
         )
         ax_client.create_experiment(
@@ -1011,7 +1011,7 @@ class TestAxClient(TestCase):
     def test_create_single_objective_experiment_with_objectives_dict(self) -> None:
         ax_client = AxClient(
             GenerationStrategy(
-                steps=[GenerationStep(generator=Generators.SOBOL, num_trials=30)]
+                nodes=[GenerationStep(generator=Generators.SOBOL, num_trials=30)]
             )
         )
         with self.assertRaisesRegex(AssertionError, "Experiment not set on Ax client"):
@@ -1696,7 +1696,7 @@ class TestAxClient(TestCase):
         """Test basic experiment creation."""
         ax_client = AxClient(
             GenerationStrategy(
-                steps=[GenerationStep(generator=Generators.SOBOL, num_trials=30)]
+                nodes=[GenerationStep(generator=Generators.SOBOL, num_trials=30)]
             )
         )
         with self.assertRaisesRegex(AssertionError, "Experiment not set on Ax client"):
@@ -1857,7 +1857,7 @@ class TestAxClient(TestCase):
         """Check that we do not allow constraints on the objective metric."""
         ax_client = AxClient(
             GenerationStrategy(
-                steps=[GenerationStep(generator=Generators.SOBOL, num_trials=30)]
+                nodes=[GenerationStep(generator=Generators.SOBOL, num_trials=30)]
             )
         )
         with self.assertRaises(ValueError):
@@ -3265,7 +3265,7 @@ class TestAxClient(TestCase):
         with self.assertWarnsRegex(RuntimeWarning, "a `torch_device` were specified."):
             AxClient(
                 generation_strategy=GenerationStrategy(
-                    steps=[GenerationStep(Generators.SOBOL, num_trials=3)]
+                    nodes=[GenerationStep(Generators.SOBOL, num_trials=3)]
                 ),
                 torch_device=device,
             )

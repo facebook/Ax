@@ -164,7 +164,7 @@ class TestTransitionCriterion(TestCase):
         experiment = get_experiment()
         gs = GenerationStrategy(
             name="SOBOL+MBM::default",
-            steps=[
+            nodes=[
                 GenerationStep(
                     generator=Generators.SOBOL,
                     num_trials=3,
@@ -230,7 +230,7 @@ class TestTransitionCriterion(TestCase):
         experiment = self.branin_experiment
         gs = GenerationStrategy(
             name="SOBOL::default",
-            steps=[
+            nodes=[
                 GenerationStep(
                     generator=Generators.SOBOL,
                     num_trials=4,
@@ -312,7 +312,7 @@ class TestTransitionCriterion(TestCase):
         experiment = self.branin_experiment
         gs = GenerationStrategy(
             name="SOBOL::default",
-            steps=[
+            nodes=[
                 GenerationStep(
                     generator=Generators.SOBOL,
                     num_trials=4,
@@ -508,7 +508,7 @@ class TestTransitionCriterion(TestCase):
         experiment = get_experiment()
         gs = GenerationStrategy(
             name="SOBOL::default",
-            steps=[
+            nodes=[
                 GenerationStep(
                     generator=Generators.SOBOL,
                     num_trials=4,

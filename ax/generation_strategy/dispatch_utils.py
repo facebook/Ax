@@ -541,7 +541,7 @@ def choose_generation_strategy_legacy(
         )
     else:  # `force_random_search` is True or we could not suggest BO model
         gs = GenerationStrategy(
-            steps=[
+            nodes=[
                 _make_sobol_step(
                     seed=random_seed,
                     should_deduplicate=should_deduplicate,

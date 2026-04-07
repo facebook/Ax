@@ -36,7 +36,7 @@ from ax.utils.measurement.synthetic_functions import hartmann6
 class TestInteractiveLoop(TestCase):
     def setUp(self) -> None:
         generation_strategy = GenerationStrategy(
-            steps=[
+            nodes=[
                 GenerationStep(
                     generator=Generators.SOBOL, max_parallelism=1, num_trials=-1
                 )

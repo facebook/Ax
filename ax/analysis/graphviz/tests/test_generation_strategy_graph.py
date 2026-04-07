@@ -34,7 +34,7 @@ class TestGenerationStrategyGraph(TestCase):
 
         # Create a simple step-based generation strategy
         self.step_gs = GenerationStrategy(
-            steps=[
+            nodes=[
                 GenerationStep(
                     generator=Generators.SOBOL,
                     num_trials=5,

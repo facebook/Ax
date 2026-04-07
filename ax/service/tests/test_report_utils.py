@@ -613,7 +613,7 @@ class ReportUtilsTest(TestCase):
         # Create Orchestrator and run a few trials.
         exp = get_branin_experiment()
         gs = GenerationStrategy(
-            steps=[
+            nodes=[
                 GenerationStep(
                     generator=Generators.SOBOL,
                     num_trials=3,
