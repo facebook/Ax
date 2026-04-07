@@ -36,7 +36,7 @@ class TestUtilityProgressionAnalysis(TestCase):
         """Assert that a card has valid structure for utility progression."""
         self.assertIsInstance(card, PlotlyAnalysisCard)
         self.assertEqual(card.name, "UtilityProgressionAnalysis")
-        self.assertIn("trace_index", card.df.columns)
+        self.assertIn("trial_index", card.df.columns)
         self.assertIn("utility", card.df.columns)
 
     def test_utility_progression_soo(self) -> None:
@@ -211,7 +211,7 @@ class TestUtilityProgressionAnalysis(TestCase):
         with (
             patch(
                 "ax.analysis.plotly.utility_progression.get_trace",
-                return_value=[math.inf, -math.inf, math.inf],
+                return_value={0: math.inf, 1: -math.inf, 2: math.inf},
             ),
             self.assertRaises(ExperimentNotReadyError) as cm,
         ):

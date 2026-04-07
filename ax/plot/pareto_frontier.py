@@ -61,8 +61,8 @@ def scatter_plot_with_hypervolume_trace_plotly(experiment: Experiment) -> go.Fig
 
     df = pd.DataFrame(
         {
-            "hypervolume": hypervolume_trace,
-            "trial_index": [*range(len(hypervolume_trace))],
+            "trial_index": list(hypervolume_trace.keys()),
+            "hypervolume": list(hypervolume_trace.values()),
         }
     )
 
