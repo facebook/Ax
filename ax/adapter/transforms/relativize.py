@@ -157,7 +157,7 @@ class BaseRelativize(Transform, ABC):
                 "Expected multi-objective, got single-objective"
             )
             new_optimization_config = optimization_config.clone_with_args(
-                objective=objective,
+                objectives=[objective],
                 outcome_constraints=constraints,
             )
         elif isinstance(optimization_config, MultiObjectiveOptimizationConfig):
@@ -174,13 +174,14 @@ class BaseRelativize(Transform, ABC):
                 )
 
             new_optimization_config = optimization_config.clone_with_args(
-                objective=optimization_config.objective,
+                objectives=[optimization_config.objective],
                 outcome_constraints=constraints,
                 objective_thresholds=obj_thresholds,
             )
         else:
             new_optimization_config = optimization_config.clone_with_args(
-                objective=optimization_config.objective, outcome_constraints=constraints
+                objectives=[optimization_config.objective],
+                outcome_constraints=constraints,
             )
 
         return new_optimization_config

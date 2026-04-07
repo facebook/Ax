@@ -133,10 +133,12 @@ class StandardizeY(Transform):
                 (name, new_w)
                 for (name, _), new_w in zip(objective.metric_weights, new_weights)
             ]
-            optimization_config.objective = _build_objective_from_metric_weights(
-                new_metric_weights,
-                metric_name_to_signature=objective.metric_name_to_signature,
-            )
+            optimization_config._objectives = [
+                _build_objective_from_metric_weights(
+                    new_metric_weights,
+                    metric_name_to_signature=objective.metric_name_to_signature,
+                )
+            ]
 
         new_constraints = self._transform_constraints(
             optimization_config.outcome_constraints, adapter

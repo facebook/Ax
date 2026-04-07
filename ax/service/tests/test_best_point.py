@@ -60,12 +60,14 @@ class TestBestPointMixin(TestCase):
         self.assertEqual(get_trace(exp), [11, 10, 9, 9, 5])
 
         # Same experiment with maximize via new optimization config.
-        opt_conf = none_throws(exp.optimization_config).clone()
-        opt_conf.objective = Objective(
-            expression=opt_conf.objective.metric_names[0],
-            metric_name_to_signature={
-                opt_conf.objective.metric_names[0]: opt_conf.objective.metric_names[0]
-            },
+        metric_name = none_throws(exp.optimization_config).objective.metric_names[0]
+        opt_conf = none_throws(exp.optimization_config).clone_with_args(
+            objectives=[
+                Objective(
+                    expression=metric_name,
+                    metric_name_to_signature={metric_name: metric_name},
+                )
+            ],
         )
         self.assertEqual(get_trace(exp, opt_conf), [11, 11, 11, 15, 15])
 
@@ -441,12 +443,14 @@ class TestBestPointMixin(TestCase):
         )
         self.assertEqual(get_best(exp), 5)
         # Same experiment with maximize via new optimization config.
-        opt_conf = none_throws(exp.optimization_config).clone()
-        opt_conf.objective = Objective(
-            expression=opt_conf.objective.metric_names[0],
-            metric_name_to_signature={
-                opt_conf.objective.metric_names[0]: opt_conf.objective.metric_names[0]
-            },
+        metric_name = none_throws(exp.optimization_config).objective.metric_names[0]
+        opt_conf = none_throws(exp.optimization_config).clone_with_args(
+            objectives=[
+                Objective(
+                    expression=metric_name,
+                    metric_name_to_signature={metric_name: metric_name},
+                )
+            ],
         )
         self.assertEqual(get_best(exp, opt_conf), 15)
 

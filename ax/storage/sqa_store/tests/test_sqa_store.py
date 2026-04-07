@@ -1270,9 +1270,10 @@ class SQAStoreTest(TestCase):
 
         # update objective
         # (should perform update in place)
-        optimization_config = get_optimization_config()
         objective = get_objective(minimize=True)
-        optimization_config.objective = objective
+        optimization_config = get_optimization_config().clone_with_args(
+            objectives=[objective]
+        )
         experiment.optimization_config = optimization_config
         save_experiment(experiment)
         self.assertEqual(
@@ -1282,8 +1283,8 @@ class SQAStoreTest(TestCase):
         # replace objective
         # (old one should become tracking metric)
         experiment.add_tracking_metric(Metric(name="objective"))
-        optimization_config.objective = Objective(
-            metric=Metric(name="objective"), minimize=False
+        optimization_config = optimization_config.clone_with_args(
+            objectives=[Objective(metric=Metric(name="objective"), minimize=False)]
         )
         experiment.optimization_config = optimization_config
         save_experiment(experiment)

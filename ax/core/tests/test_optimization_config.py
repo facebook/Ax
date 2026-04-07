@@ -84,8 +84,6 @@ class OptimizationConfigTest(TestCase):
             objective=self.objective, outcome_constraints=self.outcome_constraints
         )
         self.assertEqual(str(config1), OC_STR)
-        with self.assertRaises(ValueError):
-            config1.objective = self.alt_objective  # constrained Objective.
         # updating constraints is fine.
         config1.outcome_constraints = [self.outcome_constraint]
         self.assertEqual(len(config1.metric_names), 2)
@@ -93,10 +91,6 @@ class OptimizationConfigTest(TestCase):
         # objective without outcome_constraints is also supported
         config2 = OptimizationConfig(objective=self.objective)
         self.assertEqual(config2.outcome_constraints, [])
-
-        # setting objective is fine too, if it's compatible with constraints..
-        config2.objective = self.m2_objective
-        # setting constraints on objectives is fine for MultiObjective components.
 
         config2.outcome_constraints = self.outcome_constraints
         self.assertEqual(config2.outcome_constraints, self.outcome_constraints)
@@ -355,8 +349,8 @@ class OptimizationConfigObjectivesListTest(TestCase):
         self.assertEqual(cloned.objectives[1].expression, "-m2")
         self.assertTrue(cloned.is_moo_problem)
 
-        # clone_with_args(objective=) replaces the list with a single objective
-        cloned = config.clone_with_args(objective=self.obj1)
+        # clone_with_args(objectives=) replaces the list with a single objective
+        cloned = config.clone_with_args(objectives=[self.obj1])
         self.assertEqual(len(cloned.objectives), 1)
         self.assertFalse(cloned.is_moo_problem)
 
@@ -365,10 +359,6 @@ class OptimizationConfigObjectivesListTest(TestCase):
         cloned = config.clone_with_args(objectives=[self.obj1, obj3])
         self.assertEqual(len(cloned.objectives), 2)
         self.assertEqual(cloned.objectives[1].expression, "m3")
-
-        # objective= and objectives= are mutually exclusive in clone_with_args
-        with self.assertRaisesRegex(UserInputError, "Cannot specify both"):
-            config.clone_with_args(objective=self.obj1, objectives=[self.obj1])
 
         # repr always uses "objectives="
         self.assertIn("objectives=", repr(config))
@@ -815,7 +805,7 @@ class PreferenceOptimizationConfigTest(TestCase):
                 objectives=[self.objectives["o1"], self.objectives["o3"]]
             )
         cloned_with_diff_objective = config.clone_with_args(
-            objective=different_objective
+            objectives=[different_objective]
         )
         self.assertEqual(
             cloned_with_diff_objective.objective.expression,

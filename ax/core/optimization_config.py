@@ -8,6 +8,7 @@
 
 from __future__ import annotations
 
+import warnings
 from collections.abc import Mapping
 from itertools import groupby
 from typing import Self
@@ -80,11 +81,17 @@ class OptimizationConfig(Base):
                 consideration, and if not, the parameter value will be replaced with
                 the corresponding value in the target arm.
         """
+        if objective is not None:
+            warnings.warn(
+                "Passing `objective` to OptimizationConfig is deprecated. "
+                "Use `objectives=[objective]` instead.",
+                DeprecationWarning,
+                stacklevel=2,
+            )
         if objective is not None and objectives is not None:
             raise UserInputError(
                 "Cannot specify both `objective` and `objectives`. "
-                "Use `objective` for single-objective optimization or "
-                "`objectives` for multi-objective optimization."
+                "Use `objectives=[objective]` instead."
             )
         if objective is None and objectives is None:
             raise UserInputError("Must specify either `objective` or `objectives`.")
@@ -113,7 +120,6 @@ class OptimizationConfig(Base):
     def clone_with_args(
         self,
         *,
-        objective: Objective | None = None,
         objectives: list[Objective] | None = None,
         outcome_constraints: None | (list[OutcomeConstraint]) = _NO_OUTCOME_CONSTRAINTS,
         pruning_target_parameterization: Arm
@@ -122,21 +128,12 @@ class OptimizationConfig(Base):
         """Make a copy of this optimization config.
 
         Args:
-            objective: Replace with a single objective. Mutually exclusive
-                with ``objectives``.
-            objectives: Replace with a list of objectives. Mutually exclusive
-                with ``objective``.
+            objectives: Replace with a list of objectives.
             outcome_constraints: Replace outcome constraints. Pass ``None``
                 to clear them.
             pruning_target_parameterization: Replace the pruning target.
         """
-        if objective is not None and objectives is not None:
-            raise UserInputError(
-                "Cannot specify both `objective` and `objectives` in clone_with_args."
-            )
-        if objective is not None:
-            cloned_objectives = [objective]
-        elif objectives is not None:
+        if objectives is not None:
             cloned_objectives = objectives
         else:
             cloned_objectives = [obj.clone() for obj in self._objectives]
@@ -181,15 +178,6 @@ class OptimizationConfig(Base):
                 "iterate over individual objectives."
             )
         return self._objectives[0]
-
-    @objective.setter
-    def objective(self, objective: Objective) -> None:
-        """Set objective. Only valid for single-objective configs."""
-        self._validate_transformed_optimization_config(
-            objectives=[objective],
-            outcome_constraints=self.outcome_constraints,
-        )
-        self._objectives = [objective]
 
     @property
     def all_constraints(self) -> list[OutcomeConstraint]:
@@ -449,7 +437,6 @@ class MultiObjectiveOptimizationConfig(OptimizationConfig):
     def clone_with_args(
         self,
         *,
-        objective: Objective | None = None,
         objectives: list[Objective] | None = None,
         outcome_constraints: None | (list[OutcomeConstraint]) = _NO_OUTCOME_CONSTRAINTS,
         objective_thresholds: None
@@ -458,13 +445,7 @@ class MultiObjectiveOptimizationConfig(OptimizationConfig):
         | None = _NO_PRUNING_TARGET_PARAMETERIZATION,
     ) -> "MultiObjectiveOptimizationConfig":
         """Make a copy of this optimization config."""
-        if objective is not None and objectives is not None:
-            raise UserInputError(
-                "Cannot specify both `objective` and `objectives` in clone_with_args."
-            )
-        if objective is not None:
-            cloned_objectives = [objective]
-        elif objectives is not None:
+        if objectives is not None:
             cloned_objectives = objectives
         else:
             cloned_objectives = [obj.clone() for obj in self._objectives]
@@ -709,7 +690,6 @@ class PreferenceOptimizationConfig(MultiObjectiveOptimizationConfig):
     def clone_with_args(
         self,
         *,
-        objective: Objective | None = None,
         objectives: list[Objective] | None = None,
         preference_profile_name: str | None = None,
         outcome_constraints: list[OutcomeConstraint] | None = _NO_OUTCOME_CONSTRAINTS,
@@ -718,16 +698,11 @@ class PreferenceOptimizationConfig(MultiObjectiveOptimizationConfig):
         | None = _NO_PRUNING_TARGET_PARAMETERIZATION,
     ) -> PreferenceOptimizationConfig:
         """Make a copy of this optimization config."""
-        if objective is not None and objectives is not None:
-            raise UserInputError(
-                "Cannot specify both `objective` and `objectives` in clone_with_args."
-            )
-        if objective is not None:
-            cloned_objectives = [objective]
-        elif objectives is not None:
-            cloned_objectives = objectives
-        else:
-            cloned_objectives = [obj.clone() for obj in self._objectives]
+        cloned_objectives = (
+            [obj.clone() for obj in self._objectives]
+            if objectives is None
+            else objectives
+        )
 
         preference_profile_name = (
             self.preference_profile_name
