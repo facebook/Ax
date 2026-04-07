@@ -1655,7 +1655,7 @@ class JSONStoreTest(TestCase):
         # Setup: create OptimizationConfig with pruning_target_parameterization
         pruning_target_parameterization = get_arm()
         optimization_config = OptimizationConfig(
-            objective=Objective(metric=Metric("test_metric"), minimize=False),
+            objectives=[Objective(metric=Metric("test_metric"), minimize=False)],
             pruning_target_parameterization=pruning_target_parameterization,
         )
 
@@ -1812,7 +1812,7 @@ class JSONStoreTest(TestCase):
         # Setup: create OptimizationConfig without
         # pruning_target_parameterization
         optimization_config = OptimizationConfig(
-            objective=Objective(metric=Metric("test_metric"), minimize=False),
+            objectives=[Objective(metric=Metric("test_metric"), minimize=False)],
             pruning_target_parameterization=None,
         )
 
@@ -2357,8 +2357,8 @@ class JSONStoreTest(TestCase):
         #     name="test",
         #     search_space=get_branin_search_space(),
         #     optimization_config=OptimizationConfig(
-        #         objective=Objective(metric=Metric(name="a", lower_is_better=True))
-        #     ),
+        #         objectives=[Objective(metric=Metric(name="a", lower_is_better=True))
+        #     ]),
         #     tracking_metrics=[Metric(name="b"), Metric(name="c")],
         #     runner=SyntheticRunner(),
         # )

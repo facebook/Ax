@@ -1390,7 +1390,7 @@ class SQAStoreTest(TestCase):
         )
 
         optimization_config = OptimizationConfig(
-            objective=get_objective(),
+            objectives=[get_objective()],
             outcome_constraints=[get_outcome_constraint()],
             pruning_target_parameterization=pruning_target_parameterization,
         )

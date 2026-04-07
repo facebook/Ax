@@ -143,7 +143,7 @@ class DiscreteAdapterTest(TestCase):
     def test_gen(self) -> None:
         # Test with constraints
         optimization_config = OptimizationConfig(
-            objective=Objective(metric=Metric("m1"), minimize=True),
+            objectives=[Objective(metric=Metric("m1"), minimize=True)],
             outcome_constraints=[
                 OutcomeConstraint(
                     metric=Metric("m2"), op=ComparisonOp.GEQ, bound=2, relative=False
@@ -231,7 +231,7 @@ class DiscreteAdapterTest(TestCase):
 
         # Test validation
         optimization_config = OptimizationConfig(
-            objective=Objective(metric=Metric("m1"), minimize=False),
+            objectives=[Objective(metric=Metric("m1"), minimize=False)],
             outcome_constraints=[
                 OutcomeConstraint(
                     metric=Metric("m2"), op=ComparisonOp.GEQ, bound=2, relative=True

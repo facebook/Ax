@@ -68,9 +68,11 @@ class TestBenchmarkProblem(TestCase):
             )
 
         opt_config2 = OptimizationConfig(
-            objective=Objective(
-                expression="-Branin", metric_name_to_signature={"Branin": "Branin"}
-            ),
+            objectives=[
+                Objective(
+                    expression="-Branin", metric_name_to_signature={"Branin": "Branin"}
+                )
+            ],
             outcome_constraints=[
                 OutcomeConstraint(
                     expression="c <= 0.0", metric_name_to_signature={"c": "c"}
@@ -106,7 +108,7 @@ class TestBenchmarkProblem(TestCase):
             botorch_problem=BraninCurrin(),
             outcome_names=["BraninCurrin_0", "BraninCurrin_1"],
         )
-        opt_config = OptimizationConfig(objective=objective)
+        opt_config = OptimizationConfig(objectives=[objective])
         with self.assertRaisesRegex(
             ValueError,
             "The following objectives are defined on "

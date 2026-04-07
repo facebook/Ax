@@ -333,7 +333,7 @@ class TestEarlyStoppingAnalysis(TestCase):
             metric = get_branin_metric(name="m1")
             constraint_metric = get_branin_metric(name="constraint_metric")
             experiment._optimization_config = OptimizationConfig(
-                objective=Objective(metric=metric),
+                objectives=[Objective(metric=metric)],
                 outcome_constraints=[
                     OutcomeConstraint(
                         metric=constraint_metric, op=ComparisonOp.LEQ, bound=10.0

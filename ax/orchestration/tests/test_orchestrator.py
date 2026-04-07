@@ -205,7 +205,7 @@ class TestAxOrchestrator(TestCase):
         self.branin_experiment_no_impl_runner_or_metrics = Experiment(
             search_space=get_branin_search_space(),
             optimization_config=OptimizationConfig(
-                objective=Objective(metric=Metric(name="branin"), minimize=False)
+                objectives=[Objective(metric=Metric(name="branin"), minimize=False)]
             ),
             name="branin_experiment_no_impl_runner_or_metrics",
         )
@@ -2727,12 +2727,14 @@ class TestAxOrchestrator(TestCase):
         )
         self.branin_experiment.add_tracking_metric(custom_metric)
         self.branin_experiment.optimization_config = OptimizationConfig(
-            objective=Objective(
-                metric=CustomTestMetric(
-                    name="custom_test_metric", test_attribute="test"
-                ),
-                minimize=False,
-            )
+            objectives=[
+                Objective(
+                    metric=CustomTestMetric(
+                        name="custom_test_metric", test_attribute="test"
+                    ),
+                    minimize=False,
+                )
+            ]
         )
         gs = get_online_sobol_mbm_generation_strategy()
         self.branin_experiment.runner = InfinitePollRunner()
@@ -2950,7 +2952,9 @@ class TestAxOrchestratorMultiTypeExperiment(TestAxOrchestrator):
         self.branin_experiment.name = "branin_test_experiment"
         self.branin_experiment.update_metric(BraninMetric("m1", ["x1", "x2"]))
         self.branin_experiment.optimization_config = OptimizationConfig(
-            objective=Objective(metric=BraninMetric("m1", ["x1", "x2"]), minimize=True)
+            objectives=[
+                Objective(metric=BraninMetric("m1", ["x1", "x2"]), minimize=True)
+            ]
         )
 
         self.runner = SyntheticRunnerWithStatusPolling()
@@ -2962,9 +2966,9 @@ class TestAxOrchestratorMultiTypeExperiment(TestAxOrchestrator):
         )
         self.branin_timestamp_map_metric_experiment.optimization_config = (
             OptimizationConfig(
-                objective=Objective(
-                    metric=get_map_metric(name="branin_map"), minimize=True
-                )
+                objectives=[
+                    Objective(metric=get_map_metric(name="branin_map"), minimize=True)
+                ]
             )
         )
         self.branin_timestamp_map_metric_experiment.update_runner(
@@ -2974,7 +2978,7 @@ class TestAxOrchestratorMultiTypeExperiment(TestAxOrchestrator):
         self.branin_experiment_no_impl_runner_or_metrics = MultiTypeExperiment(
             search_space=get_branin_search_space(),
             optimization_config=OptimizationConfig(
-                objective=Objective(metric=Metric(name="branin"), minimize=True)
+                objectives=[Objective(metric=Metric(name="branin"), minimize=True)]
             ),
             default_trial_type="type1",
             default_runner=None,

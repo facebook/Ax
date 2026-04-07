@@ -176,7 +176,7 @@ class TestImprovementGlobalStoppingStrategy(TestCase):
             ),
         ]
         optimization_config = OptimizationConfig(
-            objective=objective, outcome_constraints=outcome_constraints
+            objectives=[objective], outcome_constraints=outcome_constraints
         )
         exp = Experiment(
             name="test_experiment",
@@ -377,10 +377,12 @@ class TestImprovementGlobalStoppingStrategy(TestCase):
         ]
         exp = self._create_single_objective_experiment(metric_values=metric_values)
         exp._optimization_config = OptimizationConfig(
-            objective=Objective(
-                expression="2*m1 + -3*m4",
-                metric_name_to_signature={"m1": "m1", "m4": "m4"},
-            ),
+            objectives=[
+                Objective(
+                    expression="2*m1 + -3*m4",
+                    metric_name_to_signature={"m1": "m1", "m4": "m4"},
+                )
+            ],
             outcome_constraints=none_throws(
                 exp.optimization_config
             ).outcome_constraints,
@@ -402,7 +404,7 @@ class TestImprovementGlobalStoppingStrategy(TestCase):
         ]
         exp = self._create_single_objective_experiment(metric_values=metric_values)
         exp._optimization_config = OptimizationConfig(
-            objective=Objective(metric=Metric(name="m1"), minimize=False),
+            objectives=[Objective(metric=Metric(name="m1"), minimize=False)],
             outcome_constraints=[
                 OutcomeConstraint(
                     expression="1.0*m2 + 1.0*m3 <= 0.5",

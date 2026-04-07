@@ -95,7 +95,7 @@ class TestBanditRollout(TestCase):
                 ]
             ),
             optimization_config=OptimizationConfig(
-                objective=Objective(metric=Metric(name="foo"), minimize=False)
+                objectives=[Objective(metric=Metric(name="foo"), minimize=False)]
             ),
         )
 

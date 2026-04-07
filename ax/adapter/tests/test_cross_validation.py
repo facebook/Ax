@@ -475,7 +475,7 @@ class CrossValidationTest(TestCase):
 
         # Test single objective
         optimization_config = OptimizationConfig(
-            objective=Objective(metric=Metric("m1"), minimize=True)
+            objectives=[Objective(metric=Metric("m1"), minimize=True)]
         )
         has_good_fit = has_good_opt_config_model_fit(
             optimization_config=optimization_config,
@@ -500,7 +500,7 @@ class CrossValidationTest(TestCase):
 
         # Test constraints
         optimization_config = OptimizationConfig(
-            objective=Objective(metric=Metric("m1"), minimize=False),
+            objectives=[Objective(metric=Metric("m1"), minimize=False)],
             outcome_constraints=[
                 OutcomeConstraint(metric=Metric("m2"), op=ComparisonOp.GEQ, bound=0.1)
             ],

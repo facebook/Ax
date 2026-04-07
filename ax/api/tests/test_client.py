@@ -165,9 +165,11 @@ class TestClient(TestCase):
         self.assertEqual(
             client._experiment.optimization_config,
             OptimizationConfig(
-                objective=Objective(
-                    metric=MapMetric(name="ne", lower_is_better=True), minimize=True
-                ),
+                objectives=[
+                    Objective(
+                        metric=MapMetric(name="ne", lower_is_better=True), minimize=True
+                    )
+                ],
                 outcome_constraints=[
                     OutcomeConstraint(
                         metric=MapMetric(name="qps"),

@@ -193,10 +193,12 @@ class TestGenerationStrategyWithoutAdapterMocks(TestCase):
             name="test_choice_constraint",
             search_space=search_space,
             optimization_config=OptimizationConfig(
-                objective=Objective(
-                    metric=BraninMetric(name="branin", param_names=["x1", "x2"]),
-                    minimize=True,
-                ),
+                objectives=[
+                    Objective(
+                        metric=BraninMetric(name="branin", param_names=["x1", "x2"]),
+                        minimize=True,
+                    )
+                ],
             ),
         )
 

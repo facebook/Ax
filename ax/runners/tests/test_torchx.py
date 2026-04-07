@@ -80,7 +80,7 @@ class TorchXRunnerTest(TestCase):
         experiment = Experiment(
             name="torchx_booth_sequential_demo",
             search_space=SearchSpace(parameters=self._parameters),
-            optimization_config=OptimizationConfig(objective=self._objective),
+            optimization_config=OptimizationConfig(objectives=[self._objective]),
             runner=self._runner,
             is_test=True,
             properties={Keys.IMMUTABLE_SEARCH_SPACE_AND_OPT_CONF: True},
@@ -112,7 +112,7 @@ class TorchXRunnerTest(TestCase):
         experiment = Experiment(
             name="torchx_booth_sequential_demo",
             search_space=SearchSpace(parameters=self._parameters),
-            optimization_config=OptimizationConfig(objective=self._objective),
+            optimization_config=OptimizationConfig(objectives=[self._objective]),
             runner=self._runner,
             is_test=True,
             properties={Keys.IMMUTABLE_SEARCH_SPACE_AND_OPT_CONF: True},
@@ -150,7 +150,7 @@ class TorchXRunnerTest(TestCase):
         experiment = Experiment(
             name="torchx_booth_parallel_demo",
             search_space=SearchSpace(parameters=self._parameters),
-            optimization_config=OptimizationConfig(objective=self._objective),
+            optimization_config=OptimizationConfig(objectives=[self._objective]),
             runner=self._runner,
             is_test=True,
             properties={Keys.IMMUTABLE_SEARCH_SPACE_AND_OPT_CONF: True},
@@ -184,7 +184,7 @@ class TorchXRunnerTest(TestCase):
         experiment = Experiment(
             name="runner_test",
             search_space=SearchSpace(parameters=self._parameters),
-            optimization_config=OptimizationConfig(objective=self._objective),
+            optimization_config=OptimizationConfig(objectives=[self._objective]),
             runner=self._runner,
             is_test=True,
             tracking_metrics=[self._metric],

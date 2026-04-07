@@ -763,10 +763,12 @@ class ReportUtilsTest(TestCase):
         exp = get_branin_experiment(with_completed_trial=True)
         exp.add_tracking_metric(get_branin_metric(name="branin2"))
         exp._optimization_config = OptimizationConfig(
-            objective=Objective(
-                expression="2*branin + -1*branin2",
-                metric_name_to_signature={"branin": "branin", "branin2": "branin2"},
-            ),
+            objectives=[
+                Objective(
+                    expression="2*branin + -1*branin2",
+                    metric_name_to_signature={"branin": "branin", "branin2": "branin2"},
+                )
+            ],
         )
         with self.assertRaisesRegex(UnsupportedError, "not supported for scalarized"):
             _get_objective_trace_plot(experiment=exp)
@@ -779,13 +781,15 @@ class ReportUtilsTest(TestCase):
         exp.fetch_data()
         arm_names = list(exp.arms_by_name.keys())
         exp._optimization_config = OptimizationConfig(
-            objective=Objective(
-                expression="2*branin_a + -1*branin_b",
-                metric_name_to_signature={
-                    "branin_a": "branin_a",
-                    "branin_b": "branin_b",
-                },
-            ),
+            objectives=[
+                Objective(
+                    expression="2*branin_a + -1*branin_b",
+                    metric_name_to_signature={
+                        "branin_a": "branin_a",
+                        "branin_b": "branin_b",
+                    },
+                )
+            ],
         )
         with self.assertRaisesRegex(UnsupportedError, "not supported for scalarized"):
             maybe_extract_baseline_comparison_values(

@@ -350,11 +350,13 @@ class WinsorizeTransformTest(TestCase):
         # Scalarized objective (deprecated class)
         for minimize in [True, False]:
             experiment.optimization_config = OptimizationConfig(
-                objective=ScalarizedObjective(
-                    metrics=[Metric(name="m1"), Metric(name="m2")],
-                    weights=[1, -1],
-                    minimize=minimize,
-                )
+                objectives=[
+                    ScalarizedObjective(
+                        metrics=[Metric(name="m1"), Metric(name="m2")],
+                        weights=[1, -1],
+                        minimize=minimize,
+                    )
+                ]
             )
             adapter = Adapter(experiment=experiment, generator=Generator())
             transform = Winsorize(experiment_data=experiment_data, adapter=adapter)
@@ -372,9 +374,12 @@ class WinsorizeTransformTest(TestCase):
         # ScalarizedObjective(metrics=[m1, m2], weights=[1, -1], minimize=False)
         # since expressions are always maximized.
         experiment.optimization_config = OptimizationConfig(
-            objective=Objective(
-                expression="m1 - m2", metric_name_to_signature={"m1": "m1", "m2": "m2"}
-            )
+            objectives=[
+                Objective(
+                    expression="m1 - m2",
+                    metric_name_to_signature={"m1": "m1", "m2": "m2"},
+                )
+            ]
         )
         adapter = Adapter(experiment=experiment, generator=Generator())
         transform = Winsorize(experiment_data=experiment_data, adapter=adapter)
@@ -384,9 +389,12 @@ class WinsorizeTransformTest(TestCase):
         )
         # Negated expression "-m1 + m2" is equivalent to minimize=True above.
         experiment.optimization_config = OptimizationConfig(
-            objective=Objective(
-                expression="-m1 + m2", metric_name_to_signature={"m1": "m1", "m2": "m2"}
-            )
+            objectives=[
+                Objective(
+                    expression="-m1 + m2",
+                    metric_name_to_signature={"m1": "m1", "m2": "m2"},
+                )
+            ]
         )
         adapter = Adapter(experiment=experiment, generator=Generator())
         transform = Winsorize(experiment_data=experiment_data, adapter=adapter)
@@ -399,7 +407,7 @@ class WinsorizeTransformTest(TestCase):
         m2 = Metric(name="m2", lower_is_better=True)
         m3 = Metric(name="m3")
         experiment.optimization_config = OptimizationConfig(
-            objective=Objective(metric=m2, minimize=True)
+            objectives=[Objective(metric=m2, minimize=True)]
         )
         adapter = Adapter(experiment=experiment, generator=Generator())
         transform = Winsorize(experiment_data=experiment_data, adapter=adapter)
@@ -411,7 +419,7 @@ class WinsorizeTransformTest(TestCase):
             metric=m1, op=ComparisonOp.LEQ, bound=3, relative=True
         )
         experiment.optimization_config = OptimizationConfig(
-            objective=Objective(metric=m2, minimize=True),
+            objectives=[Objective(metric=m2, minimize=True)],
             outcome_constraints=[outcome_constraint],
         )
         adapter = Adapter(experiment=experiment, generator=Generator())
@@ -536,7 +544,7 @@ class WinsorizeTransformTest(TestCase):
         )
         # Test with relative constraint, in-design status quo
         oc = OptimizationConfig(
-            objective=Objective(metric=Metric("c"), minimize=False),
+            objectives=[Objective(metric=Metric("c"), minimize=False)],
             outcome_constraints=[
                 OutcomeConstraint(
                     metric=Metric("a"), op=ComparisonOp.LEQ, bound=2, relative=False

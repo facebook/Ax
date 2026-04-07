@@ -125,7 +125,7 @@ class TestComplexityRatingAnalysis(TestCase):
                 if m.name not in self.experiment.metrics:
                     self.experiment.add_tracking_metric(m)
             self.experiment._optimization_config = OptimizationConfig(
-                objective=Objective(metric=Metric(name="obj"), minimize=False),
+                objectives=[Objective(metric=Metric(name="obj"), minimize=False)],
                 outcome_constraints=[
                     OutcomeConstraint(metric=m, op=ComparisonOp.LEQ, bound=1.0)
                     for m in metrics

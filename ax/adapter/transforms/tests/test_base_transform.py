@@ -116,7 +116,7 @@ class TransformsTest(TestCase):
         # modifies parameters
         pruning_target_parameterization = Arm(parameters={"x1": 2.5, "x2": 7.5})
         optimization_config = OptimizationConfig(
-            objective=Objective(metric=Metric("m1"), minimize=False),
+            objectives=[Objective(metric=Metric("m1"), minimize=False)],
             pruning_target_parameterization=pruning_target_parameterization,
         )
 
@@ -142,7 +142,7 @@ class TransformsTest(TestCase):
     ) -> None:
         # Setup: create optimization config without target arm
         optimization_config = OptimizationConfig(
-            objective=Objective(metric=Metric("m1"), minimize=False),
+            objectives=[Objective(metric=Metric("m1"), minimize=False)],
             pruning_target_parameterization=None,
         )
 
@@ -169,7 +169,7 @@ class TransformsTest(TestCase):
             )
         ]
         optimization_config = OptimizationConfig(
-            objective=Objective(metric=Metric("m1"), minimize=True),
+            objectives=[Objective(metric=Metric("m1"), minimize=True)],
             outcome_constraints=outcome_constraints,
             pruning_target_parameterization=pruning_target_parameterization,
         )

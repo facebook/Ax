@@ -214,7 +214,7 @@ class BaseAdapterTest(TestCase):
             fit_tracking_metrics=False,
         )
         new_oc = OptimizationConfig(
-            objective=Objective(metric=Metric(name="test_metric2"), minimize=False),
+            objectives=[Objective(metric=Metric(name="test_metric2"), minimize=False)],
         )
         with self.assertRaisesRegex(UnsupportedError, "fit_tracking_metrics"):
             adapter.gen(n=1, optimization_config=new_oc)
@@ -301,7 +301,7 @@ class BaseAdapterTest(TestCase):
 
         # Gen with a different optimization config.
         oc2 = OptimizationConfig(
-            objective=Objective(metric=Metric(name="branin"), minimize=True)
+            objectives=[Objective(metric=Metric(name="branin"), minimize=True)]
         )
         with mock.patch(ADAPTER__GEN_PATH, return_value=mock_return_value) as mock_gen:
             adapter.gen(n=1, search_space=search_space, optimization_config=oc2)
@@ -1369,10 +1369,12 @@ class BaseAdapterTest(TestCase):
             is_test=True,
             tracking_metrics=[metric],
             optimization_config=OptimizationConfig(
-                objective=Objective(
-                    metric=metric,
-                    minimize=True,
-                )
+                objectives=[
+                    Objective(
+                        metric=metric,
+                        minimize=True,
+                    )
+                ]
             ),
             runner=SyntheticRunner(),
         )
