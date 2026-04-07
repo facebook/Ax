@@ -19,7 +19,10 @@ from IPython.display import display, HTML, Markdown
 from plotly.offline import get_plotlyjs
 
 # Simple HTML template for rendering a card with a title, subtitle, and body with
-# scrollable overflow.
+# scrollable overflow. Subtitles are rendered in a <div> with max-height overflow
+# so that any HTML content (tables, lists, etc.) is valid and clipped correctly
+# in the collapsed state. A "See more"/"See less" toggle appears when content
+# overflows (matching the web UI pattern).
 html_card_template = """
 <style>
 .card {{
@@ -30,34 +33,65 @@ html_card_template = """
     border-radius: 0.5em;
     padding: 10px;
 }}
-.card-header:hover {{
-    cursor: pointer;
-}}
-.card-header details summary {{
-    list-style: none;
-    display: inline-flex;
-    align-items: center;
-    gap: 0.5em;
-}}
-.card-header details summary::-webkit-details-marker {{
-    display: none;
-}}
-.card-header details summary::after {{
-    content: "ℹ️";
+.card-subtitle {{
+    color: gray;
     font-size: 0.9em;
+    margin: 4px 0 0 0;
+    line-height: 1.4em;
+    max-height: 1.4em;
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+}}
+.card-subtitle-toggle {{
+    color: #1877F2;
+    cursor: pointer;
+    font-size: 0.85em;
+    background: none;
+    border: none;
+    padding: 0;
+    margin-top: 2px;
+    display: none;
 }}
 </style>
 <div class="card">
     <div class="card-header">
-        <details>
-            <summary><b>{title_str}</b></summary>
-            <p>{subtitle_str}</p>
-        </details>
+        <b>{title_str}</b>
+        <div class="card-subtitle">{subtitle_str}</div>
+        <button class="card-subtitle-toggle">See more</button>
     </div>
     <div class="card-body">
         {body_html}
     </div>
 </div>
+<script>
+(function() {{
+    var card = document.currentScript.previousElementSibling;
+    var subtitle = card.querySelector('.card-subtitle');
+    var toggle = card.querySelector('.card-subtitle-toggle');
+    if (subtitle && toggle) {{
+        requestAnimationFrame(function() {{
+            if (subtitle.scrollHeight > subtitle.clientHeight
+                    || subtitle.scrollWidth > subtitle.clientWidth) {{
+                toggle.style.display = 'inline';
+            }}
+        }});
+        toggle.onclick = function() {{
+            if (subtitle.style.maxHeight === 'none') {{
+                subtitle.style.maxHeight = '1.4em';
+                subtitle.style.whiteSpace = 'nowrap';
+                subtitle.style.textOverflow = 'ellipsis';
+                toggle.textContent = 'See more';
+            }} else {{
+                subtitle.style.maxHeight = 'none';
+                subtitle.style.whiteSpace = 'normal';
+                subtitle.style.textOverflow = 'clip';
+                toggle.textContent = 'See less';
+            }}
+        }};
+    }}
+}})();
+</script>
 """
 
 # Simple HTML template for rendering a *group* card with a title, subtitle, and
