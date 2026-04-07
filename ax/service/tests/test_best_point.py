@@ -57,7 +57,7 @@ class TestBestPointMixin(TestCase):
         exp = get_experiment_with_observations(
             observations=[[11], [10], [9], [15], [5]], minimize=True
         )
-        self.assertEqual(get_trace(exp), [11, 10, 9, 9, 5])
+        self.assertEqual(get_trace(exp), {0: 11, 1: 10, 2: 9, 3: 9, 4: 5})
 
         # Same experiment with maximize via new optimization config.
         opt_conf = none_throws(exp.optimization_config).clone()
@@ -67,7 +67,7 @@ class TestBestPointMixin(TestCase):
                 opt_conf.objective.metric_names[0]: opt_conf.objective.metric_names[0]
             },
         )
-        self.assertEqual(get_trace(exp, opt_conf), [11, 11, 11, 15, 15])
+        self.assertEqual(get_trace(exp, opt_conf), {0: 11, 1: 11, 2: 11, 3: 15, 4: 15})
 
         with self.subTest("Single objective with constraints"):
             # The second metric is the constraint and needs to be >= 0
@@ -76,48 +76,52 @@ class TestBestPointMixin(TestCase):
                 minimize=False,
                 constrained=True,
             )
-            self.assertEqual(get_trace(exp), [float("-inf"), 10, 10, 10, 11])
+            self.assertEqual(
+                get_trace(exp),
+                {0: float("-inf"), 1: 10, 2: 10, 3: 10, 4: 11},
+            )
 
             exp = get_experiment_with_observations(
                 observations=[[11, -1], [10, 1], [9, 1], [15, -1], [11, 1]],
                 minimize=True,
                 constrained=True,
             )
-            self.assertEqual(get_trace(exp), [float("inf"), 10, 9, 9, 9])
+            self.assertEqual(get_trace(exp), {0: float("inf"), 1: 10, 2: 9, 3: 9, 4: 9})
 
         # Scalarized.
         exp = get_experiment_with_observations(
             observations=[[1, 1], [2, 2], [3, 3]],
             scalarized=True,
         )
-        self.assertEqual(get_trace(exp), [2, 4, 6])
+        self.assertEqual(get_trace(exp), {0: 2, 1: 4, 2: 6})
 
         # Multi objective.
         exp = get_experiment_with_observations(
             observations=[[1, 1], [-1, 100], [1, 2], [3, 3], [2, 4], [2, 1]],
         )
-        self.assertEqual(get_trace(exp), [1, 1, 2, 9, 11, 11])
+        self.assertEqual(get_trace(exp), {0: 1, 1: 1, 2: 2, 3: 9, 4: 11, 5: 11})
 
         # W/o ObjectiveThresholds (inferring ObjectiveThresholds from scaled nadir)
         assert_is_instance(
             exp.optimization_config, MultiObjectiveOptimizationConfig
         ).objective_thresholds = []
         trace = get_trace(exp)
+        trace_values = list(trace.values())
         # With inferred thresholds via scaled nadir, check trace properties:
         # - All values should be non-negative
-        self.assertTrue(all(v >= 0.0 for v in trace))
+        self.assertTrue(all(v >= 0.0 for v in trace_values))
         # - Trace should be non-decreasing (cumulative best)
-        for i in range(1, len(trace)):
-            self.assertGreaterEqual(trace[i], trace[i - 1])
+        for i in range(1, len(trace_values)):
+            self.assertGreaterEqual(trace_values[i], trace_values[i - 1])
         # - Final value should be positive (non-trivial HV)
-        self.assertGreater(trace[-1], 0.0)
+        self.assertGreater(trace_values[-1], 0.0)
 
         # Multi-objective w/ constraints.
         exp = get_experiment_with_observations(
             observations=[[-1, 1, 1], [1, 2, 1], [3, 3, -1], [2, 4, 1], [2, 1, 1]],
             constrained=True,
         )
-        self.assertEqual(get_trace(exp), [0, 2, 2, 8, 8])
+        self.assertEqual(get_trace(exp), {0: 0, 1: 2, 2: 2, 3: 8, 4: 8})
 
         # W/ relative constraints & status quo.
         exp.status_quo = Arm(parameters={"x": 0.5, "y": 0.5}, name="status_quo")
@@ -149,17 +153,17 @@ class TestBestPointMixin(TestCase):
         ]
         status_quo_data = Data(df=pd.DataFrame.from_records(df_dict))
         exp.attach_data(data=status_quo_data)
-        self.assertEqual(get_trace(exp), [0, 2, 2, 8, 8])
+        self.assertEqual(get_trace(exp), {0: 0, 1: 2, 2: 2, 3: 8, 4: 8})
 
         # W/ first objective being minimized.
         exp = get_experiment_with_observations(
             observations=[[1, 1], [-1, 2], [3, 3], [-2, 4], [2, 1]], minimize=True
         )
-        self.assertEqual(get_trace(exp), [0, 2, 2, 8, 8])
+        self.assertEqual(get_trace(exp), {0: 0, 1: 2, 2: 2, 3: 8, 4: 8})
 
         # W/ empty data.
         exp = get_experiment_with_trial()
-        self.assertEqual(get_trace(exp), [])
+        self.assertEqual(get_trace(exp), {})
 
         # test batch trial
         exp = get_experiment_with_batch_trial(with_status_quo=False)
@@ -191,7 +195,7 @@ class TestBestPointMixin(TestCase):
                 ]
             )
         exp.attach_data(Data(df=pd.DataFrame.from_records(df_dict)))
-        self.assertEqual(get_trace(exp), [2.0])
+        self.assertEqual(get_trace(exp), {0: 2.0})
         # test that there is performance metric in the trace for each
         # completed/early-stopped trial
         trial1 = assert_is_instance(trial, BatchTrial).clone_to(include_sq=False)
@@ -214,7 +218,7 @@ class TestBestPointMixin(TestCase):
                 ]
             )
         exp.attach_data(Data(df=pd.DataFrame.from_records(df_dict2)))
-        self.assertEqual(get_trace(exp), [2.0, 2.0, 20.0])
+        self.assertEqual(get_trace(exp), {0: 2.0, 2: 20.0})
 
     def test_get_trace_with_non_completed_trials(self) -> None:
         with self.subTest("minimize with abandoned trial"):
@@ -224,12 +228,11 @@ class TestBestPointMixin(TestCase):
             # Mark trial 2 (value=9) as abandoned
             exp.trials[2].mark_abandoned(unsafe=True)
 
-            # Abandoned trial carries forward the last best value
+            # Abandoned trial is excluded from trace
             trace = get_trace(exp)
-            self.assertEqual(len(trace), 5)
-            # Trial 0: 11, Trial 1: 10, Trial 2 (abandoned): carry forward 10
+            # Trial 0: 11, Trial 1: 10, Trial 2 (abandoned): excluded
             # Trial 3: 10 (15 > 10), Trial 4: 5
-            self.assertEqual(trace, [11, 10, 10, 10, 5])
+            self.assertEqual(trace, {0: 11, 1: 10, 3: 10, 4: 5})
 
         with self.subTest("maximize with abandoned trial"):
             exp = get_experiment_with_observations(
@@ -238,12 +241,11 @@ class TestBestPointMixin(TestCase):
             # Mark trial 1 (value=3) as abandoned
             exp.trials[1].mark_abandoned(unsafe=True)
 
-            # Abandoned trial carries forward the last best value
+            # Abandoned trial is excluded from trace
             trace = get_trace(exp)
-            self.assertEqual(len(trace), 5)
-            # Trial 0: 1, Trial 1 (abandoned): carry forward 1,
+            # Trial 0: 1, Trial 1 (abandoned): excluded,
             # Trial 2: 2, Trial 3: 5, Trial 4: 5
-            self.assertEqual(trace, [1, 1, 2, 5, 5])
+            self.assertEqual(trace, {0: 1, 2: 2, 3: 5, 4: 5})
 
         with self.subTest("minimize with failed trial"):
             exp = get_experiment_with_observations(
@@ -252,12 +254,11 @@ class TestBestPointMixin(TestCase):
             # Mark trial 2 (value=9) as failed
             exp.trials[2].mark_failed(unsafe=True)
 
-            # Failed trial carries forward the last best value
+            # Failed trial is excluded from trace
             trace = get_trace(exp)
-            self.assertEqual(len(trace), 5)
-            # Trial 0: 11, Trial 1: 10, Trial 2 (failed): carry forward 10
+            # Trial 0: 11, Trial 1: 10, Trial 2 (failed): excluded
             # Trial 3: 10 (15 > 10), Trial 4: 5
-            self.assertEqual(trace, [11, 10, 10, 10, 5])
+            self.assertEqual(trace, {0: 11, 1: 10, 3: 10, 4: 5})
 
     def test_get_trace_with_include_status_quo(self) -> None:
         with self.subTest("Multi-objective: status quo dominates in some trials"):
@@ -347,9 +348,11 @@ class TestBestPointMixin(TestCase):
             # The last value MUST differ because status quo dominates
             # Without status quo, only poor arms contribute (low hypervolume)
             # With status quo, excellent values contribute (high hypervolume)
+            last_without = list(trace_without_sq.values())[-1]
+            last_with = list(trace_with_sq.values())[-1]
             self.assertGreater(
-                trace_with_sq[-1],
-                trace_without_sq[-1],
+                last_with,
+                last_without,
                 f"Status quo dominates in trial 3, so trace with SQ should be higher. "
                 f"Without SQ: {trace_without_sq}, With SQ: {trace_with_sq}",
             )
@@ -418,9 +421,11 @@ class TestBestPointMixin(TestCase):
             # The last value MUST differ because status quo is best
             # Without status quo: best in trial 3 is 15.0, cumulative min is 9
             # With status quo: best in trial 3 is 5.0, cumulative min is 5
+            last_without = list(trace_without_sq.values())[-1]
+            last_with = list(trace_with_sq.values())[-1]
             self.assertLess(
-                trace_with_sq[-1],
-                trace_without_sq[-1],
+                last_with,
+                last_without,
                 f"Status quo is best in trial 3, so trace with SQ should be "
                 f"lower (minimize). Without SQ: {trace_without_sq}, "
                 f"With SQ: {trace_with_sq}",
@@ -502,19 +507,20 @@ class TestBestPointMixin(TestCase):
             preference_profile_name=profile_name,
         )
 
-    def _assert_valid_trace(self, trace: list[float], expected_len: int) -> None:
+    def _assert_valid_trace(self, trace: dict[int, float], expected_len: int) -> None:
         """Assert trace has expected length, contains floats, is non-decreasing and has
         more than one unique value."""
         self.assertEqual(len(trace), expected_len)
-        for value in trace:
+        trace_values = list(trace.values())
+        for value in trace_values:
             self.assertIsInstance(value, float)
-        for i in range(1, len(trace)):
+        for i in range(1, len(trace_values)):
             self.assertGreaterEqual(
-                trace[i],
-                trace[i - 1],
+                trace_values[i],
+                trace_values[i - 1],
                 msg=f"Trace not monotonically increasing at index {i}: {trace}",
             )
-        unique_values = set(trace)
+        unique_values = set(trace_values)
         self.assertGreater(
             len(unique_values),
             1,

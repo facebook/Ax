@@ -28,11 +28,9 @@ from pyre_extensions import none_throws, override
 _UTILITY_PROGRESSION_TITLE = "Utility Progression"
 
 _TRACE_INDEX_EXPLANATION = (
-    "The x-axis shows trace index, which counts completed or early-stopped trials "
-    "sequentially (1, 2, 3, ...). This differs from trial index, which may have "
-    "gaps if some trials failed or were abandoned. For example, if trials 0, 2, "
-    "and 5 completed while trials 1, 3, and 4 failed, the trace indices would be "
-    "1, 2, 3 corresponding to trial indices 0, 2, 5."
+    "The x-axis shows trial index. Only completed or early-stopped trials with "
+    "complete metric data are included, so there may be gaps if some trials "
+    "failed, were abandoned, or have incomplete data."
 )
 
 _CUMULATIVE_BEST_EXPLANATION = (
@@ -57,7 +55,8 @@ class UtilityProgressionAnalysis(Analysis):
 
     The DataFrame computed will contain one row per completed trial and the
     following columns:
-        - trace_index: Sequential index of completed/early-stopped trials (1, 2, 3, ...)
+        - trial_index: The trial index of each completed/early-stopped trial
+            that has complete metric avilability.
         - utility: The cumulative best utility value at that trial
     """
 
@@ -114,7 +113,7 @@ class UtilityProgressionAnalysis(Analysis):
             )
 
         # Check if all points are infeasible (inf or -inf values)
-        if all(np.isinf(value) for value in trace):
+        if all(np.isinf(value) for value in trace.values()):
             raise ExperimentNotReadyError(
                 "All trials in the utility trace are infeasible i.e., they violate "
                 "outcome constraints, so there are no feasible points to plot. During "
@@ -125,12 +124,11 @@ class UtilityProgressionAnalysis(Analysis):
                 "space, or (2) relaxing outcome constraints."
             )
 
-        # Create DataFrame with 1-based trace index for user-friendly display
-        # (1st completed trial, 2nd completed trial, etc. instead of 0-indexed)
+        # Create DataFrame with trial indices from the trace
         df = pd.DataFrame(
             {
-                "trace_index": list(range(1, len(trace) + 1)),
-                "utility": trace,
+                "trial_index": list(trace.keys()),
+                "utility": list(trace.values()),
             }
         )
 
@@ -185,14 +183,14 @@ class UtilityProgressionAnalysis(Analysis):
         # Create the plot
         fig = px.line(
             data_frame=df,
-            x="trace_index",
+            x="trial_index",
             y="utility",
             markers=True,
             color_discrete_sequence=[AX_BLUE],
         )
 
         # Update axis labels and format x-axis to show integers only
-        fig.update_xaxes(title_text="Trace Index", dtick=1, rangemode="nonnegative")
+        fig.update_xaxes(title_text="Trial Index", dtick=1, rangemode="nonnegative")
         fig.update_yaxes(title_text=y_label)
 
         return create_plotly_analysis_card(

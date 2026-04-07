@@ -45,6 +45,7 @@ from ax.core.optimization_config import (
 from ax.core.outcome_constraint import _op_to_str, OutcomeConstraint
 from ax.core.trial import Trial
 from ax.core.types import ComparisonOp, TModelPredictArm, TParameterization
+from ax.core.utils import compute_metric_availability, MetricAvailability
 from ax.exceptions.core import DataRequiredError, UnsupportedError, UserInputError
 from ax.generation_strategy.generation_strategy import GenerationStrategy
 from ax.generators.torch_base import TorchGenerator
@@ -1212,7 +1213,7 @@ def get_trace(
     experiment: Experiment,
     optimization_config: OptimizationConfig | None = None,
     include_status_quo: bool = False,
-) -> list[float]:
+) -> dict[int, float]:
     """
     Compute the optimization trace at each iteration.
     Given an experiment and an optimization config, compute the performance
@@ -1229,10 +1230,10 @@ def get_trace(
     improvements in the optimization trace. If the first trial(s) are infeasible,
     the trace can start at inf or -inf.
 
-    An iteration here refers to a completed or early-stopped (batch) trial.
-    There will be one performance metric in the trace for each iteration.
-    Trials without data (e.g. abandoned or failed) carry forward the last
-    best value.
+    An iteration here refers to a completed or early-stopped (batch) trial
+    with complete metric data for all metrics in the optimization config.
+    Trials with incomplete data, or trials that are abandoned or failed, are
+    excluded from the trace.
 
     Args:
         experiment: The experiment to get the trace for.
@@ -1243,14 +1244,15 @@ def get_trace(
             behavior.
 
     Returns:
-        A list of performance values at each iteration.
+        A dict mapping trial index to performance value, ordered by trial
+        index. Only trials with complete metric data are included.
     """
     optimization_config = optimization_config or none_throws(
         experiment.optimization_config
     )
     df = experiment.lookup_data().df
     if len(df) == 0:
-        return []
+        return {}
 
     # Get the names of the metrics in optimization config.
     metric_names = set(optimization_config.objective.metric_names)
@@ -1271,7 +1273,22 @@ def get_trace(
         idx &= df["arm_name"] != status_quo.name
     df = df.loc[idx, :]
     if len(df) == 0:
-        return []
+        return {}
+
+    # Filter to trials with complete metric data.
+    availability = compute_metric_availability(
+        experiment=experiment,
+        trial_indices=df["trial_index"].unique().tolist(),
+        optimization_config=optimization_config,
+    )
+    complete_trials = {
+        idx
+        for idx, avail in availability.items()
+        if avail == MetricAvailability.COMPLETE
+    }
+    df = df[df["trial_index"].isin(complete_trials)]
+    if len(df) == 0:
+        return {}
 
     # Derelativize the optimization config only if needed (i.e., if there are
     # relative constraints). This avoids unnecessary data pivoting that can
@@ -1289,7 +1306,7 @@ def get_trace(
         use_cumulative_best=True,
         experiment=experiment,
     )
-    # Aggregate by trial, then. compute cumulative best
+    # Aggregate by trial, then compute cumulative best
     objective = optimization_config.objective
     maximize = (
         isinstance(optimization_config, MultiObjectiveOptimizationConfig)
@@ -1303,32 +1320,7 @@ def get_trace(
         keep_order=False,  # sort by trial index
     )
 
-    compact_trace = cumulative_value.tolist()
-
-    # Expand trace to include trials without data (e.g. ABANDONED, FAILED)
-    # with carry-forward values.
-    data_trial_indices = set(cumulative_value.index)
-    expanded_trace = []
-    compact_idx = 0
-    last_best_value = -float("inf") if maximize else float("inf")
-
-    for trial_index in sorted(experiment.trials.keys()):
-        trial = experiment.trials[trial_index]
-        if trial_index in data_trial_indices:
-            # Trial has data in compact trace
-            if compact_idx < len(compact_trace):
-                value = compact_trace[compact_idx]
-                expanded_trace.append(value)
-                last_best_value = value
-                compact_idx += 1
-            else:
-                # Should not happen, but handle gracefully
-                expanded_trace.append(last_best_value)
-        elif trial.status in (TrialStatus.ABANDONED, TrialStatus.FAILED):
-            # Trial has no data; carry forward the last best value.
-            expanded_trace.append(last_best_value)
-
-    return expanded_trace
+    return {int(k): float(v) for k, v in cumulative_value.items()}
 
 
 def get_tensor_converter_adapter(

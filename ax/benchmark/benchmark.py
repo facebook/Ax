@@ -320,9 +320,10 @@ def _get_oracle_value_of_params(
     dummy_experiment = get_oracle_experiment_from_params(
         problem=problem, dict_of_dict_of_params={0: {"0_0": params}}
     )
-    (inference_value,) = get_trace(
+    trace = get_trace(
         experiment=dummy_experiment, optimization_config=problem.optimization_config
     )
+    inference_value = next(iter(trace.values()))
     return inference_value
 
 
@@ -510,12 +511,27 @@ def get_benchmark_result_from_experiment_and_gs(
         dict_of_dict_of_params=dict_of_dict_of_params,
         trial_statuses=trial_statuses,
     )
-    oracle_trace = np.array(
-        get_trace(
-            experiment=actual_params_oracle_dummy_experiment,
-            optimization_config=problem.optimization_config,
-        )
+    oracle_trace_dict = get_trace(
+        experiment=actual_params_oracle_dummy_experiment,
+        optimization_config=problem.optimization_config,
     )
+    # Expand trace dict to a positional array aligned with all trials,
+    # carry-forwarding the last best value for trials without data (e.g.,
+    # failed or abandoned trials preserved via trial_statuses).
+    maximize = (
+        isinstance(problem.optimization_config, MultiObjectiveOptimizationConfig)
+        or problem.optimization_config.objective.is_scalarized_objective
+        or not problem.optimization_config.objective.minimize
+    )
+    all_trial_indices = sorted(actual_params_oracle_dummy_experiment.trials.keys())
+    last_best = -float("inf") if maximize else float("inf")
+    oracle_trace_list: list[float] = []
+    for idx in all_trial_indices:
+        if idx in oracle_trace_dict:
+            last_best = oracle_trace_dict[idx]
+        oracle_trace_list.append(last_best)
+    oracle_trace = np.array(oracle_trace_list)
+
     is_feasible_trace = np.array(
         get_is_feasible_trace(
             experiment=actual_params_oracle_dummy_experiment,
