@@ -207,7 +207,7 @@ class PowerTransformYTest(TestCase):
         # basic test
         m1 = Metric(name="m1")
         objective_m1 = Objective(metric=m1, minimize=False)
-        oc = OptimizationConfig(objective=objective_m1, outcome_constraints=[])
+        oc = OptimizationConfig(objectives=[objective_m1], outcome_constraints=[])
         tf = PowerTransformY(
             search_space=None,
             experiment_data=self.experiment_data,
@@ -219,7 +219,7 @@ class PowerTransformYTest(TestCase):
         m2 = Metric(name="m2")
         for bound in [-1.234, 0, 2.345]:
             oc = OptimizationConfig(
-                objective=objective_m1,
+                objectives=[objective_m1],
                 outcome_constraints=get_constraint(
                     metric=m2, bound=bound, relative=False
                 ),
@@ -230,7 +230,7 @@ class PowerTransformYTest(TestCase):
         objective_m2 = Objective(metric=m2, minimize=False)
         for bound in [-1.234, 0, 2.345]:
             oc = OptimizationConfig(
-                objective=objective_m2,
+                objectives=[objective_m2],
                 outcome_constraints=get_constraint(
                     metric=m1, bound=bound, relative=False
                 ),
@@ -259,7 +259,7 @@ class PowerTransformYTest(TestCase):
             self.assertAlmostEqual(c_actual.bound, c_expected.bound, places=5)
         # Relative constraints aren't supported
         oc = OptimizationConfig(
-            objective=objective_m2,
+            objectives=[objective_m2],
             outcome_constraints=get_constraint(metric=m1, bound=2.345, relative=True),
         )
         with self.assertRaisesRegex(
@@ -277,7 +277,7 @@ class PowerTransformYTest(TestCase):
         # Support for scalarized outcome constraints isn't implemented
         m3 = Metric(name="m3")
         oc = OptimizationConfig(
-            objective=objective_m2,
+            objectives=[objective_m2],
             outcome_constraints=[
                 ScalarizedOutcomeConstraint(
                     metrics=[m1, m3], op=ComparisonOp.GEQ, bound=2.345, relative=False
@@ -295,7 +295,9 @@ class PowerTransformYTest(TestCase):
         scalarized_objective = ScalarizedObjective(
             metrics=[m1, m3], weights=[1.0, 2.0], minimize=False
         )
-        oc = OptimizationConfig(objective=scalarized_objective, outcome_constraints=[])
+        oc = OptimizationConfig(
+            objectives=[scalarized_objective], outcome_constraints=[]
+        )
         with self.assertRaisesRegex(NotImplementedError, "ScalarizedObjective"):
             tf.transform_optimization_config(oc, None, None)
 

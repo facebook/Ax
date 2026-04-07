@@ -888,10 +888,12 @@ class UtilsTest(TestCase):
         )
         exp.add_tracking_metric(pairwise_metric)
         exp.optimization_config = OptimizationConfig(
-            objective=Objective(
-                expression=pairwise_name,
-                metric_name_to_signature={pairwise_name: pairwise_name},
-            ),
+            objectives=[
+                Objective(
+                    expression=pairwise_name,
+                    metric_name_to_signature={pairwise_name: pairwise_name},
+                )
+            ],
         )
         exp.llm_messages = [LLMMessage(role="system", content="test")]
 
@@ -947,10 +949,12 @@ class UtilsTest(TestCase):
         )
         exp.add_tracking_metric(pairwise_metric)
         exp.optimization_config = OptimizationConfig(
-            objective=Objective(
-                expression=pairwise_name,
-                metric_name_to_signature={pairwise_name: pairwise_name},
-            ),
+            objectives=[
+                Objective(
+                    expression=pairwise_name,
+                    metric_name_to_signature={pairwise_name: pairwise_name},
+                )
+            ],
         )
         self.assertFalse(is_lilo_experiment(exp))
 
@@ -1049,7 +1053,7 @@ class TestMetricAvailability(TestCase):
 
         # Custom config requiring only "branin": COMPLETE.
         custom_config = OptimizationConfig(
-            objective=Objective(metric=Metric(name="branin"), minimize=False),
+            objectives=[Objective(metric=Metric(name="branin"), minimize=False)],
         )
         result = compute_metric_availability(
             experiment=exp, optimization_config=custom_config
@@ -1058,7 +1062,7 @@ class TestMetricAvailability(TestCase):
 
         # Custom config requiring an unrelated metric: INCOMPLETE.
         other_config = OptimizationConfig(
-            objective=Objective(metric=Metric(name="branin"), minimize=False),
+            objectives=[Objective(metric=Metric(name="branin"), minimize=False)],
             outcome_constraints=[
                 OutcomeConstraint(
                     metric=Metric(name="other_metric"),
@@ -1118,7 +1122,7 @@ class TestMetricAvailability(TestCase):
         exp.add_metric(Metric(name="metric_a"))
         exp.add_metric(Metric(name="metric_b"))
         exp.optimization_config = OptimizationConfig(
-            objective=Objective(metric=Metric(name="metric_a"), minimize=False),
+            objectives=[Objective(metric=Metric(name="metric_a"), minimize=False)],
             outcome_constraints=[
                 OutcomeConstraint(
                     metric=Metric(name="metric_b"),

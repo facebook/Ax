@@ -460,7 +460,7 @@ class DerivedMetricTest(TestCase):
             name="test",
             search_space=get_branin_search_space(),
             optimization_config=OptimizationConfig(
-                objective=Objective(metric=Metric(name="obj"), minimize=True),
+                objectives=[Objective(metric=Metric(name="obj"), minimize=True)],
                 outcome_constraints=[
                     OutcomeConstraint(
                         metric=derived,
@@ -941,7 +941,7 @@ class ExpressionDerivedMetricTest(TestCase):
             name="test",
             search_space=get_branin_search_space(),
             optimization_config=OptimizationConfig(
-                objective=Objective(metric=Metric(name="obj"), minimize=True),
+                objectives=[Objective(metric=Metric(name="obj"), minimize=True)],
                 outcome_constraints=[
                     OutcomeConstraint(
                         metric=derived_ratio,
