@@ -1205,7 +1205,7 @@ class TorchAdapterTest(TestCase):
                     surrogate=surrogate,
                 ),
                 optimization_config=OptimizationConfig(
-                    Objective(
+                    objective=Objective(
                         metric=Metric(Keys.PAIRWISE_PREFERENCE_QUERY.value),
                         minimize=False,
                     )
