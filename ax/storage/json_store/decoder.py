@@ -351,6 +351,13 @@ def object_from_json(
             object_json = _sanitize_inputs_to_surrogate_spec(object_json=object_json)
         if isclass(_class) and issubclass(_class, OptimizationConfig):
             object_json.pop("risk_measure", None)  # Deprecated.
+            # Backward compat: old JSON uses "objective", new uses "objectives".
+            if (
+                _class is OptimizationConfig
+                and "objective" in object_json
+                and "objectives" not in object_json
+            ):
+                object_json["objectives"] = [object_json.pop("objective")]
         return ax_class_from_json_dict(
             _class=_class, object_json=object_json, **vars(registry_kwargs)
         )

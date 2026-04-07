@@ -676,7 +676,7 @@ def get_multi_type_experiment(
     add_trial_type: bool = True, add_trials: bool = False, num_arms: int = 10
 ) -> MultiTypeExperiment:
     oc = OptimizationConfig(
-        Objective(metric=BraninMetric("m1", ["x1", "x2"]), minimize=True)
+        objective=Objective(metric=BraninMetric("m1", ["x1", "x2"]), minimize=True)
     )
     experiment = MultiTypeExperiment(
         name="test_exp",
@@ -2312,6 +2312,17 @@ def get_multi_objective_optimization_config(
         objective=objective,
         outcome_constraints=outcome_constraints,
         objective_thresholds=objective_thresholds,
+    )
+
+
+def get_moo_optimization_config() -> OptimizationConfig:
+    """OptimizationConfig with multiple objectives via objectives= kwarg."""
+    sig = {"m1": "m1", "m3": "m3"}
+    return OptimizationConfig(
+        objectives=[
+            Objective(expression="m1", metric_name_to_signature=sig),
+            Objective(expression="-m3", metric_name_to_signature=sig),
+        ],
     )
 
 

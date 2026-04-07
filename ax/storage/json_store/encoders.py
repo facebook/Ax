@@ -383,7 +383,7 @@ def optimization_config_to_dict(
     """Convert Ax optimization config to a dictionary."""
     return {
         "__type": optimization_config.__class__.__name__,
-        "objective": optimization_config.objective,
+        "objectives": optimization_config.objectives,
         "outcome_constraints": optimization_config.outcome_constraints,
         "pruning_target_parameterization": (
             optimization_config.pruning_target_parameterization
@@ -782,16 +782,17 @@ def _build_opt_config_dict(
     will then recursively encode them via ``metric_to_dict``, capturing the
     full metric type.
     """
-    objective_dict = _build_objective_dict(
-        objective=opt_config.objective, experiment_metrics=experiment_metrics
-    )
+    objective_dicts = [
+        _build_objective_dict(objective=obj, experiment_metrics=experiment_metrics)
+        for obj in opt_config.objectives
+    ]
     constraint_dicts = [
         _build_constraint_dict(constraint=c, experiment_metrics=experiment_metrics)
         for c in opt_config.outcome_constraints
     ]
     result: dict[str, Any] = {
         "__type": opt_config.__class__.__name__,
-        "objective": objective_dict,
+        "objectives": objective_dicts,
         "outcome_constraints": constraint_dicts,
         "pruning_target_parameterization": opt_config.pruning_target_parameterization,
     }

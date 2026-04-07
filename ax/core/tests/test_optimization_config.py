@@ -21,14 +21,14 @@ from ax.core.outcome_constraint import (
     ScalarizedOutcomeConstraint,
 )
 from ax.core.types import ComparisonOp
-from ax.exceptions.core import UserInputError
+from ax.exceptions.core import UnsupportedError, UserInputError
 from ax.utils.common.testutils import TestCase
 from pyre_extensions import assert_is_instance
 
 
 OC_STR = (
     "OptimizationConfig("
-    'objective=Objective(expression="m1"), '
+    'objectives=[Objective(expression="m1")], '
     "outcome_constraints=[OutcomeConstraint(m3 >= -0.25), "
     "OutcomeConstraint(m4 <= 0.25), "
     "ScalarizedOutcomeConstraint(0.5*m3 + 0.5*m4 >= 0.9975 * baseline)])"
@@ -269,6 +269,111 @@ class OptimizationConfigTest(TestCase):
             ),
             config2,
         )
+
+
+class OptimizationConfigObjectivesListTest(TestCase):
+    """Tests for the new `OptimizationConfig(objectives=[...])` construction path."""
+
+    def setUp(self) -> None:
+        super().setUp()
+        self.metrics = {
+            "m1": Metric(name="m1"),
+            "m2": Metric(name="m2"),
+            "m3": Metric(name="m3"),
+        }
+        self.sig = {m: m for m in self.metrics}
+        self.obj1 = Objective(expression="m1", metric_name_to_signature=self.sig)
+        self.obj2 = Objective(expression="-m2", metric_name_to_signature=self.sig)
+        self.scalarized_obj = Objective(
+            expression="2*m1 + m2", metric_name_to_signature=self.sig
+        )
+
+    def test_objectives_kwarg_construction(self) -> None:
+        """Test single and multi-objective construction via objectives kwarg."""
+        # Single objective
+        config = OptimizationConfig(objectives=[self.obj1])
+        self.assertEqual(config.objectives, [self.obj1])
+        self.assertEqual(config.objective, self.obj1)
+        self.assertFalse(config.is_moo_problem)
+
+        # Multi-objective
+        config = OptimizationConfig(objectives=[self.obj1, self.obj2])
+        self.assertEqual(config.objectives, [self.obj1, self.obj2])
+        self.assertTrue(config.is_moo_problem)
+        with self.assertRaisesRegex(UnsupportedError, "multiple objectives"):
+            config.objective
+
+    def test_objectives_kwarg_metric_aggregation(self) -> None:
+        """Test metric_names, metric_name_to_signature, metric_signatures."""
+        constraint = OutcomeConstraint(
+            expression="m3 >= 0.5", metric_name_to_signature=self.sig
+        )
+        config = OptimizationConfig(
+            objectives=[self.obj1, self.obj2],
+            outcome_constraints=[constraint],
+        )
+        self.assertEqual(config.metric_names, {"m1", "m2", "m3"})
+        self.assertEqual(
+            config.metric_name_to_signature, {"m1": "m1", "m2": "m2", "m3": "m3"}
+        )
+        self.assertEqual(config.metric_signatures, {"m1", "m2", "m3"})
+
+    def test_objectives_kwarg_validation(self) -> None:
+        """Test validation errors for objectives kwarg."""
+        with self.subTest("mutual_exclusivity"):
+            with self.assertRaisesRegex(UserInputError, "Cannot specify both"):
+                OptimizationConfig(objective=self.obj1, objectives=[self.obj1])
+
+        with self.subTest("neither_specified"):
+            with self.assertRaisesRegex(UserInputError, "Must specify either"):
+                OptimizationConfig()
+
+        with self.subTest("empty_list"):
+            with self.assertRaisesRegex(UserInputError, "must not be empty"):
+                OptimizationConfig(objectives=[])
+
+        with self.subTest("multi_objective_expression"):
+            multi_obj = Objective(
+                expression="m1, -m2", metric_name_to_signature=self.sig
+            )
+            with self.assertRaisesRegex(ValueError, "single or scalarized"):
+                OptimizationConfig(objectives=[multi_obj])
+
+        with self.subTest("duplicate_metric_names"):
+            obj_dup = Objective(expression="m1", metric_name_to_signature=self.sig)
+            with self.assertRaisesRegex(UserInputError, "appears in multiple"):
+                OptimizationConfig(objectives=[self.obj1, obj_dup])
+
+    def test_objectives_kwarg_clone_and_repr(self) -> None:
+        """Test clone, clone_with_args, and repr for objectives-list configs."""
+        config = OptimizationConfig(objectives=[self.obj1, self.obj2])
+
+        # clone preserves objectives
+        cloned = config.clone()
+        self.assertEqual(len(cloned.objectives), 2)
+        self.assertEqual(cloned.objectives[0].expression, "m1")
+        self.assertEqual(cloned.objectives[1].expression, "-m2")
+        self.assertTrue(cloned.is_moo_problem)
+
+        # clone_with_args(objective=) replaces the list with a single objective
+        cloned = config.clone_with_args(objective=self.obj1)
+        self.assertEqual(len(cloned.objectives), 1)
+        self.assertFalse(cloned.is_moo_problem)
+
+        # clone_with_args(objectives=) replaces the list
+        obj3 = Objective(expression="m3", metric_name_to_signature=self.sig)
+        cloned = config.clone_with_args(objectives=[self.obj1, obj3])
+        self.assertEqual(len(cloned.objectives), 2)
+        self.assertEqual(cloned.objectives[1].expression, "m3")
+
+        # objective= and objectives= are mutually exclusive in clone_with_args
+        with self.assertRaisesRegex(UserInputError, "Cannot specify both"):
+            config.clone_with_args(objective=self.obj1, objectives=[self.obj1])
+
+        # repr always uses "objectives="
+        self.assertIn("objectives=", repr(config))
+        single_config = OptimizationConfig(objectives=[self.obj1])
+        self.assertIn("objectives=", repr(single_config))
 
 
 class MultiObjectiveOptimizationConfigTest(TestCase):

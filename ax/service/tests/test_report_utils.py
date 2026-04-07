@@ -449,10 +449,12 @@ class ReportUtilsTest(TestCase):
         names = obj.metric_names
         # Create a new Objective rather than mutating _expression_str to
         # avoid stale _parsed cached_property.
-        none_throws(exp.optimization_config)._objective = Objective(
-            expression=f"{names[0]}, -{names[1]}",
-            metric_name_to_signature={n: n for n in names},
-        )
+        none_throws(exp.optimization_config)._objectives = [
+            Objective(
+                expression=f"{names[0]}, -{names[1]}",
+                metric_name_to_signature={n: n for n in names},
+            )
+        ]
         exp.get_metric(names[0]).lower_is_better = False
         assert_is_instance(
             exp.optimization_config, MultiObjectiveOptimizationConfig
@@ -494,10 +496,12 @@ class ReportUtilsTest(TestCase):
         # first objective to maximize, second to minimize
         obj = none_throws(exp.optimization_config).objective
         names = obj.metric_names
-        none_throws(exp.optimization_config)._objective = Objective(
-            expression=f"{names[0]}, -{names[1]}",
-            metric_name_to_signature={n: n for n in names},
-        )
+        none_throws(exp.optimization_config)._objectives = [
+            Objective(
+                expression=f"{names[0]}, -{names[1]}",
+                metric_name_to_signature={n: n for n in names},
+            )
+        ]
         exp.trials[0].run()
         plots = get_standard_plots(
             experiment=exp,
