@@ -254,7 +254,7 @@ def get_experiment_with_custom_runner_and_metric(
             outcome_constraints.append(custom_scalarized_constraint)
 
         optimization_config = OptimizationConfig(
-            objective=custom_scalarized_objective,
+            objectives=[custom_scalarized_objective],
             outcome_constraints=outcome_constraints,
         )
     else:
@@ -573,10 +573,12 @@ def get_branin_experiment_with_timestamp_map_metric(
 
     else:  # single objective case
         optimization_config = OptimizationConfig(
-            objective=Objective(
-                metric=local_get_map_metric(name="branin_map"),
-                minimize=True,
-            ),
+            objectives=[
+                Objective(
+                    metric=local_get_map_metric(name="branin_map"),
+                    minimize=True,
+                )
+            ],
             outcome_constraints=outcome_constraints,
         )
 
@@ -676,7 +678,7 @@ def get_multi_type_experiment(
     add_trial_type: bool = True, add_trials: bool = False, num_arms: int = 10
 ) -> MultiTypeExperiment:
     oc = OptimizationConfig(
-        objective=Objective(metric=BraninMetric("m1", ["x1", "x2"]), minimize=True)
+        objectives=[Objective(metric=BraninMetric("m1", ["x1", "x2"]), minimize=True)]
     )
     experiment = MultiTypeExperiment(
         name="test_exp",
@@ -721,7 +723,7 @@ def get_factorial_experiment(
         search_space=get_factorial_search_space(),
         optimization_config=(
             OptimizationConfig(
-                objective=Objective(metric=get_factorial_metric(), minimize=False)
+                objectives=[Objective(metric=get_factorial_metric(), minimize=False)]
             )
             if has_optimization_config
             else None
@@ -1001,7 +1003,7 @@ def get_experiment_with_scalarized_objective_and_outcome_constraint() -> Experim
         get_scalarized_outcome_constraint(),
     ]
     optimization_config = OptimizationConfig(
-        objective=objective, outcome_constraints=outcome_constraints
+        objectives=[objective], outcome_constraints=outcome_constraints
     )
     experiment = Experiment(
         name="test_experiment_scalarized_objective and outcome constraint",
@@ -1110,7 +1112,7 @@ def get_experiment_with_observations(
         tracking_metrics_from_opt_config = list(metrics)
         if scalarized:
             optimization_config = OptimizationConfig(
-                objective=ScalarizedObjective(metrics)
+                objectives=[ScalarizedObjective(metrics)]
             )
             if constrained:
                 raise NotImplementedError
@@ -1180,10 +1182,10 @@ def get_experiment_with_observations(
                 relative=False,
             )
             optimization_config = OptimizationConfig(
-                objective=objective, outcome_constraints=[constraint]
+                objectives=[objective], outcome_constraints=[constraint]
             )
         else:
-            optimization_config = OptimizationConfig(objective=objective)
+            optimization_config = OptimizationConfig(objectives=[objective])
     else:
         tracking_metrics_from_opt_config = []
     search_space = search_space or get_search_space_for_range_values(min=0.0, max=1.0)
@@ -1281,13 +1283,15 @@ def get_high_dimensional_branin_experiment(
 
     sq_parameters = {f"x{i}": 1.0 if i < 25 else 2.0 for i in range(50)}
     optimization_config = OptimizationConfig(
-        objective=Objective(
-            metric=BraninMetric(
-                name="objective",
-                param_names=["x19", "x44"],
-            ),
-            minimize=True,
-        )
+        objectives=[
+            Objective(
+                metric=BraninMetric(
+                    name="objective",
+                    param_names=["x19", "x44"],
+                ),
+                minimize=True,
+            )
+        ]
     )
 
     exp = Experiment(
@@ -2286,13 +2290,13 @@ def get_optimization_config(
         [get_outcome_constraint(relative=relative)] if outcome_constraint else []
     )
     return OptimizationConfig(
-        objective=objective, outcome_constraints=outcome_constraints
+        objectives=[objective], outcome_constraints=outcome_constraints
     )
 
 
 def get_map_optimization_config() -> OptimizationConfig:
     objective = get_map_objective()
-    return OptimizationConfig(objective=objective)
+    return OptimizationConfig(objectives=[objective])
 
 
 def get_multi_objective_optimization_config(
@@ -2330,7 +2334,7 @@ def get_optimization_config_no_constraints(
     minimize: bool = False,
 ) -> OptimizationConfig:
     return OptimizationConfig(
-        objective=Objective(metric=Metric("test_metric"), minimize=minimize)
+        objectives=[Objective(metric=Metric("test_metric"), minimize=minimize)]
     )
 
 
@@ -2353,7 +2357,7 @@ def get_branin_optimization_config(
             )
         )
     return OptimizationConfig(
-        objective=get_branin_objective(minimize=minimize),
+        objectives=[get_branin_objective(minimize=minimize)],
         outcome_constraints=outcome_constraint,
     )
 

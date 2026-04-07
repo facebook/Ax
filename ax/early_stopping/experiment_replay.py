@@ -69,7 +69,7 @@ def replay_experiment(
         lower_is_better=metric.lower_is_better,
     )
     optimization_config = OptimizationConfig(
-        objective=Objective(metric=replay_metric),
+        objectives=[Objective(metric=replay_metric)],
     )
     runner = MapDataReplayRunner(replay_metric=replay_metric)
 

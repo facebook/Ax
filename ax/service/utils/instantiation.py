@@ -626,7 +626,7 @@ class InstantiationBase:
                     "thresholds."
                 )
             return OptimizationConfig(
-                objective=objectives[0],
+                objectives=[objectives[0]],
                 outcome_constraints=outcome_constraints,
             )
 
