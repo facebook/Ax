@@ -504,7 +504,8 @@ class TestBestPointUtils(TestCase):
                 objective=Objective(metric=get_branin_metric(name="not_branin"))
             )
             with self.assertRaisesRegex(
-                ValueError, "Some metrics are not present for all trials and arms"
+                ValueError,
+                "no completed trials have complete metric data",
             ):
                 get_best_raw_objective_point_with_trial_index(
                     experiment=exp, optimization_config=opt_conf
@@ -543,8 +544,8 @@ class TestBestPointUtils(TestCase):
                 experiment=exp, optimization_config=opt_conf
             )
 
-        # adding a new metric that is not present in the data should raise an error,
-        # even if the other metrics are satisfied
+        # Adding a constraint on an unobserved metric causes the trial to be
+        # filtered out by MetricAvailability before reaching feasibility check.
         opt_conf.outcome_constraints.pop()
         unobserved_metric = get_branin_metric(name="unobserved")
         opt_conf.outcome_constraints.append(
@@ -552,31 +553,39 @@ class TestBestPointUtils(TestCase):
                 metric=unobserved_metric, op=ComparisonOp.LEQ, bound=0, relative=False
             )
         )
-        # also add a constraint that is always satisfied, as the Branin metric is
-        # non-negative, and check that only the "unobserved" metric shows up in the
-        # error message
-        opt_conf.outcome_constraints.append(
-            OutcomeConstraint(
-                metric=get_branin_metric(), op=ComparisonOp.GEQ, bound=0, relative=False
+        with self.assertRaisesRegex(
+            ValueError,
+            "no completed trials have complete metric data",
+        ):
+            get_best_raw_objective_point_with_trial_index(
+                experiment=exp, optimization_config=opt_conf
             )
-        )
 
-        with self.assertLogs(logger=best_point_logger, level="WARN") as lg:
-            with self.assertRaisesRegex(
-                ValueError,
-                r"No points satisfied all outcome constraints within 95 percent "
-                r"confidence interval\. The feasibility of 1 arm\(s\) could not be "
-                r"determined: \['0_0'\]\.",
-            ):
-                get_best_raw_objective_point_with_trial_index(
-                    experiment=exp, optimization_config=opt_conf
-                )
-        self.assertEqual(len(lg.output), 1)
-        self.assertRegex(
-            lg.output[0],
-            r"Arm 0_0 is missing data for one or more constrained metrics: "
-            r"\{'unobserved'\}\.",
+        # Using a constrained experiment where all metrics are observed
+        # (passes MetricAvailability), but constraints are unsatisfiable.
+        constrained_exp = get_experiment_with_observations(
+            observations=[[1.0, 2.0]],
+            constrained=True,
+            minimize=False,
         )
+        constrained_opt = none_throws(constrained_exp.optimization_config).clone()
+        # Make constraint unsatisfiable: require m2 >= 9999 (observed m2=2.0).
+        constrained_opt.outcome_constraints = [
+            OutcomeConstraint(
+                metric=Metric(name="m2"),
+                op=ComparisonOp.GEQ,
+                bound=9999,
+                relative=False,
+            ),
+        ]
+        with self.assertRaisesRegex(
+            ValueError,
+            r"No points satisfied all outcome constraints",
+        ):
+            get_best_raw_objective_point_with_trial_index(
+                experiment=constrained_exp,
+                optimization_config=constrained_opt,
+            )
 
     def test_best_raw_objective_point_unsatisfiable_relative(self) -> None:
         exp = get_experiment_with_observations(

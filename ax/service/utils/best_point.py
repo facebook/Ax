@@ -134,6 +134,26 @@ def get_best_raw_objective_point_with_trial_index(
         raise ValueError("Cannot identify best point if no trials are completed.")
     completed_df = dat.df[dat.df["trial_index"].isin(completed_indices)]
 
+    # Filter to trials with complete metric data to avoid errors in
+    # _pivot_data_with_feasibility when some metrics are missing (e.g., due to
+    # partial metric fetches, fetch failures, or metrics added mid-experiment).
+    availability = compute_metric_availability(
+        experiment=experiment,
+        trial_indices=sorted(completed_indices),
+        optimization_config=optimization_config,
+    )
+    complete_trials = {
+        idx
+        for idx, avail in availability.items()
+        if avail == MetricAvailability.COMPLETE
+    }
+    completed_df = completed_df[completed_df["trial_index"].isin(complete_trials)]
+    if len(completed_df) == 0:
+        raise ValueError(
+            "Cannot identify best point: no completed trials have complete "
+            "metric data for all metrics in the optimization config."
+        )
+
     is_feasible = is_row_feasible(
         df=completed_df,
         optimization_config=optimization_config,
