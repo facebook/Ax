@@ -39,10 +39,12 @@ class MapReplayRunnerTest(TestCase):
             name="dummy_experiment",
             search_space=get_branin_search_space(),
             optimization_config=OptimizationConfig(
-                objective=Objective(
-                    metric=metric,
-                    minimize=True,
-                )
+                objectives=[
+                    Objective(
+                        metric=metric,
+                        minimize=True,
+                    )
+                ]
             ),
             runner=runner,
             tracking_metrics=[metric],

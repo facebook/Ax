@@ -36,7 +36,7 @@ class TestObjectivePFeasibleFrontierPlot(TestCase):
             with_completed_batch=True, with_absolute_constraint=True, num_objectives=3
         )
         self.experiment.optimization_config = OptimizationConfig(
-            objective=Objective(metric=self.experiment.metrics["branin_a"]),
+            objectives=[Objective(metric=self.experiment.metrics["branin_a"])],
             outcome_constraints=self.experiment.optimization_config.outcome_constraints,
         )
         opt_config = none_throws(self.experiment.optimization_config)
@@ -218,13 +218,15 @@ class TestObjectivePFeasibleFrontierPlot(TestCase):
     def test_scalarized_objective_raises(self) -> None:
         """Scalarized objectives should be rejected in validate_applicable_state."""
         self.experiment.optimization_config = OptimizationConfig(
-            objective=Objective(
-                expression="2*branin_a + -1*branin_b",
-                metric_name_to_signature={
-                    "branin_a": "branin_a",
-                    "branin_b": "branin_b",
-                },
-            ),
+            objectives=[
+                Objective(
+                    expression="2*branin_a + -1*branin_b",
+                    metric_name_to_signature={
+                        "branin_a": "branin_a",
+                        "branin_b": "branin_b",
+                    },
+                )
+            ],
             outcome_constraints=none_throws(
                 self.experiment.optimization_config
             ).outcome_constraints,

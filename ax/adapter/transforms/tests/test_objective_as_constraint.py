@@ -63,9 +63,11 @@ class ObjectiveAsConstraintTest(TestCase):
             Tuple of (experiment, adapter, experiment_data).
         """
         optimization_config = OptimizationConfig(
-            objective=Objective(
-                metric=Metric("m1", lower_is_better=minimize), minimize=minimize
-            ),
+            objectives=[
+                Objective(
+                    metric=Metric("m1", lower_is_better=minimize), minimize=minimize
+                )
+            ],
             outcome_constraints=[
                 OutcomeConstraint(
                     metric=Metric("m2", lower_is_better=True),
@@ -187,9 +189,9 @@ class ObjectiveAsConstraintTest(TestCase):
     def test_no_op_without_status_quo(self) -> None:
         """Test that the transform is a no-op without a status quo."""
         optimization_config = OptimizationConfig(
-            objective=Objective(
-                metric=Metric("m1", lower_is_better=False), minimize=False
-            ),
+            objectives=[
+                Objective(metric=Metric("m1", lower_is_better=False), minimize=False)
+            ],
             outcome_constraints=[
                 OutcomeConstraint(
                     metric=Metric("m2", lower_is_better=True),
@@ -220,9 +222,9 @@ class ObjectiveAsConstraintTest(TestCase):
     def test_no_op_without_constraints(self) -> None:
         """Test that the transform is a no-op when there are no constraints."""
         optimization_config = OptimizationConfig(
-            objective=Objective(
-                metric=Metric("m1", lower_is_better=False), minimize=False
-            ),
+            objectives=[
+                Objective(metric=Metric("m1", lower_is_better=False), minimize=False)
+            ],
         )
         search_space = SearchSpace(
             parameters=[
@@ -437,7 +439,7 @@ class ObjectiveAsConstraintScalarizedObjectiveTest(TestCase):
             )
         else:
             optimization_config = OptimizationConfig(
-                objective=scalarized_objective,
+                objectives=[scalarized_objective],
                 outcome_constraints=outcome_constraints,
             )
 

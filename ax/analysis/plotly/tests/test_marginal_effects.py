@@ -32,7 +32,7 @@ class TestMarginalEffectsPlot(TestCase):
             name="test_experiment",
             is_test=True,
             optimization_config=OptimizationConfig(
-                objective=Objective(metric=Metric("metric_1", lower_is_better=False))
+                objectives=[Objective(metric=Metric("metric_1", lower_is_better=False))]
             ),
         )
         num_arms = 3

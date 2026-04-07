@@ -48,10 +48,12 @@ class MapDataReplayMetricTest(TestCase):
             name="dummy_experiment",
             search_space=get_branin_search_space(),
             optimization_config=OptimizationConfig(
-                objective=Objective(
-                    metric=replay_metric,
-                    minimize=True,
-                )
+                objectives=[
+                    Objective(
+                        metric=replay_metric,
+                        minimize=True,
+                    )
+                ]
             ),
             tracking_metrics=[replay_metric],
             runner=SyntheticRunner(),
@@ -110,10 +112,12 @@ class MapDataReplayMetricTest(TestCase):
             name="dummy_experiment",
             search_space=get_branin_search_space(),
             optimization_config=OptimizationConfig(
-                objective=Objective(
-                    metric=replay_metric,
-                    minimize=True,
-                )
+                objectives=[
+                    Objective(
+                        metric=replay_metric,
+                        minimize=True,
+                    )
+                ]
             ),
             tracking_metrics=[replay_metric],
             runner=SyntheticRunner(),

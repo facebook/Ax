@@ -21,9 +21,9 @@ class TestFromString(TestCase):
         self.assertEqual(
             only_objective,
             OptimizationConfig(
-                objective=Objective(
-                    expression="ne", metric_name_to_signature={"ne": "ne"}
-                ),
+                objectives=[
+                    Objective(expression="ne", metric_name_to_signature={"ne": "ne"})
+                ],
             ),
         )
 
@@ -33,9 +33,9 @@ class TestFromString(TestCase):
         self.assertEqual(
             with_constraints,
             OptimizationConfig(
-                objective=Objective(
-                    expression="ne", metric_name_to_signature={"ne": "ne"}
-                ),
+                objectives=[
+                    Objective(expression="ne", metric_name_to_signature={"ne": "ne"})
+                ],
                 outcome_constraints=[
                     OutcomeConstraint(
                         expression="qps >= 0", metric_name_to_signature={"qps": "qps"}

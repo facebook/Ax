@@ -142,10 +142,12 @@ class TestHierarchicalSearchSpace(TestCase):
             search_space=hss,
             tracking_metrics=[metric],
             optimization_config=OptimizationConfig(
-                objective=Objective(
-                    metric=metric,
-                    minimize=True,
-                )
+                objectives=[
+                    Objective(
+                        metric=metric,
+                        minimize=True,
+                    )
+                ]
             ),
             runner=SyntheticRunner(),
         )

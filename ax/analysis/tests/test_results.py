@@ -374,7 +374,7 @@ class TestResultsAnalysis(TestCase):
                 ]
             ),
             optimization_config=OptimizationConfig(
-                objective=Objective(metric=Metric(name="foo"), minimize=True)
+                objectives=[Objective(metric=Metric(name="foo"), minimize=True)]
             ),
         )
 

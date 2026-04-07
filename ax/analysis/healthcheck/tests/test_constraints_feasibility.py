@@ -195,7 +195,7 @@ class TestConstraintsFeasibilityAnalysis(TestCase):
             branin_d_means=[1.0, 1.0, 2.0, 3.0, 4.0, 5.0]
         )
         experiment.optimization_config = OptimizationConfig(
-            objective=Objective(metric=Metric(name="branin_a"), minimize=False),
+            objectives=[Objective(metric=Metric(name="branin_a"), minimize=False)],
             outcome_constraints=[],
         )
 
@@ -275,7 +275,7 @@ class TestConstraintsFeasibilityAnalysis(TestCase):
         # (should be valid)
         experiment_no_constraints = get_branin_experiment(with_status_quo=True)
         experiment_no_constraints.optimization_config = OptimizationConfig(
-            objective=Objective(metric=Metric(name="branin"), minimize=True),
+            objectives=[Objective(metric=Metric(name="branin"), minimize=True)],
             outcome_constraints=[],
         )
         validation_error = icfa.validate_applicable_state(

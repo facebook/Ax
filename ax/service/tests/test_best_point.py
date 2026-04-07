@@ -824,10 +824,12 @@ class InferReferencePointFromExperimentTest(TestCase):
         """_get_trace_by_progression raises UnsupportedError for scalarized."""
         experiment = get_experiment_with_trial()
         experiment._optimization_config = OptimizationConfig(
-            objective=Objective(
-                expression="2*m1 + -1*m2",
-                metric_name_to_signature={"m1": "m1", "m2": "m2"},
-            ),
+            objectives=[
+                Objective(
+                    expression="2*m1 + -1*m2",
+                    metric_name_to_signature={"m1": "m1", "m2": "m2"},
+                )
+            ],
         )
         with self.assertRaisesRegex(UnsupportedError, "not supported for scalarized"):
             BestPointMixin._get_trace_by_progression(experiment=experiment)
@@ -836,10 +838,12 @@ class InferReferencePointFromExperimentTest(TestCase):
         """get_improvement_over_baseline raises UnsupportedError for scalarized."""
         experiment = get_experiment_with_trial()
         experiment._optimization_config = OptimizationConfig(
-            objective=Objective(
-                expression="2*m1 + -1*m2",
-                metric_name_to_signature={"m1": "m1", "m2": "m2"},
-            ),
+            objectives=[
+                Objective(
+                    expression="2*m1 + -1*m2",
+                    metric_name_to_signature={"m1": "m1", "m2": "m2"},
+                )
+            ],
         )
         mixin = BestPointMixin.__new__(BestPointMixin)
         with self.assertRaisesRegex(UnsupportedError, "not supported for scalarized"):

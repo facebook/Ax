@@ -182,10 +182,12 @@ class DiagnosticAnalysisTest(TestCase):
                 ]
             ),
             optimization_config=OptimizationConfig(
-                objective=Objective(
-                    metric=Metric(name="booth"),
-                    minimize=True,
-                )
+                objectives=[
+                    Objective(
+                        metric=Metric(name="booth"),
+                        minimize=True,
+                    )
+                ]
             ),
         )
 

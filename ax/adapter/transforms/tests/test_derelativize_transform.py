@@ -106,7 +106,7 @@ class DerelativizeTransformTest(TestCase):
         # Test with no relative constraints
         objective = Objective(metric=Metric("c"), minimize=True)
         oc = OptimizationConfig(
-            objective=objective,
+            objectives=[objective],
             outcome_constraints=[
                 OutcomeConstraint(
                     metric=Metric("m1"), op=ComparisonOp.LEQ, bound=2, relative=False
@@ -126,7 +126,7 @@ class DerelativizeTransformTest(TestCase):
         # Test with relative constraint, in-design status quo
         relative_bound = -10
         oc = OptimizationConfig(
-            objective=objective,
+            objectives=[objective],
             outcome_constraints=[
                 OutcomeConstraint(
                     metric=Metric("m1"), op=ComparisonOp.LEQ, bound=2, relative=False
@@ -192,7 +192,7 @@ class DerelativizeTransformTest(TestCase):
         )
         g = Adapter(experiment=experiment_2, generator=Generator())
         oc = OptimizationConfig(
-            objective=objective,
+            objectives=[objective],
             outcome_constraints=[
                 OutcomeConstraint(
                     metric=Metric("m1"), op=ComparisonOp.LEQ, bound=2, relative=False
@@ -250,7 +250,7 @@ class DerelativizeTransformTest(TestCase):
         )
         g = Adapter(experiment=experiment_3, generator=Generator())
         oc = OptimizationConfig(
-            objective=objective,
+            objectives=[objective],
             outcome_constraints=[
                 OutcomeConstraint(
                     metric=Metric("m1"), op=ComparisonOp.LEQ, bound=2, relative=False
@@ -282,7 +282,7 @@ class DerelativizeTransformTest(TestCase):
 
         # Same for scalarized constraint only.
         oc_scalarized_only = OptimizationConfig(
-            objective=objective,
+            objectives=[objective],
             outcome_constraints=[
                 ScalarizedOutcomeConstraint(
                     metrics=[Metric("m1"), Metric("m2")],
@@ -319,7 +319,7 @@ class DerelativizeTransformTest(TestCase):
     def test_errors(self) -> None:
         t = Derelativize(search_space=None)
         oc = OptimizationConfig(
-            objective=Objective(metric=Metric("c"), minimize=False),
+            objectives=[Objective(metric=Metric("c"), minimize=False)],
             outcome_constraints=[
                 OutcomeConstraint(
                     metric=Metric("m1"), op=ComparisonOp.LEQ, bound=2, relative=True

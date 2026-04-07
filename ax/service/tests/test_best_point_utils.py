@@ -223,7 +223,7 @@ class TestBestPointUtils(TestCase):
     def test_get_trace_by_arm_pull_from_data(self) -> None:
         objective = Objective(metric=Metric("m1"), minimize=False)
         optimzation_config = OptimizationConfig(
-            objective=objective,
+            objectives=[objective],
             outcome_constraints=[
                 OutcomeConstraint(
                     metric=Metric("m2"),
@@ -322,7 +322,7 @@ class TestBestPointUtils(TestCase):
 
         with self.subTest("Relative optimization config not supported"):
             rel_optimization_config = OptimizationConfig(
-                objective=objective,
+                objectives=[objective],
                 outcome_constraints=[
                     OutcomeConstraint(
                         metric=Metric("m2"),
@@ -501,7 +501,7 @@ class TestBestPointUtils(TestCase):
 
         with self.subTest("Data present but not for needed metrics"):
             opt_conf = OptimizationConfig(
-                objective=Objective(metric=get_branin_metric(name="not_branin"))
+                objectives=[Objective(metric=get_branin_metric(name="not_branin"))]
             )
             with self.assertRaisesRegex(
                 ValueError, "Some metrics are not present for all trials and arms"
@@ -1190,11 +1190,13 @@ class TestBestPointUtils(TestCase):
         )
         exp.add_tracking_metric(metric2)
         exp.optimization_config = OptimizationConfig(
-            objective=ScalarizedObjective(
-                metrics=[metric1, metric2],
-                weights=[0.5, 0.5],
-                minimize=True,
-            )
+            objectives=[
+                ScalarizedObjective(
+                    metrics=[metric1, metric2],
+                    weights=[0.5, 0.5],
+                    minimize=True,
+                )
+            ]
         )
 
         # Run trials and generate data
