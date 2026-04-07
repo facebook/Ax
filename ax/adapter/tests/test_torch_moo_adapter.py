@@ -333,7 +333,6 @@ class MultiObjectiveTorchAdapterTest(TestCase):
             )
             for trial in exp.trials.values():
                 trial.mark_running(no_runner_required=True).mark_completed()
-            # pyre-fixme[16]: Optional type has no attribute `metrics`.
             metrics_dict = exp.metrics
             # Objective thresholds and synthetic observations chosen to have closed-form
             # hypervolumes to test.
@@ -464,9 +463,15 @@ class MultiObjectiveTorchAdapterTest(TestCase):
         first = sub_exprs[0]
         if not first.startswith("-"):
             sub_exprs[0] = f"-{first}"
-        oc.objective = Objective(
-            expression=", ".join(sub_exprs),
-            metric_name_to_signature={s.lstrip("-"): s.lstrip("-") for s in sub_exprs},
+        oc = oc.clone_with_args(
+            objectives=[
+                Objective(
+                    expression=", ".join(sub_exprs),
+                    metric_name_to_signature={
+                        s.lstrip("-"): s.lstrip("-") for s in sub_exprs
+                    },
+                )
+            ]
         )
 
         for use_partial_thresholds in (False, True):

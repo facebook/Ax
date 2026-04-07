@@ -615,7 +615,9 @@ class TestBestPointUtils(TestCase):
         exp = get_branin_experiment()
         gs = choose_generation_strategy_legacy(search_space=exp.search_space)
         exp.optimization_config = OptimizationConfig(
-            objective=ScalarizedObjective(metrics=[get_branin_metric()], minimize=True)
+            objectives=[
+                ScalarizedObjective(metrics=[get_branin_metric()], minimize=True)
+            ],
         )
         with self.assertRaisesRegex(ValueError, "Cannot identify best "):
             get_best_raw_objective_point_with_trial_index(exp)
@@ -637,11 +639,16 @@ class TestBestPointUtils(TestCase):
         exp = get_branin_experiment()
         gs = choose_generation_strategy_legacy(search_space=exp.search_space)
         exp.optimization_config = OptimizationConfig(
-            objective=ScalarizedObjective(
-                metrics=[get_branin_metric(), get_branin_metric(lower_is_better=False)],
-                weights=[0.1, -0.9],
-                minimize=True,
-            )
+            objectives=[
+                ScalarizedObjective(
+                    metrics=[
+                        get_branin_metric(),
+                        get_branin_metric(lower_is_better=False),
+                    ],
+                    weights=[0.1, -0.9],
+                    minimize=True,
+                )
+            ],
         )
         with self.assertRaisesRegex(ValueError, "Cannot identify best "):
             get_best_raw_objective_point_with_trial_index(experiment=exp)
@@ -1037,11 +1044,13 @@ class TestBestPointUtils(TestCase):
         )
         exp.add_tracking_metric(metric2)
         exp.optimization_config = OptimizationConfig(
-            objective=ScalarizedObjective(
-                metrics=[metric1, metric2],
-                weights=[0.5, 0.5],
-                minimize=True,
-            )
+            objectives=[
+                ScalarizedObjective(
+                    metrics=[metric1, metric2],
+                    weights=[0.5, 0.5],
+                    minimize=True,
+                )
+            ],
         )
 
         # Run trials and generate data
