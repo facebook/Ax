@@ -334,7 +334,7 @@ def get_soo_opt_config(
     )
 
     config = OptimizationConfig(
-        objective=objective, outcome_constraints=outcome_constraints
+        objectives=[objective], outcome_constraints=outcome_constraints
     )
     return config, [obj_metric] + constraint_metrics
 

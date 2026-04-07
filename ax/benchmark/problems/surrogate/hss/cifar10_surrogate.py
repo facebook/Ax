@@ -182,14 +182,16 @@ def get_cifar10_surrogate_benchmark(
     )
 
     optimization_config = OptimizationConfig(
-        objective=Objective(
-            metric=BenchmarkMetric(
-                name="CIFAR10 Test Accuracy",
-                lower_is_better=False,
-                observe_noise_sd=False,
-            ),
-            minimize=False,
-        )
+        objectives=[
+            Objective(
+                metric=BenchmarkMetric(
+                    name="CIFAR10 Test Accuracy",
+                    lower_is_better=False,
+                    observe_noise_sd=False,
+                ),
+                minimize=False,
+            )
+        ],
     )
 
     return BenchmarkProblem(

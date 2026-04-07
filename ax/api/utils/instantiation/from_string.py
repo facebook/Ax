@@ -97,6 +97,6 @@ def optimization_config_from_string(
             )
 
     return OptimizationConfig(
-        objective=objective,
+        objectives=[objective],
         outcome_constraints=outcome_constraints,
     )

@@ -57,7 +57,7 @@ def get_preference_adapter(
     #   in the data. Requires optimization_config to specify which metrics to use.
     pref_metric = Metric(name=Keys.PAIRWISE_PREFERENCE_QUERY.value)
     optimization_config = OptimizationConfig(
-        objective=Objective(metric=pref_metric, minimize=False)
+        objectives=[Objective(metric=pref_metric, minimize=False)]
     )
     # Register the metric on the experiment if not already present.
     # This is required for _extract_observation_data filtering in TorchAdapter.

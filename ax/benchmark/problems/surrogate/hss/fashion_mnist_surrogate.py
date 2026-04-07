@@ -182,14 +182,16 @@ def get_fashion_mnist_surrogate_benchmark(
     )
 
     optimization_config = OptimizationConfig(
-        objective=Objective(
-            metric=BenchmarkMetric(
-                name="FashionMNIST Test Accuracy",
-                lower_is_better=False,
-                observe_noise_sd=False,
-            ),
-            minimize=False,
-        )
+        objectives=[
+            Objective(
+                metric=BenchmarkMetric(
+                    name="FashionMNIST Test Accuracy",
+                    lower_is_better=False,
+                    observe_noise_sd=False,
+                ),
+                minimize=False,
+            )
+        ],
     )
 
     return BenchmarkProblem(
