@@ -9,7 +9,8 @@
 import json
 import logging
 import warnings
-from collections.abc import Callable, Sequence
+from collections.abc import Callable, Generator, Sequence
+from contextlib import contextmanager
 from functools import partial
 from logging import Logger
 from typing import Any, TypeVar
@@ -31,7 +32,7 @@ from ax.core.objective import Objective
 from ax.core.observation import ObservationFeatures
 from ax.core.parameter import RangeParameter
 from ax.core.parameter_constraint import ParameterConstraint
-from ax.core.runner import Runner
+from ax.core.runner import Runner, RunnerConfig
 from ax.core.trial import Trial
 from ax.core.trial_status import TrialStatus
 from ax.core.types import (
@@ -561,6 +562,7 @@ class AxClient(AnalysisBase, BestPointMixin, InstantiationBase):
         backfill_values: TParameterization,
         status_quo_values: TParameterization | None = None,
         parameter_constraints: list[str] | None = None,
+        runner_updates: RunnerConfig.SearchSpaceUpdateArguments | None = None,
     ) -> None:
         """
         Add new parameters to the experiment's search space. This allows extending
@@ -584,6 +586,8 @@ class AxClient(AnalysisBase, BestPointMixin, InstantiationBase):
                 parameter constraints to add (e.g., ``"x1 + x2 <= 5.0"``
                 or ``"x1 <= x2"``). May reference both existing and new
                 parameters.
+            runner_updates: Optional typed context to pass to the runner's
+                ``on_search_space_update`` hook.
         """
         parameters_to_add = [
             parameter_from_config(parameter_config) for parameter_config in parameters
@@ -619,16 +623,20 @@ class AxClient(AnalysisBase, BestPointMixin, InstantiationBase):
                 for c in parameter_constraints
             ]
 
-        self.experiment.add_parameters_to_search_space(
-            parameters=parameters_to_add,
-            status_quo_values=status_quo_values or backfill_values,
-            parameter_constraints=typed_parameter_constraints or None,
-        )
+        with self._with_runner_on_search_space_update(
+            runner_updates=runner_updates,
+        ):
+            self.experiment.add_parameters_to_search_space(
+                parameters=parameters_to_add,
+                status_quo_values=status_quo_values or backfill_values,
+                parameter_constraints=typed_parameter_constraints or None,
+            )
         self._save_experiment_to_db_if_possible(experiment=self.experiment)
 
     def disable_parameters(
         self,
         default_parameter_values: TParameterization,
+        runner_updates: RunnerConfig.SearchSpaceUpdateArguments | None = None,
     ) -> None:
         """
         Disable parameters in the experiment. This allows narrowing the search space
@@ -643,15 +651,21 @@ class AxClient(AnalysisBase, BestPointMixin, InstantiationBase):
             default_parameter_values: Fixed values to use for the disabled parameters
                 in all future trials. These values will be used for the parameter in
                 all subsequent trials.
+            runner_updates: Optional typed context to pass to the runner's
+                ``on_search_space_update`` hook.
         """
-        self.experiment.disable_parameters_in_search_space(
-            default_parameter_values=default_parameter_values
-        )
+        with self._with_runner_on_search_space_update(
+            runner_updates=runner_updates,
+        ):
+            self.experiment.disable_parameters_in_search_space(
+                default_parameter_values=default_parameter_values
+            )
         self._save_experiment_to_db_if_possible(experiment=self.experiment)
 
     def update_parameters(
         self,
         parameters: Sequence[RangeParameterConfig],
+        runner_updates: RunnerConfig.SearchSpaceUpdateArguments | None = None,
     ) -> None:
         """Update parameters in the experiment's search space.
 
@@ -661,6 +675,8 @@ class AxClient(AnalysisBase, BestPointMixin, InstantiationBase):
         Args:
             parameters: A sequence of ``RangeParameterConfig`` to update in the
                 search space.
+            runner_updates: Optional typed context to pass to the runner's
+                ``on_search_space_update`` hook.
 
         Raises:
             UserInputError: If a parameter is not found in the search space or
@@ -677,9 +693,28 @@ class AxClient(AnalysisBase, BestPointMixin, InstantiationBase):
                     f"Parameter {parameter.name} is not a RangeParameter."
                 )
 
-        for parameter in parameters:
-            search_space.update_parameter(parameter=parameter_from_config(parameter))
+        parameters_to_update = [
+            parameter_from_config(parameter) for parameter in parameters
+        ]
+        with self._with_runner_on_search_space_update(
+            runner_updates=runner_updates,
+        ):
+            for parameter in parameters_to_update:
+                search_space.update_parameter(parameter=parameter)
         self._save_experiment_to_db_if_possible(experiment=self.experiment)
+
+    @property
+    def runner_config_type(self) -> type[RunnerConfig] | None:
+        """The ``RunnerConfig`` subclass declared by the experiment's runner.
+
+        Returns ``None`` if the experiment has no runner. Useful for
+        discovering the typed context a runner expects::
+
+            ctx_cls = client.runner_config_type.SearchSpaceUpdateArguments
+        """
+        if self.experiment.runner is None:
+            return None
+        return self.experiment.runner.config_type
 
     @retry_on_exception(
         logger=logger,
@@ -1504,10 +1539,12 @@ class AxClient(AnalysisBase, BestPointMixin, InstantiationBase):
 
     def to_json_snapshot(
         self,
-        encoder_registry: dict[type[Any], Callable[[Any], dict[str, Any]]]
-        | None = None,
-        class_encoder_registry: dict[type[Any], Callable[[Any], dict[str, Any]]]
-        | None = None,
+        encoder_registry: (
+            dict[type[Any], Callable[[Any], dict[str, Any]]] | None
+        ) = None,
+        class_encoder_registry: (
+            dict[type[Any], Callable[[Any], dict[str, Any]]] | None
+        ) = None,
     ) -> dict[str, Any]:
         """Serialize this `AxClient` to JSON to be able to interrupt and restart
         optimization and save it to file by the provided path.
@@ -1868,6 +1905,36 @@ class AxClient(AnalysisBase, BestPointMixin, InstantiationBase):
         provided_metrics = data.metric_names
         missing_metrics = required_metrics - provided_metrics
         return not missing_metrics
+
+    @contextmanager
+    def _with_runner_on_search_space_update(
+        self,
+        runner_updates: RunnerConfig.SearchSpaceUpdateArguments | None = None,
+    ) -> Generator[None, None, None]:
+        """Context manager that notifies the runner after search space mutations.
+
+        On enter, snapshots (clones) the current search space. The caller
+        performs the actual search space mutations inside the ``with`` block.
+        On exit, if the experiment has a runner, calls
+        ``runner.on_search_space_update`` with the now-mutated real search
+        space. If ``on_search_space_update`` raises, the search space is
+        restored from the snapshot and the exception is re-raised.
+
+        If the experiment has no runner, this is a no-op wrapper.
+        """
+        runner = self.experiment.runner
+        search_space_snapshot = self.experiment.search_space.clone()
+        yield
+        if runner is None:
+            return
+        try:
+            runner.on_search_space_update(
+                search_space=self.experiment.search_space,
+                arguments=runner_updates,
+            )
+        except Exception:
+            self.experiment.search_space = search_space_snapshot
+            raise
 
     # ------------------------------ Validators. -------------------------------
 
