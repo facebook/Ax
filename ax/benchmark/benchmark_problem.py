@@ -422,7 +422,7 @@ def get_moo_opt_config(
         )
 
     optimization_config = MultiObjectiveOptimizationConfig(
-        objective=objective,
+        objectives=[objective],
         objective_thresholds=objective_thresholds,
         outcome_constraints=outcome_constraints,
     )

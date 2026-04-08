@@ -485,12 +485,14 @@ class CrossValidationTest(TestCase):
 
         # Test multi objective
         optimization_config = MultiObjectiveOptimizationConfig(
-            objective=MultiObjective(
-                objectives=[
-                    Objective(metric=Metric("m1"), minimize=False),
-                    Objective(metric=Metric("m2"), minimize=False),
-                ]
-            )
+            objectives=[
+                MultiObjective(
+                    objectives=[
+                        Objective(metric=Metric("m1"), minimize=False),
+                        Objective(metric=Metric("m2"), minimize=False),
+                    ]
+                )
+            ]
         )
         has_good_fit = has_good_opt_config_model_fit(
             optimization_config=optimization_config,

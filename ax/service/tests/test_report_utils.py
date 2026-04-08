@@ -584,15 +584,17 @@ class ReportUtilsTest(TestCase):
     def test_get_metric_name_pairs(self) -> None:
         exp = get_branin_experiment(with_trial=True)
         exp._optimization_config = MultiObjectiveOptimizationConfig(
-            objective=MultiObjective(
-                objectives=[
-                    Objective(metric=Metric("m0"), minimize=False),
-                    Objective(metric=Metric("m1"), minimize=False),
-                    Objective(metric=Metric("m2"), minimize=False),
-                    Objective(metric=Metric("m3"), minimize=False),
-                    Objective(metric=Metric("m4"), minimize=False),
-                ]
-            )
+            objectives=[
+                MultiObjective(
+                    objectives=[
+                        Objective(metric=Metric("m0"), minimize=False),
+                        Objective(metric=Metric("m1"), minimize=False),
+                        Objective(metric=Metric("m2"), minimize=False),
+                        Objective(metric=Metric("m3"), minimize=False),
+                        Objective(metric=Metric("m4"), minimize=False),
+                    ]
+                )
+            ]
         )
         with self.assertLogs(logger="ax", level=INFO) as log:
             metric_name_pairs = _get_metric_name_pairs(experiment=exp)

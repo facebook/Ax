@@ -103,11 +103,13 @@ class TestComplexityRatingAnalysis(TestCase):
                     if m.name not in self.experiment.metrics:
                         self.experiment.add_tracking_metric(m)
                 self.experiment._optimization_config = MultiObjectiveOptimizationConfig(
-                    objective=MultiObjective(
-                        objectives=[
-                            Objective(metric=m, minimize=False) for m in metrics
-                        ]
-                    )
+                    objectives=[
+                        MultiObjective(
+                            objectives=[
+                                Objective(metric=m, minimize=False) for m in metrics
+                            ]
+                        )
+                    ]
                 )
                 card = ComplexityRatingAnalysis(
                     options=self.options, tier_metadata=self.tier_metadata

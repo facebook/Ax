@@ -433,7 +433,6 @@ class MultiObjectiveOptimizationConfig(OptimizationConfig):
             objective_thresholds=self._objective_thresholds,
         )
 
-    # pyre-fixme[14]: Inconsistent override.
     def clone_with_args(
         self,
         *,
@@ -570,7 +569,7 @@ class MultiObjectiveOptimizationConfig(OptimizationConfig):
     def __repr__(self) -> str:
         return (
             f"{self.__class__.__name__}("
-            "objective=" + repr(self.objective) + ", "
+            "objectives=" + repr(self._objectives) + ", "
             "outcome_constraints=" + repr(self.outcome_constraints) + ", "
             "objective_thresholds=" + repr(self.objective_thresholds) + ")"
         )
@@ -659,8 +658,7 @@ class PreferenceOptimizationConfig(MultiObjectiveOptimizationConfig):
 
         # Call parent's __init__ with objective_thresholds=None
         super().__init__(
-            objective=objective,
-            objectives=objectives,
+            objectives=[objective] if objective is not None else objectives,
             outcome_constraints=outcome_constraints,
             objective_thresholds=None,
             pruning_target_parameterization=pruning_target_parameterization,

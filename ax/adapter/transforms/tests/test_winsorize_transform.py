@@ -480,7 +480,9 @@ class WinsorizeTransformTest(TestCase):
         moo_objective = MultiObjective(
             [Objective(metric=m1, minimize=False), Objective(metric=m2, minimize=True)]
         )
-        optimization_config = MultiObjectiveOptimizationConfig(objective=moo_objective)
+        optimization_config = MultiObjectiveOptimizationConfig(
+            objectives=[moo_objective]
+        )
         experiment._optimization_config = optimization_config
         adapter = Adapter(experiment=experiment, generator=Generator())
         with warnings.catch_warnings(record=True) as ws:
@@ -501,7 +503,7 @@ class WinsorizeTransformTest(TestCase):
             ObjectiveThreshold(m2, 4, relative=True),
         ]
         optimization_config = MultiObjectiveOptimizationConfig(
-            objective=moo_objective,
+            objectives=[moo_objective],
             objective_thresholds=objective_thresholds,
             outcome_constraints=[],
         )

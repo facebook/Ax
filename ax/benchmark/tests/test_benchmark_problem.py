@@ -36,10 +36,12 @@ class TestBenchmarkProblem(TestCase):
             botorch_problem=Branin(), outcome_names=["Branin"]
         )
         opt_config = MultiObjectiveOptimizationConfig(
-            objective=Objective(
-                expression="-Branin, -Currin",
-                metric_name_to_signature={"Branin": "Branin", "Currin": "Currin"},
-            ),
+            objectives=[
+                Objective(
+                    expression="-Branin, -Currin",
+                    metric_name_to_signature={"Branin": "Branin", "Currin": "Currin"},
+                )
+            ],
             objective_thresholds=[
                 OutcomeConstraint(
                     expression="Branin <= 0.0",

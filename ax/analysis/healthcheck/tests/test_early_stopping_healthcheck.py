@@ -320,9 +320,14 @@ class TestEarlyStoppingAnalysis(TestCase):
             metric1 = get_branin_metric(name="m1")
             metric2 = get_branin_metric(name="m2")
             experiment._optimization_config = MultiObjectiveOptimizationConfig(
-                objective=MultiObjective(
-                    objectives=[Objective(metric=metric1), Objective(metric=metric2)]
-                )
+                objectives=[
+                    MultiObjective(
+                        objectives=[
+                            Objective(metric=metric1),
+                            Objective(metric=metric2),
+                        ]
+                    )
+                ]
             )
             card = healthcheck.compute(experiment=experiment)
             df_dict = self._get_df_dict(card)

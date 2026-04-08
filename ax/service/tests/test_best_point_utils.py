@@ -147,7 +147,7 @@ class TestBestPointUtils(TestCase):
         )
         with self.subTest("Relative objective thresholds not supported"):
             optimization_config = MultiObjectiveOptimizationConfig(
-                objective=objective,
+                objectives=[objective],
                 objective_thresholds=[
                     ObjectiveThreshold(
                         metric=Metric("m1"),
@@ -167,7 +167,7 @@ class TestBestPointUtils(TestCase):
                 )
 
         optimization_config = MultiObjectiveOptimizationConfig(
-            objective=objective,
+            objectives=[objective],
         )
         with self.subTest("Cumulative HV"):
             hvs = get_hypervolume_trace_of_outcomes_multi_objective(
@@ -199,7 +199,7 @@ class TestBestPointUtils(TestCase):
             ],
         )
         optimization_config = MultiObjectiveOptimizationConfig(
-            objective=objective,
+            objectives=[objective],
         )
         df_wide = pd.DataFrame.from_records(
             [
@@ -356,12 +356,14 @@ class TestBestPointUtils(TestCase):
             self.assertEqual(result["value"].tolist(), [1.0, float("-inf"), 3.0])
 
         moo_opt_config = MultiObjectiveOptimizationConfig(
-            objective=MultiObjective(
-                objectives=[
-                    Objective(metric=Metric("m1"), minimize=False),
-                    Objective(metric=Metric("m2"), minimize=False),
-                ],
-            ),
+            objectives=[
+                MultiObjective(
+                    objectives=[
+                        Objective(metric=Metric("m1"), minimize=False),
+                        Objective(metric=Metric("m2"), minimize=False),
+                    ],
+                )
+            ],
         )
         # reference point inferred via infer_reference_point on Pareto front
         with self.subTest("Multi-objective, cumulative"):

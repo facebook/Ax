@@ -761,12 +761,14 @@ def get_hypervolume_trace_of_outcomes_multi_objective(
 
     Example:
     >>> optimization_config = MultiObjectiveOptimizationConfig(
-    ...     objective=MultiObjective(
-    ...         objectives=[
-    ...             Objective(metric=Metric(name="m1"), minimize=False),
-    ...             Objective(metric=Metric(name="m2"), minimize=False),
-    ...         ]
-    ...     ),
+    ...     objectives=[
+    ...         MultiObjective(
+    ...             objectives=[
+    ...                 Objective(metric=Metric(name="m1"), minimize=False),
+    ...                 Objective(metric=Metric(name="m2"), minimize=False),
+    ...             ]
+    ...         )
+    ...     ],
     ...     objective_thresholds=[
     ...         ObjectiveThreshold(
     ...             metric=Metric(name="m1"),

@@ -81,7 +81,7 @@ def optimization_config_from_string(
                 true_outcome_constraints.append(outcome_constraint)
 
         return MultiObjectiveOptimizationConfig(
-            objective=objective,
+            objectives=[objective],
             outcome_constraints=true_outcome_constraints,
             objective_thresholds=objective_thresholds,
         )

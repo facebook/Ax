@@ -51,10 +51,12 @@ class TestFromString(TestCase):
         self.assertEqual(
             with_constraints_and_objective_threshold,
             MultiObjectiveOptimizationConfig(
-                objective=Objective(
-                    expression="-ne, qps",
-                    metric_name_to_signature={"ne": "ne", "qps": "qps"},
-                ),
+                objectives=[
+                    Objective(
+                        expression="-ne, qps",
+                        metric_name_to_signature={"ne": "ne", "qps": "qps"},
+                    )
+                ],
                 outcome_constraints=[
                     OutcomeConstraint(
                         expression="flops <= 1000000",

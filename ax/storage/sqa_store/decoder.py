@@ -751,9 +751,11 @@ class Decoder:
         elif objective_thresholds or type(objectives[0]) is MultiObjective:
             objective = objectives[0]
             optimization_config = MultiObjectiveOptimizationConfig(
-                objective=assert_is_instance(
-                    objective, Union[MultiObjective, ScalarizedObjective]
-                ),
+                objectives=[
+                    assert_is_instance(
+                        objective, Union[MultiObjective, ScalarizedObjective]
+                    )
+                ],
                 outcome_constraints=outcome_constraints,
                 objective_thresholds=objective_thresholds,
                 pruning_target_parameterization=pruning_target_parameterization,

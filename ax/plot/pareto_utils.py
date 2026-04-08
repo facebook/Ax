@@ -510,6 +510,6 @@ def _build_scalarized_optimization_config(
         minimize=False,
     )
     optimization_config = MultiObjectiveOptimizationConfig(
-        objective=obj, outcome_constraints=outcome_constraints
+        objectives=[obj], outcome_constraints=outcome_constraints
     )
     return optimization_config

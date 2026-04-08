@@ -566,7 +566,7 @@ def get_branin_experiment_with_timestamp_map_metric(
                 BraninMetric(name="branin_constraint", param_names=["x1", "x2"])
             )
         optimization_config = MultiObjectiveOptimizationConfig(
-            objective=MultiObjective(objectives=objectives),
+            objectives=[MultiObjective(objectives=objectives)],
             objective_thresholds=objective_thresholds,
             outcome_constraints=outcome_constraints,
         )
@@ -1128,9 +1128,11 @@ def get_experiment_with_observations(
             if constraint_metric is not None:
                 tracking_metrics_from_opt_config.append(constraint_metric)
             optimization_config = MultiObjectiveOptimizationConfig(
-                objective=MultiObjective(
-                    objectives=[Objective(metric=metric) for metric in metrics]
-                ),
+                objectives=[
+                    MultiObjective(
+                        objectives=[Objective(metric=metric) for metric in metrics]
+                    )
+                ],
                 objective_thresholds=[
                     ObjectiveThreshold(
                         metric=metrics[i],
@@ -2245,9 +2247,13 @@ def get_many_branin_objective_opt_config(
     n_objectives: int,
 ) -> MultiObjectiveOptimizationConfig:
     return MultiObjectiveOptimizationConfig(
-        objective=MultiObjective(
-            objectives=[get_branin_objective(name=f"m{i}") for i in range(n_objectives)]
-        )
+        objectives=[
+            MultiObjective(
+                objectives=[
+                    get_branin_objective(name=f"m{i}") for i in range(n_objectives)
+                ]
+            )
+        ]
     )
 
 
@@ -2313,7 +2319,7 @@ def get_multi_objective_optimization_config(
         get_objective_threshold(metric_name="m3", comparison_op=ComparisonOp.LEQ),
     ]
     return MultiObjectiveOptimizationConfig(
-        objective=objective,
+        objectives=[objective],
         outcome_constraints=outcome_constraints,
         objective_thresholds=objective_thresholds,
     )
@@ -2417,7 +2423,7 @@ def get_branin_multi_objective_optimization_config(
             )
         )
     return MultiObjectiveOptimizationConfig(
-        objective=get_branin_multi_objective(num_objectives=num_objectives),
+        objectives=[get_branin_multi_objective(num_objectives=num_objectives)],
         objective_thresholds=objective_thresholds,
         outcome_constraints=outcome_constraints,
     )

@@ -1695,7 +1695,7 @@ class JSONStoreTest(TestCase):
         # pruning_target_parameterization
         pruning_target_parameterization = get_arm()
         multi_objective_config = MultiObjectiveOptimizationConfig(
-            objective=get_multi_objective(),
+            objectives=[get_multi_objective()],
             pruning_target_parameterization=pruning_target_parameterization,
         )
 

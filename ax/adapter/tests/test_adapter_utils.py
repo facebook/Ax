@@ -56,9 +56,9 @@ class TestAdapterUtils(TestCase):
         mb = Metric(name="b", lower_is_better=True)
         mc = Metric(name="c", lower_is_better=False)
         optimization_config = MultiObjectiveOptimizationConfig(
-            objective=MultiObjective(
-                objectives=[Objective(metric=ma), Objective(metric=mb)]
-            ),
+            objectives=[
+                MultiObjective(objectives=[Objective(metric=ma), Objective(metric=mb)])
+            ],
             outcome_constraints=[
                 OutcomeConstraint(
                     metric=mc,

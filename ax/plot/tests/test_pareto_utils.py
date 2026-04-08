@@ -86,7 +86,7 @@ class ParetoUtilsTest(TestCase):
         ]
         objective = MultiObjective(objectives=objectives)
         optimization_config = MultiObjectiveOptimizationConfig(
-            objective=objective,
+            objectives=[objective],
             # pyre-ignore[6]: ObjectiveThreshold is a subclass of OutcomeConstraint;
             # list invariance prevents direct assignment.
             objective_thresholds=objective_thresholds,

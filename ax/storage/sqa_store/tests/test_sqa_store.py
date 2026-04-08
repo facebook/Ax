@@ -1452,7 +1452,7 @@ class SQAStoreTest(TestCase):
         ).clone()
 
         multi_objective_config = MultiObjectiveOptimizationConfig(
-            objective=get_multi_objective_optimization_config().objective,
+            objectives=[get_multi_objective_optimization_config().objective],
             pruning_target_parameterization=pruning_target_parameterization,
         )
         # Can't use experiment.clone_with_args, so create new experiment

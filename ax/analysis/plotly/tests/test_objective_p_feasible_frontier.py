@@ -171,11 +171,13 @@ class TestObjectivePFeasibleFrontierPlot(TestCase):
         )
 
         self.experiment.optimization_config = MultiObjectiveOptimizationConfig(
-            objective=MultiObjective(
-                objectives=[
-                    Objective(metric=m) for m in self.experiment.metrics.values()
-                ]
-            )
+            objectives=[
+                MultiObjective(
+                    objectives=[
+                        Objective(metric=m) for m in self.experiment.metrics.values()
+                    ]
+                )
+            ]
         )
 
         self.assertIn(

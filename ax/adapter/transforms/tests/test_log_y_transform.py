@@ -228,7 +228,7 @@ class LogYTransformTest(TestCase):
             ObjectiveThreshold(metric=m2, bound=3.456, relative=False),
         ]
         oc = MultiObjectiveOptimizationConfig(
-            objective=mo,
+            objectives=[mo],
             objective_thresholds=objective_thresholds,
         )
         tf = LogY(search_space=None, config={"metrics": ["m1"]})

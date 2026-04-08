@@ -1580,17 +1580,21 @@ class ExperimentTest(TestCase):
             name="test_experiment",
             search_space=SearchSpace(parameters=[]),
             optimization_config=MultiObjectiveOptimizationConfig(
-                objective=MultiObjective(
-                    objectives=[
-                        Objective(
-                            metric=Metric(name="my_objective_1", lower_is_better=True),
-                            minimize=True,
-                        ),
-                        Objective(
-                            metric=TestMetric(name="my_objective_2"), minimize=False
-                        ),
-                    ]
-                ),
+                objectives=[
+                    MultiObjective(
+                        objectives=[
+                            Objective(
+                                metric=Metric(
+                                    name="my_objective_1", lower_is_better=True
+                                ),
+                                minimize=True,
+                            ),
+                            Objective(
+                                metric=TestMetric(name="my_objective_2"), minimize=False
+                            ),
+                        ]
+                    )
+                ],
                 objective_thresholds=[
                     ObjectiveThreshold(
                         metric=TestMetric(name="my_objective_2"),

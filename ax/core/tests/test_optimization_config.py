@@ -36,7 +36,7 @@ OC_STR = (
 
 MOOC_STR = (
     "MultiObjectiveOptimizationConfig("
-    'objective=Objective(expression="-m1, m2"), '
+    'objectives=[Objective(expression="-m1, m2")], '
     "outcome_constraints=[OutcomeConstraint(m3 >= -0.25), "
     "OutcomeConstraint(m3 <= 0.25)], objective_thresholds=[])"
 )
@@ -430,7 +430,8 @@ class MultiObjectiveOptimizationConfigTest(TestCase):
 
     def test_Init(self) -> None:
         config1 = MultiObjectiveOptimizationConfig(
-            objective=self.multi_objective, outcome_constraints=self.outcome_constraints
+            objectives=[self.multi_objective],
+            outcome_constraints=self.outcome_constraints,
         )
         self.assertEqual(str(config1), MOOC_STR)
         with self.assertRaisesRegex(
@@ -445,7 +446,7 @@ class MultiObjectiveOptimizationConfigTest(TestCase):
         self.assertEqual(len(config1.metric_names), 3)
 
         # objective without outcome_constraints is also supported
-        config2 = MultiObjectiveOptimizationConfig(objective=self.multi_objective)
+        config2 = MultiObjectiveOptimizationConfig(objectives=[self.multi_objective])
 
         # setting objective is fine too, if it's compatible with constraints.
         config2.objective = self.multi_objective
@@ -456,14 +457,14 @@ class MultiObjectiveOptimizationConfigTest(TestCase):
 
         # construct constraints with objective_thresholds:
         config3 = MultiObjectiveOptimizationConfig(
-            objective=self.multi_objective,
+            objectives=[self.multi_objective],
             objective_thresholds=self.objective_thresholds,
         )
         self.assertEqual(config3.all_constraints, self.objective_thresholds)
 
         # objective_thresholds and outcome constraints together.
         config4 = MultiObjectiveOptimizationConfig(
-            objective=self.multi_objective,
+            objectives=[self.multi_objective],
             objective_thresholds=self.objective_thresholds,
             outcome_constraints=[self.m3_constraint],
         )
@@ -475,7 +476,7 @@ class MultiObjectiveOptimizationConfigTest(TestCase):
 
         # verify relative_objective_thresholds works:
         config5 = MultiObjectiveOptimizationConfig(
-            objective=self.multi_objective,
+            objectives=[self.multi_objective],
             objective_thresholds=self.relative_objective_thresholds,
         )
         threshold = config5.objective_thresholds[0]
@@ -485,7 +486,7 @@ class MultiObjectiveOptimizationConfigTest(TestCase):
         # ValueError on wrong direction constraints
         with self.assertRaises(UserInputError):
             MultiObjectiveOptimizationConfig(
-                objective=self.multi_objective,
+                objectives=[self.multi_objective],
                 # pyre-fixme[6]: For 2nd param expected
                 #  `Optional[List[ObjectiveThreshold]]` but got
                 #  `List[OutcomeConstraint]`.
@@ -494,10 +495,12 @@ class MultiObjectiveOptimizationConfigTest(TestCase):
 
     def test_Eq(self) -> None:
         config1 = MultiObjectiveOptimizationConfig(
-            objective=self.multi_objective, outcome_constraints=self.outcome_constraints
+            objectives=[self.multi_objective],
+            outcome_constraints=self.outcome_constraints,
         )
         config2 = MultiObjectiveOptimizationConfig(
-            objective=self.multi_objective, outcome_constraints=self.outcome_constraints
+            objectives=[self.multi_objective],
+            outcome_constraints=self.outcome_constraints,
         )
         self.assertEqual(config1, config2)
 
@@ -507,7 +510,7 @@ class MultiObjectiveOptimizationConfigTest(TestCase):
                 metric=self.metrics["m3"], op=ComparisonOp.LEQ, bound=0.5
             )
         config3 = MultiObjectiveOptimizationConfig(
-            objective=self.multi_objective,
+            objectives=[self.multi_objective],
             outcome_constraints=[self.outcome_constraint, new_outcome_constraint],
         )
         self.assertNotEqual(config1, config3)
@@ -520,7 +523,7 @@ class MultiObjectiveOptimizationConfigTest(TestCase):
             "`MultiObjective` or `ScalarizedObjective`.",
         ):
             # pyre-fixme [6]: Incompatible parameter type
-            MultiObjectiveOptimizationConfig(objective=self.objective)
+            MultiObjectiveOptimizationConfig(objectives=[self.objective])
 
         # Using an outcome constraint for an objective should raise
         with warnings.catch_warnings():
@@ -535,7 +538,7 @@ class MultiObjectiveOptimizationConfigTest(TestCase):
             ValueError, "Cannot constrain on objective metric."
         ):
             MultiObjectiveOptimizationConfig(
-                objective=self.multi_objective,
+                objectives=[self.multi_objective],
                 outcome_constraints=[outcome_constraint_m1],
             )
         # Two outcome_constraints on the same metric with the same op
@@ -549,7 +552,7 @@ class MultiObjectiveOptimizationConfigTest(TestCase):
             )
         with self.assertRaises(ValueError):
             MultiObjectiveOptimizationConfig(
-                objective=self.multi_objective,
+                objectives=[self.multi_objective],
                 outcome_constraints=[self.outcome_constraint, duplicate_constraint],
             )
 
@@ -564,7 +567,7 @@ class MultiObjectiveOptimizationConfigTest(TestCase):
             )
         with self.assertRaises(ValueError):
             MultiObjectiveOptimizationConfig(
-                objective=self.multi_objective,
+                objectives=[self.multi_objective],
                 outcome_constraints=self.outcome_constraints + [opposing_constraint],
             )
 
@@ -581,7 +584,7 @@ class MultiObjectiveOptimizationConfigTest(TestCase):
             )
         with self.assertRaises(ValueError):
             MultiObjectiveOptimizationConfig(
-                objective=self.multi_objective,
+                objectives=[self.multi_objective],
                 outcome_constraints=([self.outcome_constraint, opposing_constraint]),
             )
 
@@ -596,7 +599,7 @@ class MultiObjectiveOptimizationConfigTest(TestCase):
                 bound=self.outcome_constraint.bound + 1,
             )
         config = MultiObjectiveOptimizationConfig(
-            objective=self.multi_objective,
+            objectives=[self.multi_objective],
             outcome_constraints=([self.outcome_constraint, opposing_constraint]),
         )
         self.assertEqual(
@@ -614,7 +617,7 @@ class MultiObjectiveOptimizationConfigTest(TestCase):
                 bound=0.0,
             )
         config_with_scalarized = MultiObjectiveOptimizationConfig(
-            objective=self.multi_objective,
+            objectives=[self.multi_objective],
             outcome_constraints=[scalarized_constraint],
         )
         self.assertEqual(len(config_with_scalarized.outcome_constraints), 1)
@@ -636,13 +639,14 @@ class MultiObjectiveOptimizationConfigTest(TestCase):
             ValueError, "Cannot constrain on objective metric."
         ):
             MultiObjectiveOptimizationConfig(
-                objective=self.multi_objective,
+                objectives=[self.multi_objective],
                 outcome_constraints=[scalarized_with_objective_metric],
             )
 
     def test_Clone(self) -> None:
         config1 = MultiObjectiveOptimizationConfig(
-            objective=self.multi_objective, outcome_constraints=self.outcome_constraints
+            objectives=[self.multi_objective],
+            outcome_constraints=self.outcome_constraints,
         )
         cloned1 = config1.clone()
         # Clone normalizes MultiObjective to plain Objective; compare by
@@ -653,7 +657,7 @@ class MultiObjectiveOptimizationConfigTest(TestCase):
         self.assertEqual(config1.objective_thresholds, cloned1_moo.objective_thresholds)
 
         config2 = MultiObjectiveOptimizationConfig(
-            objective=self.multi_objective,
+            objectives=[self.multi_objective],
             objective_thresholds=self.objective_thresholds,
         )
         cloned2 = config2.clone()
@@ -664,12 +668,12 @@ class MultiObjectiveOptimizationConfigTest(TestCase):
 
     def test_CloneWithArgs(self) -> None:
         config1 = MultiObjectiveOptimizationConfig(
-            objective=self.multi_objective,
+            objectives=[self.multi_objective],
             objective_thresholds=self.objective_thresholds,
             outcome_constraints=self.outcome_constraints,
         )
         config2 = MultiObjectiveOptimizationConfig(
-            objective=self.multi_objective,
+            objectives=[self.multi_objective],
         )
 
         # Empty args produce clone with same expression and constraints

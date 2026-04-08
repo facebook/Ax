@@ -638,7 +638,7 @@ class InstantiationBase:
             )
 
         return MultiObjectiveOptimizationConfig(
-            objective=MultiObjective(objectives=objectives),
+            objectives=[MultiObjective(objectives=objectives)],
             outcome_constraints=outcome_constraints,
             objective_thresholds=objective_thresholds,
         )

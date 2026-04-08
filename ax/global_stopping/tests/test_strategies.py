@@ -244,7 +244,7 @@ class TestImprovementGlobalStoppingStrategy(TestCase):
             ),
         ]
         optimization_config = MultiObjectiveOptimizationConfig(
-            objective=MultiObjective(objectives),
+            objectives=[MultiObjective(objectives)],
             outcome_constraints=outcome_constraints,
             # pyre-ignore[6]: ObjectiveThreshold is a subclass of OutcomeConstraint;
             # list invariance prevents direct assignment.
