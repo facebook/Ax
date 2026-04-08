@@ -10,7 +10,8 @@ from __future__ import annotations
 
 from abc import ABC, abstractmethod
 from collections.abc import Iterable
-from typing import Any, Self, TYPE_CHECKING
+from dataclasses import dataclass
+from typing import Any, ClassVar, Self, TYPE_CHECKING
 
 from ax.utils.common.base import Base
 from ax.utils.common.serialization import SerializationMixin
@@ -21,8 +22,26 @@ if TYPE_CHECKING:
     from ax import core  # noqa F401
 
 
+class RunnerConfig:
+    @dataclass(frozen=True)
+    class SearchSpaceUpdateArguments:
+        """Base arguments for search space updates. Override in RunnerConfig
+        subclasses to add runner-specific fields."""
+
+        pass
+
+    @dataclass(frozen=True)
+    class RunnerUpdateArguments:
+        """Base arguments for general runner updates. Override in RunnerConfig
+        subclasses to add runner-specific fields."""
+
+        pass
+
+
 class Runner(Base, SerializationMixin, ABC):
     """Abstract base class for custom runner classes"""
+
+    config_type: ClassVar[type[RunnerConfig]] = RunnerConfig
 
     @property
     def staging_required(self) -> bool:
