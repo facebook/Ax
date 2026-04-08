@@ -112,7 +112,11 @@ class TopSurfacesAnalysis(Analysis):
             )
 
             if not isinstance(relevant_adapter, TorchAdapter):
-                return f"TorchAdapter is required, found {type(relevant_adapter)}."
+                return (
+                    "This analysis requires a fitted Bayesian model (TorchAdapter). "
+                    f"The current adapter is a {type(relevant_adapter).__name__}. "
+                    "Wait for the optimization to progress to a model-based stage."
+                )
         except UserInputError as e:
             return e.message
 

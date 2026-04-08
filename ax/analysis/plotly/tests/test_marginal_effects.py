@@ -86,14 +86,16 @@ class TestMarginalEffectsPlot(TestCase):
             data=self.experiment.lookup_data(trial_indices=[0]),
         )
 
-        self.assertIn(
-            "MarginalEffectsPlot is only for `ChoiceParameter`s",
-            none_throws(
-                self.analysis_all_variables.validate_applicable_state(
-                    experiment=self.experiment, adapter=adapter
-                )
-            ),
+        result = none_throws(
+            self.analysis_all_variables.validate_applicable_state(
+                experiment=self.experiment, adapter=adapter
+            )
         )
+        self.assertIn(
+            "MarginalEffectsPlot is only applicable to ChoiceParameters", result
+        )
+        # Verify type(parameter).__name__ rendered correctly (x is a RangeParameter)
+        self.assertIn("RangeParameter", result)
 
     def test_compute(self) -> None:
         adapter = get_thompson(

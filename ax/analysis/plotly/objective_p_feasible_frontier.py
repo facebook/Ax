@@ -128,7 +128,10 @@ class ObjectivePFeasibleFrontierPlot(Analysis):
         experiment = none_throws(experiment)
 
         if experiment.optimization_config is None:
-            return "Optimization_config must be set to compute frontier."
+            return (
+                "The experiment must have an OptimizationConfig set in "
+                "order to compute the objective vs. P(feasible) frontier."
+            )
 
         if isinstance(experiment.optimization_config, MultiObjectiveOptimizationConfig):
             return "Multi-objective optimization is not supported."
@@ -158,10 +161,11 @@ class ObjectivePFeasibleFrontierPlot(Analysis):
             relevant_adapter.generator, BoTorchGenerator
         ):
             return (
-                "The Objective vs P(feasible) plot cannot be computed using the"
-                f" current Adapter ({relevant_adapter}) and generator"
-                f" ({relevant_adapter.generator}). Only TorchAdapters using"
-                " BoTorchGenerators are supported."
+                "This plot requires a TorchAdapter using a BoTorchGenerator. "
+                f"The current adapter is a {type(relevant_adapter).__name__} with "
+                f"a {type(relevant_adapter.generator).__name__} generator. "
+                "This error will resolve once the optimization progresses "
+                "to a Bayesian modeling stage."
             )
 
     @override

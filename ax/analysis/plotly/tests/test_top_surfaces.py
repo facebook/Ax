@@ -54,16 +54,17 @@ class TestTopSurfacesAnalysis(TestCase):
                     },
                 )
 
-        self.assertIn(
-            "TorchAdapter is required",
-            none_throws(
-                TopSurfacesAnalysis(
-                    metric_name="bar", order="first"
-                ).validate_applicable_state(
-                    client._experiment, client._generation_strategy
-                )
-            ),
+        result = none_throws(
+            TopSurfacesAnalysis(
+                metric_name="bar", order="first"
+            ).validate_applicable_state(client._experiment, client._generation_strategy)
         )
+        self.assertIn(
+            "This analysis requires a fitted Bayesian model (TorchAdapter)",
+            result,
+        )
+        # Verify type(relevant_adapter).__name__ rendered correctly
+        self.assertIn("RandomAdapter", result)
         for _ in range(5):
             for trial_index, parameterization in client.get_next_trials(
                 max_trials=1
@@ -77,7 +78,7 @@ class TestTopSurfacesAnalysis(TestCase):
                 )
 
         self.assertIn(
-            "no data for metrics {'baz'}",
+            "Data for the following metrics is not yet available: {'baz'}",
             none_throws(
                 TopSurfacesAnalysis(
                     metric_name="baz", order="first"

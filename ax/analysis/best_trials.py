@@ -100,9 +100,9 @@ class BestTrials(Analysis):
         # Validate optimization config exists
         if experiment is None or experiment.optimization_config is None:
             return (
-                "`BestTrials` analysis requires an `OptimizationConfig`. "
-                "Ensure the `Experiment` has an `optimization_config` set to compute "
-                "this analysis."
+                "BestTrials requires an OptimizationConfig with defined objective(s). "
+                "Define the optimization objective during experiment setup (via "
+                "configure_optimization in the Client) before running this analysis."
             )
 
         # Check for trials with required status
@@ -121,9 +121,10 @@ class BestTrials(Analysis):
         if self.use_model_predictions or optimization_config.is_moo_problem:
             if generation_strategy is None:
                 return (
-                    "`BestTrials` analysis requires a `GenerationStrategy` input "
-                    "when using model predictions or for multi-objective "
-                    "optimization problems."
+                    "BestTrials requires a GenerationStrategy when using model "
+                    "predictions or for multi-objective optimization. This analysis "
+                    "requires a predictive model, which becomes available after "
+                    "enough trials have completed. Run more trials to enable it."
                 )
 
         return None

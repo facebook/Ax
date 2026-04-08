@@ -116,7 +116,11 @@ class SensitivityAnalysisPlot(Analysis):
         )
 
         if not isinstance(relevant_adapter, TorchAdapter):
-            return "TorchAdapter is required."
+            return (
+                "This analysis requires a fitted Bayesian model (TorchAdapter). "
+                "Ensure the optimization has run enough trials and the generation "
+                "strategy has reached a model-based stage."
+            )
 
     @override
     def compute(

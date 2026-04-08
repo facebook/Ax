@@ -162,7 +162,8 @@ class TestObjectivePFeasibleFrontierPlot(TestCase):
         opt_config = self.experiment.optimization_config
         self.experiment._optimization_config = None
         self.assertIn(
-            "Optimization_config must be set to compute frontier",
+            "The experiment must have an OptimizationConfig set in "
+            "order to compute the objective vs. P(feasible) frontier",
             none_throws(
                 ObjectivePFeasibleFrontierPlot().validate_applicable_state(
                     experiment=self.experiment
@@ -214,6 +215,24 @@ class TestObjectivePFeasibleFrontierPlot(TestCase):
                 )
             ),
         )
+
+        # Restore valid constraints and verify type().__name__ renders correctly
+        # for the adapter/generator type check
+        metric_name = self.experiment.metrics["branin_b"].name
+        opt_config.outcome_constraints = [
+            OutcomeConstraint(
+                expression=f"{metric_name} <= 10.0",
+                metric_name_to_signature={metric_name: metric_name},
+            ),
+        ]
+        adapter = Generators.SOBOL(experiment=self.experiment)
+        result = none_throws(
+            ObjectivePFeasibleFrontierPlot().validate_applicable_state(
+                experiment=self.experiment, adapter=adapter
+            )
+        )
+        self.assertIn("RandomAdapter", result)
+        self.assertIn("SobolGenerator", result)
 
     def test_scalarized_objective_raises(self) -> None:
         """Scalarized objectives should be rejected in validate_applicable_state."""

@@ -1089,7 +1089,11 @@ def validate_experiment_has_trials(
     )
 
     if len(filtered_trials) == 0:
-        return f"Experiment has no trials in {trial_indices=} with {trial_statuses=}."
+        return (
+            "No trials were found matching the requested filters "
+            f"(trial_indices={trial_indices}, trial_statuses={trial_statuses}). "
+            "Check that your experiment has trials with the expected status."
+        )
 
     if required_metric_names is not None:
         filtered_trial_indices = [trial.index for trial in filtered_trials]
@@ -1103,8 +1107,10 @@ def validate_experiment_has_trials(
 
         if len(missing_metrics) > 0:
             return (
-                f"Experiment has no data for metrics {missing_metrics} in "
-                f"{trial_indices=} with {trial_statuses=}."
+                f"Data for the following metrics is not yet available: "
+                f"{missing_metrics} "
+                f"(trial_indices={trial_indices}, trial_statuses={trial_statuses}). "
+                "Wait for trials to complete, and for data to be attached."
             )
 
 
@@ -1124,10 +1130,9 @@ def validate_adapter_can_predict(
 
         if not adapter.can_predict:
             return (
-                f"Adapter {adapter} does not support predictions, please "
-                "use use_model_predictions=False, provide a suitable "
-                "Adapter, or wait until GenerationStrategy reaches a "
-                "GenerationNode with an adapter that is able to predict."
+                f"The current model ({type(adapter).__name__}) does not support "
+                "predictions. This typically means the optimization has not yet "
+                "reached a modeling stage. Wait for more trials to complete."
             )
 
         if required_metric_names is not None:
@@ -1148,8 +1153,9 @@ def validate_adapter_can_predict(
 
             if len(missing_metric_names) > 0:
                 return (
-                    f"Adapter {adapter} does not support metrics "
-                    f"{missing_metric_names}."
+                    f"The current model ({type(adapter).__name__}) does not include "
+                    f"the following metrics: {missing_metric_names}. These metrics "
+                    "may not have been observed yet or may not be part of the model."
                 )
 
     except UserInputError as e:

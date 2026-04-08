@@ -251,6 +251,18 @@ class TestSensitivityAnalysisPlot(TestCase):
                 exclude_task=True,
             )
 
+    def test_validate_applicable_state_non_torch_adapter(self) -> None:
+        client = get_test_client()
+        adapter = Generators.SOBOL(
+            experiment=client.experiment,
+        )
+        analysis = SensitivityAnalysisPlot(metric_name="bar")
+        reason = analysis.validate_applicable_state(adapter=adapter)
+        self.assertIn(
+            "This analysis requires a fitted Bayesian model (TorchAdapter). ",
+            none_throws(reason),
+        )
+
     def test_wrap_label(self) -> None:
         cases = [
             ("short name unchanged", "x", "x"),

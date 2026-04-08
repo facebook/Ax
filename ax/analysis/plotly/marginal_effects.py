@@ -104,8 +104,9 @@ class MarginalEffectsPlot(Analysis):
                 parameter = experiment.parameters.get(param_name)
                 if not isinstance(parameter, ChoiceParameter):
                     return (
-                        "MarginalEffectsPlot is only for `ChoiceParameter`s, but got."
-                        f"'{param_name}' which is of type {type(parameter).__name__}."
+                        f"MarginalEffectsPlot is only applicable to ChoiceParameters, "
+                        f"but '{param_name}' is a {type(parameter).__name__}, not a "
+                        "ChoiceParameter. Check the experiment's parameter types."
                     )
 
     @override
