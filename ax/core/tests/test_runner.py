@@ -45,6 +45,13 @@ class DummyUpdatableRunner(Runner):
         self._tag: str | None = "old_tag"
         self.events: list[str] = []
 
+    def _validate_update(
+        self,
+        arguments: RunnerConfig.RunnerUpdateArguments,
+        search_space: SearchSpace | None = None,
+    ) -> None:
+        self.events.append(f"_validate_update:name={self.name}")
+
     @override
     def _validate_on_search_space_update(
         self,
@@ -105,6 +112,46 @@ class RunnerTest(TestCase):
     def test_set_attributes(self) -> None:
         """_set_attributes applies non-UNSET fields, skips UNSET ones,
         and respects 'attr' metadata for private attribute names."""
+
+    def test_update_rejects_wrong_argument_type(self) -> None:
+        runner = DummyUpdatableRunner()
+        with self.assertRaisesRegex(TypeError, "DummyUpdatableRunner expects"):
+            runner.update(RunnerConfig.RunnerUpdateArguments())
+
+    def test_update_applies_non_unset_fields(self) -> None:
+        runner = DummyUpdatableRunner()
+        runner.update(
+            DummyRunnerConfig.RunnerUpdateArguments(name="new_name", count=10)
+        )
+        self.assertEqual(runner.name, "new_name")
+        self.assertEqual(runner.count, 10)
+
+    def test_update_skips_unset_fields(self) -> None:
+        runner = DummyUpdatableRunner()
+        runner.update(DummyRunnerConfig.RunnerUpdateArguments(name="changed"))
+        self.assertEqual(runner.name, "changed")
+        self.assertEqual(runner.count, 5)  # unchanged
+
+    def test_update_allows_setting_to_none(self) -> None:
+        runner = DummyUpdatableRunner()
+        runner.update(DummyRunnerConfig.RunnerUpdateArguments(name=None))
+        self.assertIsNone(runner.name)
+        self.assertEqual(runner.count, 5)  # unchanged
+
+    def test_update_uses_attr_metadata_for_private_attributes(self) -> None:
+        runner = DummyUpdatableRunner()
+        runner.update(DummyRunnerConfig.RunnerUpdateArguments(tag="new_tag"))
+        self.assertEqual(runner._tag, "new_tag")
+
+    def test_update_validates_before_applying(self) -> None:
+        """Pre-validate runs before fields are applied (sees old values)."""
+        runner = DummyUpdatableRunner()
+        runner.update(DummyRunnerConfig.RunnerUpdateArguments(name="updated"))
+        self.assertEqual(runner.events, ["_validate_update:name=original"])
+        self.assertEqual(runner.name, "updated")
+
+    def test_set_attributes_applies_non_unset_fields(self) -> None:
+        """_set_attributes applies non-UNSET fields and skips UNSET ones."""
         runner = DummyUpdatableRunner()
         with self.subTest("applies non-UNSET, skips UNSET"):
             runner._set_attributes(
@@ -146,3 +193,19 @@ class RunnerTest(TestCase):
                     # pyre-ignore[6]: Intentionally passing wrong type.
                     arguments=RunnerConfig.RunnerUpdateArguments(),
                 )
+
+    def test_update_passes_search_space_to_validate(self) -> None:
+        """update() forwards the search_space kwarg to _validate_update."""
+        runner = DummyUpdatableRunner()
+        ss_mock = mock.Mock()
+        with mock.patch.object(
+            DummyUpdatableRunner, "_validate_update"
+        ) as mock_validate:
+            runner.update(
+                DummyRunnerConfig.RunnerUpdateArguments(name="new"),
+                search_space=ss_mock,
+            )
+            mock_validate.assert_called_once_with(
+                DummyRunnerConfig.RunnerUpdateArguments(name="new"),
+                search_space=ss_mock,
+            )

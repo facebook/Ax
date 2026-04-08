@@ -210,6 +210,57 @@ class Runner(Base, SerializationMixin, ABC):
         """
         pass
 
+    def update(
+        self,
+        arguments: RunnerConfig.RunnerUpdateArguments,
+        search_space: core.search_space.SearchSpace | None = None,
+    ) -> None:
+        """Update runner attributes at runtime.
+
+        Validates that ``arguments`` is the correct type for this runner's
+        ``config_type``, runs ``_validate_update`` to check that the
+        update is permissible, then applies non-``_UNSET`` fields to the
+        runner's instance attributes.
+
+        Fields in ``arguments`` use ``_UNSET`` as their default to distinguish
+        "not provided" from an explicit ``None``. Only fields whose value is
+        not ``_UNSET`` are applied. The target attribute name defaults to the
+        field name but can be overridden via
+        ``metadata={"attr": "actual_attr_name"}`` in the dataclass field
+        definition.
+
+        Args:
+            arguments: Typed arguments declaring which runner attributes
+                to update.
+            search_space: The experiment's current search space, if available.
+                Forwarded to ``_validate_update`` for cross-validation.
+        """
+        expected_type = type(self).config_type.RunnerUpdateArguments
+        if not isinstance(arguments, expected_type):
+            raise TypeError(
+                f"{type(self).__name__} expects "
+                f"{expected_type.__qualname__}, "
+                f"got {type(arguments).__name__}"
+            )
+        self._validate_update(arguments, search_space=search_space)
+        self._set_attributes(arguments)
+
+    def _validate_update(
+        self,
+        arguments: RunnerConfig.RunnerUpdateArguments,
+        search_space: core.search_space.SearchSpace | None = None,
+    ) -> None:
+        """Override in subclasses to reject invalid updates before the runner's
+        state is modified. The runner's attributes still hold their old values
+        at this point; use the ``arguments`` to determine the proposed new
+        state.
+
+        Args:
+            arguments: The proposed changes.
+            search_space: The experiment's current search space.
+        """
+        pass
+
     def _set_attributes(
         self,
         arguments: (
