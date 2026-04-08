@@ -40,6 +40,7 @@ from ax.core.parameter import (
     RangeParameter,
 )
 from ax.core.parameter_constraint import ParameterConstraint
+from ax.core.runner import RunnerConfig
 from ax.core.trial import Trial
 from ax.core.types import (
     ComparisonOp,
@@ -1691,6 +1692,265 @@ class TestAxClient(TestCase):
         param_x3 = search_space.parameters["x3"]
         self.assertTrue(param_x3.is_disabled)
         self.assertEqual(param_x3.default_value, "b")
+
+    def test_search_space_mutations_call_runner_hook(self) -> None:
+        """Test that add/disable/update_parameters call runner.on_search_space_update
+        with correct args."""
+        ax_client = AxClient()
+        ax_client.create_experiment(
+            name="test_experiment",
+            parameters=[
+                {
+                    "name": "x1",
+                    "type": "range",
+                    "bounds": [0.0, 1.0],
+                    "value_type": "float",
+                },
+                {
+                    "name": "x2",
+                    "type": "range",
+                    "bounds": [1, 10],
+                    "value_type": "int",
+                },
+            ],
+            is_test=True,
+            immutable_search_space_and_opt_config=False,
+        )
+        mock_runner = Mock()
+        ax_client.experiment.runner = mock_runner
+
+        with self.subTest("add_parameters_with_runner_updates"):
+            mock_runner.reset_mock()
+            ctx = RunnerConfig.SearchSpaceUpdateArguments()
+            ax_client.add_parameters(
+                parameters=[
+                    RangeParameterConfig(
+                        name="x3",
+                        bounds=(0.0, 5.0),
+                        parameter_type="float",
+                    ),
+                ],
+                backfill_values={"x3": 1.0},
+                runner_updates=ctx,
+            )
+            mock_runner.on_search_space_update.assert_called_once()
+            call_kwargs = mock_runner.on_search_space_update.call_args[1]
+            self.assertIsNotNone(call_kwargs["search_space"])
+            self.assertIs(call_kwargs["arguments"], ctx)
+
+        with self.subTest("disable_parameters_with_runner_updates"):
+            mock_runner.reset_mock()
+            ctx = RunnerConfig.SearchSpaceUpdateArguments()
+            ax_client.disable_parameters(
+                default_parameter_values={"x2": 5},
+                runner_updates=ctx,
+            )
+            mock_runner.on_search_space_update.assert_called_once()
+            call_kwargs = mock_runner.on_search_space_update.call_args[1]
+            self.assertIsNotNone(call_kwargs["search_space"])
+            self.assertIs(call_kwargs["arguments"], ctx)
+
+        with self.subTest("update_parameters_with_runner_updates"):
+            mock_runner.reset_mock()
+            ctx = RunnerConfig.SearchSpaceUpdateArguments()
+            ax_client.update_parameters(
+                parameters=[
+                    RangeParameterConfig(
+                        name="x1",
+                        bounds=(0.0, 2.0),
+                        parameter_type="float",
+                    ),
+                ],
+                runner_updates=ctx,
+            )
+            mock_runner.on_search_space_update.assert_called_once()
+            call_kwargs = mock_runner.on_search_space_update.call_args[1]
+            self.assertIsNotNone(call_kwargs["search_space"])
+            self.assertIs(call_kwargs["arguments"], ctx)
+
+        with self.subTest("update_parameters_without_runner_updates"):
+            mock_runner.reset_mock()
+            ax_client.update_parameters(
+                parameters=[
+                    RangeParameterConfig(
+                        name="x1",
+                        bounds=(0.0, 3.0),
+                        parameter_type="float",
+                    ),
+                ],
+            )
+            mock_runner.on_search_space_update.assert_called_once()
+            call_kwargs = mock_runner.on_search_space_update.call_args[1]
+            self.assertIsNone(call_kwargs["arguments"])
+
+        with self.subTest("no_runner_no_error"):
+            ax_client.experiment.runner = None
+            ax_client.update_parameters(
+                parameters=[
+                    RangeParameterConfig(
+                        name="x1",
+                        bounds=(0.0, 4.0),
+                        parameter_type="float",
+                    ),
+                ],
+            )  # Should not raise
+
+    def test_with_runner_on_search_space_update_no_runner(self) -> None:
+        """When there is no runner, the context manager is a no-op and mutations
+        happen normally."""
+        ax_client = AxClient()
+        ax_client.create_experiment(
+            name="test_experiment",
+            parameters=[
+                {
+                    "name": "x1",
+                    "type": "range",
+                    "bounds": [0.0, 1.0],
+                    "value_type": "float",
+                },
+            ],
+            is_test=True,
+            immutable_search_space_and_opt_config=False,
+        )
+        self.assertIsNone(ax_client.experiment.runner)
+
+        with ax_client._with_runner_on_search_space_update():
+            ax_client.experiment.search_space.update_parameter(
+                RangeParameter(
+                    name="x1",
+                    parameter_type=ParameterType.FLOAT,
+                    lower=0.0,
+                    upper=5.0,
+                )
+            )
+
+        updated_param = assert_is_instance(
+            ax_client.experiment.search_space.parameters["x1"], RangeParameter
+        )
+        self.assertEqual(updated_param.upper, 5.0)
+
+    def test_with_runner_on_search_space_update_success(self) -> None:
+        """When the runner's on_search_space_update succeeds, mutations persist
+        and the runner receives the mutated search space with runner_updates."""
+        ax_client = AxClient()
+        ax_client.create_experiment(
+            name="test_experiment",
+            parameters=[
+                {
+                    "name": "x1",
+                    "type": "range",
+                    "bounds": [0.0, 1.0],
+                    "value_type": "float",
+                },
+            ],
+            is_test=True,
+            immutable_search_space_and_opt_config=False,
+        )
+        mock_runner = Mock()
+        ax_client.experiment.runner = mock_runner
+        ctx = RunnerConfig.SearchSpaceUpdateArguments()
+
+        with ax_client._with_runner_on_search_space_update(runner_updates=ctx):
+            ax_client.experiment.search_space.update_parameter(
+                RangeParameter(
+                    name="x1",
+                    parameter_type=ParameterType.FLOAT,
+                    lower=0.0,
+                    upper=10.0,
+                )
+            )
+
+        mock_runner.on_search_space_update.assert_called_once()
+        call_kwargs = mock_runner.on_search_space_update.call_args[1]
+        self.assertIs(call_kwargs["arguments"], ctx)
+        passed_ss = call_kwargs["search_space"]
+        passed_param = assert_is_instance(passed_ss.parameters["x1"], RangeParameter)
+        self.assertEqual(passed_param.upper, 10.0)
+
+        persisted_param = assert_is_instance(
+            ax_client.experiment.search_space.parameters["x1"], RangeParameter
+        )
+        self.assertEqual(persisted_param.upper, 10.0)
+
+    def test_with_runner_on_search_space_update_rollback_on_error(self) -> None:
+        """When on_search_space_update raises, the search space is rolled back
+        to its pre-mutation state."""
+        ax_client = AxClient()
+        ax_client.create_experiment(
+            name="test_experiment",
+            parameters=[
+                {
+                    "name": "x1",
+                    "type": "range",
+                    "bounds": [0.0, 1.0],
+                    "value_type": "float",
+                },
+            ],
+            is_test=True,
+            immutable_search_space_and_opt_config=False,
+        )
+        mock_runner = Mock()
+        mock_runner.on_search_space_update.side_effect = ValueError(
+            "runner rejected update"
+        )
+        ax_client.experiment.runner = mock_runner
+
+        original_param = assert_is_instance(
+            ax_client.experiment.search_space.parameters["x1"], RangeParameter
+        )
+        self.assertEqual(original_param.upper, 1.0)
+
+        with self.assertRaisesRegex(ValueError, "runner rejected update"):
+            with ax_client._with_runner_on_search_space_update():
+                ax_client.experiment.search_space.update_parameter(
+                    RangeParameter(
+                        name="x1",
+                        parameter_type=ParameterType.FLOAT,
+                        lower=0.0,
+                        upper=99.0,
+                    )
+                )
+
+        restored_param = assert_is_instance(
+            ax_client.experiment.search_space.parameters["x1"], RangeParameter
+        )
+        self.assertEqual(restored_param.upper, 1.0)
+
+    def test_with_runner_on_search_space_update_receives_mutated_search_space(
+        self,
+    ) -> None:
+        """The runner receives the real (mutated) search space, not a clone or
+        the original."""
+        ax_client = AxClient()
+        ax_client.create_experiment(
+            name="test_experiment",
+            parameters=[
+                {
+                    "name": "x1",
+                    "type": "range",
+                    "bounds": [0.0, 1.0],
+                    "value_type": "float",
+                },
+            ],
+            is_test=True,
+            immutable_search_space_and_opt_config=False,
+        )
+        mock_runner = Mock()
+        ax_client.experiment.runner = mock_runner
+
+        with ax_client._with_runner_on_search_space_update(runner_updates=None):
+            ax_client.experiment.search_space.update_parameter(
+                RangeParameter(
+                    name="x1",
+                    parameter_type=ParameterType.FLOAT,
+                    lower=0.0,
+                    upper=42.0,
+                )
+            )
+
+        call_kwargs = mock_runner.on_search_space_update.call_args[1]
+        self.assertIs(call_kwargs["search_space"], ax_client.experiment.search_space)
+        self.assertIsNone(call_kwargs["arguments"])
 
     def test_create_moo_experiment(self) -> None:
         """Test basic experiment creation."""

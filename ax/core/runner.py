@@ -10,10 +10,11 @@ from __future__ import annotations
 
 from abc import ABC, abstractmethod
 from collections.abc import Iterable
-from dataclasses import dataclass
+from dataclasses import dataclass, fields
 from typing import Any, ClassVar, Self, TYPE_CHECKING
 
 from ax.utils.common.base import Base
+from ax.utils.common.sentinel import Unset
 from ax.utils.common.serialization import SerializationMixin
 
 
@@ -163,6 +164,69 @@ class Runner(Base, SerializationMixin, ABC):
         raise NotImplementedError(
             f"{self.__class__.__name__} does not implement a `stop` method."
         )
+
+    def on_search_space_update(
+        self,
+        search_space: core.search_space.SearchSpace,
+        arguments: RunnerConfig.SearchSpaceUpdateArguments | None = None,
+    ) -> None:
+        """Called after the experiment's search space has been updated.
+
+        Validates the proposed runner-side changes, then applies them.
+        Subclasses should override ``_validate_on_search_space_update``
+        to add validation logic.
+
+        Args:
+            search_space: The updated search space.
+            arguments: Optional typed arguments carrying runner-specific
+                data. Subclasses should define a ``RunnerConfig`` subclass
+                with a nested ``SearchSpaceUpdateArguments`` dataclass to
+                declare supported fields.
+        """
+        if arguments is not None:
+            UpdateArgsClass = type(self).config_type.SearchSpaceUpdateArguments
+            if not isinstance(arguments, UpdateArgsClass):
+                raise TypeError(
+                    f"Expected {UpdateArgsClass.__name__}, "
+                    f"got {type(arguments).__name__}."
+                )
+        self._validate_on_search_space_update(search_space, arguments)
+        if arguments is not None:
+            self._set_attributes(arguments)
+
+    def _validate_on_search_space_update(
+        self,
+        search_space: core.search_space.SearchSpace,
+        arguments: RunnerConfig.SearchSpaceUpdateArguments | None = None,
+    ) -> None:
+        """Override in subclasses to reject invalid search space updates
+        before the runner's state is modified. The runner's attributes still
+        hold their old values at this point; use the ``arguments`` to determine
+        the proposed new state.
+
+        Args:
+            search_space: The already-updated search space.
+            arguments: The proposed runner-side changes, if any.
+        """
+        pass
+
+    def _set_attributes(
+        self,
+        arguments: (
+            RunnerConfig.RunnerUpdateArguments | RunnerConfig.SearchSpaceUpdateArguments
+        ),
+    ) -> None:
+        """Apply dataclass field values to self, skipping UNSET fields.
+
+        Shared by ``update`` and ``on_search_space_update`` to ensure both
+        follow the same validate-then-mutate pattern.
+        """
+        for field in fields(arguments):
+            value = getattr(arguments, field.name)
+            if isinstance(value, Unset):
+                continue
+            attr_name = field.metadata.get("attr", field.name)
+            setattr(self, attr_name, value)
 
     def clone(self) -> Self:
         """Create a copy of this Runner."""
