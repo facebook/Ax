@@ -11,10 +11,11 @@ from ax.adapter.base import Adapter
 from ax.analysis.analysis import Analysis
 from ax.analysis.graphviz.generation_strategy_graph import GenerationStrategyGraph
 from ax.analysis.plotly.cross_validation import CrossValidationPlot
-from ax.analysis.utils import validate_experiment
+from ax.analysis.utils import extract_relevant_adapter, validate_experiment
 from ax.core.analysis_card import AnalysisCardGroup
 from ax.core.experiment import Experiment
 from ax.core.utils import is_bandit_experiment
+from ax.exceptions.core import UserInputError
 from ax.generation_strategy.generation_strategy import GenerationStrategy
 from pyre_extensions import none_throws, override
 
@@ -84,6 +85,19 @@ class DiagnosticAnalysis(Analysis):
         is_bandit = generation_strategy and is_bandit_experiment(
             generation_strategy_name=generation_strategy.name
         )
+        try:
+            relevant_adapter = extract_relevant_adapter(
+                experiment=experiment,
+                generation_strategy=generation_strategy,
+                adapter=adapter,
+            )
+            adapter_metric_names = [
+                relevant_adapter._experiment.signature_to_metric[signature].name
+                for signature in relevant_adapter._metric_signatures
+            ]
+            metric_names = [m for m in metric_names if m in adapter_metric_names]
+        except UserInputError:
+            pass
 
         cross_validation_plots = (
             [
