@@ -98,3 +98,17 @@ class Keys(StrEnum):
     WARM_START_REFITTING = "warm_start_refitting"
     WARMSTART_TRIAL_MODEL_KEY = "generation_model_key"
     X_BASELINE = "X_baseline"
+
+
+def is_preference_metric(metric_name: str) -> bool:
+    """Check if a metric uses preference/comparison-pair semantics.
+
+    Preference metrics use latent utility models (e.g., PairwiseGP) rather than
+    standard per-arm regression. Some analyses work on preference metrics (e.g.,
+    sensitivity analysis on the utility function), while others assume regression
+    semantics and should exclude them (e.g., cross-validation, arm effects).
+
+    Extend this check when integrating new preference models
+    (e.g., VariationalTopChoiceGP).
+    """
+    return metric_name == Keys.PAIRWISE_PREFERENCE_QUERY.value

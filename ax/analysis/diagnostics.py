@@ -17,6 +17,7 @@ from ax.core.experiment import Experiment
 from ax.core.utils import is_bandit_experiment
 from ax.exceptions.core import UserInputError
 from ax.generation_strategy.generation_strategy import GenerationStrategy
+from ax.utils.common.constants import is_preference_metric
 from pyre_extensions import none_throws, override
 
 DIAGNOSTICS_CARDGROUP_TITLE = "Diagnostic Analysis"
@@ -82,6 +83,12 @@ class DiagnosticAnalysis(Analysis):
             # Extract all metric names from the OptimizationConfig.
             metric_names = [*none_throws(experiment.optimization_config).metric_names]
 
+        # Preference metrics (e.g., pairwise_pref_query) use comparison-pair data
+        # and latent utility models. Standard regression CV (predicted vs. observed
+        # scatter, R²) is meaningless for them — observed values are binary 0/1
+        # while predictions are latent utilities on an incommensurate scale.
+        metric_names = [m for m in metric_names if not is_preference_metric(m)]
+
         is_bandit = generation_strategy and is_bandit_experiment(
             generation_strategy_name=generation_strategy.name
         )
@@ -109,7 +116,7 @@ class DiagnosticAnalysis(Analysis):
                     adapter=adapter,
                 )
             ]
-            if not is_bandit
+            if not is_bandit and len(metric_names) > 0
             else []
         )
 

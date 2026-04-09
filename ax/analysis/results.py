@@ -38,6 +38,7 @@ from ax.core.trial_status import TrialStatus
 from ax.core.utils import is_bandit_experiment
 from ax.exceptions.core import UserInputError
 from ax.generation_strategy.generation_strategy import GenerationStrategy
+from ax.utils.common.constants import is_preference_metric
 from pyre_extensions import none_throws, override
 
 RESULTS_CARDGROUP_TITLE = "Results Analysis"
@@ -103,6 +104,17 @@ class ResultsAnalysis(Analysis):
             adapter=adapter,
         )
 
+        # Preference metrics (e.g., pairwise_pref_query backed by PairwiseGP) use
+        # comparison-pair data and latent utility models. They should be excluded
+        # from analyses that assume regression semantics (arm effects, scatter
+        # plots) but kept for condition checks (e.g., UtilityProgressionAnalysis).
+        regression_objective_names = [
+            n for n in objective_names if not is_preference_metric(n)
+        ]
+        regression_constraint_names = [
+            n for n in constraint_names if not is_preference_metric(n)
+        ]
+
         # Check if there are BatchTrials present.
         has_batch_trials = any(
             isinstance(trial, BatchTrial) for trial in experiment.trials.values()
@@ -113,14 +125,17 @@ class ResultsAnalysis(Analysis):
         # Compute both observed and modeled effects for each objective and constraint.
         arm_effect_pair_group = (
             ArmEffectsPair(
-                metric_names=[*objective_names, *constraint_names],
+                metric_names=[
+                    *regression_objective_names,
+                    *regression_constraint_names,
+                ],
                 relativize=relativize,
             ).compute_or_error_card(
                 experiment=experiment,
                 generation_strategy=generation_strategy,
                 adapter=relevant_adapter,
             )
-            if len(objective_names) > 0
+            if len(regression_objective_names) > 0
             else None
         )
 
@@ -142,10 +157,10 @@ class ResultsAnalysis(Analysis):
                         generation_strategy=generation_strategy,
                         adapter=relevant_adapter,
                     )
-                    for x, y in itertools.combinations(objective_names, 2)
+                    for x, y in itertools.combinations(regression_objective_names, 2)
                 ],
             )
-            if len(objective_names) > 1
+            if len(regression_objective_names) > 1
             else None
         )
 
@@ -167,11 +182,12 @@ class ResultsAnalysis(Analysis):
                         generation_strategy=generation_strategy,
                         adapter=relevant_adapter,
                     )
-                    for objective_name in objective_names
-                    for constraint_name in constraint_names
+                    for objective_name in regression_objective_names
+                    for constraint_name in regression_constraint_names
                 ],
             )
-            if len(objective_names) > 0 and len(constraint_names) > 0
+            if len(regression_objective_names) > 0
+            and len(regression_constraint_names) > 0
             else None
         )
 

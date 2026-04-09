@@ -10,10 +10,15 @@ import pandas as pd
 from ax.analysis.summary import Summary
 from ax.api.client import Client
 from ax.api.configs import RangeParameterConfig
+from ax.core.arm import Arm
 from ax.core.base_trial import TrialStatus
 from ax.core.data import Data
+from ax.core.metric import Metric
+from ax.core.objective import MultiObjective, Objective
+from ax.core.optimization_config import MultiObjectiveOptimizationConfig
 from ax.core.trial import Trial
 from ax.exceptions.core import UserInputError
+from ax.utils.common.constants import Keys
 from ax.utils.common.testutils import TestCase
 from ax.utils.testing.core_stubs import (
     get_branin_experiment_with_status_quo_trials,
@@ -218,6 +223,36 @@ class TestSummary(TestCase):
         self.assertEqual(len(card.df), 2)
         self.assertIn(0, card.df["trial_index"].values)
         self.assertIn(1, card.df["trial_index"].values)
+
+    def test_compute_with_preference_objective_skips_relativization(self) -> None:
+        """Summary should skip relativization when a preference metric is an
+        objective, since binary 0/1 labels have SQ mean near zero which causes
+        'mean_control too small' errors."""
+        pairwise_name = Keys.PAIRWISE_PREFERENCE_QUERY.value
+
+        # Use Client to set up experiment with SQ and data
+        client = self.client
+        client.configure_optimization(objective="foo")
+        experiment = client._experiment
+        experiment.status_quo = Arm(parameters={"x1": 0.5, "x2": 0.5})
+
+        # Add pairwise_pref_query as an additional objective
+        experiment.add_tracking_metric(Metric(name=pairwise_name))
+        experiment.optimization_config = MultiObjectiveOptimizationConfig(
+            objective=MultiObjective(
+                objectives=[
+                    Objective(metric=Metric(name="foo"), minimize=True),
+                    Objective(metric=Metric(name=pairwise_name), minimize=False),
+                ]
+            )
+        )
+
+        client.get_next_trials(max_trials=1)
+        client.complete_trial(trial_index=0, raw_data={"foo": 1.0, pairwise_name: 0.0})
+
+        # Should succeed without "mean_control too small" error
+        card = Summary().compute(experiment=experiment)
+        self.assertNotIn("relativized", card.subtitle)
 
     def test_default_excludes_stale_trials(self) -> None:
         """Test that Summary defaults to excluding STALE trials."""

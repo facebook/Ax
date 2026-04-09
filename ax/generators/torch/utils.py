@@ -454,6 +454,13 @@ def predict_from_model(
                         "Predicting from a model requires the posterior to implement"
                         f"`mean` and `variance` properties. Original error message: {e}"
                     )
+                # PosteriorList may introduce extra batch dimensions from
+                # broadcasting (e.g., PairwiseGP + SAAS ensemble in a
+                # ModelList). Average over leading batch dims to get the
+                # expected (n, o) shape per chunk before concatenation.
+                if mean.ndim > 2:
+                    mean = mean.reshape(-1, *mean.shape[-2:]).mean(dim=0)
+                    var = var.reshape(-1, *var.shape[-2:]).mean(dim=0)
             means.append(mean)
             variances.append(var)
         mean = torch.cat(means, dim=0)

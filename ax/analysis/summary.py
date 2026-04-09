@@ -17,6 +17,7 @@ from ax.core.experiment import Experiment
 from ax.core.trial_status import NON_STALE_STATUSES, TrialStatus
 from ax.exceptions.core import UserInputError
 from ax.generation_strategy.generation_strategy import GenerationStrategy
+from ax.utils.common.constants import is_preference_metric
 from pyre_extensions import override
 
 
@@ -83,11 +84,19 @@ class Summary(Analysis):
         # (3) experiment data does not have has_step_column=True (data with a
         # progression doesn't support relativization due to time-series step
         # alignment complexities.)
+        # (4) no preference metric objectives -- preference metrics (e.g.,
+        # pairwise_pref_query) have binary 0/1 labels with SQ mean near zero,
+        # causing relativization to crash with "mean_control too small."
         data = experiment.lookup_data(trial_indices=self.trial_indices)
+        has_preference_objective = experiment.optimization_config is not None and any(
+            is_preference_metric(n)
+            for n in experiment.optimization_config.objective.metric_names
+        )
         should_relativize = (
             len(experiment.metrics) > 0
             and experiment.status_quo is not None
             and not data.has_step_column
+            and not has_preference_objective
         )
 
         return self._create_analysis_card(
