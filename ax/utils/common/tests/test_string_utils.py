@@ -202,11 +202,19 @@ class StringUtilsTest(TestCase):
                 self.assertEqual(unsanitize_name(sanitized), metric)
 
     def test_sanitize_name_hyphen_no_colon_is_subtraction(self) -> None:
-        """Without colons, ` - ` is left as subtraction (not sanitized)."""
+        """Without colons or multi-word names, ` - ` is left as subtraction."""
         self.assertEqual(
             sanitize_name("m1 - m2", sanitize_parens=True),
             "m1 - m2",
         )
+
+    def test_sanitize_name_hyphen_multiword_metric(self) -> None:
+        """Metric names with spaces and hyphens but no colons are sanitized."""
+        name = "SMS Paid VIP Volume - Risky Tiers"
+        sanitized = sanitize_name(name, sanitize_parens=True)
+        for char in (" ", "-"):
+            self.assertNotIn(char, sanitized)
+        self.assertEqual(unsanitize_name(sanitized), name)
 
     def test_sanitize_name_operators_unchanged(self) -> None:
         """Spaces around mathematical operators must NOT be sanitized."""

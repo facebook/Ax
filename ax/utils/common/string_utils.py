@@ -85,15 +85,21 @@ def sanitize_name(s: str, sanitize_parens: bool = False) -> str:
         raise ValueError(f"Expression {s} has forbidden control characters.")
     # When in objective/constraint parsing mode (sanitize_parens=True) and
     # the string contains a colon — a character that is never a valid SymPy
-    # operator — any `` - `` (space-hyphen-space) is very likely part of a
-    # metric name rather than mathematical subtraction.  Pre-sanitize the
-    # spaces around the hyphen so the hyphen regex below can match it.
-    # Without this, metric names like ``"TTRC - Hidden Requests"`` would be
-    # misinterpreted as ``Symbol("TTRC") - Symbol("Hidden...")``.
+    # operator — or multi-word metric names (spaces directly between word
+    # characters, e.g. ``"This Metric"``), any `` - ``
+    # (space-hyphen-space) is possibly part of a metric name rather than
+    # mathematical subtraction.  Pre-sanitize the spaces around the hyphen
+    # so the hyphen regex below can match it.
+    # Without this, metric names like ``"This metric - subgroup"`` or
+    # would be misinterpreted as subtraction of two symbols.
     # We skip this when the string contains ``*`` because that indicates a
     # mathematical expression (e.g. ``"-0.5*m:c1 - 0.5*m:c2"``) where
     # `` - `` is genuine subtraction.
-    if sanitize_parens and ":" in s and "*" not in s:
+    # Note: ``\w \w`` does NOT match simple expressions like ``"m1 - m2"``
+    # because the spaces there are around the operator, not between word
+    # characters within an identifier.
+    has_multiword_names = re.search(r"\w \w", s) is not None
+    if sanitize_parens and (":" in s or has_multiword_names) and "*" not in s:
         s = re.sub(
             r"(?<=\w) - (?=\w)",
             f"{SPACE_PLACEHOLDER}-{SPACE_PLACEHOLDER}",
