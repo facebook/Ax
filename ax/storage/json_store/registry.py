@@ -28,7 +28,12 @@ from ax.benchmark.benchmark_metric import (
 from ax.benchmark.benchmark_result import AggregatedBenchmarkResult, BenchmarkResult
 from ax.benchmark.benchmark_trial_metadata import BenchmarkTrialMetadata
 from ax.core import Experiment, ObservationFeatures
-from ax.core.analysis_card import AnalysisCard, AnalysisCardGroup, ErrorAnalysisCard
+from ax.core.analysis_card import (
+    AnalysisCard,
+    AnalysisCardGroup,
+    ErrorAnalysisCard,
+    NotApplicableStateAnalysisCard,
+)
 from ax.core.arm import Arm
 from ax.core.auxiliary import AuxiliaryExperiment, AuxiliaryExperimentPurpose
 from ax.core.batch_trial import AbandonedArm, BatchTrial
@@ -220,6 +225,7 @@ CORE_ENCODER_REGISTRY: dict[type[Any], Callable[[Any], dict[str, Any]]] = {
     ExpressionDerivedMetric: metric_to_dict,
     DerivedParameter: derived_parameter_to_dict,
     ErrorAnalysisCard: analysis_card_to_dict,
+    NotApplicableStateAnalysisCard: analysis_card_to_dict,
     Experiment: experiment_to_dict,
     FactorialMetric: metric_to_dict,
     FixedParameter: fixed_parameter_to_dict,
@@ -345,6 +351,7 @@ CORE_DECODER_REGISTRY: TDecoderRegistry = {
     "DerivedParameter": DerivedParameter,
     "DomainType": DomainType,
     "ErrorAnalysisCard": ErrorAnalysisCard,
+    "NotApplicableStateAnalysisCard": NotApplicableStateAnalysisCard,
     "Experiment": Experiment,
     "ExperimentStatus": ExperimentStatus,
     "FactorialMetric": FactorialMetric,

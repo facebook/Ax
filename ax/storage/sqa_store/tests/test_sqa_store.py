@@ -24,7 +24,11 @@ from ax.api.utils.generation_strategy_dispatch import (
     choose_generation_strategy,
     GenerationStrategyDispatchStruct,
 )
-from ax.core.analysis_card import AnalysisCard, AnalysisCardGroup
+from ax.core.analysis_card import (
+    AnalysisCard,
+    AnalysisCardGroup,
+    NotApplicableStateAnalysisCard,
+)
 from ax.core.arm import Arm
 from ax.core.auxiliary import (
     AuxiliaryExperiment,
@@ -3030,6 +3034,13 @@ class SQAStoreTest(TestCase):
             df=test_df,
             blob=pio.to_json(go.Figure()),
         )
+        na_card = NotApplicableStateAnalysisCard(
+            name="test_na_card",
+            title="test_title",
+            subtitle="test_subtitle",
+            df=test_df,
+            blob="Not enough data.",
+        )
 
         # Create two groups which hold the leaf cards
         # Add the same analysis card multiple times to test _unique_id logic
@@ -3037,7 +3048,12 @@ class SQAStoreTest(TestCase):
             name="small_group",
             title="Small Group",
             subtitle="This is a small group with just a few cards",
-            children=[base_analysis_card, markdown_analysis_card, plotly_analysis_card],
+            children=[
+                base_analysis_card,
+                markdown_analysis_card,
+                plotly_analysis_card,
+                na_card,
+            ],
         )
         big_group = AnalysisCardGroup(
             name="big_group",
@@ -3098,6 +3114,12 @@ class SQAStoreTest(TestCase):
             )
             self.assertEqual(loaded_small_group_plotly.name, plotly_analysis_card.name)
             self.assertEqual(loaded_small_group_plotly.blob, plotly_analysis_card.blob)
+
+            loaded_na = assert_is_instance(
+                loaded_small_group.children[3], NotApplicableStateAnalysisCard
+            )
+            self.assertEqual(loaded_na.name, na_card.name)
+            self.assertEqual(loaded_na.blob, na_card.blob)
 
     def test_delete_generation_strategy(self) -> None:
         # GIVEN an experiment with a generation strategy

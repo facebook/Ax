@@ -37,7 +37,12 @@ from ax.benchmark.testing.benchmark_stubs import (
     get_benchmark_result,
     get_benchmark_time_varying_metric,
 )
-from ax.core.analysis_card import AnalysisCard, AnalysisCardGroup, ErrorAnalysisCard
+from ax.core.analysis_card import (
+    AnalysisCard,
+    AnalysisCardGroup,
+    ErrorAnalysisCard,
+    NotApplicableStateAnalysisCard,
+)
 from ax.core.auxiliary import AuxiliaryExperimentPurpose
 from ax.core.data import Data
 from ax.core.generator_run import GeneratorRun
@@ -471,6 +476,16 @@ TEST_CASES: list[tuple[str, Callable[..., Any]]] = [
             subtitle="gv subtitle",
             df=pd.DataFrame(),
             blob="digraph {}",
+        ),
+    ),
+    (
+        "NotApplicableStateAnalysisCard",
+        lambda: NotApplicableStateAnalysisCard(
+            name="TestNA",
+            title="Not Applicable",
+            subtitle="na subtitle",
+            df=pd.DataFrame(),
+            blob="Not enough data.",
         ),
     ),
     (
