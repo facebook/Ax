@@ -51,8 +51,9 @@ from ax.utils.testing.mock import mock_botorch_optimize
 from ax.utils.testing.torch_stubs import get_torch_test_data
 from ax.utils.testing.utils import generic_equals
 from botorch.exceptions.errors import ModelFittingError
-from botorch.models import ModelListGP, SaasFullyBayesianSingleTaskGP, SingleTaskGP
+from botorch.models import ModelListGP, SingleTaskGP
 from botorch.models.deterministic import GenericDeterministicModel
+from botorch.models.fully_bayesian import SaasFullyBayesianSingleTaskGP
 from botorch.models.fully_bayesian_multitask import SaasFullyBayesianMultiTaskGP
 from botorch.models.gp_regression_mixed import MixedSingleTaskGP
 from botorch.models.model import Model, ModelList  # noqa: F401 -- used in Mocks.

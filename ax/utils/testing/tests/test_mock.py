@@ -45,7 +45,7 @@ class TestMock(TestCase):
 
     def test_fully_bayesian_mocks(self) -> None:
         experiment = get_branin_experiment(with_completed_batch=True)
-        with patch("botorch.fit.MCMC", wraps=MCMC) as mock_mcmc:
+        with patch("pyro.infer.mcmc.MCMC", wraps=MCMC) as mock_mcmc:
             with mock_botorch_optimize_context_manager():
                 Generators.SAASBO(experiment=experiment, data=experiment.lookup_data())
         mock_mcmc.assert_called_once()
