@@ -10,7 +10,6 @@ from typing import Any
 from ax.adapter.parameter_utils import can_map_to_binary, is_unordered_choice
 from ax.core.experiment import Experiment
 from ax.exceptions.core import OptimizationNotConfiguredError
-from ax.orchestration.orchestrator import OrchestratorOptions
 from ax.utils.common.tier_utils import (  # noqa: F401
     check_if_in_standard,
     DEFAULT_TIER_MESSAGES,
@@ -22,8 +21,12 @@ from ax.utils.common.tier_utils import (  # noqa: F401
 
 def summarize_ax_optimization_complexity(
     experiment: Experiment,
-    options: OrchestratorOptions,
     tier_metadata: dict[str, Any],
+    uses_early_stopping: bool = False,
+    uses_global_stopping: bool = False,
+    tolerated_trial_failure_rate: float | None = 0.5,
+    max_pending_trials: int | None = 10,
+    min_failed_trials_for_failure_rate_check: int | None = 5,
 ) -> OptimizationSummary:
     """Summarize the experiment's optimization complexity.
 
@@ -32,8 +35,13 @@ def summarize_ax_optimization_complexity(
 
     Args:
         experiment: The Ax Experiment.
-        options: The orchestrator options.
         tier_metadata: tier-related meta-data from the orchestrator.
+        uses_early_stopping: Whether early stopping is enabled.
+        uses_global_stopping: Whether global stopping is enabled.
+        tolerated_trial_failure_rate: The tolerated trial failure rate.
+        max_pending_trials: The maximum number of pending trials.
+        min_failed_trials_for_failure_rate_check: The minimum number of failed
+            trials before checking the failure rate.
 
     Returns:
         A dictionary summarizing the experiment.
@@ -60,8 +68,6 @@ def summarize_ax_optimization_complexity(
         else 1
     )
     num_outcome_constraints = len(optimization_config.outcome_constraints)
-    uses_early_stopping = options.early_stopping_strategy is not None
-    uses_global_stopping = options.global_stopping_strategy is not None
 
     # Check if any metrics use merge_multiple_curves
     uses_merge_multiple_curves = False
@@ -93,9 +99,9 @@ def summarize_ax_optimization_complexity(
         uses_global_stopping=uses_global_stopping,
         uses_merge_multiple_curves=uses_merge_multiple_curves,
         uses_standard_api=uses_standard_api,
-        tolerated_trial_failure_rate=options.tolerated_trial_failure_rate,
-        max_pending_trials=options.max_pending_trials,
+        tolerated_trial_failure_rate=tolerated_trial_failure_rate,
+        max_pending_trials=max_pending_trials,
         min_failed_trials_for_failure_rate_check=(
-            options.min_failed_trials_for_failure_rate_check
+            min_failed_trials_for_failure_rate_check
         ),
     )
