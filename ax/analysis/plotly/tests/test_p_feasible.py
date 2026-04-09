@@ -24,8 +24,21 @@ from pyre_extensions import assert_is_instance, none_throws
 class TestPFeasiblePlot(TestCase):
     def test_validate_applicable_state(self) -> None:
         self.assertIn(
-            "Requires an Experiment",
+            "An Experiment must be provided",
             none_throws(PFeasiblePlot().validate_applicable_state()),
+        )
+
+        self.assertIn(
+            "must have an OptimizationConfig",
+            none_throws(
+                PFeasiblePlot().validate_applicable_state(
+                    experiment=get_branin_experiment(
+                        with_trial=True,
+                        with_completed_trial=True,
+                        has_optimization_config=False,
+                    )
+                )
+            ),
         )
 
         self.assertIn(

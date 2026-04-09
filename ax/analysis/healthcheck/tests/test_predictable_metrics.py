@@ -210,7 +210,7 @@ class TestPredictableMetricsAnalysis(TestCase):
 
         self.assertIsNotNone(error)
         self.assertIn("RandomAdapter", error)
-        self.assertIn("no model to evaluate", error)
+        self.assertIn("no predictive model to evaluate", error)
 
     def test_validate_applicable_state_no_experiment(self) -> None:
         """Test that validation fails when experiment is None."""

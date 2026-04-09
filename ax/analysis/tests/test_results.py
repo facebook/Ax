@@ -69,7 +69,7 @@ class TestResultsAnalysis(TestCase):
         with self.subTest("requires_experiment"):
             error_message = analysis.validate_applicable_state()
             self.assertIsNotNone(error_message)
-            self.assertIn("Requires an Experiment", none_throws(error_message))
+            self.assertIn("An Experiment must be provided", none_throws(error_message))
 
         with self.subTest("requires_trials"):
             experiment = get_branin_experiment()

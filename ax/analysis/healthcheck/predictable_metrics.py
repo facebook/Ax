@@ -115,7 +115,10 @@ class PredictableMetricsAnalysis(Analysis):
             return experiment_validation
 
         if generation_strategy is None:
-            return "PredictableMetricsAnalysis requires a GenerationStrategy."
+            return (
+                "A GenerationStrategy must be provided to evaluate metric "
+                "predictability."
+            )
 
         # Resolve adapter from generation strategy if not provided
         resolved_adapter = adapter
@@ -129,8 +132,9 @@ class PredictableMetricsAnalysis(Analysis):
         # RandomAdapter has no model to evaluate
         if isinstance(resolved_adapter, RandomAdapter):
             return (
-                "PredictableMetricsAnalysis is not applicable when using a "
-                "RandomAdapter because there is no model to evaluate."
+                "This analysis is not applicable when using a random exploration "
+                "strategy (RandomAdapter) because there is no predictive model to "
+                "evaluate."
             )
 
         return None

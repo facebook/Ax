@@ -88,7 +88,10 @@ class InsightsAnalysis(Analysis):
 
         experiment = none_throws(experiment)
         if experiment.optimization_config is None:
-            return "Experiment must have an OptimizationConfig to compute insights."
+            return (
+                "The experiment must have an OptimizationConfig (with defined "
+                "objectives) to compute insights."
+            )
 
     @override
     def compute(
@@ -191,14 +194,23 @@ class OutcomeConstraintsAnalysis(Analysis):
 
         experiment = none_throws(experiment)
         if experiment.optimization_config is None:
-            return "Experiment must have an OptimizationConfig."
+            return (
+                "The experiment must have an OptimizationConfig (with defined "
+                "objectives and constraints)."
+            )
 
         optimization_config = none_throws(experiment.optimization_config)
         if len(optimization_config.objective.metric_names) > 1:
-            return "Experiment may not have more than one Objective."
+            return (
+                "This analysis only supports single-objective optimization. The "
+                "experiment has more than one objective metric."
+            )
 
         if len(optimization_config.outcome_constraints) == 0:
-            return "Experiment must have at least one OutcomeConstraint."
+            return (
+                "The experiment must have at least one OutcomeConstraint (a metric "
+                "constraint defined in the optimization config)."
+            )
 
     @override
     def compute(

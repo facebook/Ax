@@ -1066,7 +1066,7 @@ def validate_experiment(
     """
 
     if experiment is None:
-        return "Requires an Experiment."
+        return "An Experiment must be provided to compute this analysis."
 
     if require_trials:
         if len(experiment.trials) == 0:
@@ -1178,7 +1178,10 @@ def validate_outcome_constraints(
     """
     optimization_config = experiment.optimization_config
     if optimization_config is None:
-        return "Experiment must have an OptimizationConfig."
+        return (
+            "The experiment must have an OptimizationConfig (with defined objectives "
+            "and constraints) to compute outcome constraints."
+        )
 
     outcome_constraint_metrics = [
         outcome_constraint.metric_names[0]
@@ -1186,8 +1189,9 @@ def validate_outcome_constraints(
     ]
     if len(outcome_constraint_metrics) == 0:
         return (
-            "Experiment must have at least one OutcomeConstraint to calculate "
-            "probability of feasibility."
+            "The experiment must have at least one OutcomeConstraint (a metric "
+            "constraint defined in the optimization config) to calculate probability "
+            "of feasibility."
         )
 
     return None

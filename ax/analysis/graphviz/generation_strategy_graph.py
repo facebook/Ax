@@ -86,10 +86,16 @@ class GenerationStrategyGraph(Analysis):
         GenerationStrategyGraph requires a GenerationStrategy to be provided.
         """
         if generation_strategy is None:
-            return "GenerationStrategyGraph requires a GenerationStrategy"
+            return (
+                "A GenerationStrategy must be provided to visualize the "
+                "experiment's optimization workflow."
+            )
 
         if len(generation_strategy._nodes) == 0:
-            return "GenerationStrategy has no nodes to visualize"
+            return (
+                "The GenerationStrategy has no nodes to visualize. Ensure the "
+                "generation strategy is fully configured."
+            )
 
         return None
 

@@ -104,9 +104,8 @@ class BaselineImprovementAnalysis(Analysis):
 
         if experiment.optimization_config is None:
             return (
-                "Experiment does not have an `OptimizationConfig`. "
-                "BaselineImprovementAnalysis requires defined objectives to compare "
-                "against for proper evaluation."
+                "The experiment must have an OptimizationConfig with defined "
+                "objectives to evaluate baseline improvement."
             )
 
         try:

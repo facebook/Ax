@@ -12,7 +12,11 @@ from unittest.mock import patch
 import pandas as pd
 from ax.adapter.base import Adapter
 from ax.adapter.registry import Generators
-from ax.analysis.insights import _MAX_NUM_PARAMS_FOR_SECOND_ORDER, InsightsAnalysis
+from ax.analysis.insights import (
+    _MAX_NUM_PARAMS_FOR_SECOND_ORDER,
+    InsightsAnalysis,
+    OutcomeConstraintsAnalysis,
+)
 from ax.analysis.overview import OverviewAnalysis
 from ax.analysis.plotly.arm_effects import ArmEffectsPlot
 from ax.analysis.plotly.scatter import ScatterPlot
@@ -40,6 +44,8 @@ from ax.generation_strategy.transition_criterion import MinTrials
 from ax.utils.common.constants import Keys
 from ax.utils.common.testutils import TestCase
 from ax.utils.testing.core_stubs import (
+    get_branin_experiment,
+    get_branin_experiment_with_multi_objective,
     get_data,
     get_experiment_with_scalarized_objective_and_outcome_constraint,
     get_offline_experiments_subset,
@@ -500,3 +506,50 @@ class TestOverview(TestCase):
         self.assertGreater(len(captured_orders), 0)
         for order in captured_orders:
             self.assertEqual(order, "total")
+
+    def test_insights_validate_no_optimization_config(self) -> None:
+        """Test InsightsAnalysis validation when experiment has no
+        OptimizationConfig."""
+        experiment = get_branin_experiment(has_optimization_config=False)
+        result = InsightsAnalysis().validate_applicable_state(
+            experiment=experiment,
+        )
+        self.assertIsNotNone(result)
+        self.assertIn("must have an OptimizationConfig", result)
+
+    def test_outcome_constraints_validate_applicable_state(self) -> None:
+        """Test OutcomeConstraintsAnalysis validation for various invalid
+        experiment configurations."""
+        analysis = OutcomeConstraintsAnalysis()
+
+        with self.subTest("no optimization config"):
+            result = analysis.validate_applicable_state(
+                experiment=get_branin_experiment(
+                    with_trial=True,
+                    with_completed_trial=True,
+                    has_optimization_config=False,
+                ),
+            )
+            self.assertIsNotNone(result)
+            self.assertIn("must have an OptimizationConfig", result)
+
+        with self.subTest("multi-objective"):
+            result = analysis.validate_applicable_state(
+                experiment=get_branin_experiment_with_multi_objective(
+                    with_trial=True,
+                    with_completed_trial=True,
+                ),
+            )
+            self.assertIsNotNone(result)
+            self.assertIn("only supports single-objective", result)
+
+        with self.subTest("no outcome constraints"):
+            result = analysis.validate_applicable_state(
+                experiment=get_branin_experiment(
+                    with_trial=True,
+                    with_completed_trial=True,
+                    has_optimization_config=True,
+                ),
+            )
+            self.assertIsNotNone(result)
+            self.assertIn("must have at least one OutcomeConstraint", result)

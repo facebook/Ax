@@ -84,7 +84,10 @@ class PFeasiblePlot(Analysis):
 
         optimization_config = experiment.optimization_config
         if optimization_config is None:
-            return "Experiment must have an OptimizationConfig."
+            return (
+                "The experiment must have an OptimizationConfig (with defined "
+                "objectives and constraints) to compute probability of feasibility."
+            )
 
         if optimization_config.objective.is_multi_objective:
             return "Only single-objective optimization is supported."

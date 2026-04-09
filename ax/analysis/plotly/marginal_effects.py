@@ -96,17 +96,17 @@ class MarginalEffectsPlot(Analysis):
             ]
             if len(self.parameters) == 0:
                 return (
-                    "MarginalEffectsPlot is only for `ChoiceParameter`s, "
-                    "but no ChoiceParameters were found in the experiment."
+                    "MarginalEffectsPlot is only applicable to experiments with "
+                    "ChoiceParameters (discrete, enumerated parameters), but none "
+                    "were found."
                 )
         else:
             for param_name in none_throws(self.parameters):
                 parameter = experiment.parameters.get(param_name)
                 if not isinstance(parameter, ChoiceParameter):
                     return (
-                        f"MarginalEffectsPlot is only applicable to ChoiceParameters, "
-                        f"but '{param_name}' is a {type(parameter).__name__}, not a "
-                        "ChoiceParameter. Check the experiment's parameter types."
+                        "MarginalEffectsPlot is only for `ChoiceParameter`s, but got."
+                        f"'{param_name}' which is of type {type(parameter).__name__}."
                     )
 
     @override

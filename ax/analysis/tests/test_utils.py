@@ -15,6 +15,7 @@ from ax.analysis.utils import (
     _prepare_p_feasible,
     _relativize_df_with_sq,
     prepare_arm_data,
+    validate_outcome_constraints,
 )
 from ax.api.client import Client
 from ax.api.configs import RangeParameterConfig
@@ -880,6 +881,17 @@ class TestUtils(TestCase):
                             trial_index=trial_index,
                             additional_arms=additional_arms,
                         )
+
+    def test_validate_outcome_constraints_no_optimization_config(self) -> None:
+        """Test validate_outcome_constraints returns error when experiment has
+        no OptimizationConfig."""
+        experiment = Experiment(
+            name="no_opt_config",
+            search_space=self.client._experiment.search_space.clone(),
+        )
+        result = validate_outcome_constraints(experiment=experiment)
+        self.assertIsNotNone(result)
+        self.assertIn("must have an OptimizationConfig", result)
 
     def test_scalarized_constraints(self) -> None:
         df = pd.DataFrame(

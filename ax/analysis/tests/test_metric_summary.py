@@ -79,7 +79,7 @@ class TestMetricSummary(TestCase):
 
     def test_validate_applicable_state(self) -> None:
         self.assertIn(
-            "Requires an Experiment",
+            "An Experiment must be provided",
             none_throws(MetricSummary().validate_applicable_state()),
         )
 

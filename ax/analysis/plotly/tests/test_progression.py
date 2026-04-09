@@ -23,7 +23,7 @@ from pyre_extensions import none_throws
 class TestProgression(TestCase):
     def test_validate_applicable_state(self) -> None:
         self.assertIn(
-            "Requires an Experiment",
+            "An Experiment must be provided",
             none_throws(
                 ProgressionPlot(metric_name="branin_map").validate_applicable_state()
             ),

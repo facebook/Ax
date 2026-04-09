@@ -104,7 +104,23 @@ class TestGenerationStrategyGraph(TestCase):
             generation_strategy=None,
         )
         self.assertIsNotNone(result)
-        self.assertIn("requires a GenerationStrategy", result)
+        self.assertIn("GenerationStrategy must be provided", result)
+
+    def test_validate_applicable_state_empty_nodes(self) -> None:
+        """Test that validation fails when GenerationStrategy has no nodes."""
+        analysis = GenerationStrategyGraph()
+        gs = GenerationStrategy(
+            nodes=[
+                GenerationStep(generator=Generators.SOBOL, num_trials=5),
+            ]
+        )
+        gs._nodes = []
+        result = analysis.validate_applicable_state(
+            experiment=None,
+            generation_strategy=gs,
+        )
+        self.assertIsNotNone(result)
+        self.assertIn("no nodes to visualize", result)
 
     def test_validate_applicable_state_valid(self) -> None:
         """Test that validation passes with a valid GenerationStrategy."""

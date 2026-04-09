@@ -75,7 +75,7 @@ class TestMarginalEffectsPlot(TestCase):
 
     def test_validate_applicable_state(self) -> None:
         self.assertIn(
-            "Requires an Experiment",
+            "An Experiment must be provided",
             none_throws(
                 MarginalEffectsPlot(metric_name="foo").validate_applicable_state()
             ),
@@ -92,7 +92,7 @@ class TestMarginalEffectsPlot(TestCase):
             )
         )
         self.assertIn(
-            "MarginalEffectsPlot is only applicable to ChoiceParameters", result
+            "MarginalEffectsPlot is only for `ChoiceParameter`s, but got", result
         )
         # Verify type(parameter).__name__ rendered correctly (x is a RangeParameter)
         self.assertIn("RangeParameter", result)
