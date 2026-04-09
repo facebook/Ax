@@ -21,6 +21,7 @@ from ax.core.batch_trial import BatchTrial
 from ax.core.experiment import Experiment
 from ax.core.utils import is_bandit_experiment
 from ax.generation_strategy.generation_strategy import GenerationStrategy
+from ax.utils.common.constants import is_preference_metric
 from pyre_extensions import none_throws, override
 
 
@@ -110,6 +111,19 @@ class InsightsAnalysis(Analysis):
             constraint.metric_names[0]
             for constraint in optimization_config.outcome_constraints
         ]
+
+        # Build human-readable labels for preference metrics so sensitivity
+        # plots show "Learned Preference Utility" instead of the raw metric
+        # name (e.g., "pairwise_pref_query"). Sobol indices of PairwiseGP's
+        # latent utility function are semantically meaningful — "which
+        # parameters most influence preference?"
+        all_metric_names = [*objective_names, *constraint_names]
+        preference_labels = {
+            n: "Learned Preference Utility"
+            for n in all_metric_names
+            if is_preference_metric(n)
+        }
+
         # Relativize the effects if the status quo is set and there are BatchTrials
         # present.
         relativize = experiment.status_quo is not None and any(
@@ -154,8 +168,11 @@ class InsightsAnalysis(Analysis):
                 TopSurfacesAnalysis(
                     metric_name=metric_name,
                     top_k=3,
-                    relativize=relativize,
+                    # Preference utility is on an arbitrary latent scale —
+                    # percentage-based relativization is meaningless.
+                    relativize=relativize and not is_preference_metric(metric_name),
                     order=sensitivity_order,
+                    labels=preference_labels if preference_labels else None,
                 ).compute_or_error_card(
                     experiment=experiment,
                     generation_strategy=generation_strategy,

@@ -257,3 +257,55 @@ class DiagnosticAnalysisTest(TestCase):
         # Verify card group metadata
         self.assertEqual(card_group.title, DIAGNOSTICS_CARDGROUP_TITLE)
         self.assertEqual(card_group.subtitle, DIAGNOSTICS_CARDGROUP_SUBTITLE)
+
+    def test_compute_filters_preference_metrics(self) -> None:
+        """Preference metrics should be excluded from cross-validation since
+        regression CV (binary 0/1 vs. latent utilities) is meaningless.
+
+        Uses include_tracking_metrics=True so that pairwise_pref_query (added
+        as a tracking metric) appears in the metric list and gets filtered.
+        """
+        client = Client()
+        client.configure_experiment(
+            name="test_pref",
+            parameters=[
+                RangeParameterConfig(
+                    name="x1", parameter_type="float", bounds=(-5, 10)
+                ),
+                RangeParameterConfig(name="x2", parameter_type="float", bounds=(0, 15)),
+            ],
+        )
+        pairwise_name = Keys.PAIRWISE_PREFERENCE_QUERY.value
+        client.configure_optimization(objective="booth")
+        client.configure_tracking_metrics([pairwise_name])
+
+        for i in range(5):
+            client.get_next_trials(max_trials=1)
+            client.complete_trial(
+                trial_index=i,
+                raw_data={
+                    "booth": float(i),
+                    pairwise_name: float(i % 2),
+                },
+            )
+
+        # Verify pairwise metric is filtered from CrossValidationPlot
+        original_cv_init: Callable[..., None] = CrossValidationPlot.__init__
+        captured_metric_names: list[Sequence[str] | None] = []
+
+        def capturing_init(self: CrossValidationPlot, **kwargs: object) -> None:
+            # pyre-ignore[6]: metric_names is Sequence[str] | None
+            captured_metric_names.append(kwargs.get("metric_names"))
+            original_cv_init(self, **kwargs)
+
+        # include_tracking_metrics=True pulls pairwise into the metric list
+        with patch.object(CrossValidationPlot, "__init__", capturing_init):
+            DiagnosticAnalysis(include_tracking_metrics=True).compute(
+                experiment=client._experiment,
+                generation_strategy=client._generation_strategy,
+            )
+
+        self.assertEqual(len(captured_metric_names), 1)
+        cv_metrics = none_throws(captured_metric_names[0])
+        self.assertIn("booth", cv_metrics)
+        self.assertNotIn(pairwise_name, cv_metrics)

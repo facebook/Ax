@@ -28,6 +28,7 @@ from ax.core.outcome_constraint import OutcomeConstraint, ScalarizedOutcomeConst
 from ax.core.trial_status import TrialStatus  # noqa
 from ax.core.types import ComparisonOp
 from ax.exceptions.core import UserInputError
+from ax.utils.common.constants import is_preference_metric
 from ax.utils.common.testutils import TestCase
 from ax.utils.testing.core_stubs import get_offline_experiments, get_online_experiments
 from ax.utils.testing.mock import mock_botorch_optimize
@@ -719,6 +720,12 @@ class TestUtils(TestCase):
             0.0,
             decimal=1,
         )
+
+    def test_is_preference_metric(self) -> None:
+        self.assertTrue(is_preference_metric("pairwise_pref_query"))
+        self.assertFalse(is_preference_metric("branin"))
+        self.assertFalse(is_preference_metric(""))
+        self.assertFalse(is_preference_metric("pairwise_pref"))
 
     def test_truncate_label(self) -> None:
         with self.subTest("No truncation"):
