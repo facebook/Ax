@@ -189,6 +189,7 @@ from botorch.models.transforms.input import (
     Normalize,
     Round,
 )
+from botorch.models.utils.priors import BetaPrior
 from botorch.sampling.normal import SobolQMCNormalSampler
 from botorch.utils.types import DEFAULT
 from gpytorch.constraints import Interval
@@ -222,6 +223,7 @@ CORE_ENCODER_REGISTRY: dict[type[Any], Callable[[Any], dict[str, Any]]] = {
     Experiment: experiment_to_dict,
     FactorialMetric: metric_to_dict,
     FixedParameter: fixed_parameter_to_dict,
+    BetaPrior: botorch_component_to_dict,
     GammaPrior: botorch_component_to_dict,
     GraphvizAnalysisCard: analysis_card_to_dict,
     GenerationStep: generation_node_to_dict,
@@ -348,6 +350,7 @@ CORE_DECODER_REGISTRY: TDecoderRegistry = {
     "FactorialMetric": FactorialMetric,
     "FilterFeatures": FilterFeatures,
     "FixedParameter": fixed_parameter_from_json,
+    "BetaPrior": BetaPrior,
     "GammaPrior": GammaPrior,
     "GraphvizAnalysisCard": GraphvizAnalysisCard,
     "GenerationNode": GenerationNode,

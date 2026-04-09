@@ -96,6 +96,7 @@ from botorch.models.transforms.outcome import (
     Standardize,
     StratifiedStandardize,
 )
+from botorch.models.utils.priors import BetaPrior
 from botorch.sampling.normal import SobolQMCNormalSampler
 
 # Miscellaneous BoTorch imports
@@ -202,6 +203,7 @@ LIKELIHOOD_REGISTRY: dict[type[GaussianLikelihood], str] = {
 }
 
 GPYTORCH_COMPONENT_REGISTRY: dict[type[torch.nn.Module], str] = {
+    BetaPrior: "BetaPrior",
     Interval: "Interval",
     GammaPrior: "GammaPrior",
     LogNormalPrior: "LogNormalPrior",
@@ -239,6 +241,7 @@ CLASS_TO_REGISTRY: dict[Any, dict[type[Any], str]] = {
     Likelihood: LIKELIHOOD_REGISTRY,
     MarginalLogLikelihood: MLL_REGISTRY,
     Model: MODEL_REGISTRY,
+    BetaPrior: GPYTORCH_COMPONENT_REGISTRY,
     Interval: GPYTORCH_COMPONENT_REGISTRY,
     GammaPrior: GPYTORCH_COMPONENT_REGISTRY,
     LogNormalPrior: GPYTORCH_COMPONENT_REGISTRY,
