@@ -9,6 +9,7 @@ from typing import final
 from ax.adapter.base import Adapter
 from ax.analysis.analysis import Analysis
 from ax.analysis.plotly.arm_effects import ArmEffectsPlot
+from ax.analysis.plotly.utility_ranking import UtilityRankingPlot
 from ax.analysis.utils import extract_relevant_adapter, validate_experiment
 from ax.core.analysis_card import AnalysisCardGroup
 from ax.core.base_trial import BaseTrial
@@ -132,6 +133,7 @@ class TrialAnalysis(Analysis):
         # which use comparison-pair data and are meaningless in per-arm ArmEffects.
         objective_names = []
         constraint_names = []
+        preference_objective_names = []
         if (optimization_config := experiment.optimization_config) is not None:
             objective_names = [
                 n
@@ -142,6 +144,11 @@ class TrialAnalysis(Analysis):
                 constraint.metric_names[0]
                 for constraint in optimization_config.outcome_constraints
                 if not is_preference_metric(constraint.metric_names[0])
+            ]
+            preference_objective_names = [
+                n
+                for n in optimization_config.objective.metric_names
+                if is_preference_metric(n)
             ]
 
         relativize = experiment.status_quo is not None and isinstance(
@@ -155,6 +162,10 @@ class TrialAnalysis(Analysis):
                 trial_index=self.trial.index,
             )
             for metric_name in [*objective_names, *constraint_names]
+            if self.trial.status == TrialStatus.CANDIDATE
+        ] + [
+            UtilityRankingPlot(metric_name=metric_name)
+            for metric_name in preference_objective_names
             if self.trial.status == TrialStatus.CANDIDATE
         ]
         return AnalysisCardGroup(

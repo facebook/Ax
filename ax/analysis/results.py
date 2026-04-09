@@ -25,6 +25,7 @@ from ax.analysis.plotly.scatter import (
     ScatterPlot,
 )
 from ax.analysis.plotly.utility_progression import UtilityProgressionAnalysis
+from ax.analysis.plotly.utility_ranking import UtilityRankingPlot
 from ax.analysis.summary import Summary
 from ax.analysis.utils import extract_relevant_adapter, validate_experiment
 from ax.core.analysis_card import AnalysisCardGroup
@@ -114,6 +115,9 @@ class ResultsAnalysis(Analysis):
         regression_constraint_names = [
             n for n in constraint_names if not is_preference_metric(n)
         ]
+        preference_objective_names = [
+            n for n in objective_names if is_preference_metric(n)
+        ]
 
         # Check if there are BatchTrials present.
         has_batch_trials = any(
@@ -136,6 +140,32 @@ class ResultsAnalysis(Analysis):
                 adapter=relevant_adapter,
             )
             if len(regression_objective_names) > 0
+            else None
+        )
+
+        # For preference metrics, show a utility ranking bar chart instead of
+        # ArmEffectsPlot (binary 0/1 per-arm effects are meaningless).
+        utility_ranking_cards = [
+            UtilityRankingPlot(
+                metric_name=metric_name,
+            ).compute_or_error_card(
+                experiment=experiment,
+                generation_strategy=generation_strategy,
+                adapter=relevant_adapter,
+            )
+            for metric_name in preference_objective_names
+        ]
+        utility_ranking_group = (
+            AnalysisCardGroup(
+                name="Utility Ranking",
+                title="Preference Utility Ranking",
+                subtitle=(
+                    "Ranked model-predicted latent utility per arm for preference "
+                    "metrics. Arms are sorted from most preferred to least preferred."
+                ),
+                children=utility_ranking_cards,
+            )
+            if utility_ranking_cards
             else None
         )
 
@@ -297,6 +327,7 @@ class ResultsAnalysis(Analysis):
                 child
                 for child in (
                     arm_effect_pair_group,
+                    utility_ranking_group,
                     objective_scatter_group,
                     constraint_scatter_group,
                     bandit_rollout_card,

@@ -586,7 +586,7 @@ class TestResultsAnalysis(TestCase):
             original_init(self, **kwargs)
 
         with patch.object(ArmEffectsPair, "__init__", capturing_init):
-            ResultsAnalysis().compute(
+            card_group = ResultsAnalysis().compute(
                 experiment=experiment,
                 generation_strategy=generation_strategy,
             )
@@ -596,6 +596,21 @@ class TestResultsAnalysis(TestCase):
         for names in captured_metric_names:
             self.assertIn("branin", names)
             self.assertNotIn(pairwise_name, names)
+
+        # UtilityRankingPlot should be dispatched for the preference metric
+        card_group = assert_is_instance(card_group, AnalysisCardGroup)
+        child_names = [c.name for c in card_group.children]
+        self.assertIn("Utility Ranking", child_names)
+
+        # Tracking metric (branin) should still be surfaced in ArmEffects
+        arm_effects_names = [
+            n for n in child_names if "ArmEffects" in n or "Metric Effects" in n
+        ]
+        self.assertGreater(
+            len(arm_effects_names),
+            0,
+            "Tracking metrics should still appear in ArmEffectsPlot",
+        )
 
 
 class TestArmEffectsPair(TestCase):
