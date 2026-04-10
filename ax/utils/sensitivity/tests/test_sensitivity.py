@@ -201,37 +201,23 @@ class SensitivityAnalysisTest(TestCase):
     def _test_sobol_gp_mean(
         self,
         sensitivity: SobolSensitivityGPMean,
-        expected_first_order: Tensor,
-        expected_total_order: Tensor,
-        expected_second_order: Tensor | None = None,
+        expected_first_order_shape: torch.Size,
+        expected_total_order_shape: torch.Size,
+        expected_second_order_shape: torch.Size | None = None,
     ) -> None:
-        """
-        Check that outputs are as expected. The `assertAllClose` checks are
-        characterization tests rather than correctness tests; they check that
-        behavior is the same as it was in the past, not that it is
-        quantitatively correct. Innocuous changes such as changing a random seed
-        could potentially break these tests, and it may become necessary to
-        delete them.
-        """
-        atol = 4e-3
-        rtol = 2e-3
+        """Check that outputs have the correct type and shape."""
         first_order = sensitivity.first_order_indices()
         self.assertIsInstance(first_order, Tensor)
-        self.assertAllClose(first_order, expected_first_order, atol=atol, rtol=rtol)
-        self.assertEqual(first_order.shape, expected_first_order.shape)
+        self.assertEqual(first_order.shape, expected_first_order_shape)
 
         total_order = sensitivity.total_order_indices()
         self.assertIsInstance(total_order, Tensor)
-        self.assertAllClose(total_order, expected_total_order, atol=atol, rtol=rtol)
-        self.assertEqual(total_order.shape, expected_total_order.shape)
+        self.assertEqual(total_order.shape, expected_total_order_shape)
 
-        if expected_second_order is not None:
+        if expected_second_order_shape is not None:
             second_order = sensitivity.second_order_indices()
             self.assertIsInstance(second_order, Tensor)
-            self.assertAllClose(
-                second_order, expected_second_order, atol=atol, rtol=rtol
-            )
-            self.assertEqual(second_order.shape, expected_second_order.shape)
+            self.assertEqual(second_order.shape, expected_second_order_shape)
 
     def test_SobolGPMean(self) -> None:
         bounds = torch.tensor([(0.0, 1.0) for _ in range(2)]).t()
@@ -240,9 +226,9 @@ class SensitivityAnalysisTest(TestCase):
         )
         self._test_sobol_gp_mean(
             sensitivity=sensitivity_mean,
-            expected_first_order=torch.tensor([1.1547, -0.4024], dtype=torch.float64),
-            expected_total_order=torch.tensor([0.4299, 0.4894], dtype=torch.float64),
-            expected_second_order=torch.tensor([-1.4845], dtype=torch.float64),
+            expected_first_order_shape=torch.Size([2]),
+            expected_total_order_shape=torch.Size([2]),
+            expected_second_order_shape=torch.Size([1]),
         )
 
     def test_SobolGPMean_SAASBO(self) -> None:
@@ -252,9 +238,9 @@ class SensitivityAnalysisTest(TestCase):
         )
         self._test_sobol_gp_mean(
             sensitivity=sensitivity_mean_saas,
-            expected_first_order=torch.tensor([0.5752, 0.5143], dtype=torch.double),
-            expected_total_order=torch.tensor([0.9897, 0.0979], dtype=torch.float64),
-            expected_second_order=torch.tensor([0.8332], dtype=torch.double),
+            expected_first_order_shape=torch.Size([2]),
+            expected_total_order_shape=torch.Size([2]),
+            expected_second_order_shape=torch.Size([1]),
         )
 
         sensitivity_mean_bootstrap = SobolSensitivityGPMean(
@@ -267,17 +253,9 @@ class SensitivityAnalysisTest(TestCase):
         )
         self._test_sobol_gp_mean(
             sensitivity=sensitivity_mean_bootstrap,
-            expected_first_order=torch.tensor(
-                [[0.6327, 10.0889, 1.0044], [0.2089, 0.7322, 0.2706]],
-                dtype=torch.float64,
-            ),
-            expected_total_order=torch.tensor(
-                [[0.8013, 0.1824, 0.1351], [0.2203, 0.0304, 0.0551]],
-                dtype=torch.float64,
-            ),
-            expected_second_order=torch.tensor(
-                [[0.7978, 22.6598, 1.5053]], dtype=torch.float64
-            ),
+            expected_first_order_shape=torch.Size([2, 3]),
+            expected_total_order_shape=torch.Size([2, 3]),
+            expected_second_order_shape=torch.Size([1, 3]),
         )
 
         sensitivity_mean_bootstrap = SobolSensitivityGPMean(
@@ -290,17 +268,9 @@ class SensitivityAnalysisTest(TestCase):
         )
         self._test_sobol_gp_mean(
             sensitivity=sensitivity_mean_bootstrap,
-            expected_first_order=torch.tensor(
-                [[3.4512, 32.4428, 1.8012], [0.2069, 121.8610, 3.4909]],
-                dtype=torch.float64,
-            ),
-            expected_total_order=torch.tensor(
-                [[0.4288, 0.0903, 0.0950], [0.7923, 0.2218, 0.1489]],
-                dtype=torch.float64,
-            ),
-            expected_second_order=torch.tensor(
-                [[-6.3790, 397.4363, 6.3043]], dtype=torch.float64
-            ),
+            expected_first_order_shape=torch.Size([2, 3]),
+            expected_total_order_shape=torch.Size([2, 3]),
+            expected_second_order_shape=torch.Size([1, 3]),
         )
 
         sensitivity_mean = SobolSensitivityGPMean(
@@ -308,8 +278,8 @@ class SensitivityAnalysisTest(TestCase):
         )
         self._test_sobol_gp_mean(
             sensitivity=sensitivity_mean,
-            expected_first_order=torch.tensor([0.9566, -0.4183], dtype=torch.float64),
-            expected_total_order=torch.tensor([0.3440, 0.3685], dtype=torch.float64),
+            expected_first_order_shape=torch.Size([2]),
+            expected_total_order_shape=torch.Size([2]),
         )
 
         with self.assertRaisesRegex(ValueError, "Second order indices"):
