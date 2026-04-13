@@ -16,14 +16,12 @@ from logging import Logger
 from typing import Any, TypeVar
 
 import ax.service.utils.early_stopping as early_stopping_utils
-import numpy as np
 import pandas as pd
 import torch
 from ax.adapter.prediction_utils import predict_by_features
 from ax.api.configs import ChoiceParameterConfig, RangeParameterConfig
 from ax.api.utils.instantiation.from_config import parameter_from_config
 from ax.core.arm import Arm
-from ax.core.base_trial import BaseTrial
 from ax.core.evaluations_to_data import raw_evaluations_to_data
 from ax.core.experiment import Experiment
 from ax.core.generator_run import GeneratorRun
@@ -58,12 +56,9 @@ from ax.generation_strategy.dispatch_utils import choose_generation_strategy_leg
 from ax.generation_strategy.generation_strategy import GenerationStrategy
 from ax.generation_strategy.transition_criterion import MaxGenerationParallelism
 from ax.global_stopping.strategies.base import BaseGlobalStoppingStrategy
-from ax.global_stopping.strategies.improvement import constraint_satisfaction
 from ax.plot.base import AxPlotConfig
 from ax.plot.contour import plot_contour
 from ax.plot.feature_importances import plot_feature_importance_by_feature
-from ax.plot.helper import _format_dict
-from ax.plot.trace import optimization_trace_single_method
 from ax.service.utils.analysis_base import AnalysisBase
 from ax.service.utils.best_point_mixin import BestPointMixin
 from ax.service.utils.instantiation import (
@@ -1086,77 +1081,6 @@ class AxClient(AnalysisBase, BestPointMixin, InstantiationBase):
 
     def get_max_parallelism(self) -> list[tuple[int, int]]:
         raise NotImplementedError("Use `get_max_concurrency` instead.")
-
-    def get_optimization_trace(
-        self, objective_optimum: float | None = None
-    ) -> AxPlotConfig:
-        """Retrieves the plot configuration for optimization trace, which shows
-        the evolution of the objective mean over iterations.
-
-        Args:
-            objective_optimum: Optimal objective, if known, for display in the
-                visualization.
-        """
-        if not self.experiment.trials:
-            raise ValueError("Cannot generate plot as there are no trials.")
-
-        objective = self.objective
-        if objective.is_multi_objective:
-            raise UnsupportedError(
-                "`get_optimization_trace` is not supported "
-                "for multi-objective experiments"
-            )
-
-        if objective.is_scalarized_objective:
-            raise UnsupportedError(
-                "`get_optimization_trace` is not supported for scalarized "
-                "objectives. `trial.objective_mean` returns the value of "
-                "the first metric, not the weighted combination."
-            )
-
-        opt_config = none_throws(self.experiment.optimization_config)
-        if any(len(oc.metric_names) > 1 for oc in opt_config.outcome_constraints):
-            raise UnsupportedError(
-                "`get_optimization_trace` is not supported for scalarized "
-                "outcome constraints."
-            )
-
-        minimize: bool = objective.minimize
-
-        # Setting the objective values of infeasible points to be infinitely
-        # bad prevents them from increasing or decreasing the
-        # optimization trace.
-        def _constrained_trial_objective_mean(trial: BaseTrial) -> float:
-            if constraint_satisfaction(trial):
-                return assert_is_instance(trial, Trial).objective_mean
-            return float("inf") if minimize else float("-inf")
-
-        objective_name = self.objective_name
-        best_objectives = np.array(
-            [
-                [
-                    _constrained_trial_objective_mean(trial)
-                    for trial in self.experiment.trials.values()
-                    if trial.status.is_completed
-                ]
-            ]
-        )
-        hover_labels = [
-            _format_dict(none_throws(assert_is_instance(trial, Trial).arm).parameters)
-            for trial in self.experiment.trials.values()
-            if trial.status.is_completed
-        ]
-        return optimization_trace_single_method(
-            y=(
-                np.minimum.accumulate(best_objectives, axis=1)
-                if minimize
-                else np.maximum.accumulate(best_objectives, axis=1)
-            ),
-            optimum=objective_optimum,
-            title="Best objective found vs. # of iterations",
-            ylabel=objective_name.capitalize(),
-            hover_labels=hover_labels,
-        )
 
     def get_contour_plot(
         self,

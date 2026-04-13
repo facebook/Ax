@@ -26,11 +26,8 @@ from ax.core.data import Data, MAP_KEY
 from ax.core.generator_run import GeneratorRun
 from ax.core.metric import Metric
 from ax.core.multi_type_experiment import MultiTypeExperiment
-from ax.core.objective import MultiObjective, Objective
-from ax.core.optimization_config import (
-    MultiObjectiveOptimizationConfig,
-    OptimizationConfig,
-)
+from ax.core.objective import MultiObjective
+from ax.core.optimization_config import MultiObjectiveOptimizationConfig
 from ax.core.outcome_constraint import ObjectiveThreshold, OutcomeConstraint
 from ax.core.parameter import (
     ChoiceParameter,
@@ -493,8 +490,6 @@ class TestAxClient(TestCase):
             ],
             [Generators.SOBOL, Generators.BOTORCH_MODULAR],
         )
-        with self.assertRaisesRegex(ValueError, ".* no trials"):
-            ax_client.get_optimization_trace(objective_optimum=branin.fmin)
         for i in range(6):
             gen_limit, opt_complete = ax_client.get_current_trial_generation_limit()
             self.assertFalse(opt_complete)
@@ -522,7 +517,6 @@ class TestAxClient(TestCase):
         self.assertEqual(
             none_throws(ax_client.generation_strategy.adapter)._generator_key, "BoTorch"
         )
-        ax_client.get_optimization_trace(objective_optimum=branin.fmin)
         ax_client.get_contour_plot()
         trials_df = ax_client.get_trials_data_frame()
         self.assertIn("x", trials_df)
@@ -690,8 +684,6 @@ class TestAxClient(TestCase):
             ],
             [Generators.SOBOL, Generators.BOTORCH_MODULAR],
         )
-        with self.assertRaisesRegex(ValueError, ".* no trials"):
-            ax_client.get_optimization_trace(objective_optimum=branin.fmin)
         for i in range(6):
             with mock.patch("ax.service.ax_client.logger.info") as mock_log:
                 parameterization, trial_index = ax_client.get_next_trial()
@@ -738,10 +730,6 @@ class TestAxClient(TestCase):
         self.assertIn("branin", trials_df)
         self.assertIn("b", trials_df)
         self.assertEqual(len(trials_df), 6)
-
-        with self.subTest("it raises UnsupportedError for get_optimization_trace"):
-            with self.assertRaises(UnsupportedError):
-                ax_client.get_optimization_trace(objective_optimum=branin.fmin)
 
         with self.subTest(
             "it raises UnsupportedError for get_contour_plot without metric"
@@ -3641,49 +3629,6 @@ class TestAxClient(TestCase):
             )._generator_key,
             "Sobol",
         )
-        with mock.patch(
-            "ax.service.ax_client.optimization_trace_single_method"
-        ) as mock_plot:
-            ax_client.get_optimization_trace()
-        mock_plot.assert_called_once()
-
-    def test_get_optimization_trace_scalarized(self) -> None:
-        """get_optimization_trace raises UnsupportedError for scalarized."""
-        ax_client = get_branin_optimization()
-        params, idx = ax_client.get_next_trial()
-        ax_client.complete_trial(trial_index=idx, raw_data={"branin": (1.0, 0.0)})
-        ax_client.experiment.add_tracking_metric(Metric(name="other_metric"))
-        ax_client.experiment._optimization_config = OptimizationConfig(
-            objective=Objective(
-                expression="2*branin + -1*other_metric",
-                metric_name_to_signature={
-                    "branin": "branin",
-                    "other_metric": "other_metric",
-                },
-            ),
-        )
-        with self.assertRaisesRegex(UnsupportedError, "not supported for scalarized"):
-            ax_client.get_optimization_trace()
-
-    def test_get_optimization_trace_scalarized_outcome_constraint(self) -> None:
-        """get_optimization_trace raises UnsupportedError for scalarized
-        outcome constraints."""
-        ax_client = get_branin_optimization()
-        params, idx = ax_client.get_next_trial()
-        ax_client.complete_trial(trial_index=idx, raw_data={"branin": (1.0, 0.0)})
-        ax_client.experiment.add_tracking_metric(Metric(name="m1"))
-        ax_client.experiment.add_tracking_metric(Metric(name="m2"))
-        ax_client.experiment._optimization_config = OptimizationConfig(
-            objective=Objective(metric=Metric(name="branin"), minimize=True),
-            outcome_constraints=[
-                OutcomeConstraint(
-                    expression="2*m1 + 3*m2 <= 10",
-                    metric_name_to_signature={"m1": "m1", "m2": "m2"},
-                ),
-            ],
-        )
-        with self.assertRaisesRegex(UnsupportedError, "not supported for scalarized"):
-            ax_client.get_optimization_trace()
 
 
 # Utility functions for testing get_model_predictions without calling
