@@ -1029,7 +1029,7 @@ class Decoder:
         runner_class = self.config.reverse_runner_registry[runner_sqa.runner_type]
 
         args = runner_class.deserialize_init_args(
-            args=dict(runner_sqa.properties or {}),
+            args=deepcopy(dict(runner_sqa.properties or {})),
             decoder_registry=self.config.json_decoder_registry,
             class_decoder_registry=self.config.json_class_decoder_registry,
         )
