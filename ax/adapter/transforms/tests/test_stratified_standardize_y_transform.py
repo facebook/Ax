@@ -24,7 +24,10 @@ from ax.core.search_space import SearchSpace
 from ax.core.types import ComparisonOp, TParamValue
 from ax.exceptions.core import DataRequiredError
 from ax.utils.common.testutils import TestCase
-from ax.utils.testing.core_stubs import get_experiment_with_observations
+from ax.utils.testing.core_stubs import (
+    get_branin_experiment_with_timestamp_map_metric,
+    get_experiment_with_observations,
+)
 from pandas import DataFrame
 from pandas.testing import assert_frame_equal
 
@@ -505,4 +508,31 @@ class StratifiedStandardizeYTransformTest(TestCase):
                 [w for _, w in untransformed_constraint.metric_weights],
                 original_weights,
             )
+        )
+
+    def test_with_filtered_map_data(self) -> None:
+        """Regression test: StratifiedStandardizeY should not raise when the
+        experiment has mixed map/non-map metrics but all map metric rows are
+        filtered out (leaving an all-NaN step column)."""
+        exp = get_branin_experiment_with_timestamp_map_metric(
+            with_trials_and_data=True,
+            with_choice_parameter=True,
+        )
+        # All trials are RUNNING. With fit_only_completed_map_metrics=True
+        # (the default), map metric rows are filtered out, leaving only
+        # the non-map "branin" metric with all-NaN step values.
+        experiment_data = extract_experiment_data(
+            experiment=exp,
+            data_loader_config=DataLoaderConfig(fit_only_completed_map_metrics=True),
+        )
+        # The observation_data should have a 2-level index (no step level).
+        self.assertEqual(
+            experiment_data.observation_data.index.names,
+            ["trial_index", "arm_name"],
+        )
+        # StratifiedStandardizeY should not raise.
+        StratifiedStandardizeY(
+            search_space=exp.search_space,
+            experiment_data=experiment_data,
+            config={"parameter_name": "x2"},
         )

@@ -279,6 +279,12 @@ class TestDataUtils(TestCase):
         metrics = set(experiment_data.metric_signatures)
         self.assertEqual(metrics, {"branin"})
         self.assertEqual(len(experiment_data.observation_data), 2)
+        # Since all map metric rows were filtered out, the step index level
+        # (which would be all NaN) should be dropped, leaving a 2-level index.
+        self.assertEqual(
+            experiment_data.observation_data.index.names,
+            ["trial_index", "arm_name"],
+        )
         # Complete a trial to include map metrics.
         exp.trials[0].complete()
         experiment_data = extract_experiment_data(

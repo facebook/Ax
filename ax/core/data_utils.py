@@ -486,10 +486,21 @@ def _extract_observation_data(
     if df.empty:
         df = df.assign(mean=None, sem=None)
 
+    # Determine whether the step column carries meaningful (non-NaN) data.
+    # After filtering, all rows with real step values may have been removed
+    # (e.g., when fit_only_completed_map_metrics=True filters out map metric
+    # rows). In that case, we should not include step in the index — the data
+    # is semantically non-map.
+    has_step = (
+        data.has_step_column and MAP_KEY in df.columns and not df[MAP_KEY].isna().all()
+    )
+
     # Identify potential metadata columns.
     index_cols = ["trial_index", "arm_name"]
-    if data.has_step_column:
+    if has_step:
         index_cols.append(MAP_KEY)
+    elif MAP_KEY in df.columns:
+        df = df.drop(columns=[MAP_KEY])
 
     standard_columns = set(index_cols).union(
         {"metric_name", "metric_signature", "mean", "sem"}
