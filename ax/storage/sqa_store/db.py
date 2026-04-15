@@ -10,12 +10,11 @@ from __future__ import annotations
 
 from collections.abc import Callable, Generator
 from contextlib import contextmanager
-from typing import Any, TypeVar
+from typing import Any, TYPE_CHECKING, TypeVar
 
 from sqlalchemy import create_engine
 from sqlalchemy.engine.base import Engine
-from sqlalchemy.ext.declarative import declarative_base
-from sqlalchemy.orm import scoped_session, Session, sessionmaker
+from sqlalchemy.orm import declarative_base, scoped_session, Session, sessionmaker
 
 
 # some constants for database fields
@@ -51,7 +50,19 @@ class SQABase:
     pass
 
 
-Base = declarative_base(cls=SQABase)
+if TYPE_CHECKING:
+
+    class Base(SQABase):
+        metadata: Any = ...
+        __tablename__: str = ...
+        __table__: Any = ...
+        __table_args__: Any = ...
+
+        def __init__(self, **kwargs: Any) -> None: ...
+        def __init_subclass__(cls, **kwargs: Any) -> None: ...
+
+else:
+    Base = declarative_base(cls=SQABase)
 
 
 def create_mysql_engine_from_creator(
