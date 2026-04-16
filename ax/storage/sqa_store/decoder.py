@@ -1466,6 +1466,8 @@ class Decoder:
         4. Applying skip_runners_and_metrics logic to children.
             This step requires setting skip_runners_and_metrics in
             `_set_sqa_metric_to_base_type` ahead of time.
+        5. Deduplicating children by metric name, keeping the first
+            occurrence and logging a warning if duplicates are found.
 
         Args:
             parent_metric_sqa: The parent metric SQA object.
@@ -1493,7 +1495,20 @@ class Decoder:
             for child_metric in children_metrics_sqa:
                 child_metric.metric_type = self.config.metric_registry[Metric]
 
-        return children_metrics_sqa
+        # Dedup children by metric name, keeping the first occurrence.
+        seen_names: set[str] = set()
+        deduped_children: list[SQAMetric] = []
+        for child in children_metrics_sqa:
+            if child.name not in seen_names:
+                seen_names.add(child.name)
+                deduped_children.append(child)
+            else:
+                logger.warning(
+                    f"Duplicate child metric '{child.name}' found in "
+                    f"{metric_type_name}; dropping duplicate."
+                )
+
+        return deduped_children
 
 
 def _get_scalarized_objective_children_metrics(
