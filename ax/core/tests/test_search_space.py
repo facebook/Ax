@@ -1054,6 +1054,126 @@ class SearchSpaceTest(TestCase):
             self.assertIsNotNone(result)
             self.assertEqual(result.parameters, {"x2": 0.0})
 
+    def test_check_membership_df_equality_constraint(self) -> None:
+        """Test vectorized membership check with equality constraints."""
+        ss = SearchSpace(
+            parameters=[
+                RangeParameter(
+                    name="x",
+                    parameter_type=ParameterType.FLOAT,
+                    lower=0.0,
+                    upper=1.0,
+                ),
+                RangeParameter(
+                    name="y",
+                    parameter_type=ParameterType.FLOAT,
+                    lower=0.0,
+                    upper=1.0,
+                ),
+            ],
+            parameter_constraints=[
+                ParameterConstraint(equality="x + y == 1.0"),
+            ],
+        )
+        df = pd.DataFrame({"x": [0.3, 0.5, 0.7, 0.6], "y": [0.7, 0.5, 0.2, 0.4]})
+
+        result = ss.check_membership_df(df)
+        # Rows 0, 1, 3 satisfy x + y == 1.0; row 2 has x + y = 0.9
+        self.assertEqual(result, [True, True, False, True])
+
+    def test_check_membership_df_mixed_constraints(self) -> None:
+        """Test vectorized membership with both equality and inequality."""
+        ss = SearchSpace(
+            parameters=[
+                RangeParameter(
+                    name="x",
+                    parameter_type=ParameterType.FLOAT,
+                    lower=0.0,
+                    upper=1.0,
+                ),
+                RangeParameter(
+                    name="y",
+                    parameter_type=ParameterType.FLOAT,
+                    lower=0.0,
+                    upper=1.0,
+                ),
+            ],
+            parameter_constraints=[
+                ParameterConstraint(equality="x + y == 1.0"),
+                ParameterConstraint(inequality="x <= 0.6"),
+            ],
+        )
+        df = pd.DataFrame({"x": [0.3, 0.7, 0.5], "y": [0.7, 0.3, 0.5]})
+
+        result = ss.check_membership_df(df)
+        # Row 0: x+y=1 OK, x=0.3<=0.6 OK  -> True
+        # Row 1: x+y=1 OK, x=0.7<=0.6 FAIL -> False
+        # Row 2: x+y=1 OK, x=0.5<=0.6 OK  -> True
+        self.assertEqual(result, [True, False, True])
+
+    def test_compute_chebyshev_center_with_equality_constraint(self) -> None:
+        """Chebyshev center must lie on the equality hyperplane."""
+        ss = SearchSpace(
+            parameters=[
+                RangeParameter(
+                    name="x",
+                    parameter_type=ParameterType.FLOAT,
+                    lower=0.0,
+                    upper=1.0,
+                ),
+                RangeParameter(
+                    name="y",
+                    parameter_type=ParameterType.FLOAT,
+                    lower=0.0,
+                    upper=1.0,
+                ),
+            ],
+            parameter_constraints=[
+                ParameterConstraint(equality="x + y == 1.0"),
+            ],
+        )
+        center = ss.compute_chebyshev_center()
+        self.assertIsNotNone(center)
+        assert center is not None
+        # Center must satisfy x + y == 1
+        self.assertAlmostEqual(center["x"] + center["y"], 1.0, places=6)
+        # By symmetry, center should be at (0.5, 0.5)
+        self.assertAlmostEqual(center["x"], 0.5, places=6)
+        self.assertAlmostEqual(center["y"], 0.5, places=6)
+
+    def test_compute_chebyshev_center_equality_and_inequality(self) -> None:
+        """Chebyshev center with both equality and inequality constraints."""
+        ss = SearchSpace(
+            parameters=[
+                RangeParameter(
+                    name="x",
+                    parameter_type=ParameterType.FLOAT,
+                    lower=0.0,
+                    upper=1.0,
+                ),
+                RangeParameter(
+                    name="y",
+                    parameter_type=ParameterType.FLOAT,
+                    lower=0.0,
+                    upper=1.0,
+                ),
+            ],
+            parameter_constraints=[
+                ParameterConstraint(equality="x + y == 1.0"),
+                ParameterConstraint(inequality="x <= 0.8"),
+            ],
+        )
+        center = ss.compute_chebyshev_center()
+        self.assertIsNotNone(center)
+        assert center is not None
+        # Must satisfy equality constraint
+        self.assertAlmostEqual(center["x"] + center["y"], 1.0, places=6)
+        # Must satisfy inequality: x <= 0.8
+        self.assertLessEqual(center["x"], 0.8 + 1e-6)
+        # Must satisfy bounds
+        self.assertGreaterEqual(center["x"], -1e-6)
+        self.assertGreaterEqual(center["y"], -1e-6)
+
 
 class SearchSpaceDigestTest(TestCase):
     def setUp(self) -> None:
