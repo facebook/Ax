@@ -86,6 +86,8 @@ EXPECTED_KEYS_IN_PARAM_REPR = {
 }
 
 
+COMPARISON_OPS_WITH_EQ: set[str] = {"<=", ">=", "=="}
+
 INVALID_CONSTRAINT_ERROR_MSG = (
     "Received invalid parameter constraint format: `{}`. "
     "Please use one of the following forms:\n"
@@ -96,7 +98,10 @@ INVALID_CONSTRAINT_ERROR_MSG = (
     "* Weighted linear constraints: `<w1>*<p1> >= <b>` or "
     "`<w1>*<p1> + <w2>*<p2> <= <b>`, where you can add one or more weighted terms on "
     "the left side, and there should be no spaces between weights and parameter "
-    'names.\nAcceptable comparison operators are ">=" and "<=".'
+    "names.\n"
+    "* Equality constraints: `<p1> + <p2> == <b>` or `<w1>*<p1> + <w2>*<p2> == <b>`, "
+    "same as linear constraints but using `==` instead of `<=` or `>=`.\n"
+    'Acceptable comparison operators are ">=", "<=", and "==".'
 )
 
 
@@ -440,27 +445,42 @@ class InstantiationBase:
             last_token_is_numeric = True
         except ValueError:
             last_token_is_numeric = False
+
+        # Identify the comparison operator (second-to-last for linear, middle
+        # for order constraints).
         is_order_constraint = (
             len(tokens) == 3
-            and tokens[1] in COMPARISON_OPS
+            and tokens[1] in COMPARISON_OPS_WITH_EQ
             and not last_token_is_numeric
         )
         is_linear_constraint = (
-            # if len == 3, then this is a single parameter bound constraint, otherwise
-            # it corresponds to a numerical bound on a sum of parameters
+            # if len == 3, then this is a single parameter bound constraint,
+            # otherwise it corresponds to a numerical bound on a sum of
+            # parameters
             len(tokens) >= 3
             and len(tokens) % 2 == 1
-            and tokens[-2] in COMPARISON_OPS
+            and tokens[-2] in COMPARISON_OPS_WITH_EQ
             and last_token_is_numeric
         )
 
         if is_order_constraint:  # e.g. "x1 >= x2"
+            if tokens[1] == "==":
+                raise ValueError(
+                    "Equality order constraints (e.g. 'x1 == x2') are not "
+                    "supported. Use a DerivedParameter to express that two "
+                    "parameters must be equal."
+                )
             return _process_order_constraint(
                 tokens=tokens,
                 parameters=parameters,
             )
 
-        if is_linear_constraint:  # e.g. "x1 + x2 >= 3"
+        if is_linear_constraint:  # e.g. "x1 + x2 >= 3" or "x1 + x2 == 3"
+            if tokens[-2] == "==":
+                return _process_equality_constraint(
+                    tokens=tokens,
+                    parameters=parameters,
+                )
             return _process_linear_constraint(
                 tokens=tokens,
                 parameters=parameters,
@@ -1042,32 +1062,41 @@ def _process_order_constraint(
     )
 
 
-def _process_linear_constraint(
+def _parse_linear_constraint_tokens(
     tokens: Sequence[str],
     parameters: Mapping[str, Parameter],
-) -> ParameterConstraint:
-    """Processes a linear constraint, e.g. "x1 + x2 <= 3". The last token is expected
-    to be a numeric constant, and the other tokens are expected to be parameters, their
-    multiplicative coefficients (e.g."2.5*x1") and "+" or "-" operators (e.g. "+").
+    operator_str: str,
+) -> tuple[dict[str, float], float]:
+    """Parse tokens of a linear constraint into parameter weights and bound.
+
+    Shared helper for ``_process_linear_constraint`` and
+    ``_process_equality_constraint``.  Validates ``*`` placement, processes
+    alternating monomials / operators, and returns the raw
+    ``parameter_weights`` dict and ``bound``.
 
     Args:
         tokens: A list of tokens in the constraint string.
         parameters: A mapping from parameter names to their definitions.
+        operator_str: The comparison operator string (e.g. ``"<="``/``">="``
+            /``"=="``), used only for error messages.
 
     Returns:
-        A ParameterConstraint object representing the linear constraint.
+        A tuple of (parameter_weights, bound).
     """
     parameter_names = parameters.keys()
 
     bound = float(tokens[-1])
     if any(token[0] == "*" or token[-1] == "*" for token in tokens):
         raise ValueError(
-            "A linear constraint should be the form a*x + b*y - c*z <= d"
-            ", where a,b,c,d are float constants and x,y,z are parameters. "
-            "There should be no space in each term around the operator `*`, and "
-            "there should be a single space around each operator +, -, <= and >=."
+            f"A linear constraint should be the form "
+            f"a*x + b*y - c*z {operator_str} d"
+            ", where a,b,c,d are float constants and x,y,z are "
+            "parameters. There should be no space in each term "
+            "around the operator `*`, and there should be a "
+            f"single space around each operator +, -, "
+            f"and {operator_str}."
         )
-    parameter_weights = {}
+    parameter_weights: dict[str, float] = {}
     current_sign = 1.0  # Determines whether the operator is + or -
     # tokens are alternating monomials and operators
     for idx, token in enumerate(tokens[:-2]):
@@ -1091,6 +1120,27 @@ def _process_linear_constraint(
                 raise ValueError(
                     f"Expected a mixed constraint, found operator `{token}`."
                 )
+    return parameter_weights, bound
+
+
+def _process_linear_constraint(
+    tokens: Sequence[str],
+    parameters: Mapping[str, Parameter],
+) -> ParameterConstraint:
+    """Processes a linear constraint, e.g. "x1 + x2 <= 3". The last token is expected
+    to be a numeric constant, and the other tokens are expected to be parameters, their
+    multiplicative coefficients (e.g."2.5*x1") and "+" or "-" operators (e.g. "+").
+
+    Args:
+        tokens: A list of tokens in the constraint string.
+        parameters: A mapping from parameter names to their definitions.
+
+    Returns:
+        A ParameterConstraint object representing the linear constraint.
+    """
+    parameter_weights, bound = _parse_linear_constraint_tokens(
+        tokens=tokens, parameters=parameters, operator_str="<= or >="
+    )
     # tokens[-2] is checked to be either LEQ or GEQ if sum_const is True
     comparison_multiplier = (
         1.0 if COMPARISON_OPS[tokens[-2]] is ComparisonOp.LEQ else -1.0
@@ -1102,6 +1152,45 @@ def _process_linear_constraint(
     return ParameterConstraint(
         inequality=f"{expr} <= {comparison_multiplier * bound}",
     )
+
+
+def _process_equality_constraint(
+    tokens: Sequence[str],
+    parameters: Mapping[str, Parameter],
+) -> ParameterConstraint:
+    """Processes a linear equality constraint, e.g. "x1 + x2 == 3".
+
+    The last token is expected to be a numeric constant, the second-to-last
+    is ``"=="``, and the other tokens are parameters, their multiplicative
+    coefficients (e.g. ``"2.5*x1"``) and ``"+"`` or ``"-"`` operators.
+
+    Args:
+        tokens: A list of tokens in the constraint string.
+        parameters: A mapping from parameter names to their definitions.
+
+    Returns:
+        A ParameterConstraint with ``equality=...``.
+    """
+    parameter_weights, bound = _parse_linear_constraint_tokens(
+        tokens=tokens, parameters=parameters, operator_str="=="
+    )
+    # Reject equality constraints that equate two parameters
+    # (e.g. "x1 - x2 == 0"). DerivedParameter is the correct tool.
+    if (
+        bound == 0.0
+        and len(parameter_weights) == 2
+        and set(parameter_weights.values()) == {1.0, -1.0}
+    ):
+        params = list(parameter_weights.keys())
+        raise ValueError(
+            f"Equality constraint '{' '.join(tokens)}' is equivalent to "
+            f"'{params[0]} == {params[1]}'. Use a DerivedParameter to "
+            "express that two parameters must be equal."
+        )
+    expr = " + ".join(
+        f"{coeff} * {param}" for param, coeff in parameter_weights.items()
+    )
+    return ParameterConstraint(equality=f"{expr} == {bound}")
 
 
 def _process_monomial(monomial_str: str) -> tuple[float, str]:
