@@ -133,6 +133,40 @@ class UnitXTransformTest(TestCase):
             self.search_space_with_target.parameters["x"].target_value, 1.0
         )
 
+    def test_TransformSearchSpaceEqualityConstraints(self) -> None:
+        # Verify that equality constraints are preserved and correctly
+        # rescaled during UnitX transform_search_space.
+        ss = SearchSpace(
+            parameters=[
+                RangeParameter(
+                    "x", lower=1, upper=3, parameter_type=ParameterType.FLOAT
+                ),
+                RangeParameter(
+                    "y", lower=1, upper=2, parameter_type=ParameterType.FLOAT
+                ),
+            ],
+            parameter_constraints=[
+                ParameterConstraint(equality="-0.5*x + y == 0.5"),
+                ParameterConstraint(inequality="-0.5*x + y <= 0.5"),
+            ],
+        )
+        t = UnitX(search_space=ss)
+        ss = t.transform_search_space(ss)
+
+        # Both constraints have the same math; only the type differs.
+        eq_c = ss.parameter_constraints[0]
+        ineq_c = ss.parameter_constraints[1]
+
+        # Equality constraint preserved.
+        self.assertTrue(eq_c.is_equality)
+        self.assertEqual(eq_c.constraint_dict, {"x": -1.0, "y": 1.0})
+        self.assertEqual(eq_c.bound, 0.0)
+
+        # Inequality constraint preserved.
+        self.assertFalse(ineq_c.is_equality)
+        self.assertEqual(ineq_c.constraint_dict, {"x": -1.0, "y": 1.0})
+        self.assertEqual(ineq_c.bound, 0.0)
+
     def test_transform_search_space_clears_digits(self) -> None:
         """Test that digits is cleared during transform to avoid rounding
         in unit space. Regression test for a bug where digits=-3 (round to
