@@ -20,6 +20,8 @@ class ParameterConstraintTest(TestCase):
         super().setUp()
         self.constraint = ParameterConstraint(inequality="2 * x - 3 * y <= 6.0")
         self.constraint_repr = "ParameterConstraint(2.0*x + -3.0*y <= 6.0)"
+        self.eq_constraint = ParameterConstraint(equality="x + y == 1.0")
+        self.eq_constraint_repr = "ParameterConstraint(1.0*x + 1.0*y == 1.0)"
 
     def test_constraint_dict_and_bounds(self) -> None:
         constraint = ParameterConstraint(inequality="x1 + x2 <= 1")
@@ -122,6 +124,74 @@ class ParameterConstraintTest(TestCase):
             inequality="2 * x - 3 * y <= 6.0",
         )
         self.assertTrue(constraint1 < constraint2)
+
+    def test_equality_constraint_init(self) -> None:
+        cases = [
+            ("x + y == 1.0", {"x": 1.0, "y": 1.0}, 1.0),
+            ("2 * x + 3 * y == 5.0", {"x": 2.0, "y": 3.0}, 5.0),
+            ("-x + y == 1.0", {"x": -1.0, "y": 1.0}, 1.0),
+            ("- x + y == 1.0", {"x": -1.0, "y": 1.0}, 1.0),
+        ]
+        for expr, expected_dict, expected_bound in cases:
+            with self.subTest(expr=expr):
+                c = ParameterConstraint(equality=expr)
+                self.assertTrue(c.is_equality)
+                self.assertEqual(c.constraint_dict, expected_dict)
+                self.assertEqual(c.bound, expected_bound)
+
+        c_ineq = ParameterConstraint(inequality="x + y <= 1.0")
+        self.assertFalse(c_ineq.is_equality)
+
+    def test_equality_constraint_must_provide_one(self) -> None:
+        # Neither provided
+        with self.assertRaisesRegex(UserInputError, "Exactly one"):
+            ParameterConstraint()
+
+        # Both provided
+        with self.assertRaisesRegex(UserInputError, "Exactly one"):
+            ParameterConstraint(inequality="x <= 1", equality="x == 1")
+
+    def test_equality_constraint_check(self) -> None:
+        c = ParameterConstraint(equality="x + y == 1.0")
+
+        cases = [
+            ({"x": 0.5, "y": 0.5}, True, "exact"),
+            ({"x": 0.5, "y": 0.5 + 0.5e-9}, True, "within tolerance"),
+            ({"x": 0.5, "y": 0.6}, False, "violated above"),
+            ({"x": 0.5, "y": 0.4}, False, "violated below"),
+        ]
+        for params, expected, label in cases:
+            with self.subTest(label=label):
+                self.assertEqual(c.check(params), expected)
+
+    def test_equality_constraint_repr(self) -> None:
+        self.assertEqual(str(self.eq_constraint), self.eq_constraint_repr)
+
+    def test_equality_constraint_clone(self) -> None:
+        clone = self.eq_constraint.clone()
+        self.assertTrue(clone.is_equality)
+        self.assertEqual(clone.constraint_dict, self.eq_constraint.constraint_dict)
+        self.assertEqual(clone.bound, self.eq_constraint.bound)
+
+        # Mutation of clone doesn't affect original
+        clone._bound = 99.0
+        self.assertNotEqual(self.eq_constraint.bound, clone.bound)
+
+    def test_equality_constraint_clone_with_transformed_parameters(self) -> None:
+        clone = self.eq_constraint.clone_with_transformed_parameters(
+            transformed_parameters={}
+        )
+        self.assertTrue(clone.is_equality)
+        self.assertEqual(clone.bound, self.eq_constraint.bound)
+
+    def test_equality_constraint_eq(self) -> None:
+        c1 = ParameterConstraint(equality="x + y == 1.0")
+        c2 = ParameterConstraint(equality="x + y == 1.0")
+        self.assertEqual(c1, c2)
+
+        # Different from inequality with same coefficients
+        c3 = ParameterConstraint(inequality="x + y <= 1.0")
+        self.assertNotEqual(c1, c3)
 
 
 class ValidateConstraintParametersTest(TestCase):

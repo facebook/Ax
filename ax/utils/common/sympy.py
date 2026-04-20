@@ -45,6 +45,41 @@ def extract_coefficient_dict_from_inequality(
     }
 
 
+def extract_coefficient_dict_from_equality(
+    equality_str: str,
+) -> dict[Symbol, float]:
+    """
+    Parse a string of the form ``"expr == bound"`` into a coefficient dictionary.
+
+    SymPy's ``sympify`` does not produce an ``Equality`` from ``==`` (Python
+    evaluates ``==`` as a boolean), so we split the string on ``" == "`` and
+    sympify each side independently.
+
+    All terms are moved to the left side (``lhs - rhs``), and the result is
+    returned as a coefficient dictionary -- the same format as
+    ``extract_coefficient_dict_from_inequality``.
+    """
+    parts = equality_str.split("==")
+    if len(parts) != 2:
+        raise UserInputError(
+            f"Expected an equality constraint containing '==', found {equality_str}"
+        )
+
+    try:
+        lhs = sympify(sanitize_name(parts[0].strip(), sanitize_parens=True))
+        rhs = sympify(sanitize_name(parts[1].strip(), sanitize_parens=True))
+    except SympifyError:
+        raise UserInputError(f"Could not parse equality constraint: {equality_str}")
+
+    if not isinstance(lhs, Expr) or not isinstance(rhs, Expr):
+        raise UserInputError(f"Could not parse equality constraint: {equality_str}")
+
+    expression = lhs - rhs
+    return {
+        key: float(value) for key, value in expression.as_coefficients_dict().items()
+    }
+
+
 def parse_objective_expression(expression_str: str) -> Expr | tuple[Expr, ...]:
     """Sanitize and sympify an objective expression string.
 
