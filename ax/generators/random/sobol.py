@@ -81,6 +81,7 @@ class SobolGenerator(RandomGenerator):
         n: int,
         search_space_digest: SearchSpaceDigest,
         linear_constraints: tuple[npt.NDArray, npt.NDArray] | None = None,
+        equality_constraints: tuple[npt.NDArray, npt.NDArray] | None = None,
         fixed_features: dict[int, float] | None = None,
         model_gen_options: TConfig | None = None,
         rounding_func: Callable[[npt.NDArray], npt.NDArray] | None = None,
@@ -95,6 +96,9 @@ class SobolGenerator(RandomGenerator):
             linear_constraints: A tuple of (A, b). For k linear constraints on
                 d-dimensional x, A is (k x d) and b is (k x 1) such that
                 A x <= b.
+            equality_constraints: A tuple of (A, b). For k equality constraints
+                on d-dimensional x, A is (k x d) and b is (k x 1) such that
+                A x = b.
             fixed_features: A map {feature_index: value} for features that
                 should be fixed to a particular value during generation.
             rounding_func: A function that rounds an optimization result
@@ -117,6 +121,7 @@ class SobolGenerator(RandomGenerator):
             n=n,
             search_space_digest=search_space_digest,
             linear_constraints=linear_constraints,
+            equality_constraints=equality_constraints,
             fixed_features=fixed_features,
             model_gen_options=model_gen_options,
             rounding_func=rounding_func,

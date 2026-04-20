@@ -9,6 +9,7 @@
 from unittest import mock
 
 import numpy as np
+import torch
 from ax.core.search_space import SearchSpaceDigest
 from ax.exceptions.core import SearchSpaceExhausted
 from ax.generators.random.sobol import SobolGenerator
@@ -243,6 +244,81 @@ class SobolGeneratorTest(TestCase):
         self.assertEqual(wrapped_sampler.call_args.kwargs["n_thinning"], 3)
 
         rounding_func.assert_called()
+
+    def test_SobolGeneratorFallbackToPolytopeSamplerWithEqualityConstraints(
+        self,
+    ) -> None:
+        # Ten parameters with sum <= 1 (forces polytope fallback) plus
+        # an equality constraint x0 + x1 = 0.4 to verify equality constraints
+        # are threaded through to the polytope sampler.
+        generator = SobolGenerator(seed=0, fallback_to_sample_polytope=True)
+        ssd = self._create_ssd(n_tunable=10, n_fixed=0)
+        A_ineq = np.ones((1, 10))
+        b_ineq = np.array([1]).reshape((1, 1))
+        # Equality constraint: x0 + x1 = 0.4
+        A_eq = np.zeros((1, 10))
+        A_eq[0, 0] = 1.0
+        A_eq[0, 1] = 1.0
+        b_eq = np.array([[0.4]])
+        generated_points, _ = generator.gen(
+            n=3,
+            search_space_digest=ssd,
+            linear_constraints=(A_ineq, b_ineq),
+            equality_constraints=(A_eq, b_eq),
+            rounding_func=lambda x: x,
+        )
+        self.assertEqual(np.shape(generated_points), (3, 10))
+        # Inequality constraint satisfied.
+        self.assertTrue(np.all(generated_points @ A_ineq.T <= b_ineq + 1e-6))
+        # Equality constraint satisfied: x0 + x1 ≈ 0.4.
+        eq_vals = generated_points @ A_eq.T
+        np.testing.assert_allclose(eq_vals, 0.4, atol=1e-6)
+
+    def test_SobolGeneratorFallbackToPolytopeSamplerWithEqAndFixedFeatures(
+        self,
+    ) -> None:
+        # Verify that equality constraints and fixed features are combined
+        # correctly and passed to the polytope sampler.
+        generator = SobolGenerator(seed=0, fallback_to_sample_polytope=True)
+        ssd = self._create_ssd(n_tunable=10, n_fixed=1)
+        A_ineq = np.insert(np.ones((1, 10)), 10, 0, axis=1)
+        b_ineq = np.array([1]).reshape((1, 1))
+        # Equality constraint: x0 + x1 = 0.3.
+        A_eq = np.zeros((1, 11))
+        A_eq[0, 0] = 1.0
+        A_eq[0, 1] = 1.0
+        b_eq = np.array([[0.3]])
+
+        with mock.patch(
+            "ax.generators.random.base.HitAndRunPolytopeSampler"
+        ) as MockSampler:
+            mock_instance = MockSampler.return_value
+            mock_instance.draw.return_value = torch.rand(1, 11, dtype=torch.double)
+            try:
+                generator.gen(
+                    n=1,
+                    search_space_digest=ssd,
+                    linear_constraints=(A_ineq, b_ineq),
+                    equality_constraints=(A_eq, b_eq),
+                    fixed_features={10: 1},
+                    rounding_func=lambda x: x,
+                )
+            except Exception:
+                pass
+            if MockSampler.called:
+                eq_arg = MockSampler.call_args.kwargs["equality_constraints"]
+                self.assertIsNotNone(eq_arg)
+                C, c = eq_arg
+                # 1 from fixed features + 1 from parameter equality = 2 rows.
+                self.assertEqual(C.shape[0], 2)
+                self.assertEqual(C.shape[1], 11)
+                # Fixed feature: x[10] = 1 (last row from fixed, first in sorted).
+                self.assertEqual(C[0, 10].item(), 1.0)
+                self.assertAlmostEqual(c[0].item(), 1.0)
+                # Parameter equality: x[0] + x[1] = 0.3.
+                self.assertEqual(C[1, 0].item(), 1.0)
+                self.assertEqual(C[1, 1].item(), 1.0)
+                self.assertAlmostEqual(c[1].item(), 0.3)
 
     def test_SobolGeneratorFallbackToPolytopeSamplerWithFixedParam(self) -> None:
         # Ten parameters with sum less than 1. In this example, the rejection

@@ -11,6 +11,7 @@ from collections.abc import Mapping, Sequence
 
 import numpy as np
 from ax.adapter.adapter_utils import (
+    extract_equality_constraints,
     extract_inequality_constraints,
     extract_search_space_digest,
     get_fixed_features,
@@ -95,6 +96,9 @@ class RandomAdapter(Adapter):
         linear_constraints = extract_inequality_constraints(
             search_space.parameter_constraints, self.parameters
         )
+        equality_constraints_np = extract_equality_constraints(
+            search_space.parameter_constraints, self.parameters
+        )
         # Extract generated points.
         # For normal generators these are used to deduplicate against.
         # For in-sample generators (LILO labeling) they are the selection
@@ -177,6 +181,7 @@ class RandomAdapter(Adapter):
             n=n,
             search_space_digest=search_space_digest,
             linear_constraints=linear_constraints,
+            equality_constraints=equality_constraints_np,
             fixed_features=fixed_features_dict,
             model_gen_options=model_gen_options,
             rounding_func=transform_callback(self.parameters, self.transforms),
