@@ -30,6 +30,7 @@ from ax.core.parameter import (
     TParamValue,
 )
 from ax.core.parameter_constraint import (
+    PARAMETER_CONSTRAINT_TOLERANCE,
     ParameterConstraint,
     validate_constraint_parameters,
 )
@@ -515,7 +516,7 @@ class SearchSpace(Base):
                 valid = valid | is_null
             in_design &= pd.Series(valid, index=df.index)
 
-        # Check parameter constraints (linear inequalities) vectorized
+        # Check parameter constraints vectorized
         for constraint in self._parameter_constraints:
             weighted_sum = pd.Series(0.0, index=df.index)
             for param_name, weight in constraint.constraint_dict.items():
@@ -525,7 +526,15 @@ class SearchSpace(Base):
                     break
                 # NaN values propagate if exists, causing comparison to return False
                 weighted_sum = weighted_sum + df[param_name] * weight
-            in_design &= weighted_sum <= constraint.bound + 1e-8
+            if constraint.is_equality:
+                in_design &= (
+                    np.abs(weighted_sum - constraint.bound)
+                    <= PARAMETER_CONSTRAINT_TOLERANCE
+                )
+            else:
+                in_design &= (
+                    weighted_sum <= constraint.bound + PARAMETER_CONSTRAINT_TOLERANCE
+                )
 
         # Handle hierarchical search space structure
         if self.is_hierarchical:
@@ -759,10 +768,14 @@ class SearchSpace(Base):
         feasible region defined by the parameter constraints. This is computed
         by solving a linear program. It is most limited by the tightest constraint.
 
-        For a polytope defined by a @ x <= b, the Chebyshev center (x_c, r) is
-        the solution to:
-            maximize r, where r is the radius of the inscribed ball
+        For inequality constraints a_i^T x <= b_i, the inscribed ball must fit
+        inside each half-space, so the radius is augmented:
+            maximize r
             subject to: a_i^T x + r ||a_i||_2 <= b_i for all i
+
+        Equality constraints c_j^T x = d_j require the center to lie on the
+        hyperplane and are passed through without radius augmentation (the ball
+        is inscribed within the lower-dimensional affine subspace).
 
         Note: this only considers natural (non-log, non-logit) range parameters.
         Other parameter types are handled naively via compute_naive_center.
@@ -781,8 +794,10 @@ class SearchSpace(Base):
         if not natural_range_params:
             return {}
 
-        constraint_matrix = []
-        bound_vector = []
+        ineq_constraint_matrix = []
+        ineq_bound_vector = []
+        eq_constraint_matrix = []
+        eq_bound_vector = []
         param_names = list(natural_range_params.keys())
         num_params = len(natural_range_params)
         param_name_to_idx = {name: idx for idx, name in enumerate(param_names)}
@@ -794,30 +809,47 @@ class SearchSpace(Base):
                 if param_name in param_name_to_idx:
                     row[param_name_to_idx[param_name]] = weight
 
-            constraint_matrix.append(row)
-            bound_vector.append(constraint.bound)
+            if constraint.is_equality:
+                eq_constraint_matrix.append(row)
+                eq_bound_vector.append(constraint.bound)
+            else:
+                ineq_constraint_matrix.append(row)
+                ineq_bound_vector.append(constraint.bound)
 
-        # Add parameter bounds
+        # Add parameter bounds (always inequality)
         for name, idx in param_name_to_idx.items():
             param = natural_range_params[name]
             # lower bound: -x_i <= -lower_i
             row_lower = np.zeros(num_params)
             row_lower[idx] = -1.0
-            constraint_matrix.append(row_lower)
-            bound_vector.append(-float(param.lower))
+            ineq_constraint_matrix.append(row_lower)
+            ineq_bound_vector.append(-float(param.lower))
 
             # upper bound: x_i <= upper_i
             row_upper = np.zeros(num_params)
             row_upper[idx] = 1.0
-            constraint_matrix.append(row_upper)
-            bound_vector.append(float(param.upper))
+            ineq_constraint_matrix.append(row_upper)
+            ineq_bound_vector.append(float(param.upper))
 
-        constraint_matrix = np.array(constraint_matrix)
-        bound_vector = np.array(bound_vector)
+        ineq_constraint_matrix_np = np.array(ineq_constraint_matrix)
+        ineq_bound_vector_np = np.array(ineq_bound_vector)
 
-        # Compute norm for each vector in constraint matrix
-        row_norms = np.linalg.norm(constraint_matrix, axis=1)
-        augmented_constraint_matrix = np.column_stack([constraint_matrix, row_norms])
+        # For the Chebyshev center, augment inequality constraints with
+        # r * ||a_i|| (the ball must fit inside each half-space).
+        row_norms = np.linalg.norm(ineq_constraint_matrix_np, axis=1)
+        augmented_constraint_matrix = np.column_stack(
+            [ineq_constraint_matrix_np, row_norms]
+        )
+
+        # Equality constraints: the ball center must lie on the hyperplane,
+        # so no radius augmentation is needed.
+        A_eq = None
+        b_eq = None
+        if eq_constraint_matrix:
+            # Pad equality rows with a zero column for the radius variable
+            eq_matrix_np = np.array(eq_constraint_matrix)
+            A_eq = np.column_stack([eq_matrix_np, np.zeros(eq_matrix_np.shape[0])])
+            b_eq = np.array(eq_bound_vector)
 
         # Set objective vector which maximizes r (minimize -r == maximize r)
         radius_objective_vector = np.zeros(num_params + 1)
@@ -825,7 +857,9 @@ class SearchSpace(Base):
         result = linprog(
             c=radius_objective_vector,
             A_ub=augmented_constraint_matrix,
-            b_ub=bound_vector,
+            b_ub=ineq_bound_vector_np,
+            A_eq=A_eq,
+            b_eq=b_eq,
             bounds=[(None, None)] * num_params + [(0, None)],  # no bounds except r >= 0
         )
 
