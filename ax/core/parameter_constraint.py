@@ -21,6 +21,9 @@ from ax.utils.common.sympy import (
 from pyre_extensions import none_throws
 
 
+PARAMETER_CONSTRAINT_TOLERANCE: float = 1e-8
+
+
 class ParameterConstraint(SortableBase):
     """Base class for linear parameter constraints.
 
@@ -120,8 +123,8 @@ class ParameterConstraint(SortableBase):
             for param, weight in self.constraint_dict.items()
         )
         if self.is_equality:
-            return abs(weighted_sum - self._bound) <= 1e-8
-        return weighted_sum <= self._bound + 1e-8  # allow for numerical imprecision
+            return abs(weighted_sum - self._bound) <= PARAMETER_CONSTRAINT_TOLERANCE
+        return weighted_sum <= self._bound + PARAMETER_CONSTRAINT_TOLERANCE
 
     def clone(self) -> ParameterConstraint:
         """Clone."""
