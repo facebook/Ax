@@ -11,7 +11,7 @@ from collections.abc import Mapping, Sequence
 
 import numpy as np
 from ax.adapter.adapter_utils import (
-    extract_parameter_constraints,
+    extract_inequality_constraints,
     extract_search_space_digest,
     get_fixed_features,
     parse_observation_features,
@@ -92,7 +92,7 @@ class RandomAdapter(Adapter):
         # Get fixed features
         fixed_features_dict = get_fixed_features(fixed_features, self.parameters)
         # Extract param constraints
-        linear_constraints = extract_parameter_constraints(
+        linear_constraints = extract_inequality_constraints(
             search_space.parameter_constraints, self.parameters
         )
         # Extract generated points.
