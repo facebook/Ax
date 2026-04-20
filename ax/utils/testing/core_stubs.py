@@ -2111,6 +2111,12 @@ def get_parameter_constraint(
     return ParameterConstraint(inequality=f"{param_x} - {param_y} <= 1")
 
 
+def get_equality_parameter_constraint(
+    param_x: str = "x", param_y: str = "w"
+) -> ParameterConstraint:
+    return ParameterConstraint(equality=f"{param_x} + {param_y} == 1")
+
+
 def get_sum_constraint1() -> ParameterConstraint:
     w = get_range_parameter()
     x = get_range_parameter2()

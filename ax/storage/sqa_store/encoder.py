@@ -377,10 +377,15 @@ class Encoder:
             ParameterConstraint
         ]
 
+        constraint_type = (
+            ParameterConstraintType.EQUALITY
+            if parameter_constraint.is_equality
+            else ParameterConstraintType.LINEAR
+        )
         # pyre-fixme[29]: `SQAParameterConstraint` is not a function.
         return param_constraint_cls(
             id=parameter_constraint.db_id,
-            type=ParameterConstraintType.LINEAR,
+            type=constraint_type,
             constraint_dict=parameter_constraint.constraint_dict,
             bound=parameter_constraint.bound,
         )

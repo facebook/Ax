@@ -258,12 +258,17 @@ def fixed_parameter_to_dict(parameter: FixedParameter) -> dict[str, Any]:
 def parameter_constraint_to_dict(
     parameter_constraint: ParameterConstraint,
 ) -> dict[str, Any]:
-    """Convert Ax sum parameter constraint to a dictionary."""
+    """Convert Ax parameter constraint to a dictionary."""
     expr = " + ".join(
         f"{coeff} * {param}"
         for param, coeff in parameter_constraint.constraint_dict.items()
     )
 
+    if parameter_constraint.is_equality:
+        return {
+            "__type": parameter_constraint.__class__.__name__,
+            "equality": f"{expr} == {parameter_constraint.bound}",
+        }
     return {
         "__type": parameter_constraint.__class__.__name__,
         "inequality": f"{expr} <= {parameter_constraint.bound}",

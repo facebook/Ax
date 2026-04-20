@@ -607,6 +607,15 @@ def parameter_constraints_from_json(
                     )
                 )
 
+            elif "equality" in constraint:
+                # New equality constraint format
+                parameter_constraints.append(
+                    ParameterConstraint(equality=constraint["equality"])
+                )
+            elif "inequality" in constraint:
+                parameter_constraints.append(
+                    ParameterConstraint(inequality=constraint["inequality"])
+                )
             else:
                 parameter_constraints.append(
                     object_from_json(

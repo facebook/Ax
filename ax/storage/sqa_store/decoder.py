@@ -86,6 +86,7 @@ from ax.storage.utils import (
     DomainType,
     EXPECT_RELATIVIZED_OUTCOMES,
     MetricIntent,
+    ParameterConstraintType,
     PREFERENCE_PROFILE_NAME,
 )
 from ax.utils.common.constants import Keys
@@ -546,9 +547,15 @@ class Decoder:
             f"{coeff} * {param}"
             for param, coeff in parameter_constraint_sqa.constraint_dict.items()
         )
-        constraint = ParameterConstraint(
-            inequality=f"{expr} <= {parameter_constraint_sqa.bound}",
-        )
+        is_equality = parameter_constraint_sqa.type == ParameterConstraintType.EQUALITY
+        if is_equality:
+            constraint = ParameterConstraint(
+                equality=f"{expr} == {parameter_constraint_sqa.bound}",
+            )
+        else:
+            constraint = ParameterConstraint(
+                inequality=f"{expr} <= {parameter_constraint_sqa.bound}",
+            )
 
         constraint.db_id = parameter_constraint_sqa.id
         return constraint

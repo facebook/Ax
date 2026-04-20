@@ -16,6 +16,7 @@ from ax.utils.testing.core_stubs import (
     get_branin_objective,
     get_branin_outcome_constraint,
     get_choice_parameter,
+    get_equality_parameter_constraint,
     get_experiment_with_batch_and_single_trial,
     get_experiment_with_batch_trial,
     get_experiment_with_data,
@@ -175,6 +176,12 @@ TEST_CASES = [
     (
         "ParameterConstraint",
         get_parameter_constraint,
+        Encoder.parameter_constraint_to_sqa,
+        Decoder.parameter_constraint_from_sqa,
+    ),
+    (
+        "ParameterConstraint",
+        get_equality_parameter_constraint,
         Encoder.parameter_constraint_to_sqa,
         Decoder.parameter_constraint_from_sqa,
     ),

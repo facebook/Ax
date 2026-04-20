@@ -138,6 +138,15 @@ class ParameterConstraint(SortableBase):
         """Clone, but replaced parameters with transformed versions."""
         return self.clone()
 
+    def __eq__(self, other: object) -> bool:
+        if not isinstance(other, ParameterConstraint):
+            return False
+        return (
+            self._constraint_dict == other._constraint_dict
+            and self._bound == other._bound
+            and self.is_equality == other.is_equality
+        )
+
     def __repr__(self) -> str:
         op = "==" if self.is_equality else "<="
         return (
