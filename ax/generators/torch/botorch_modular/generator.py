@@ -26,6 +26,7 @@ from ax.generators.torch.botorch_modular.utils import (
     ModelConfig,
 )
 from ax.generators.torch.utils import (
+    _to_equality_constraints,
     _to_inequality_constraints,
     get_feature_importances_from_botorch_model,
     get_rounding_func,
@@ -400,6 +401,9 @@ class BoTorchGenerator(TorchGenerator, Base):
             search_space_digest=search_space_digest,
             inequality_constraints=_to_inequality_constraints(
                 linear_constraints=torch_opt_config.linear_constraints
+            ),
+            equality_constraints=_to_equality_constraints(
+                equality_constraints=torch_opt_config.equality_constraints
             ),
             fixed_features=torch_opt_config.fixed_features,
             rounding_func=botorch_rounding_func,

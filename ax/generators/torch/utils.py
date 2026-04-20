@@ -279,21 +279,42 @@ def subset_model(
     )
 
 
+def _to_botorch_constraints(
+    constraints: tuple[Tensor, Tensor] | None,
+    negate: bool,
+) -> list[tuple[Tensor, Tensor, float]] | None:
+    """Convert (A, b) constraint tensors to BoTorch's (indices, coeffs, rhs) format.
+
+    Args:
+        constraints: A tuple (A, b) where A is ``k x d`` and b is ``k x 1``.
+        negate: If True, negate coefficients and rhs. Used for inequality
+            constraints where Ax uses ``Ax <= b`` but BoTorch uses
+            ``sum(coeffs * X) >= rhs``.
+    """
+    if constraints is None:
+        return None
+    A, b = constraints
+    result = []
+    k, d = A.shape
+    sign = -1.0 if negate else 1.0
+    for i in range(k):
+        indices = torch.atleast_1d(A[i, :].nonzero(as_tuple=False).squeeze())
+        coefficients = torch.atleast_1d(sign * A[i, indices])
+        rhs = sign * b[i, 0].item()
+        result.append((indices, coefficients, rhs))
+    return result
+
+
 def _to_inequality_constraints(
     linear_constraints: tuple[Tensor, Tensor] | None = None,
 ) -> list[tuple[Tensor, Tensor, float]] | None:
-    if linear_constraints is not None:
-        A, b = linear_constraints
-        inequality_constraints = []
-        k, d = A.shape
-        for i in range(k):
-            indices = torch.atleast_1d(A[i, :].nonzero(as_tuple=False).squeeze())
-            coefficients = torch.atleast_1d(-A[i, indices])
-            rhs = -b[i, 0].item()
-            inequality_constraints.append((indices, coefficients, rhs))
-    else:
-        inequality_constraints = None
-    return inequality_constraints
+    return _to_botorch_constraints(linear_constraints, negate=True)
+
+
+def _to_equality_constraints(
+    equality_constraints: tuple[Tensor, Tensor] | None = None,
+) -> list[tuple[Tensor, Tensor, float]] | None:
+    return _to_botorch_constraints(equality_constraints, negate=False)
 
 
 def tensor_callable_to_array_callable(

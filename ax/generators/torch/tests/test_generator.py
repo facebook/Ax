@@ -602,6 +602,7 @@ class BoTorchGeneratorTest(TestCase):
             n=1,
             search_space_digest=search_space_digest,
             inequality_constraints=None,
+            equality_constraints=None,
             fixed_features=self.fixed_features,
             rounding_func=None,
             optimizer_options=self.optimizer_options,

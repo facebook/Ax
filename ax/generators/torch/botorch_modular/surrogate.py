@@ -42,6 +42,7 @@ from ax.generators.torch.botorch_modular.utils import (
     use_model_list,
 )
 from ax.generators.torch.utils import (
+    _to_equality_constraints,
     _to_inequality_constraints,
     pick_best_out_of_sample_point_acqf_class,
     predict_from_model,
@@ -1058,6 +1059,9 @@ class Surrogate(Base):
             search_space_digest=search_space_digest,
             inequality_constraints=_to_inequality_constraints(
                 linear_constraints=torch_opt_config.linear_constraints
+            ),
+            equality_constraints=_to_equality_constraints(
+                equality_constraints=torch_opt_config.equality_constraints
             ),
             fixed_features=torch_opt_config.fixed_features,
         )

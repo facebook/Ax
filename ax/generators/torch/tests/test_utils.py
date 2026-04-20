@@ -1196,17 +1196,21 @@ class BoTorchGeneratorUtilsTest(TestCase):
         self.assertAllClose(weights, torch.tensor([0.5, 0.5]))
 
     def test_to_inequality_constraints(self) -> None:
-        A = torch.tensor([[0, 1, -2, 3], [0, 1, 0, 0]])
-        b = torch.tensor([[1], [2]])
+        A = torch.tensor([[0, 1, -2, 3], [0, 1, 0, 0]], dtype=torch.double)
+        b = torch.tensor([[1], [2]], dtype=torch.double)
         ineq_constraints = none_throws(
             _to_inequality_constraints(linear_constraints=(A, b))
         )
         self.assertEqual(len(ineq_constraints), 2)
         self.assertAllClose(ineq_constraints[0][0], torch.tensor([1, 2, 3]))
-        self.assertAllClose(ineq_constraints[0][1], torch.tensor([-1, 2, -3]))
+        self.assertAllClose(
+            ineq_constraints[0][1], torch.tensor([-1.0, 2.0, -3.0], dtype=torch.double)
+        )
         self.assertEqual(ineq_constraints[0][2], -1.0)
         self.assertAllClose(ineq_constraints[1][0], torch.tensor([1]))
-        self.assertAllClose(ineq_constraints[1][1], torch.tensor([-1]))
+        self.assertAllClose(
+            ineq_constraints[1][1], torch.tensor([-1.0], dtype=torch.double)
+        )
         self.assertEqual(ineq_constraints[1][2], -2.0)
 
     def test_subset_state_dict(self) -> None:

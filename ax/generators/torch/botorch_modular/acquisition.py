@@ -596,6 +596,7 @@ class Acquisition(Base):
         n: int,
         search_space_digest: SearchSpaceDigest,
         inequality_constraints: list[tuple[Tensor, Tensor, float]] | None = None,
+        equality_constraints: list[tuple[Tensor, Tensor, float]] | None = None,
         fixed_features: dict[int, float] | None = None,
         rounding_func: Callable[[Tensor], Tensor] | None = None,
         optimizer_options: dict[str, Any] | None = None,
@@ -612,6 +613,9 @@ class Acquisition(Base):
             inequality_constraints: A list of tuples (indices, coefficients, rhs),
                 with each tuple encoding an inequality constraint of the form
                 ``sum_i (X[indices[i]] * coefficients[i]) >= rhs``.
+            equality_constraints: A list of tuples (indices, coefficients, rhs),
+                with each tuple encoding an equality constraint of the form
+                ``sum_i (X[indices[i]] * coefficients[i]) = rhs``.
             fixed_features: A map `{feature_index: value}` for features that
                 should be fixed to a particular value during generation.
             rounding_func: A function that post-processes an optimization
@@ -664,8 +668,8 @@ class Acquisition(Base):
         # Ax expects `optimize_acqf` to return tensors of a certain shape.
         if optimizer_options is not None:
             forbidden_optimizer_options = [
-                "equality_constraints",
-                "inequality_constraints",  # These should be constructed by Ax
+                "equality_constraints",  # Constructed by Ax
+                "inequality_constraints",  # Constructed by Ax
                 "batch_initial_conditions",
                 "return_best_only",
                 "return_full_tree",
@@ -716,6 +720,7 @@ class Acquisition(Base):
                 bounds=bounds,
                 q=n,
                 inequality_constraints=inequality_constraints,
+                equality_constraints=equality_constraints,
                 fixed_features=fixed_features,
                 post_processing_func=rounding_func,
                 acq_function_sequence=self.acq_function_sequence,
@@ -727,6 +732,11 @@ class Acquisition(Base):
             "optimize_acqf_discrete",
             "optimize_acqf_discrete_local_search",
         ):
+            if equality_constraints:
+                raise ValueError(
+                    "Equality constraints are not supported with discrete "
+                    f"optimizer '{optimizer}'."
+                )
             X_observed = self.X_observed
             if self.X_pending is not None:
                 if X_observed is None:
@@ -805,6 +815,7 @@ class Acquisition(Base):
                     discrete_choices=discrete_choices
                 ),
                 inequality_constraints=inequality_constraints,
+                equality_constraints=equality_constraints,
                 post_processing_func=rounding_func,
                 **optimizer_options_with_defaults,
             )
@@ -832,9 +843,15 @@ class Acquisition(Base):
                 post_processing_func=rounding_func,
                 fixed_features=fixed_features,
                 inequality_constraints=inequality_constraints,
+                equality_constraints=equality_constraints,
                 **optimizer_options_with_defaults,
             )
         elif optimizer == "optimize_with_nsgaii":
+            if equality_constraints:
+                raise ValueError(
+                    "Equality constraints are not supported with "
+                    "optimizer 'optimize_with_nsgaii'."
+                )
             if optimize_with_nsgaii is not None:
                 acqf = assert_is_instance(
                     self.acqf, MultiOutputAcquisitionFunctionWrapper
@@ -873,6 +890,7 @@ class Acquisition(Base):
                     candidates=candidates,
                     search_space_digest=search_space_digest,
                     inequality_constraints=inequality_constraints,
+                    equality_constraints=equality_constraints,
                     fixed_features=fixed_features,
                 )
         # Validate candidates before returning
@@ -883,6 +901,7 @@ class Acquisition(Base):
             inequality_constraints=inequality_constraints,
             feature_names=search_space_digest.feature_names,
             task_features=search_space_digest.task_features,
+            equality_constraints=equality_constraints,
         )
 
         n_candidates = candidates.shape[0]
@@ -986,6 +1005,7 @@ class Acquisition(Base):
         candidates: Tensor,
         search_space_digest: SearchSpaceDigest,
         inequality_constraints: list[tuple[Tensor, Tensor, float]] | None = None,
+        equality_constraints: list[tuple[Tensor, Tensor, float]] | None = None,
         fixed_features: dict[int, float] | None = None,
     ) -> tuple[Tensor, Tensor]:
         r"""Prune irrelevant parameters from the candidates using BONSAI.
@@ -1092,6 +1112,7 @@ class Acquisition(Base):
                         candidates=pruned_candidates,
                         indices=indices,
                         inequality_constraints=inequality_constraints,
+                        equality_constraints=equality_constraints,
                     )
                     if pruned_candidates.shape[0] == 0:
                         # no feasible points, continue to
@@ -1205,6 +1226,7 @@ def _remove_infeasible_candidates(
     candidates: Tensor,
     indices: Tensor,
     inequality_constraints: list[tuple[Tensor, Tensor, float]] | None = None,
+    equality_constraints: list[tuple[Tensor, Tensor, float]] | None = None,
 ) -> tuple[Tensor, Tensor]:
     r"""Filter out infeasible candidates, based on the parameter constraints.
 
@@ -1214,24 +1236,19 @@ def _remove_infeasible_candidates(
             in [0, d-1).
         inequality_constraints: A list of tuples (indices, coefficients, rhs),
             with each tuple encoding an inequality constraint of the form
-            `\sum_i (X[indices[i]] * coefficients[i]) >= rhs`. `indices` and
-            `coefficients` should be torch tensors. See the docstring of
-            `make_scipy_linear_constraints` for an example. When q=1, or when
-            applying the same constraint to each candidate in the batch
-            (intra-point constraint), `indices` should be a 1-d tensor.
-            For inter-point constraints, in which the constraint is applied to the
-            whole batch of candidates, `indices` must be a 2-d tensor, where
-            in each row `indices[i] =(k_i, l_i)` the first index `k_i` corresponds
-            to the `k_i`-th element of the `q`-batch and the second index `l_i`
-            corresponds to the `l_i`-th feature of that element.
+            `\sum_i (X[indices[i]] * coefficients[i]) >= rhs`.
+        equality_constraints: A list of tuples (indices, coefficients, rhs),
+            with each tuple encoding an equality constraint of the form
+            `\sum_i (X[indices[i]] * coefficients[i]) = rhs`.
 
     Returns:
-        A two-element tuple containing the filter candidates and indices.
+        A two-element tuple containing the filtered candidates and indices.
     """
-    if inequality_constraints is not None:
+    if inequality_constraints is not None or equality_constraints is not None:
         is_feasible = evaluate_feasibility(
             X=candidates,
             inequality_constraints=inequality_constraints,
+            equality_constraints=equality_constraints,
         )
         candidates = candidates[is_feasible]
         indices = indices[is_feasible]
