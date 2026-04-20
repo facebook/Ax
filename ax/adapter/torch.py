@@ -20,10 +20,11 @@ from ax.adapter.adapter_utils import (
     _get_fresh_pairwise_trial_indices,
     arm_to_np_array,
     array_to_observation_data,
+    extract_equality_constraints,
+    extract_inequality_constraints,
     extract_objective_thresholds,
     extract_objective_weight_matrix,
     extract_outcome_constraints,
-    extract_parameter_constraints,
     extract_search_space_digest,
     get_fixed_features,
     observation_data_to_array,
@@ -1044,7 +1045,10 @@ class TorchAdapter(Adapter):
             arm=optimization_config.pruning_target_parameterization,
             parameters=self.parameters,
         )
-        linear_constraints = extract_parameter_constraints(
+        linear_constraints = extract_inequality_constraints(
+            search_space.parameter_constraints, self.parameters
+        )
+        equality_constraints_np = extract_equality_constraints(
             search_space.parameter_constraints, self.parameters
         )
         fixed_features_dict = get_fixed_features(fixed_features, self.parameters)
@@ -1065,7 +1069,7 @@ class TorchAdapter(Adapter):
         pending_array = pending_observations_as_array_list(
             pending_observations, self.outcomes, self.parameters
         )
-        obj_w, out_c, lin_c, pend_o, obj_t, pruning_target_p = (
+        obj_w, out_c, lin_c, pend_o, obj_t, pruning_target_p, eq_c = (
             validate_and_apply_final_transform(
                 objective_weights=objective_weights,
                 outcome_constraints=outcome_constraints,
@@ -1073,6 +1077,7 @@ class TorchAdapter(Adapter):
                 pending_observations=pending_array,
                 objective_thresholds=objective_thresholds,
                 pruning_target_point=pruning_target_point,
+                equality_constraints=equality_constraints_np,
                 final_transform=self._array_to_tensor,
             )
         )
@@ -1089,6 +1094,7 @@ class TorchAdapter(Adapter):
             outcome_constraints=out_c,
             objective_thresholds=obj_t,
             linear_constraints=lin_c,
+            equality_constraints=eq_c,
             fixed_features=fixed_features_dict,
             pending_observations=pend_o,
             model_gen_options=model_gen_options or {},
