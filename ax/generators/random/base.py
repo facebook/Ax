@@ -113,6 +113,7 @@ class RandomGenerator(Generator):
         n: int,
         search_space_digest: SearchSpaceDigest,
         linear_constraints: tuple[npt.NDArray, npt.NDArray] | None = None,
+        equality_constraints: tuple[npt.NDArray, npt.NDArray] | None = None,
         fixed_features: dict[int, float] | None = None,
         model_gen_options: TConfig | None = None,
         rounding_func: Callable[[npt.NDArray], npt.NDArray] | None = None,
@@ -127,6 +128,9 @@ class RandomGenerator(Generator):
             linear_constraints: A tuple of (A, b). For k linear constraints on
                 d-dimensional x, A is (k x d) and b is (k x 1) such that
                 A x <= b.
+            equality_constraints: A tuple of (A, b). For k equality constraints
+                on d-dimensional x, A is (k x d) and b is (k x 1) such that
+                A x = b.
             fixed_features: A map {feature_index: value} for features that
                 should be fixed to a particular value during generation.
             model_gen_options: A config dictionary that is passed along to the
@@ -205,9 +209,10 @@ class RandomGenerator(Generator):
                     inequality_constraints=self._convert_inequality_constraints(
                         linear_constraints,
                     ),
-                    equality_constraints=self._convert_equality_constraints(
+                    equality_constraints=self._combine_equality_constraints(
                         d=len(search_space_digest.bounds),
                         fixed_features=fixed_features,
+                        equality_constraints=equality_constraints,
                     ),
                     bounds=self._convert_bounds(bounds=search_space_digest.bounds),
                     interior_point=interior_point,
@@ -352,6 +357,43 @@ class RandomGenerator(Generator):
         for index in range(0, len(fixed_vals)):
             constraint_matrix[index, fixed_indices[index]] = 1.0
         return constraint_matrix, fixed_vals
+
+    def _combine_equality_constraints(
+        self,
+        d: int,
+        fixed_features: dict[int, float] | None,
+        equality_constraints: tuple[npt.NDArray, npt.NDArray] | None = None,
+    ) -> tuple[Tensor, Tensor] | None:
+        """Combine fixed-feature equality constraints with parameter equality
+        constraints into a single (C, c) matrix for the polytope sampler.
+
+        Args:
+            d: Dimension of samples.
+            fixed_features: A map {feature_index: value} for features that
+                should be fixed to a particular value during generation.
+            equality_constraints: A tuple of (A, b) NumPy arrays from
+                ``extract_equality_constraints``.
+
+        Returns:
+            Optional 2-element tuple containing C and c such that Cx = c.
+        """
+        fixed_eq = self._convert_equality_constraints(
+            d=d, fixed_features=fixed_features
+        )
+        param_eq = None
+        if equality_constraints is not None:
+            A = torch.as_tensor(equality_constraints[0], dtype=torch.double)
+            b = torch.as_tensor(equality_constraints[1], dtype=torch.double).squeeze(-1)
+            param_eq = (A, b)
+
+        if fixed_eq is None and param_eq is None:
+            return None
+        if fixed_eq is not None and param_eq is not None:
+            return (
+                torch.cat([fixed_eq[0], param_eq[0]], dim=0),
+                torch.cat([fixed_eq[1], param_eq[1]], dim=0),
+            )
+        return fixed_eq if fixed_eq is not None else param_eq
 
     def _convert_bounds(self, bounds: list[tuple[float, float]]) -> Tensor | None:
         """Helper method to convert bounds list used by the rejectionsampler to the

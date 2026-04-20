@@ -109,6 +109,65 @@ class RandomAdapterTest(TestCase):
         self.assertEqual(obsf[1].parameters, {"x": 3.0, "y": 4.0, "z": 3.0})
         self.assertTrue(np.array_equal(gen_results.weights, np.array([1.0, 2.0])))
 
+    def test_gen_w_equality_constraints(self) -> None:
+        # Verify that equality constraints from the search space are extracted
+        # and passed through to the generator's gen() call.
+        x = RangeParameter("x", ParameterType.FLOAT, lower=0, upper=1)
+        y = RangeParameter("y", ParameterType.FLOAT, lower=0, upper=1)
+        z = RangeParameter("z", ParameterType.FLOAT, lower=0, upper=1)
+        parameter_constraints = [
+            ParameterConstraint(equality="x + y == 0.5"),
+        ]
+        search_space = SearchSpace([x, y, z], parameter_constraints)
+        experiment = Experiment(search_space=search_space)
+        adapter = RandomAdapter(experiment=experiment, generator=RandomGenerator())
+        with mock.patch.object(
+            adapter.generator,
+            "gen",
+            return_value=(
+                np.array([[0.2, 0.3, 0.4]]),
+                np.array([1.0]),
+            ),
+        ) as mock_gen:
+            adapter._gen(
+                n=1,
+                search_space=search_space,
+                pending_observations={},
+                fixed_features=ObservationFeatures({}),
+                optimization_config=None,
+                model_gen_options=self.model_gen_options,
+            )
+        gen_args = mock_gen.mock_calls[0][2]
+        eq_constraints = gen_args["equality_constraints"]
+        self.assertIsNotNone(eq_constraints)
+        A, b = eq_constraints
+        # x + y = 0.5 => A = [[1, 1, 0]], b = [[0.5]]
+        self.assertTrue(np.array_equal(A, np.array([[1.0, 1.0, 0.0]])))
+        self.assertTrue(np.array_equal(b, np.array([[0.5]])))
+
+    def test_gen_no_equality_constraints(self) -> None:
+        # Verify that equality_constraints is None when there are no equality
+        # constraints on the search space.
+        adapter = RandomAdapter(experiment=self.experiment, generator=RandomGenerator())
+        with mock.patch.object(
+            adapter.generator,
+            "gen",
+            return_value=(
+                np.array([[0.5, 1.5, 2.5]]),
+                np.array([1.0]),
+            ),
+        ) as mock_gen:
+            adapter._gen(
+                n=1,
+                search_space=self.search_space,
+                pending_observations={},
+                fixed_features=ObservationFeatures({}),
+                optimization_config=None,
+                model_gen_options=self.model_gen_options,
+            )
+        gen_args = mock_gen.mock_calls[0][2]
+        self.assertIsNone(gen_args["equality_constraints"])
+
     def test_gen_simple(self) -> None:
         # Test with no constraints, no fixed feature, no pending observations
         search_space = SearchSpace(self.parameters[:2])

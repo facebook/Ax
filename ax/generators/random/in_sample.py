@@ -37,6 +37,7 @@ class InSampleUniformGenerator(RandomGenerator):
         n: int,
         search_space_digest: SearchSpaceDigest,
         linear_constraints: tuple[npt.NDArray, npt.NDArray] | None = None,
+        equality_constraints: tuple[npt.NDArray, npt.NDArray] | None = None,
         fixed_features: dict[int, float] | None = None,
         model_gen_options: TConfig | None = None,
         rounding_func: Callable[[npt.NDArray], npt.NDArray] | None = None,
@@ -49,6 +50,7 @@ class InSampleUniformGenerator(RandomGenerator):
             search_space_digest: A ``SearchSpaceDigest`` object containing
                 metadata on the features in the datasets.
             linear_constraints: Not used. Accepted for interface compatibility.
+            equality_constraints: Not used. Accepted for interface compatibility.
             fixed_features: Not used. Accepted for interface compatibility.
             model_gen_options: Not used. Accepted for interface compatibility.
             rounding_func: Not used. Accepted for interface compatibility.
