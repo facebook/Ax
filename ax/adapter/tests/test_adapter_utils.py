@@ -15,6 +15,8 @@ from ax.adapter.adapter_utils import (
     _get_fresh_pairwise_trial_indices,
     arm_to_np_array,
     can_map_to_binary,
+    extract_equality_constraints,
+    extract_inequality_constraints,
     extract_objective_weight_matrix,
     extract_search_space_digest,
     feasible_hypervolume,
@@ -35,6 +37,7 @@ from ax.core.objective import MultiObjective, Objective, ScalarizedObjective
 from ax.core.optimization_config import MultiObjectiveOptimizationConfig
 from ax.core.outcome_constraint import ObjectiveThreshold, OutcomeConstraint
 from ax.core.parameter import ChoiceParameter, ParameterType, RangeParameter
+from ax.core.parameter_constraint import ParameterConstraint
 from ax.core.search_space import SearchSpace
 from ax.core.types import ComparisonOp
 from ax.exceptions.core import UserInputError
@@ -377,6 +380,7 @@ class TestAdapterUtils(TestCase):
             _,
             _,
             target_p,
+            _,
         ) = validate_and_apply_final_transform(
             objective_weights=objective_weights,
             outcome_constraints=outcome_constraints,
@@ -412,6 +416,7 @@ class TestAdapterUtils(TestCase):
             _,
             _,
             target_p,
+            _,
         ) = validate_and_apply_final_transform(
             objective_weights=objective_weights,
             outcome_constraints=outcome_constraints,
@@ -652,3 +657,90 @@ class TestAdapterUtils(TestCase):
             self.assertNotIn(0, result)
             self.assertNotIn(1, result)
             self.assertIn(2, result)
+
+    def test_extract_inequality_constraints(self) -> None:
+        param_names = ["x", "y"]
+        ineq = ParameterConstraint(inequality="x + y <= 1")
+        eq = ParameterConstraint(equality="x + y == 1")
+
+        # Only inequality constraints are extracted
+        result = extract_inequality_constraints([ineq, eq], param_names)
+        self.assertIsNotNone(result)
+        assert result is not None
+        A, b = result
+        self.assertEqual(A.shape, (1, 2))
+        self.assertEqual(b.shape, (1, 1))
+        np.testing.assert_array_equal(A[0], [1.0, 1.0])
+        np.testing.assert_array_equal(b[0], [1.0])
+
+        # Returns None when no inequality constraints
+        result = extract_inequality_constraints([eq], param_names)
+        self.assertIsNone(result)
+
+        # Returns None for empty list
+        result = extract_inequality_constraints([], param_names)
+        self.assertIsNone(result)
+
+    def test_extract_equality_constraints(self) -> None:
+        param_names = ["x", "y"]
+        ineq = ParameterConstraint(inequality="x + y <= 1")
+        eq = ParameterConstraint(equality="x + y == 1")
+
+        # Only equality constraints are extracted
+        result = extract_equality_constraints([ineq, eq], param_names)
+        self.assertIsNotNone(result)
+        assert result is not None
+        A, b = result
+        self.assertEqual(A.shape, (1, 2))
+        self.assertEqual(b.shape, (1, 1))
+        np.testing.assert_array_equal(A[0], [1.0, 1.0])
+        np.testing.assert_array_equal(b[0], [1.0])
+
+        # Returns None when no equality constraints
+        result = extract_equality_constraints([ineq], param_names)
+        self.assertIsNone(result)
+
+    def test_extract_constraints_mixed(self) -> None:
+        """Both functions correctly partition a mixed list."""
+        param_names = ["x", "y"]
+        ineq1 = ParameterConstraint(inequality="x <= 0.5")
+        ineq2 = ParameterConstraint(inequality="y <= 0.8")
+        eq1 = ParameterConstraint(equality="x + y == 1")
+
+        ineq_result = extract_inequality_constraints([ineq1, eq1, ineq2], param_names)
+        eq_result = extract_equality_constraints([ineq1, eq1, ineq2], param_names)
+
+        assert ineq_result is not None
+        assert eq_result is not None
+        self.assertEqual(ineq_result[0].shape, (2, 2))  # 2 inequalities
+        self.assertEqual(eq_result[0].shape, (1, 2))  # 1 equality
+
+    def test_validate_and_apply_final_transform_equality_constraints(self) -> None:
+        """equality_constraints are converted to tensors."""
+        objective_weights = np.array([1.0, 0.0])
+        A_eq = np.array([[1.0, 1.0]])
+        b_eq = np.array([[1.0]])
+
+        _, _, _, _, _, _, eq_c = validate_and_apply_final_transform(
+            objective_weights=objective_weights,
+            outcome_constraints=None,
+            linear_constraints=None,
+            pending_observations=None,
+            equality_constraints=(A_eq, b_eq),
+        )
+        self.assertIsNotNone(eq_c)
+        assert eq_c is not None
+        self.assertTrue(torch.equal(eq_c[0], torch.tensor(A_eq)))
+        self.assertTrue(torch.equal(eq_c[1], torch.tensor(b_eq)))
+
+    def test_validate_and_apply_final_transform_no_equality_constraints(self) -> None:
+        """equality_constraints defaults to None."""
+        objective_weights = np.array([1.0])
+
+        _, _, _, _, _, _, eq_c = validate_and_apply_final_transform(
+            objective_weights=objective_weights,
+            outcome_constraints=None,
+            linear_constraints=None,
+            pending_observations=None,
+        )
+        self.assertIsNone(eq_c)
