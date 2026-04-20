@@ -305,20 +305,20 @@ class SobolGeneratorTest(TestCase):
                 )
             except Exception:
                 pass
-            if MockSampler.called:
-                eq_arg = MockSampler.call_args.kwargs["equality_constraints"]
-                self.assertIsNotNone(eq_arg)
-                C, c = eq_arg
-                # 1 from fixed features + 1 from parameter equality = 2 rows.
-                self.assertEqual(C.shape[0], 2)
-                self.assertEqual(C.shape[1], 11)
-                # Fixed feature: x[10] = 1 (last row from fixed, first in sorted).
-                self.assertEqual(C[0, 10].item(), 1.0)
-                self.assertAlmostEqual(c[0].item(), 1.0)
-                # Parameter equality: x[0] + x[1] = 0.3.
-                self.assertEqual(C[1, 0].item(), 1.0)
-                self.assertEqual(C[1, 1].item(), 1.0)
-                self.assertAlmostEqual(c[1].item(), 0.3)
+            self.assertTrue(MockSampler.called)
+            eq_arg = MockSampler.call_args.kwargs["equality_constraints"]
+            self.assertIsNotNone(eq_arg)
+            C, c = eq_arg
+            # 1 from fixed features + 1 from parameter equality = 2 rows.
+            self.assertEqual(C.shape[0], 2)
+            self.assertEqual(C.shape[1], 11)
+            # Fixed feature: x[10] = 1 (last row from fixed, first in sorted).
+            self.assertEqual(C[0, 10].item(), 1.0)
+            self.assertAlmostEqual(c[0].item(), 1.0)
+            # Parameter equality: x[0] + x[1] = 0.3.
+            self.assertEqual(C[1, 0].item(), 1.0)
+            self.assertEqual(C[1, 1].item(), 1.0)
+            self.assertAlmostEqual(c[1].item(), 0.3)
 
     def test_SobolGeneratorFallbackToPolytopeSamplerWithFixedParam(self) -> None:
         # Ten parameters with sum less than 1. In this example, the rejection
