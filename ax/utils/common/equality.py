@@ -207,9 +207,9 @@ def object_attribute_dicts_find_unequal_fields(
             equal = one_val is other_val is None or (one_val.db_id == other_val.db_id)
         elif field == "_db_id":
             equal = skip_db_id_check or one_val == other_val
-        # Do not check the inequality_str for ParameterConstraints, checking the bound
-        # and coefficients dict is sufficient.
-        elif field == "_inequality_str":
+        # Do not check the constraint string for ParameterConstraints, checking
+        # the bound and coefficients dict is sufficient.
+        elif field == "_constraint_str":
             equal = True
         else:
             equal = is_ax_equal(one_val, other_val)

@@ -14,27 +14,54 @@ from ax.core.parameter import ChoiceParameter, Parameter, RangeParameter
 from ax.exceptions.core import UserInputError
 from ax.utils.common.base import SortableBase
 from ax.utils.common.string_utils import unsanitize_name
-from ax.utils.common.sympy import extract_coefficient_dict_from_inequality
+from ax.utils.common.sympy import (
+    extract_coefficient_dict_from_equality,
+    extract_coefficient_dict_from_inequality,
+)
+from pyre_extensions import none_throws
 
 
 class ParameterConstraint(SortableBase):
     """Base class for linear parameter constraints.
 
-    Constraints are expressed as a SymPy parsable inequality string.
+    Supports both inequality constraints (``w^T x <= b``) and equality
+    constraints (``w^T x == b``).  Exactly one of ``inequality`` or
+    ``equality`` must be provided.
     """
 
-    def __init__(self, inequality: str) -> None:
-        """Initialize ParameterConstraint
+    def __init__(
+        self,
+        inequality: str | None = None,
+        *,
+        equality: str | None = None,
+    ) -> None:
+        """Initialize ParameterConstraint.
 
         Args:
-            inequality: String representation of the constraint. At this point in time
-            Ax only accepts linear inequality constraints.
-        """
-        self._inequality_str = inequality
+            inequality: String representation of a linear inequality
+                constraint, e.g. ``"x1 + x2 <= 3"``.
+            equality: String representation of a linear equality
+                constraint, e.g. ``"x1 + x2 == 3"``.
 
-        coefficient_dict = extract_coefficient_dict_from_inequality(
-            inequality_str=inequality
-        )
+        Exactly one of ``inequality`` or ``equality`` must be provided.
+        """
+        if (inequality is None) == (equality is None):
+            raise UserInputError(
+                "Exactly one of `inequality` or `equality` must be provided."
+            )
+
+        self.is_equality: bool = equality is not None
+        constraint_str = none_throws(equality if self.is_equality else inequality)
+        self._constraint_str: str = constraint_str
+
+        if self.is_equality:
+            coefficient_dict = extract_coefficient_dict_from_equality(
+                equality_str=constraint_str
+            )
+        else:
+            coefficient_dict = extract_coefficient_dict_from_inequality(
+                inequality_str=constraint_str
+            )
 
         # Iterate through the coefficients to extract the parameter names and weights
         # and the bound
@@ -47,9 +74,12 @@ class ParameterConstraint(SortableBase):
                 # Invert because we are "moving" the bound to the right hand side
                 self._bound = -1 * coefficient
             else:
+                constraint_type = "equality" if self.is_equality else "inequality"
+                other_type = "inequality" if self.is_equality else "equality"
                 raise UserInputError(
-                    "Only linear inequality parameter constraints are supported, found "
-                    f"{inequality}"
+                    f"Only linear {constraint_type} parameter constraints are "
+                    f"supported, found {constraint_str}. "
+                    f"Did you mean to use the `{other_type}` argument?"
                 )
 
     @property
@@ -59,7 +89,7 @@ class ParameterConstraint(SortableBase):
 
     @property
     def bound(self) -> float:
-        """Get bound of the inequality of the constraint."""
+        """Get bound of the constraint."""
         return self._bound
 
     @bound.setter
@@ -71,7 +101,9 @@ class ParameterConstraint(SortableBase):
         """Whether or not the set of parameter values satisfies the constraint.
 
         Does a weighted sum of the parameter values based on the constraint_dict
-        and checks that the sum is less than the bound.
+        and checks against the bound. For inequality constraints checks
+        ``weighted_sum <= bound``; for equality constraints checks
+        ``|weighted_sum - bound| <= tolerance``.
 
         Args:
             parameter_dict: Map from parameter name to parameter value.
@@ -87,13 +119,15 @@ class ParameterConstraint(SortableBase):
             float(parameter_dict[param]) * weight
             for param, weight in self.constraint_dict.items()
         )
-        # Expected `int` for 2nd anonymous parameter to call `int.__le__` but got
-        # `float`.
+        if self.is_equality:
+            return abs(weighted_sum - self._bound) <= 1e-8
         return weighted_sum <= self._bound + 1e-8  # allow for numerical imprecision
 
     def clone(self) -> ParameterConstraint:
         """Clone."""
-        return ParameterConstraint(inequality=self._inequality_str)
+        if self.is_equality:
+            return ParameterConstraint(equality=self._constraint_str)
+        return ParameterConstraint(inequality=self._constraint_str)
 
     def clone_with_transformed_parameters(
         self, transformed_parameters: dict[str, Parameter]
@@ -102,10 +136,11 @@ class ParameterConstraint(SortableBase):
         return self.clone()
 
     def __repr__(self) -> str:
+        op = "==" if self.is_equality else "<="
         return (
             "ParameterConstraint("
             + " + ".join(f"{v}*{k}" for k, v in sorted(self.constraint_dict.items()))
-            + f" <= {self._bound})"
+            + f" {op} {self._bound})"
         )
 
     @property
