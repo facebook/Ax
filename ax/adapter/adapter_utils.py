@@ -76,29 +76,65 @@ if TYPE_CHECKING:
     from ax import adapter as adapter_module  # noqa F401
 
 
-def extract_parameter_constraints(
+def _extract_constraints(
+    parameter_constraints: list[ParameterConstraint],
+    param_names: list[str],
+    is_equality: bool,
+) -> TBounds:
+    """Extract linear constraints into a tuple of NumPy arrays.
+
+    Shared helper for extracting inequality (``A x <= b``) or equality
+    (``A x = b``) constraints.
+
+    Args:
+        parameter_constraints: A list of parameter constraint objects.
+        param_names: A list of parameter names.
+        is_equality: If True, extract equality constraints; otherwise
+            extract inequality constraints.
+
+    Returns:
+        An optional tuple of NumPy arrays (A, b).
+    """
+    filtered = [c for c in parameter_constraints if c.is_equality == is_equality]
+    if len(filtered) == 0:
+        return None
+    A = np.zeros((len(filtered), len(param_names)))
+    b = np.zeros((len(filtered), 1))
+    for i, c in enumerate(filtered):
+        b[i, 0] = c.bound
+        for name, val in c.constraint_dict.items():
+            A[i, param_names.index(name)] = val
+    return (A, b)
+
+
+def extract_inequality_constraints(
     parameter_constraints: list[ParameterConstraint], param_names: list[str]
 ) -> TBounds:
-    """Convert Ax parameter constraints into a tuple of NumPy arrays representing the
-    system of linear inequality constraints.
+    """Convert Ax inequality parameter constraints into NumPy arrays.
 
     Args:
         parameter_constraints: A list of parameter constraint objects.
         param_names: A list of parameter names.
 
     Returns:
-        An optional tuple of NumPy arrays (A, b) representing the system of linear
-        inequality constraints A x < b.
+        An optional tuple of NumPy arrays (A, b) with ``A x <= b``.
     """
-    if len(parameter_constraints) == 0:
-        return None
-    A = np.zeros((len(parameter_constraints), len(param_names)))
-    b = np.zeros((len(parameter_constraints), 1))
-    for i, c in enumerate(parameter_constraints):
-        b[i, 0] = c.bound
-        for name, val in c.constraint_dict.items():
-            A[i, param_names.index(name)] = val
-    return (A, b)
+    return _extract_constraints(parameter_constraints, param_names, is_equality=False)
+
+
+def extract_equality_constraints(
+    parameter_constraints: list[ParameterConstraint], param_names: list[str]
+) -> TBounds:
+    """Convert Ax equality parameter constraints into NumPy arrays.
+
+    Args:
+        parameter_constraints: A list of parameter constraint objects.
+        param_names: A list of parameter names.
+
+    Returns:
+        An optional tuple of NumPy arrays (A, b) with ``A x = b``.
+    """
+    return _extract_constraints(parameter_constraints, param_names, is_equality=True)
 
 
 def extract_search_space_digest(
@@ -402,6 +438,7 @@ def validate_and_apply_final_transform(
     pending_observations: list[npt.NDArray] | None,
     objective_thresholds: npt.NDArray | None = None,
     pruning_target_point: npt.NDArray | None = None,
+    equality_constraints: tuple[npt.NDArray, npt.NDArray] | None = None,
     final_transform: Callable[[npt.NDArray], Tensor] = torch.tensor,
 ) -> tuple[
     Tensor,
@@ -410,6 +447,7 @@ def validate_and_apply_final_transform(
     list[Tensor] | None,
     Tensor | None,
     Tensor | None,
+    tuple[Tensor, Tensor] | None,
 ]:
     # TODO: use some container down the road (similar to
     # SearchSpaceDigest) to limit the return arguments
@@ -437,6 +475,12 @@ def validate_and_apply_final_transform(
     pruning_target_tensor: Tensor | None = None
     if pruning_target_point is not None:
         pruning_target_tensor = final_transform(pruning_target_point)
+    equality_constraints_tensors: tuple[Tensor, Tensor] | None = None
+    if equality_constraints is not None:
+        equality_constraints_tensors = (
+            final_transform(equality_constraints[0]),
+            final_transform(equality_constraints[1]),
+        )
     return (
         obj_weights_tensor,
         outcome_constraints_tensors,
@@ -444,6 +488,7 @@ def validate_and_apply_final_transform(
         pending_obs_tensors,
         obj_thresholds_tensor,
         pruning_target_tensor,
+        equality_constraints_tensors,
     )
 
 
@@ -700,7 +745,7 @@ def get_pareto_frontier_and_configs(
     if obj_t is not None:
         obj_t = array_to_tensor(obj_t)
     # Transform to tensors.
-    obj_w, oc_c, _, _, _, _ = validate_and_apply_final_transform(
+    obj_w, oc_c, _, _, _, _, _ = validate_and_apply_final_transform(
         objective_weights=objective_weights,
         outcome_constraints=outcome_constraints,
         linear_constraints=None,
