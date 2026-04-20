@@ -892,8 +892,9 @@ def validate_candidates(
     inequality_constraints: list[tuple[Tensor, Tensor, float]] | None,
     feature_names: list[str] | None = None,
     task_features: list[int] | None = None,
+    equality_constraints: list[tuple[Tensor, Tensor, float]] | None = None,
 ) -> None:
-    """Validate candidates satisfy bounds, discrete, and inequality constraints.
+    """Validate candidates satisfy bounds, discrete, and linear constraints.
 
     Args:
         candidates: A `n x d`-dim Tensor of candidates to validate.
@@ -906,6 +907,9 @@ def validate_candidates(
         task_features: Optional list of task feature indices to skip discrete value
             validation for. Task features can be fixed to new task values via
             fixed_features that are not in the search space's discrete_choices.
+        equality_constraints: A list of tuples (indices, coefficients, rhs),
+            representing equality constraints of the form
+            `sum_i (X[indices[i]] * coefficients[i]) = rhs`.
 
     Raises:
         CandidateGenerationError: If any candidate violates constraints.
@@ -958,4 +962,18 @@ def validate_candidates(
                 f"Candidates violate inequality constraints. "
                 f"Infeasible candidate indices: {infeasible_indices}. "
                 f"Number of constraints: {len(inequality_constraints)}."
+            )
+
+    # 4. Equality constraint validation
+    if equality_constraints:
+        is_feasible = evaluate_feasibility(
+            X=candidates.unsqueeze(-2),  # Add q dimension
+            equality_constraints=equality_constraints,
+        )
+        if not is_feasible.all():
+            infeasible_indices = torch.where(~is_feasible)[0].tolist()
+            raise CandidateGenerationError(
+                f"Candidates violate equality constraints. "
+                f"Infeasible candidate indices: {infeasible_indices}. "
+                f"Number of constraints: {len(equality_constraints)}."
             )

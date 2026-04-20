@@ -384,6 +384,7 @@ class AcquisitionTest(TestCase):
                     "max_optimization_problem_aggregation_size": MAX_OPT_AGG_SIZE,
                 },
                 inequality_constraints=self.inequality_constraints,
+                equality_constraints=None,
                 fixed_features=self.fixed_features,
                 post_processing_func=self.rounding_func,
                 acq_function_sequence=None,
@@ -1011,6 +1012,7 @@ class AcquisitionTest(TestCase):
             options={"init_batch_limit": INIT_BATCH_LIMIT, "batch_limit": BATCH_LIMIT},
             fixed_features_list=[{1: 0}, {1: 1}, {1: 2}],
             inequality_constraints=self.inequality_constraints,
+            equality_constraints=None,
             post_processing_func=self.rounding_func,
             **self.optimizer_options,
         )
@@ -1062,6 +1064,7 @@ class AcquisitionTest(TestCase):
                 "maxiter_alternating": 2,
             },
             inequality_constraints=self.inequality_constraints,
+            equality_constraints=None,
             fixed_features={0: 0.5},
             post_processing_func=self.rounding_func,
             num_restarts=2,
@@ -1101,6 +1104,7 @@ class AcquisitionTest(TestCase):
                 "maxiter_alternating": 2,
             },
             inequality_constraints=self.inequality_constraints,
+            equality_constraints=None,
             fixed_features={0: 0.5},
             post_processing_func=self.rounding_func,
             num_restarts=2,
@@ -2240,6 +2244,211 @@ class AcquisitionTest(TestCase):
             task_features=[0],
         )
 
+    @mock_botorch_optimize
+    def test_optimize_with_equality_constraints(self) -> None:
+        """Test that equality_constraints are forwarded to optimize_acqf."""
+        acquisition = self.get_acquisition_function(
+            fixed_features=self.fixed_features,
+        )
+        # Equality constraint: x[0] + x[2] = 4.0
+        # Compatible with fixed_features={1: 2.0} and
+        # inequality_constraints: -x[0] + x[1] >= 1 (i.e. x[0] <= 1.0).
+        equality_constraints = [
+            (
+                torch.tensor([0, 2], dtype=torch.int),
+                torch.tensor([1.0, 1.0], **self.tkwargs),
+                4.0,
+            )
+        ]
+        n = 3
+        with mock.patch(
+            f"{ACQUISITION_PATH}.optimize_acqf", wraps=optimize_acqf
+        ) as mock_optimize_acqf:
+            acquisition.optimize(
+                n=n,
+                search_space_digest=self.search_space_digest,
+                inequality_constraints=self.inequality_constraints,
+                equality_constraints=equality_constraints,
+                fixed_features=self.fixed_features,
+                rounding_func=self.rounding_func,
+                optimizer_options=self.optimizer_options,
+            )
+        mock_optimize_acqf.assert_called_with(
+            acq_function=acquisition.acqf,
+            sequential=True,
+            bounds=mock.ANY,
+            q=n,
+            options={
+                "init_batch_limit": INIT_BATCH_LIMIT,
+                "batch_limit": BATCH_LIMIT,
+                "max_optimization_problem_aggregation_size": MAX_OPT_AGG_SIZE,
+            },
+            inequality_constraints=self.inequality_constraints,
+            equality_constraints=equality_constraints,
+            fixed_features=self.fixed_features,
+            post_processing_func=self.rounding_func,
+            acq_function_sequence=None,
+            **self.optimizer_options,
+        )
+
+    @mock_botorch_optimize
+    def test_optimize_mixed_with_equality_constraints(self) -> None:
+        """Test that equality_constraints are forwarded to optimize_acqf_mixed."""
+        ssd = SearchSpaceDigest(
+            feature_names=["a", "b"],
+            bounds=[(0, 1), (0, 2)],
+            categorical_features=[1],
+            discrete_choices={1: [0, 1, 2]},
+        )
+        acquisition = self.get_acquisition_function()
+        equality_constraints = [
+            (
+                torch.tensor([0], dtype=torch.int),
+                torch.tensor([1.0], **self.tkwargs),
+                0.5,
+            )
+        ]
+        with (
+            mock.patch(
+                f"{ACQUISITION_PATH}.optimize_acqf_mixed",
+                wraps=optimize_acqf_mixed,
+            ) as mock_optimize_acqf_mixed,
+            mock.patch(
+                f"{ACQUISITION_PATH}.validate_candidates",
+            ),
+        ):
+            acquisition.optimize(
+                n=3,
+                search_space_digest=ssd,
+                inequality_constraints=self.inequality_constraints,
+                equality_constraints=equality_constraints,
+                fixed_features=None,
+                rounding_func=self.rounding_func,
+                optimizer_options=self.optimizer_options,
+            )
+        mock_optimize_acqf_mixed.assert_called_with(
+            acq_function=acquisition.acqf,
+            bounds=mock.ANY,
+            q=3,
+            options={"init_batch_limit": INIT_BATCH_LIMIT, "batch_limit": BATCH_LIMIT},
+            fixed_features_list=[{1: 0}, {1: 1}, {1: 2}],
+            inequality_constraints=self.inequality_constraints,
+            equality_constraints=equality_constraints,
+            post_processing_func=self.rounding_func,
+            **self.optimizer_options,
+        )
+
+    @mock_botorch_optimize
+    def test_optimize_acqf_mixed_alternating_with_equality_constraints(
+        self,
+    ) -> None:
+        """Test equality_constraints forwarded to optimize_acqf_mixed_alternating."""
+        ssd = SearchSpaceDigest(
+            feature_names=["a", "b", "c"],
+            bounds=[(0, 1), (0, 15), (0, 5)],
+            ordinal_features=[1],
+            discrete_choices={1: list(range(16))},
+        )
+        acquisition = self.get_acquisition_function()
+        equality_constraints = [
+            (
+                torch.tensor([0], dtype=torch.int),
+                torch.tensor([1.0], **self.tkwargs),
+                0.5,
+            )
+        ]
+        with (
+            mock.patch(
+                f"{ACQUISITION_PATH}.optimize_acqf_mixed_alternating",
+                wraps=optimize_acqf_mixed_alternating,
+            ) as mock_alternating,
+            mock.patch(
+                f"{ACQUISITION_PATH}.validate_candidates",
+            ),
+        ):
+            acquisition.optimize(
+                n=3,
+                search_space_digest=ssd,
+                inequality_constraints=self.inequality_constraints,
+                equality_constraints=equality_constraints,
+                fixed_features={0: 0.5},
+                rounding_func=self.rounding_func,
+                optimizer_options={
+                    "options": {"maxiter_alternating": 2},
+                    "num_restarts": 2,
+                    "raw_samples": 4,
+                },
+            )
+        mock_alternating.assert_called_with(
+            acq_function=acquisition.acqf,
+            bounds=mock.ANY,
+            discrete_dims={1: list(range(16))},
+            cat_dims={},
+            q=3,
+            options={
+                "init_batch_limit": INIT_BATCH_LIMIT,
+                "batch_limit": BATCH_LIMIT,
+                "maxiter_alternating": 2,
+            },
+            inequality_constraints=self.inequality_constraints,
+            equality_constraints=equality_constraints,
+            fixed_features={0: 0.5},
+            post_processing_func=self.rounding_func,
+            num_restarts=2,
+            raw_samples=4,
+        )
+
+    def test_optimize_discrete_raises_with_equality_constraints(self) -> None:
+        """Test that discrete optimizers raise ValueError with equality constraints."""
+        ssd = SearchSpaceDigest(
+            feature_names=["a", "b", "c"],
+            bounds=[(1, 2), (2, 3), (3, 4)],
+            categorical_features=[0, 1, 2],
+            discrete_choices={0: [1, 2], 1: [2, 3], 2: [3, 4]},
+        )
+        acquisition = self.get_acquisition_function()
+        equality_constraints = [
+            (
+                torch.tensor([0], dtype=torch.int),
+                torch.tensor([1.0], **self.tkwargs),
+                1.0,
+            )
+        ]
+        with self.assertRaisesRegex(
+            ValueError, "Equality constraints are not supported with discrete"
+        ):
+            acquisition.optimize(
+                n=2,
+                search_space_digest=ssd,
+                equality_constraints=equality_constraints,
+                rounding_func=self.rounding_func,
+            )
+
+    def test_validate_candidates_equality_constraints(self) -> None:
+        """Test validate_candidates with equality constraints."""
+        bounds = torch.tensor([[0.0, 0.0], [1.0, 1.0]])
+        # Equality constraint: x[0] + x[1] = 1.0
+        equality_constraints = [(torch.tensor([0, 1]), torch.tensor([1.0, 1.0]), 1.0)]
+
+        # Feasible candidate: 0.5 + 0.5 = 1.0
+        validate_candidates(
+            candidates=torch.tensor([[0.5, 0.5]]),
+            bounds=bounds,
+            discrete_choices=None,
+            inequality_constraints=None,
+            equality_constraints=equality_constraints,
+        )
+
+        # Infeasible candidate: 0.2 + 0.2 = 0.4 != 1.0
+        with self.assertRaisesRegex(CandidateGenerationError, "equality constraints"):
+            validate_candidates(
+                candidates=torch.tensor([[0.2, 0.2]]),
+                bounds=bounds,
+                discrete_choices=None,
+                inequality_constraints=None,
+                equality_constraints=equality_constraints,
+            )
+
 
 class MultiAcquisitionTest(AcquisitionTest):
     acquisition_class = MultiAcquisition
@@ -2270,6 +2479,20 @@ class MultiAcquisitionTest(AcquisitionTest):
         pass
 
     def test_optimize_acqf_mixed_alternating(self) -> None:
+        pass
+
+    def test_optimize_with_equality_constraints(self) -> None:
+        pass
+
+    def test_optimize_mixed_with_equality_constraints(self) -> None:
+        pass
+
+    def test_optimize_acqf_mixed_alternating_with_equality_constraints(
+        self,
+    ) -> None:
+        pass
+
+    def test_optimize_discrete_raises_with_equality_constraints(self) -> None:
         pass
 
     def test_no_pruning_with_qLogProbabilityOfFeasibility(self) -> None:
@@ -2482,6 +2705,31 @@ class MultiAcquisitionTest(AcquisitionTest):
                 is_valid,
                 f"Candidate {i} has invalid discrete value {val.item()} "
                 f"for dimension 0. Allowed: {allowed_values.tolist()}",
+            )
+
+    def test_optimize_nsgaii_raises_with_equality_constraints(self) -> None:
+        """Test optimize_with_nsgaii raises with equality constraints."""
+        acquisition = self.get_acquisition_function(fixed_features=self.fixed_features)
+        equality_constraints = [
+            (
+                torch.tensor([0], dtype=torch.int),
+                torch.tensor([1.0], **self.tkwargs),
+                5.0,
+            )
+        ]
+        with self.assertRaisesRegex(
+            ValueError,
+            "Equality constraints are not supported with optimizer "
+            "'optimize_with_nsgaii'",
+        ):
+            acquisition.optimize(
+                n=3,
+                search_space_digest=self.search_space_digest,
+                inequality_constraints=self.inequality_constraints,
+                equality_constraints=equality_constraints,
+                fixed_features=self.fixed_features,
+                rounding_func=self.rounding_func,
+                optimizer_options={"max_gen": 5, "population_size": 20},
             )
 
     def test_evaluate(self) -> None:
