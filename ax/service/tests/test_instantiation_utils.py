@@ -115,12 +115,7 @@ class TestInstantiationtUtils(TestCase):
             )
         with self.assertRaisesRegex(
             ValueError,
-            (
-                r"Received invalid parameter constraint format: "
-                r"`x1 \+ x2 \+ x3 = 3`\. "
-                r"Please use one of the following forms:\n"
-                r".*\n.*\n.*\nAcceptable comparison operators are \">=\" and \"<=\"\."
-            ),
+            r"Received invalid parameter constraint format: `x1 \+ x2 \+ x3 = 3`",
         ):
             InstantiationBase.constraint_from_str(
                 "x1 + x2 + x3 = 3", {"x1": x1, "x2": x2, "x3": x3}
@@ -192,6 +187,38 @@ class TestInstantiationtUtils(TestCase):
             InstantiationBase.constraint_from_str(
                 "x1 + x2 / 2.0 + x3 >= 3", {"x1": x1, "x2": x2, "x3": x3}
             )
+
+        # --- Equality constraints ---
+        eq_constraint = InstantiationBase.constraint_from_str(
+            "x1 + x2 == 1", {"x1": x1, "x2": x2}
+        )
+        self.assertTrue(eq_constraint.is_equality)
+        self.assertEqual(eq_constraint.constraint_dict, {"x1": 1.0, "x2": 1.0})
+        self.assertEqual(eq_constraint.bound, 1.0)
+
+        # Weighted equality
+        eq_weighted = InstantiationBase.constraint_from_str(
+            "2*x1 + 3*x2 == 5", {"x1": x1, "x2": x2}
+        )
+        self.assertTrue(eq_weighted.is_equality)
+        self.assertEqual(eq_weighted.constraint_dict, {"x1": 2.0, "x2": 3.0})
+        self.assertEqual(eq_weighted.bound, 5.0)
+
+        # Single parameter equality
+        eq_single = InstantiationBase.constraint_from_str(
+            "x1 == 3", {"x1": x1, "x2": x2}
+        )
+        self.assertTrue(eq_single.is_equality)
+        self.assertEqual(eq_single.constraint_dict, {"x1": 1.0})
+        self.assertEqual(eq_single.bound, 3.0)
+
+        # Order equality constraint should error
+        with self.assertRaisesRegex(ValueError, "DerivedParameter"):
+            InstantiationBase.constraint_from_str("x1 == x2", {"x1": x1, "x2": x2})
+
+        # Linear equality that equates two params should also error
+        with self.assertRaisesRegex(ValueError, "DerivedParameter"):
+            InstantiationBase.constraint_from_str("x1 - x2 == 0", {"x1": x1, "x2": x2})
 
     def test_spaces_in_metric_and_parameter_names(self) -> None:
         # Metric and parameter names with spaces are allowed everywhere
