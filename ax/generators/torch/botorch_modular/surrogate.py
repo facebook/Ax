@@ -742,7 +742,10 @@ class Surrogate(Base):
             # the feature names from the search space digest. Otherwise we only
             # keep the model within self._submodels as it may be models fitted on
             # auxiliary data such as the preference model for BOPE
-            if set(dataset.feature_names) == feature_names_set:
+            if set(dataset.feature_names) == feature_names_set or (
+                isinstance(dataset, MultiTaskDataset)
+                and set(dataset.feature_names).issubset(feature_names_set)
+            ):
                 models.append(model)
                 outcome_names.extend(dataset.outcome_names)
 
