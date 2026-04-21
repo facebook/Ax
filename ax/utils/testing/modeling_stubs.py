@@ -431,7 +431,6 @@ def get_legacy_list_surrogate_generation_step_as_dict() -> dict[str, Any]:
         "min_trials_observed": 0,
         "completion_criteria": [],
         "max_parallelism": 1,
-        "use_update": False,
         "enforce_num_trials": True,
         "model_kwargs": {
             "surrogate": {

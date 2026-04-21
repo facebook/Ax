@@ -983,7 +983,6 @@ class GenerationStep:
             to `generation_strategy.gen` will fail with a `MaxParallelismReached
             Exception`, indicating that more trials need to be completed before
             generating and running next trials.
-        use_update: DEPRECATED.
         enforce_num_trials: Whether to enforce that only `num_trials` are generated
             from the given step. If False and `num_trials` have been generated, but
             `min_trials_observed` have not been completed, `generation_strategy.gen`
@@ -1037,7 +1036,6 @@ class GenerationStep:
         should_deduplicate: bool = False,
         generator_name: str | None = None,
         use_all_trials_in_exp: bool = False,
-        use_update: bool = False,  # DEPRECATED.
         index: int = -1,  # Index of this step, set internally.
         suggested_experiment_status: ExperimentStatus | None = None,
         # Deprecated arguments for backwards compatibility.
@@ -1051,9 +1049,6 @@ class GenerationStep:
         Returns:
             A ``GenerationNode`` instance configured with the provided step parameters.
         """
-        if use_update:
-            raise DeprecationWarning("`GenerationStep.use_update` is deprecated.")
-
         if num_trials < 1 and num_trials != -1:
             raise UserInputError(
                 "`num_trials` must be positive or -1 (indicating unlimited) "
