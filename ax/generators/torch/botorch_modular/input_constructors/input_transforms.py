@@ -343,7 +343,7 @@ def _input_transform_argparse_learned_feature_imputation(
 
     Returns:
         A dictionary with ``feature_indices``, ``d``, ``task_feature_index``,
-        ``device``, and ``dtype`` keys.
+        ``bounds``, ``device``, and ``dtype`` keys.
     """
     if not isinstance(dataset, MultiTaskDataset):
         raise ValueError(
@@ -382,12 +382,23 @@ def _input_transform_argparse_learned_feature_imputation(
         for task_idx, ds in enumerate(all_datasets)
     }
 
+    dtype = torch_dtype or torch.float64
+    # Constrain imputation values to [0, 1] since the preceding Normalize
+    # maps features to this range. Without bounds, imputation values are
+    # unconstrained and can drift far from the valid input range.
+    bounds = torch.stack(
+        [
+            torch.zeros(d, dtype=dtype, device=torch_device),
+            torch.ones(d, dtype=dtype, device=torch_device),
+        ]
+    )
     kwargs: dict[str, Any] = {
         "feature_indices": feature_indices,
         "d": d,
         "task_feature_index": task_feature_index,
+        "bounds": bounds,
         "device": torch_device,
-        "dtype": torch_dtype or torch.float64,
+        "dtype": dtype,
     }
     kwargs.update(input_transform_options)
     return kwargs
