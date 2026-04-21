@@ -54,9 +54,9 @@ from ax.utils.common.typeutils_torch import torch_type_from_str
 from botorch.models.transforms.input import ChainedInputTransform, InputTransform
 from botorch.models.transforms.outcome import ChainedOutcomeTransform, OutcomeTransform
 from botorch.utils.types import _DefaultType, DEFAULT
+from gpytorch.priors import Prior
 from gpytorch.priors.utils import BUFFERED_PREFIX
 from pyre_extensions import assert_is_instance
-from torch.distributions.transformed_distribution import TransformedDistribution
 
 logger: logging.Logger = get_logger(__name__)
 
@@ -369,8 +369,11 @@ def botorch_component_from_json(botorch_class: type[T], json: dict[str, Any]) ->
                 for k, v in state_dict.items()
             }
         )
-    if issubclass(botorch_class, TransformedDistribution):
-        # Extract the buffered attributes for transformed priors.
+    if issubclass(botorch_class, Prior):
+        # Extract the buffered attributes for priors. Some priors (e.g.
+        # BetaPrior, LogNormalPrior) store parameters with BUFFERED_PREFIX
+        # because their underlying distribution uses @property descriptors
+        # that cannot be deleted by _bufferize_attributes.
         for k in list(state_dict.keys()):
             if k.startswith(BUFFERED_PREFIX):
                 state_dict[k[len(BUFFERED_PREFIX) :]] = state_dict.pop(k)
