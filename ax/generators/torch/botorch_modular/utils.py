@@ -274,8 +274,7 @@ def choose_model_class(
         dataset: The dataset on which the model will be fitted.
         search_space_digest: The digest of the search space the model will be
             fitted within.
-        specified_model_class: If provided, this model class will be used unless
-            overridden for specific cases (e.g., heterogeneous datasets).
+        specified_model_class: If provided, this model class will be used.
 
     Returns:
         A BoTorch `Model` class.
@@ -295,23 +294,18 @@ def choose_model_class(
             "Multi-task multi-fidelity optimization not yet supported."
         )
 
-    # Check for heterogeneous multi-task datasets & override model class if needed.
+    # Check for heterogeneous multi-task datasets. If a model class was
+    # explicitly specified, respect it; otherwise default to HeterogeneousMTGP.
     if (
         search_space_digest.task_features
         and isinstance(dataset, MultiTaskDataset)
         and dataset.has_heterogeneous_features
     ):
-        if (
-            specified_model_class is not None
-            and specified_model_class is not HeterogeneousMTGP
-        ):
-            logger.warning(
-                f"Detected heterogeneous features in MultiTaskDataset. "
-                f"Overriding specified model class {specified_model_class.__name__} "
-                f"with HeterogeneousMTGP for transfer learning with "
-                f"heterogeneous search spaces."
-            )
-        model_class = HeterogeneousMTGP
+        model_class = (
+            specified_model_class
+            if specified_model_class is not None
+            else HeterogeneousMTGP
+        )
         logger.debug(f"Chose BoTorch model class: {model_class}.")
         return model_class
 
