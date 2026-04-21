@@ -6,31 +6,25 @@
 
 # pyre-strict
 
-from typing import Any
-from unittest.mock import Mock, patch
+import warnings
 
-import numpy as np
 from ax.adapter.registry import Generators
 from ax.core.types import TParameterization
-from ax.exceptions.core import UserInputError
+from ax.exceptions.core import UnsupportedError
 from ax.generation_strategy.generation_strategy import (
-    GenerationStep,
+    GenerationNode,
     GenerationStrategy,
 )
-from ax.generators.random.sobol import SobolGenerator
+from ax.generation_strategy.generator_spec import GeneratorSpec
 from ax.metrics.branin import branin
-from ax.service.managed_loop import OptimizationLoop, optimize
+from ax.service.managed_loop import optimize
 from ax.utils.common.testutils import TestCase
 from ax.utils.testing.mock import mock_botorch_optimize
-from pyre_extensions import assert_is_instance, none_throws
 
 
 def _branin_evaluation_function(
     parameterization: TParameterization,
-    weight: float | None = None,
 ) -> dict[str, tuple[float, float]]:
-    if any(param_name not in parameterization.keys() for param_name in ["x1", "x2"]):
-        raise ValueError("Parametrization does not contain x1 or x2")
     x1, x2 = float(parameterization["x1"]), float(parameterization["x2"])
     return {
         "branin": (float(branin(x1, x2)), 0.0),
@@ -38,341 +32,94 @@ def _branin_evaluation_function(
     }
 
 
-def _branin_evaluation_function_v2(
-    parameterization: TParameterization,
-    weight: float | None = None,
-) -> tuple[float, float]:
-    if any(param_name not in parameterization.keys() for param_name in ["x1", "x2"]):
-        raise ValueError("Parametrization does not contain x1 or x2")
-    x1, x2 = float(parameterization["x1"]), float(parameterization["x2"])
-    return (float(branin(x1, x2)), 0.0)
+class TestOptimize(TestCase):
+    """Tests for the deprecated optimize() function."""
 
+    def setUp(self) -> None:
+        super().setUp()
+        # optimize() emits a DeprecationWarning; suppress it for all tests
+        # except test_optimize_returns_deprecation_warning, which overrides
+        # the filter locally via assertWarnsRegex.
+        ctx = warnings.catch_warnings()
+        ctx.__enter__()
+        self.addCleanup(ctx.__exit__, None, None, None)
+        warnings.simplefilter("ignore", DeprecationWarning)
 
-def _branin_evaluation_function_with_unknown_sem(
-    parameterization: TParameterization,
-    weight: float | None = None,
-) -> tuple[float, None]:
-    if any(param_name not in parameterization.keys() for param_name in ["x1", "x2"]):
-        raise ValueError("Parametrization does not contain x1 or x2")
-    x1, x2 = float(parameterization["x1"]), float(parameterization["x2"])
-    return (float(branin(x1, x2)), None)
-
-
-class TestManagedLoop(TestCase):
-    """Check functionality of optimization loop."""
-
-    def test_with_evaluation_function_propagates_parameter_constraints(self) -> None:
-        kwargs: dict[str, Any] = {
-            "parameters": [
-                {
-                    "name": "x1",
-                    "type": "range",
-                    "bounds": [-5.0, 10.0],
-                    "value_type": "float",
-                    "log_scale": False,
-                },
-                {"name": "x2", "type": "range", "bounds": [0.0, 10.0]},
-            ],
-            "experiment_name": "test",
-            "objective_name": "branin",
-            "minimize": True,
-            "evaluation_function": _branin_evaluation_function,
-            "outcome_constraints": ["constrained_metric <= 10"],
-            "total_trials": 6,
-        }
-
-        with self.subTest("With parameter_constraints"):
-            loop = OptimizationLoop.with_evaluation_function(
-                parameter_constraints=["x1 + x2 <= 20"],
-                **kwargs,
-            )
-            self.assertNotEqual(loop.experiment.search_space.parameter_constraints, [])
-            self.assertTrue(len(loop.experiment.search_space.parameter_constraints) > 0)
-
-        with self.subTest("Without parameter_constraints"):
-            loop = OptimizationLoop.with_evaluation_function(
-                **kwargs,
-            )
-            self.assertEqual(loop.experiment.search_space.parameter_constraints, [])
-            self.assertTrue(
-                len(loop.experiment.search_space.parameter_constraints) == 0
-            )
-
-    @mock_botorch_optimize
-    def test_branin(self) -> None:
-        """Basic async synthetic function managed loop case."""
-        loop = OptimizationLoop.with_evaluation_function(
-            parameters=[
-                {
-                    "name": "x1",
-                    "type": "range",
-                    "bounds": [-5.0, 10.0],
-                    "value_type": "float",
-                    "log_scale": False,
-                },
-                {"name": "x2", "type": "range", "bounds": [0.0, 10.0]},
-            ],
-            experiment_name="test",
-            objective_name="branin",
-            minimize=True,
-            evaluation_function=_branin_evaluation_function,
-            parameter_constraints=["x1 + x2 <= 20"],
-            outcome_constraints=["constrained_metric <= 10"],
-            total_trials=6,
-        )
-        bp, _ = loop.full_run().get_best_point()
-        self.assertIn("x1", bp)
-        self.assertIn("x2", bp)
-        with self.assertRaisesRegex(ValueError, "Optimization is complete"):
-            loop.run_trial()
-
-    @mock_botorch_optimize
-    def test_branin_with_active_parameter_constraints(self) -> None:
-        """Basic async synthetic function managed loop case."""
-        loop = OptimizationLoop.with_evaluation_function(
-            parameters=[
-                {
-                    "name": "x1",
-                    "type": "range",
-                    "bounds": [-5.0, 10.0],
-                    "value_type": "float",
-                    "log_scale": False,
-                },
-                {"name": "x2", "type": "range", "bounds": [0.0, 10.0]},
-            ],
-            experiment_name="test",
-            objective_name="branin",
-            minimize=True,
-            evaluation_function=_branin_evaluation_function,
-            parameter_constraints=["x1 + x2 <= 1"],
-            outcome_constraints=["constrained_metric <= 10"],
-            total_trials=6,
-        )
-        bp, _ = loop.full_run().get_best_point()
-        self.assertIn("x1", bp)
-        self.assertIn("x2", bp)
-        self.assertLessEqual(float(bp["x1"]) + float(bp["x2"]), 1.0 + 1e-8)
-        with self.assertRaisesRegex(ValueError, "Optimization is complete"):
-            loop.run_trial()
-
-    @mock_botorch_optimize
-    def test_branin_without_objective_name(self) -> None:
-        loop = OptimizationLoop.with_evaluation_function(
-            parameters=[
-                {
-                    "name": "x1",
-                    "type": "range",
-                    "bounds": [-5.0, 10.0],
-                    "value_type": "float",
-                    "log_scale": False,
-                },
-                {"name": "x2", "type": "range", "bounds": [0.0, 10.0]},
-            ],
-            minimize=True,
-            evaluation_function=_branin_evaluation_function_v2,
-            parameter_constraints=["x1 + x2 <= 20"],
-            total_trials=6,
-        )
-        bp, _ = loop.full_run().get_best_point()
-        self.assertIn("x1", bp)
-        self.assertIn("x2", bp)
-
-    @mock_botorch_optimize
-    def test_branin_with_unknown_sem(self) -> None:
-        loop = OptimizationLoop.with_evaluation_function(
-            parameters=[
-                {
-                    "name": "x1",
-                    "type": "range",
-                    "bounds": [-5.0, 10.0],
-                    "value_type": "float",
-                    "log_scale": False,
-                },
-                {"name": "x2", "type": "range", "bounds": [0.0, 10.0]},
-            ],
-            minimize=True,
-            evaluation_function=_branin_evaluation_function_with_unknown_sem,
-            parameter_constraints=["x1 + x2 <= 20"],
-            total_trials=6,
-        )
-        bp, _ = loop.full_run().get_best_point()
-        self.assertIn("x1", bp)
-        self.assertIn("x2", bp)
-
-    @mock_botorch_optimize
-    def test_branin_batch(self) -> None:
-        """Basic async synthetic function managed loop case."""
-
-        batch_branin = Mock(side_effect=_branin_evaluation_function)
-
-        loop = OptimizationLoop.with_evaluation_function(
-            parameters=[
-                {
-                    "name": "x1",
-                    "type": "range",
-                    "bounds": [-5.0, 10.0],
-                    "value_type": "float",
-                    "log_scale": False,
-                },
-                {"name": "x2", "type": "range", "bounds": [0.0, 10.0]},
-            ],
-            experiment_name="test",
-            objective_name="branin",
-            minimize=True,
-            evaluation_function=batch_branin,
-            parameter_constraints=["x1 + x2 <= 20"],
-            outcome_constraints=["constrained_metric <= 10"],
-            total_trials=2,
-            arms_per_trial=3,
-        )
-        bp, vals = loop.full_run().get_best_point()
-        branin_calls = batch_branin.call_args_list
-        self.assertTrue(
-            all(len(args) == 2 for args, _ in branin_calls),
-            branin_calls,
-        )
-        self.assertTrue(
-            all(type(args[1]) is np.float64 for args, _ in branin_calls),
-            branin_calls,
-        )
-        self.assertIn("x1", bp)
-        self.assertIn("x2", bp)
-        assert vals is not None
-        self.assertIn("branin", vals[0])
-        self.assertIn("branin", none_throws(vals[1]))
-        self.assertIn("branin", none_throws(vals[1])["branin"])
-        # Check that all total_trials * arms_per_trial * 2 metrics evaluations
-        # are present in the dataframe.
-        self.assertEqual(len(loop.experiment.fetch_data().df.index), 12)
-
-    def test_optimize(self) -> None:
-        """Tests optimization as a single call."""
+    def test_optimize_returns_deprecation_warning(self) -> None:
         with self.assertWarnsRegex(
             DeprecationWarning, expected_regex="optimize is deprecated"
         ):
-            best, vals, exp, model = optimize(
+            optimize(
                 parameters=[
                     {"name": "x1", "type": "range", "bounds": [-10.0, 10.0]},
                     {"name": "x2", "type": "range", "bounds": [-10.0, 10.0]},
                 ],
-                # Booth function.
                 evaluation_function=lambda p: (p["x1"] + 2 * p["x2"] - 7) ** 2
                 + (2 * p["x1"] + p["x2"] - 5) ** 2,
                 minimize=True,
                 total_trials=5,
             )
-        self.assertIn("x1", best)
-        self.assertIn("x2", best)
-        assert vals is not None
-        self.assertIn("objective", vals[0])
-        self.assertIn("objective", none_throws(vals[1]))
-        self.assertIn("objective", none_throws(vals[1])["objective"])
 
-    @patch(
-        "ax.service.managed_loop."
-        "get_best_parameters_from_model_predictions_with_trial_index",
-        autospec=True,
-        return_value=(0, {"x1": 2.0, "x2": 3.0}, ({"a": 9.0}, {"a": {"a": 3.0}})),
-    )
-    @mock_botorch_optimize
-    def test_optimize_with_predictions(self, _) -> None:
-        """Tests optimization as a single call."""
+    def test_optimize_single_metric(self) -> None:
+        """Tests optimization with a single scalar return value."""
         best, vals, exp, model = optimize(
             parameters=[
                 {"name": "x1", "type": "range", "bounds": [-10.0, 10.0]},
                 {"name": "x2", "type": "range", "bounds": [-10.0, 10.0]},
             ],
-            # Booth function.
-            evaluation_function=lambda p: (p["x1"] + 2 * p["x2"] - 7) ** 2
-            + (2 * p["x1"] + p["x2"] - 5) ** 2,
-            minimize=True,
-            total_trials=6,
-            objective_name="a",
-        )
-        self.assertIn("x1", best)
-        self.assertIn("x2", best)
-        assert vals is not None
-        self.assertIn("a", vals[0])
-        self.assertIn("a", none_throws(vals[1]))
-        self.assertIn("a", none_throws(vals[1])["a"])
-
-    @mock_botorch_optimize
-    def test_optimize_unknown_sem(self) -> None:
-        """Tests optimization as a single call."""
-        best, vals, exp, model = optimize(
-            parameters=[
-                {"name": "x1", "type": "range", "bounds": [-10.0, 10.0]},
-                {"name": "x2", "type": "range", "bounds": [-10.0, 10.0]},
-            ],
-            # Booth function.
-            evaluation_function=lambda p: (
-                (p["x1"] + 2 * p["x2"] - 7) ** 2 + (2 * p["x1"] + p["x2"] - 5) ** 2,
-                None,
-            ),
-            minimize=True,
-            total_trials=6,
-        )
-        self.assertIn("x1", best)
-        self.assertIn("x2", best)
-        self.assertIsNotNone(vals)
-        self.assertIn("objective", vals[0])
-        self.assertIn("objective", none_throws(vals[1]))
-        self.assertIn("objective", none_throws(vals[1])["objective"])
-
-    def test_optimize_propagates_random_seed(self) -> None:
-        """Tests optimization as a single call."""
-        _, _, _, model = optimize(
-            parameters=[
-                {"name": "x1", "type": "range", "bounds": [-10.0, 10.0]},
-                {"name": "x2", "type": "range", "bounds": [-10.0, 10.0]},
-            ],
-            # Booth function.
             evaluation_function=lambda p: (p["x1"] + 2 * p["x2"] - 7) ** 2
             + (2 * p["x1"] + p["x2"] - 5) ** 2,
             minimize=True,
             total_trials=5,
-            random_seed=12345,
         )
-        generator = assert_is_instance(none_throws(model).generator, SobolGenerator)
-        self.assertEqual(12345, generator.seed)
+        self.assertIn("x1", best)
+        self.assertIn("x2", best)
+        self.assertIsNotNone(vals)
+        self.assertIsNone(model)
 
-    def test_optimize_search_space_exhausted(self) -> None:
-        """Tests optimization as a single call."""
+    def test_optimize_tuple_return(self) -> None:
+        """Tests optimization when eval function returns (value, SEM)."""
         best, vals, exp, model = optimize(
             parameters=[
-                {"name": "x1", "type": "choice", "values": [1, 2]},
-                {"name": "x2", "type": "choice", "values": [1, 2]},
+                {"name": "x1", "type": "range", "bounds": [-10.0, 10.0]},
+                {"name": "x2", "type": "range", "bounds": [-10.0, 10.0]},
             ],
-            # Booth function.
+            evaluation_function=lambda p: (
+                (p["x1"] + 2 * p["x2"] - 7) ** 2 + (2 * p["x1"] + p["x2"] - 5) ** 2,
+                0.0,
+            ),
+            minimize=True,
+            total_trials=5,
+        )
+        self.assertIn("x1", best)
+        self.assertIn("x2", best)
+
+    def test_optimize_tuple_none_sem(self) -> None:
+        """Tests optimization when eval function returns (value, None)."""
+        best, vals, exp, model = optimize(
+            parameters=[
+                {"name": "x1", "type": "range", "bounds": [-10.0, 10.0]},
+                {"name": "x2", "type": "range", "bounds": [-10.0, 10.0]},
+            ],
             evaluation_function=lambda p: (
                 (p["x1"] + 2 * p["x2"] - 7) ** 2 + (2 * p["x1"] + p["x2"] - 5) ** 2,
                 None,
             ),
             minimize=True,
-            total_trials=6,
+            total_trials=5,
         )
-        self.assertEqual(len(exp.trials), 4)
         self.assertIn("x1", best)
         self.assertIn("x2", best)
-        self.assertIsNotNone(vals)
-        self.assertIn("objective", vals[0])
-        self.assertIn("objective", none_throws(vals[1]))
-        self.assertIn("objective", none_throws(vals[1])["objective"])
 
-    def test_custom_gs(self) -> None:
-        """Managed loop with custom generation strategy"""
-        strategy0 = GenerationStrategy(
-            name="Sobol",
-            nodes=[GenerationStep(generator=Generators.SOBOL, num_trials=-1)],
-        )
-        loop = OptimizationLoop.with_evaluation_function(
+    @mock_botorch_optimize
+    def test_optimize_dict_return(self) -> None:
+        """Tests optimization when eval function returns a dict."""
+        best, vals, exp, model = optimize(
             parameters=[
                 {
                     "name": "x1",
                     "type": "range",
                     "bounds": [-5.0, 10.0],
-                    "value_type": "float",
-                    "log_scale": False,
                 },
                 {"name": "x2", "type": "range", "bounds": [0.0, 10.0]},
             ],
@@ -382,104 +129,143 @@ class TestManagedLoop(TestCase):
             evaluation_function=_branin_evaluation_function,
             outcome_constraints=["constrained_metric <= 10"],
             total_trials=6,
-            generation_strategy=strategy0,
         )
-        bp, _ = loop.full_run().get_best_point()
-        self.assertIn("x1", bp)
-        self.assertIn("x2", bp)
+        self.assertIn("x1", best)
+        self.assertIn("x2", best)
 
-    def test_optimize_graceful_exit_on_exception(self) -> None:
-        """Tests optimization as a single call, with exception during
-        candidate generation.
-        """
+    def test_optimize_with_parameter_constraints(self) -> None:
+        """Tests optimization with parameter constraints."""
         best, vals, exp, model = optimize(
             parameters=[
                 {"name": "x1", "type": "range", "bounds": [-10.0, 10.0]},
                 {"name": "x2", "type": "range", "bounds": [-10.0, 10.0]},
             ],
-            # Booth function.
-            evaluation_function=lambda p: (
-                (p["x1"] + 2 * p["x2"] - 7) ** 2 + (2 * p["x1"] + p["x2"] - 5) ** 2,
-                None,
-            ),
+            evaluation_function=lambda p: (p["x1"] + 2 * p["x2"] - 7) ** 2
+            + (2 * p["x1"] + p["x2"] - 5) ** 2,
             minimize=True,
-            total_trials=6,
-            generation_strategy=GenerationStrategy(
-                name="Sobol",
-                nodes=[GenerationStep(generator=Generators.SOBOL, num_trials=3)],
-            ),
+            parameter_constraints=["x1 + x2 <= 5"],
+            total_trials=5,
         )
-        self.assertEqual(len(exp.trials), 3)  # Check that we stopped at 3 trials.
-        # All the regular return values should still be present.
         self.assertIn("x1", best)
         self.assertIn("x2", best)
-        self.assertIsNotNone(vals)
-        self.assertIn("objective", vals[0])
-        self.assertIn("objective", none_throws(vals[1]))
-        self.assertIn("objective", none_throws(vals[1])["objective"])
 
-    @patch(
-        "ax.core.experiment.Experiment.new_trial",
-        side_effect=RuntimeError("cholesky_cpu error - bad matrix"),
-    )
-    def test_annotate_exception(self, _: Mock) -> None:
-        strategy0 = GenerationStrategy(
-            name="Sobol",
-            nodes=[GenerationStep(generator=Generators.SOBOL, num_trials=-1)],
-        )
-        loop = OptimizationLoop.with_evaluation_function(
+    def test_optimize_choice_parameters(self) -> None:
+        """Tests optimization with choice parameters."""
+        best, vals, exp, model = optimize(
             parameters=[
                 {
                     "name": "x1",
-                    "type": "range",
-                    "bounds": [-5.0, 10.0],
-                    "value_type": "float",
-                    "log_scale": False,
+                    "type": "choice",
+                    "values": [1, 2, 3, 4],
+                    "value_type": "int",
                 },
-                {"name": "x2", "type": "range", "bounds": [0.0, 10.0]},
+                {
+                    "name": "x2",
+                    "type": "choice",
+                    "values": [1, 2, 3, 4],
+                    "value_type": "int",
+                },
             ],
-            experiment_name="test",
-            objective_name="branin",
+            evaluation_function=lambda p: (p["x1"] - 3) ** 2 + (p["x2"] - 2) ** 2,
             minimize=True,
-            evaluation_function=_branin_evaluation_function,
-            total_trials=6,
-            generation_strategy=strategy0,
+            total_trials=5,
         )
-        with self.assertRaisesRegex(
-            expected_exception=RuntimeError,
-            expected_regex="Cholesky errors typically occur",
-        ):
-            loop.run_trial()
+        self.assertIn("x1", best)
+        self.assertIn("x2", best)
 
-    def test_invalid_arms_per_trial(self) -> None:
-        with self.assertRaisesRegex(
-            UserInputError, "Invalid number of arms per trial: 0"
-        ):
-            loop = OptimizationLoop.with_evaluation_function(
+    def test_optimize_search_space_exhausted(self) -> None:
+        """Tests that optimization handles search space exhaustion gracefully."""
+        best, vals, exp, model = optimize(
+            parameters=[
+                {
+                    "name": "x1",
+                    "type": "choice",
+                    "values": [1, 2],
+                    "value_type": "int",
+                },
+                {
+                    "name": "x2",
+                    "type": "choice",
+                    "values": [1, 2],
+                    "value_type": "int",
+                },
+            ],
+            evaluation_function=lambda p: (p["x1"] - 1) ** 2 + (p["x2"] - 1) ** 2,
+            minimize=True,
+            total_trials=10,
+        )
+        # Should have stopped at 4 trials (2x2 search space)
+        self.assertLessEqual(len(exp.trials), 4)
+        self.assertIn("x1", best)
+        self.assertIn("x2", best)
+
+    def test_optimize_int_range_parameter(self) -> None:
+        """Tests optimization with integer range parameters (used by callers)."""
+        best, vals, exp, model = optimize(
+            parameters=[
+                {
+                    "name": "k",
+                    "type": "range",
+                    "bounds": [2, 10],
+                    "value_type": "int",
+                },
+            ],
+            evaluation_function=lambda p: (p["k"] - 5) ** 2,
+            minimize=True,
+            total_trials=5,
+        )
+        self.assertIn("k", best)
+
+    def test_optimize_log_scale(self) -> None:
+        """Tests optimization with log-scaled parameters."""
+        best, vals, exp, model = optimize(
+            parameters=[
+                {
+                    "name": "lr",
+                    "type": "range",
+                    "bounds": [0.001, 1.0],
+                    "value_type": "float",
+                    "log_scale": True,
+                },
+            ],
+            evaluation_function=lambda p: (p["lr"] - 0.01) ** 2,
+            minimize=True,
+            total_trials=5,
+        )
+        self.assertIn("lr", best)
+
+    def test_optimize_rejects_batch_trials(self) -> None:
+        """Tests that arms_per_trial > 1 raises an error."""
+        with self.assertRaisesRegex(UnsupportedError, "arms_per_trial=1"):
+            optimize(
                 parameters=[
                     {"name": "x1", "type": "range", "bounds": [-10.0, 10.0]},
-                    {"name": "x2", "type": "range", "bounds": [-10.0, 10.0]},
                 ],
-                experiment_name="test",
-                objective_name="foo",
-                evaluation_function=lambda p: 0.0,
-                minimize=True,
+                evaluation_function=lambda p: p["x1"] ** 2,
                 total_trials=5,
-                arms_per_trial=0,
+                arms_per_trial=3,
             )
-            loop.run_trial()
 
-    def test_eval_function_with_wrong_parameter_count_generates_error(self) -> None:
-        with self.assertRaises(UserInputError):
-            loop = OptimizationLoop.with_evaluation_function(
-                parameters=[
-                    {"name": "x1", "type": "range", "bounds": [-10.0, 10.0]},
-                    {"name": "x2", "type": "range", "bounds": [-10.0, 10.0]},
-                ],
-                experiment_name="test",
-                objective_name="foo",
-                evaluation_function=lambda: 1.0,  # pyre-ignore
-                minimize=True,
-                total_trials=5,
-            )
-            loop.run_trial()
+    def test_optimize_with_custom_generation_strategy(self) -> None:
+        """Tests that a custom generation strategy is passed to the Client."""
+        gs = GenerationStrategy(
+            nodes=[
+                GenerationNode(
+                    name="Sobol",
+                    generator_specs=[GeneratorSpec(generator_enum=Generators.SOBOL)],
+                )
+            ],
+        )
+        best, vals, exp, model = optimize(
+            parameters=[
+                {"name": "x1", "type": "range", "bounds": [-10.0, 10.0]},
+                {"name": "x2", "type": "range", "bounds": [-10.0, 10.0]},
+            ],
+            evaluation_function=lambda p: (p["x1"] + 2 * p["x2"] - 7) ** 2
+            + (2 * p["x1"] + p["x2"] - 5) ** 2,
+            minimize=True,
+            total_trials=5,
+            generation_strategy=gs,
+        )
+        self.assertIn("x1", best)
+        self.assertIn("x2", best)

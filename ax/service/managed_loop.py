@@ -11,262 +11,175 @@ from __future__ import annotations
 import inspect
 import logging
 import warnings
-from collections.abc import Callable, Iterable
-from typing import cast
+from collections.abc import Callable, Mapping, Sequence
+from typing import cast, Literal
 
-# Manual import to avoid strange error, see Diff for details.
-import ax.generation_strategy.generation_node_input_constructors  # noqa
-from ax.adapter.base import Adapter
-from ax.core.arm import Arm
-from ax.core.base_trial import BaseTrial
-from ax.core.batch_trial import BatchTrial
-from ax.core.evaluations_to_data import raw_evaluations_to_data
+from ax.api.client import Client
+from ax.api.configs import ChoiceParameterConfig, RangeParameterConfig
 from ax.core.experiment import Experiment
-from ax.core.trial import Trial
 from ax.core.types import (
     TEvaluationFunction,
     TEvaluationOutcome,
     TModelPredictArm,
-    TParameterization,
+    TParamValue,
 )
-from ax.exceptions.constants import CHOLESKY_ERROR_ANNOTATION
-from ax.exceptions.core import SearchSpaceExhausted, UserInputError
-from ax.generation_strategy.dispatch_utils import choose_generation_strategy_legacy
+from ax.exceptions.core import UnsupportedError
 from ax.generation_strategy.generation_strategy import GenerationStrategy
-from ax.service.utils.best_point import (
-    get_best_parameters_from_model_predictions_with_trial_index,
-    get_best_raw_objective_point_with_trial_index,
-)
-from ax.service.utils.instantiation import InstantiationBase, TParameterRepresentation
-from ax.utils.common.constants import Keys
-from ax.utils.common.executils import retry_on_exception
+from ax.service.utils.instantiation import TParameterRepresentation
 from ax.utils.common.logger import get_logger
-from pyre_extensions import none_throws
+from ax.utils.common.typeutils import (
+    assert_is_instance_list,
+    assert_is_instance_of_tuple,
+    assert_is_instance_optional,
+)
+from pyre_extensions import assert_is_instance
 
 
 logger: logging.Logger = get_logger(__name__)
 
 
-class OptimizationLoop:
-    """Managed optimization loop, in which Ax oversees deployment of trials and
-    gathering data."""
-
-    def __init__(
-        self,
-        experiment: Experiment,
-        evaluation_function: TEvaluationFunction,
-        total_trials: int = 20,
-        arms_per_trial: int = 1,
-        random_seed: int | None = None,
-        wait_time: int = 0,
-        run_async: bool = False,  # TODO[Lena],
-        generation_strategy: GenerationStrategy | None = None,
-    ) -> None:
-        assert not run_async, "OptimizationLoop does not yet support async."
-        self.wait_time = wait_time
-        self.total_trials = total_trials
-        self.arms_per_trial = arms_per_trial
-        self.random_seed = random_seed
-        self.evaluation_function: TEvaluationFunction = evaluation_function
-        assert len(experiment.trials) == 0, (
-            "Optimization Loop should not be initialized with an experiment "
-            "that has trials already."
-        )
-        self.experiment = experiment
-        if generation_strategy is None:
-            self.generation_strategy: GenerationStrategy = (
-                choose_generation_strategy_legacy(
-                    search_space=experiment.search_space,
-                    use_batch_trials=self.arms_per_trial > 1,
-                    random_seed=self.random_seed,
-                    experiment=experiment,
-                )
+def _validate_values_list(
+    raw_values: object, value_type: Literal["float", "int", "str", "bool"]
+) -> list[float] | list[int] | list[str] | list[bool]:
+    """Validate that raw_values is a list whose elements all match value_type."""
+    values_seq = assert_is_instance(raw_values, list)
+    if value_type == "bool":
+        return assert_is_instance_list(values_seq, bool)
+    if value_type == "str":
+        return assert_is_instance_list(values_seq, str)
+    # bool is a subclass of int, so reject bool explicitly before numeric checks.
+    for v in values_seq:
+        if isinstance(v, bool):
+            raise TypeError(
+                f"Value {v!r} is a bool but value_type is {value_type!r}. "
+                "Use value_type='bool' for boolean choices."
             )
+    if value_type == "int":
+        return assert_is_instance_list(values_seq, int)
+    return [float(assert_is_instance_of_tuple(v, (int, float))) for v in values_seq]
+
+
+def _narrow_range_parameter_type(value_type: str) -> Literal["float", "int"]:
+    if value_type not in ("float", "int"):
+        raise ValueError(
+            f"Invalid value_type {value_type!r} for range parameter; "
+            "expected 'float' or 'int'."
+        )
+    return value_type
+
+
+def _narrow_choice_parameter_type(
+    value_type: str,
+) -> Literal["float", "int", "str", "bool"]:
+    if value_type not in ("float", "int", "str", "bool"):
+        raise ValueError(
+            f"Invalid value_type {value_type!r} for choice parameter; "
+            "expected one of 'float', 'int', 'str', 'bool'."
+        )
+    return value_type
+
+
+def _param_dict_to_config(
+    param: TParameterRepresentation,
+) -> RangeParameterConfig | ChoiceParameterConfig:
+    """Convert a legacy parameter dict to a typed config."""
+    param_type = assert_is_instance(param["type"], str)
+    name = assert_is_instance(param["name"], str)
+
+    if param_type == "range":
+        bounds = assert_is_instance(param["bounds"], Sequence)
+        value_type = _narrow_range_parameter_type(
+            assert_is_instance(param.get("value_type", "float"), str)
+        )
+        log_scale = bool(param.get("log_scale", False))
+        return RangeParameterConfig(
+            name=name,
+            bounds=(
+                float(assert_is_instance_of_tuple(bounds[0], (int, float))),
+                float(assert_is_instance_of_tuple(bounds[1], (int, float))),
+            ),
+            parameter_type=value_type,
+            scaling="log" if log_scale else None,
+        )
+    elif param_type == "choice":
+        value_type = _narrow_choice_parameter_type(
+            assert_is_instance(param.get("value_type", "str"), str)
+        )
+        values = _validate_values_list(param["values"], value_type)
+        is_ordered = assert_is_instance_optional(param.get("is_ordered"), bool)
+        return ChoiceParameterConfig(
+            name=name,
+            values=values,
+            parameter_type=value_type,
+            is_ordered=is_ordered,
+        )
+    elif param_type == "fixed":
+        value = assert_is_instance_of_tuple(param["value"], (bool, int, float, str))
+        default_type_name = type(value).__name__
+        value_type = _narrow_choice_parameter_type(
+            assert_is_instance(param.get("value_type", default_type_name), str)
+        )
+        return ChoiceParameterConfig(
+            name=name,
+            values=_validate_values_list([value], value_type),
+            parameter_type=value_type,
+        )
+    else:
+        raise ValueError(f"Unsupported parameter type: {param_type}")
+
+
+def _call_evaluation_function(
+    evaluation_function: TEvaluationFunction,
+    parameterization: Mapping[str, TParamValue],
+) -> TEvaluationOutcome:
+    """Call the evaluation function with the right number of arguments."""
+    signature = inspect.signature(evaluation_function)
+    num_params = len(signature.parameters)
+    if num_params == 1:
+        return cast(
+            Callable[[Mapping[str, TParamValue]], TEvaluationOutcome],
+            evaluation_function,
+        )(parameterization)
+    elif num_params == 2:
+        return cast(
+            Callable[[Mapping[str, TParamValue], float | None], TEvaluationOutcome],
+            evaluation_function,
+        )(parameterization, None)
+    else:
+        raise ValueError(
+            "Evaluation function must take either one parameter "
+            "(parameterization) or two parameters (parameterization and weight)."
+        )
+
+
+def _outcome_to_dict(
+    outcome: TEvaluationOutcome,
+    objective_name: str,
+) -> Mapping[str, float | tuple[float, float]]:
+    """Convert the various TEvaluationOutcome formats to TOutcome for Client."""
+    if isinstance(outcome, dict):
+        # dict[str, tuple[float, float]] or dict[str, float] etc.
+        result: dict[str, float | tuple[float, float]] = {}
+        for k, v in outcome.items():
+            if isinstance(v, tuple):
+                mean, sem = v
+                if sem is None:
+                    result[k] = float(mean)
+                else:
+                    result[k] = (float(mean), float(sem))
+            else:
+                result[k] = float(v)
+        return result
+    elif isinstance(outcome, tuple):
+        # (float, float) or (float, None)
+        mean, sem = outcome
+        if sem is None:
+            return {objective_name: float(mean)}
         else:
-            self.generation_strategy = generation_strategy
-        self.current_trial = 0
-
-    @staticmethod
-    def with_evaluation_function(
-        parameters: list[TParameterRepresentation],
-        evaluation_function: TEvaluationFunction,
-        experiment_name: str | None = None,
-        objective_name: str | None = None,
-        minimize: bool = False,
-        parameter_constraints: list[str] | None = None,
-        outcome_constraints: list[str] | None = None,
-        total_trials: int = 20,
-        arms_per_trial: int = 1,
-        wait_time: int = 0,
-        random_seed: int | None = None,
-        generation_strategy: GenerationStrategy | None = None,
-    ) -> OptimizationLoop:
-        """Constructs a synchronous `OptimizationLoop` using an evaluation
-        function."""
-        if objective_name is None:
-            objective_name = Keys.DEFAULT_OBJECTIVE_NAME.value
-        experiment = InstantiationBase.make_experiment(
-            name=experiment_name,
-            parameters=parameters,
-            objectives={objective_name: "minimize" if minimize else "maximize"},
-            parameter_constraints=parameter_constraints,
-            outcome_constraints=outcome_constraints,
-        )
-        return OptimizationLoop(
-            experiment=experiment,
-            total_trials=total_trials,
-            arms_per_trial=arms_per_trial,
-            random_seed=random_seed,
-            wait_time=wait_time,
-            generation_strategy=generation_strategy,
-            evaluation_function=evaluation_function,
-        )
-
-    @classmethod
-    def with_runners_and_metrics(
-        cls,
-        parameters: list[TParameterRepresentation],
-        path_to_runner: str,
-        paths_to_metrics: list[str],
-        experiment_name: str | None = None,
-        objective_name: str | None = None,
-        minimize: bool = False,
-        parameter_constraints: list[str] | None = None,
-        outcome_constraints: list[str] | None = None,
-        total_trials: int = 20,
-        arms_per_trial: int = 1,
-        wait_time: int = 0,
-        random_seed: int | None = None,
-    ) -> OptimizationLoop:
-        """Constructs an asynchronous `OptimizationLoop` using Ax runners and
-        metrics."""
-        # NOTE: Could use `Orchestrator` to implement this if needed.
-        raise NotImplementedError
-
-    def _call_evaluation_function(
-        self, parameterization: TParameterization, weight: float | None = None
-    ) -> TEvaluationOutcome:
-        signature = inspect.signature(self.evaluation_function)
-        num_evaluation_function_params = len(signature.parameters.items())
-        if num_evaluation_function_params == 1:
-            evaluation = cast(
-                Callable[[TParameterization], TEvaluationOutcome],
-                self.evaluation_function,
-            )(parameterization)
-        elif num_evaluation_function_params == 2:
-            evaluation = cast(
-                Callable[[TParameterization, float | None], TEvaluationOutcome],
-                self.evaluation_function,
-            )(parameterization, weight)
-        else:
-            raise UserInputError(
-                "Evaluation function must take either one parameter "
-                "(parameterization) or two parameters (parameterization and weight)."
-            )
-
-        return evaluation
-
-    def _get_new_trial(self) -> BaseTrial:
-        if self.arms_per_trial == 1:
-            return self.experiment.new_trial(
-                generator_run=self.generation_strategy.gen_single_trial(
-                    experiment=self.experiment,
-                )
-            )
-        elif self.arms_per_trial > 1:
-            return self.experiment.new_batch_trial(
-                generator_run=self.generation_strategy.gen_single_trial(
-                    experiment=self.experiment, n=self.arms_per_trial
-                )
-            )
-        else:
-            raise UserInputError(
-                f"Invalid number of arms per trial: {self.arms_per_trial}"
-            )
-
-    def _get_weights_by_arm(
-        self, trial: BaseTrial
-    ) -> Iterable[tuple[Arm, float | None]]:
-        if isinstance(trial, Trial):
-            if trial.arm is not None:
-                return [(none_throws(trial.arm), None)]
-            return []
-        elif isinstance(trial, BatchTrial):
-            return trial.normalized_arm_weights().items()
-        else:
-            raise UserInputError(f"Invalid trial type: {type(trial)}")
-
-    @retry_on_exception(
-        logger=logger,
-        exception_types=(RuntimeError,),
-        suppress_all_errors=False,
-        wrap_error_message_in=CHOLESKY_ERROR_ANNOTATION,
-    )
-    def run_trial(self) -> None:
-        """Run a single step of the optimization plan."""
-        if self.current_trial >= self.total_trials:
-            raise ValueError("Optimization is complete, cannot run another trial.")
-        logger.info(f"Running optimization trial {self.current_trial + 1}...")
-
-        trial = self._get_new_trial()
-
-        trial.mark_running(no_runner_required=True)
-        metric_name_to_signature = {
-            name: metric.signature for name, metric in self.experiment.metrics.items()
-        }
-
-        data = raw_evaluations_to_data(
-            raw_data={
-                arm.name: self._call_evaluation_function(arm.parameters, weight)
-                for arm, weight in self._get_weights_by_arm(trial)
-            },
-            trial_index=self.current_trial,
-            metric_name_to_signature=metric_name_to_signature,
-        )
-
-        self.experiment.attach_data(data=data)
-        trial.mark_completed()
-        self.current_trial += 1
-
-    def full_run(self) -> OptimizationLoop:
-        """Runs full optimization loop as defined in the provided optimization
-        plan."""
-        num_steps = self.total_trials
-        logger.info(f"Started full optimization with {num_steps} steps.")
-        for _ in range(num_steps):
-            try:
-                self.run_trial()
-            except SearchSpaceExhausted as err:
-                logger.info(
-                    f"Stopped optimization as the search space is exhausted. Message "
-                    f"from generation strategy: {err}."
-                )
-                return self
-            except Exception:
-                logger.exception("Encountered exception during optimization: ")
-                return self
-        return self
-
-    def get_best_point(self) -> tuple[TParameterization, TModelPredictArm | None]:
-        """Obtains the best point encountered in the course
-        of this optimization."""
-        # Find latest trial which has a generator_run attached and get its predictions
-        best_point = get_best_parameters_from_model_predictions_with_trial_index(
-            experiment=self.experiment, adapter=self.generation_strategy.adapter
-        )
-        if best_point is not None:
-            _, parameterizations, predictions = best_point
-            return parameterizations, predictions
-
-        # Could not find through model, default to using raw objective.
-        _, parameterization, predict_arm = (
-            get_best_raw_objective_point_with_trial_index(experiment=self.experiment)
-        )
-        return parameterization, predict_arm
-
-    def get_current_model(self) -> Adapter | None:
-        """Obtain the most recently used model in optimization."""
-        return self.generation_strategy.adapter
+            return {objective_name: (float(mean), float(sem))}
+    else:
+        # Single float
+        return {objective_name: float(outcome)}
 
 
 def optimize(
@@ -281,27 +194,81 @@ def optimize(
     arms_per_trial: int = 1,
     random_seed: int | None = None,
     generation_strategy: GenerationStrategy | None = None,
-) -> tuple[TParameterization, TModelPredictArm | None, Experiment, Adapter | None]:
-    """Construct and run a full optimization loop."""
+) -> tuple[Mapping[str, TParamValue], TModelPredictArm | None, Experiment, None]:
+    """Construct and run a full optimization loop.
+
+    .. deprecated::
+        This function is deprecated. Use :class:`ax.api.client.Client` directly.
+    """
     warnings.warn(
-        "optimize is deprecated and will be removed in Ax 1.3. Please use "
-        "Client from ax.api.client instead.",
+        "optimize is deprecated and will be removed in a future version of Ax. "
+        "Please use Client from ax.api.client instead.",
         DeprecationWarning,
         stacklevel=2,
     )
-    loop = OptimizationLoop.with_evaluation_function(
-        parameters=parameters,
-        objective_name=objective_name,
-        evaluation_function=evaluation_function,
-        experiment_name=experiment_name,
-        minimize=minimize,
+
+    if arms_per_trial != 1:
+        raise UnsupportedError("optimize() only supports arms_per_trial=1. ")
+
+    if objective_name is None:
+        objective_name = "objective"
+
+    # Convert legacy parameter dicts to typed configs.
+    param_configs = [_param_dict_to_config(p) for p in parameters]
+
+    # Set up Client.
+    client = Client(random_seed=random_seed)
+    client.configure_experiment(
+        parameters=param_configs,
         parameter_constraints=parameter_constraints,
-        outcome_constraints=outcome_constraints,
-        total_trials=total_trials,
-        arms_per_trial=arms_per_trial,
-        random_seed=random_seed,
-        generation_strategy=generation_strategy,
+        name=experiment_name,
     )
-    loop.full_run()
-    parameterization, values = loop.get_best_point()
-    return parameterization, values, loop.experiment, loop.get_current_model()
+    objective_str = objective_name if not minimize else f"-{objective_name}"
+    client.configure_optimization(
+        objective=objective_str,
+        outcome_constraints=outcome_constraints,
+    )
+    if generation_strategy is not None:
+        client.set_generation_strategy(generation_strategy)
+
+    # Run optimization loop.
+    for _ in range(total_trials):
+        try:
+            trials = client.get_next_trials(max_trials=1)
+        except Exception:
+            logger.exception("Encountered exception during trial generation.")
+            break
+
+        for trial_index, parameterization in trials.items():
+            try:
+                raw_outcome = _call_evaluation_function(
+                    evaluation_function, parameterization
+                )
+                outcome_data = _outcome_to_dict(raw_outcome, objective_name)
+                client.complete_trial(trial_index=trial_index, raw_data=outcome_data)
+            except Exception:
+                logger.exception(
+                    f"Encountered exception evaluating trial {trial_index}."
+                )
+                break
+
+    # Get best parameters.
+    best_params, prediction, _trial_index, _arm_name = (
+        client.get_best_parameterization()
+    )
+
+    # Convert prediction (TOutcome) to TModelPredictArm format for
+    # backward compatibility.
+    means: dict[str, float] = {}
+    covariances: dict[str, dict[str, float]] = {}
+    for metric_name, value in prediction.items():
+        if isinstance(value, tuple):
+            means[metric_name] = value[0]
+            covariances[metric_name] = {metric_name: value[1] ** 2}
+        else:
+            means[metric_name] = value
+            covariances[metric_name] = {metric_name: 0.0}
+
+    model_predict_arm: TModelPredictArm = (means, covariances)
+
+    return best_params, model_predict_arm, client._experiment, None
