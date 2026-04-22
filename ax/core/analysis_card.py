@@ -18,6 +18,8 @@ from ax.utils.tutorials.environment import is_running_in_papermill
 from IPython.display import display, HTML, Markdown
 from plotly.offline import get_plotlyjs
 
+DEFAULT_SUBTITLE_TOGGLE_LABEL: str = "See more"
+
 # Simple HTML template for rendering a card with a title, subtitle, and body with
 # scrollable overflow. Subtitles are rendered in a <div> with max-height overflow
 # so that any HTML content (tables, lists, etc.) is valid and clipped correctly
@@ -54,11 +56,11 @@ html_card_template = """
     display: none;
 }}
 </style>
-<div class="card">
+<div class="card" id="{card_id}">
     <div class="card-header">
         <b>{title_str}</b>
         <div class="card-subtitle">{subtitle_str}</div>
-        <button class="card-subtitle-toggle">See more</button>
+        <button class="card-subtitle-toggle">{toggle_text}</button>
     </div>
     <div class="card-body">
         {body_html}
@@ -66,10 +68,12 @@ html_card_template = """
 </div>
 <script>
 (function() {{
-    var card = document.currentScript.previousElementSibling;
+    var card = document.getElementById('{card_id}');
+    if (!card) return;
     var subtitle = card.querySelector('.card-subtitle');
     var toggle = card.querySelector('.card-subtitle-toggle');
     if (subtitle && toggle) {{
+        var originalText = toggle.textContent;
         requestAnimationFrame(function() {{
             if (subtitle.scrollHeight > subtitle.clientHeight
                     || subtitle.scrollWidth > subtitle.clientWidth) {{
@@ -81,7 +85,7 @@ html_card_template = """
                 subtitle.style.maxHeight = '1.4em';
                 subtitle.style.whiteSpace = 'nowrap';
                 subtitle.style.textOverflow = 'ellipsis';
-                toggle.textContent = 'See more';
+                toggle.textContent = originalText;
             }} else {{
                 subtitle.style.maxHeight = 'none';
                 subtitle.style.whiteSpace = 'normal';
@@ -154,6 +158,7 @@ class AnalysisCardBase(SortableBase, ABC):
 
     title: str
     subtitle: str
+    subtitle_toggle_label: str
 
     _timestamp: datetime
 
@@ -163,6 +168,7 @@ class AnalysisCardBase(SortableBase, ABC):
         title: str,
         subtitle: str,
         timestamp: datetime | None = None,
+        subtitle_toggle_label: str = DEFAULT_SUBTITLE_TOGGLE_LABEL,
     ) -> None:
         """
         Args:
@@ -175,10 +181,16 @@ class AnalysisCardBase(SortableBase, ABC):
             timestamp: The time at which the Analysis was computed. This can be
                 especially useful when querying the database for the most recently
                 produced artifacts.
+            subtitle_toggle_label: Custom label for the subtitle
+                expansion toggle. When non-empty, replaces the default
+                "See more" text. An empty string is converted to the
+                default. Persisted to storage and used by both notebook
+                and web UI rendering.
         """
         self.name = name
         self.title = title
         self.subtitle = subtitle
+        self.subtitle_toggle_label = subtitle_toggle_label
         self._timestamp = timestamp if timestamp is not None else datetime.now()
 
     @abstractmethod
@@ -258,10 +270,16 @@ class AnalysisCardBase(SortableBase, ABC):
         return plotlyjs_script + self._to_html(depth=0)
 
     def _to_html(self, depth: int) -> str:
+        toggle_text = self.subtitle_toggle_label or DEFAULT_SUBTITLE_TOGGLE_LABEL
+        # Use id(self) so each card gets a unique HTML element ID even when
+        # multiple cards share the same name.
+        card_id = f"ax-card-{id(self)}"
         return html_card_template.format(
+            card_id=card_id,
             title_str=self.title,
             subtitle_str=self.subtitle,
             body_html=self._body_html(depth=depth),
+            toggle_text=toggle_text,
         )
 
 
@@ -282,6 +300,7 @@ class AnalysisCardGroup(AnalysisCardBase):
         subtitle: str | None,
         children: Sequence[AnalysisCardBase],
         timestamp: datetime | None = None,
+        subtitle_toggle_label: str = DEFAULT_SUBTITLE_TOGGLE_LABEL,
     ) -> None:
         """
         Args:
@@ -294,12 +313,16 @@ class AnalysisCardGroup(AnalysisCardBase):
             timestamp: The time at which the Analysis was computed. This can be
                 especially useful when querying the database for the most recently
                 produced artifacts.
+            subtitle_toggle_label: Custom label for the subtitle expansion
+                toggle. When non-empty, replaces the default "See more" text.
+                An empty string is converted to the default.
         """
         super().__init__(
             name=name,
             title=title,
             subtitle=subtitle if subtitle is not None else "",
             timestamp=timestamp,
+            subtitle_toggle_label=subtitle_toggle_label,
         )
 
         self.children = [
@@ -404,6 +427,7 @@ class AnalysisCard(AnalysisCardBase):
         df: pd.DataFrame,
         blob: str,
         timestamp: datetime | None = None,
+        subtitle_toggle_label: str = DEFAULT_SUBTITLE_TOGGLE_LABEL,
     ) -> None:
         """
         Args:
@@ -417,12 +441,16 @@ class AnalysisCard(AnalysisCardBase):
             timestamp: The time at which the Analysis was computed. This can be
                 especially useful when querying the database for the most recently
                 produced artifacts.
+            subtitle_toggle_label: Custom label for the subtitle expansion
+                toggle. When non-empty, replaces the default "See more" text.
+                An empty string is converted to the default.
         """
         super().__init__(
             name=name,
             title=title,
             subtitle=subtitle,
             timestamp=timestamp,
+            subtitle_toggle_label=subtitle_toggle_label,
         )
 
         self.df = df

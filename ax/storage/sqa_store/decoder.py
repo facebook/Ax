@@ -23,6 +23,7 @@ from ax.core.analysis_card import (
     AnalysisCard,
     AnalysisCardBase,
     AnalysisCardGroup,
+    DEFAULT_SUBTITLE_TOGGLE_LABEL,
     ErrorAnalysisCard,
     NotApplicableStateAnalysisCard,
 )
@@ -1163,6 +1164,7 @@ class Decoder:
                 analysis_card_sqa.title if analysis_card_sqa.title is not None else ""
             )
             subtitle = analysis_card_sqa.subtitle
+            subtitle_toggle_label = analysis_card_sqa.subtitle_toggle_label or DEFAULT_SUBTITLE_TOGGLE_LABEL
 
             return AnalysisCardGroup(
                 name=analysis_card_sqa.name,
@@ -1170,12 +1172,14 @@ class Decoder:
                 subtitle=subtitle,
                 children=children,
                 timestamp=analysis_card_sqa.timestamp,
+                subtitle_toggle_label=subtitle_toggle_label,
             )
 
         title = none_throws(analysis_card_sqa.title)
         subtitle = none_throws(analysis_card_sqa.subtitle)
         blob = none_throws(analysis_card_sqa.blob)
         blob_annotation = analysis_card_sqa.blob_annotation
+        subtitle_toggle_label = analysis_card_sqa.subtitle_toggle_label or ""
 
         if blob_annotation == "not_applicable_state":
             return NotApplicableStateAnalysisCard(
@@ -1185,6 +1189,7 @@ class Decoder:
                 df=read_json(StringIO(analysis_card_sqa.dataframe_json)),
                 blob=blob,
                 timestamp=analysis_card_sqa.timestamp,
+                subtitle_toggle_label=subtitle_toggle_label,
             )
         if blob_annotation == "error":
             return ErrorAnalysisCard(
@@ -1194,6 +1199,7 @@ class Decoder:
                 df=read_json(StringIO(analysis_card_sqa.dataframe_json)),
                 blob=blob,
                 timestamp=analysis_card_sqa.timestamp,
+                subtitle_toggle_label=subtitle_toggle_label,
             )
         if blob_annotation == "plotly":
             return PlotlyAnalysisCard(
@@ -1203,6 +1209,7 @@ class Decoder:
                 df=read_json(StringIO(analysis_card_sqa.dataframe_json)),
                 blob=blob,
                 timestamp=analysis_card_sqa.timestamp,
+                subtitle_toggle_label=subtitle_toggle_label,
             )
         if blob_annotation == "markdown":
             return MarkdownAnalysisCard(
@@ -1212,6 +1219,7 @@ class Decoder:
                 df=read_json(StringIO(analysis_card_sqa.dataframe_json)),
                 blob=blob,
                 timestamp=analysis_card_sqa.timestamp,
+                subtitle_toggle_label=subtitle_toggle_label,
             )
         if blob_annotation == "healthcheck":
             return HealthcheckAnalysisCard(
@@ -1221,6 +1229,7 @@ class Decoder:
                 df=read_json(StringIO(analysis_card_sqa.dataframe_json)),
                 blob=blob,
                 timestamp=analysis_card_sqa.timestamp,
+                subtitle_toggle_label=subtitle_toggle_label,
             )
         if blob_annotation == "graphviz":
             return GraphvizAnalysisCard(
@@ -1230,6 +1239,7 @@ class Decoder:
                 df=read_json(StringIO(analysis_card_sqa.dataframe_json)),
                 blob=blob,
                 timestamp=analysis_card_sqa.timestamp,
+                subtitle_toggle_label=subtitle_toggle_label,
             )
         return AnalysisCard(
             name=analysis_card_sqa.name,
@@ -1238,6 +1248,7 @@ class Decoder:
             df=read_json(StringIO(analysis_card_sqa.dataframe_json)),
             blob=blob,
             timestamp=analysis_card_sqa.timestamp,
+            subtitle_toggle_label=subtitle_toggle_label,
         )
 
     def _metric_from_sqa_util(self, metric_sqa: SQAMetric) -> Metric:

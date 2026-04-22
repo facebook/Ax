@@ -89,6 +89,7 @@ def analysis_card_to_dict(card: AnalysisCard) -> dict[str, Any]:
         "df": card.df,
         "blob": card.blob,
         "timestamp": card._timestamp,
+        "subtitle_toggle_label": card.subtitle_toggle_label,
     }
 
 
@@ -101,6 +102,7 @@ def analysis_card_group_to_dict(group: AnalysisCardGroup) -> dict[str, Any]:
         "subtitle": group.subtitle,
         "children": group.children,
         "timestamp": group._timestamp,
+        "subtitle_toggle_label": group.subtitle_toggle_label,
     }
 
 

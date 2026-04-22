@@ -455,6 +455,9 @@ class SQAAnalysisCard(Base):
     blob_annotation: Column[str | None] = Column(
         String(NAME_OR_TYPE_FIELD_LENGTH), nullable=True
     )
+    subtitle_toggle_label: Column[str | None] = Column(
+        "subtitle_toggle_label", String(LONG_STRING_FIELD_LENGTH), nullable=True
+    )
     parent: Any = relationship(
         "SQAAnalysisCard",
         back_populates="children",

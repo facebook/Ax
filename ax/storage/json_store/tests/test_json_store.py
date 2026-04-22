@@ -426,6 +426,7 @@ TEST_CASES: list[tuple[str, Callable[..., Any]]] = [
             subtitle="subtitle",
             df=pd.DataFrame({"a": [1, 2]}),
             blob="blob_str",
+            subtitle_toggle_label="Expand to see details.",
         ),
     ),
     (
@@ -486,6 +487,7 @@ TEST_CASES: list[tuple[str, Callable[..., Any]]] = [
             subtitle="na subtitle",
             df=pd.DataFrame(),
             blob="Not enough data.",
+            subtitle_toggle_label="Expand to see why.",
         ),
     ),
     (
@@ -510,6 +512,7 @@ TEST_CASES: list[tuple[str, Callable[..., Any]]] = [
                     blob="# md",
                 ),
             ],
+            subtitle_toggle_label="Expand to see children.",
         ),
     ),
 ]
@@ -648,6 +651,64 @@ class JSONStoreTest(TestCase):
                     )
                 else:
                     raise e
+
+    def test_EncodeDecodeAnalysisCardSubtitleToggleLabel(self) -> None:
+        """Verify decoding old JSON missing subtitle_toggle_label falls back to
+        the constructor default (backwards compatibility).
+        """
+
+        # GIVEN old AnalysisCard JSON missing the subtitle_toggle_label key
+        with self.subTest(msg="backward compatible - AnalysisCard"):
+            restored = object_from_json(
+                {
+                    "__type": "AnalysisCard",
+                    "name": "OldCard",
+                    "title": "T",
+                    "subtitle": "S",
+                    "df": {"__type": "DataFrame", "value": "{}"},
+                    "blob": "b",
+                    "timestamp": {
+                        "__type": "datetime",
+                        "value": "2025-01-01 00:00:00.000000",
+                    },
+                },
+                decoder_registry=CORE_DECODER_REGISTRY,
+                class_decoder_registry=CORE_CLASS_DECODER_REGISTRY,
+            )
+            self.assertEqual(restored.subtitle_toggle_label, "See more")
+
+        # GIVEN old AnalysisCardGroup JSON missing subtitle_toggle_label
+        with self.subTest(msg="backward compatible - AnalysisCardGroup"):
+            restored_group = object_from_json(
+                {
+                    "__type": "AnalysisCardGroup",
+                    "name": "OldGroup",
+                    "title": "GT",
+                    "subtitle": "GS",
+                    "children": [
+                        {
+                            "__type": "AnalysisCard",
+                            "name": "C",
+                            "title": "CT",
+                            "subtitle": "CS",
+                            "df": {"__type": "DataFrame", "value": "{}"},
+                            "blob": "b",
+                            "timestamp": {
+                                "__type": "datetime",
+                                "value": "2025-01-01 00:00:00.000000",
+                            },
+                        }
+                    ],
+                    "timestamp": {
+                        "__type": "datetime",
+                        "value": "2025-01-01 00:00:00.000000",
+                    },
+                },
+                decoder_registry=CORE_DECODER_REGISTRY,
+                class_decoder_registry=CORE_CLASS_DECODER_REGISTRY,
+            )
+            self.assertEqual(restored_group.subtitle_toggle_label, "")
+            self.assertEqual(restored_group.children[0].subtitle_toggle_label, "")
 
     def test_EncodeDecode_dataclass_with_initvar(self) -> None:
         @dataclasses.dataclass

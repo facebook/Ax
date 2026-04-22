@@ -1264,6 +1264,7 @@ class Encoder:
                 dataframe_json=None,
                 blob=None,
                 blob_annotation=None,
+                subtitle_toggle_label=analysis_card.subtitle_toggle_label or None,
             )
 
             for i, child_card in enumerate(analysis_card.children):
@@ -1304,4 +1305,5 @@ class Encoder:
             dataframe_json=card.df.to_json(),
             blob=card.blob,
             blob_annotation=blob_annotation,
+            subtitle_toggle_label=card.subtitle_toggle_label or None,
         )

@@ -18,6 +18,8 @@ from unittest.mock import MagicMock, Mock, patch
 
 import pandas as pd
 from ax.adapter.registry import Generators
+from ax.analysis.graphviz.graphviz_analysis import GraphvizAnalysisCard
+from ax.analysis.healthcheck.healthcheck_analysis import HealthcheckAnalysisCard
 from ax.analysis.markdown.markdown_analysis import MarkdownAnalysisCard
 from ax.analysis.plotly.plotly_analysis import PlotlyAnalysisCard
 from ax.api.utils.generation_strategy_dispatch import (
@@ -3019,6 +3021,7 @@ class SQAStoreTest(TestCase):
             subtitle="test_subtitle",
             df=test_df,
             blob="test blob",
+            subtitle_toggle_label="Expand to see details.",
         )
         markdown_analysis_card = MarkdownAnalysisCard(
             name="test_markdown_analysis_card",
@@ -3034,12 +3037,29 @@ class SQAStoreTest(TestCase):
             df=test_df,
             blob=pio.to_json(go.Figure()),
         )
+        healthcheck_card = HealthcheckAnalysisCard(
+            name="test_healthcheck_card",
+            title="test_title",
+            subtitle="test_subtitle",
+            df=test_df,
+            blob='{"status": 0}',
+            subtitle_toggle_label="Expand to see healthcheck.",
+        )
+        graphviz_card = GraphvizAnalysisCard(
+            name="test_graphviz_card",
+            title="test_title",
+            subtitle="test_subtitle",
+            df=test_df,
+            blob="digraph {}",
+            subtitle_toggle_label="Expand to see graph.",
+        )
         na_card = NotApplicableStateAnalysisCard(
             name="test_na_card",
             title="test_title",
             subtitle="test_subtitle",
             df=test_df,
             blob="Not enough data.",
+            subtitle_toggle_label="Expand to see why.",
         )
 
         # Create two groups which hold the leaf cards
@@ -3052,8 +3072,11 @@ class SQAStoreTest(TestCase):
                 base_analysis_card,
                 markdown_analysis_card,
                 plotly_analysis_card,
+                healthcheck_card,
+                graphviz_card,
                 na_card,
             ],
+            subtitle_toggle_label="Expand to see group children.",
         )
         big_group = AnalysisCardGroup(
             name="big_group",
@@ -3083,12 +3106,14 @@ class SQAStoreTest(TestCase):
             self.assertEqual(loaded_big_group.name, big_group.name)
             self.assertEqual(loaded_big_group.title, big_group.title)
             self.assertEqual(loaded_big_group.subtitle, big_group.subtitle)
+            self.assertEqual(loaded_big_group.subtitle_toggle_label, "See more")
 
             loaded_big_group_plotly = assert_is_instance(
                 loaded_big_group.children[0], PlotlyAnalysisCard
             )
             self.assertEqual(loaded_big_group_plotly.name, plotly_analysis_card.name)
             self.assertEqual(loaded_big_group_plotly.blob, plotly_analysis_card.blob)
+            self.assertEqual(loaded_big_group_plotly.subtitle_toggle_label, "See more")
 
             loaded_small_group = assert_is_instance(
                 loaded_big_group.children[1], AnalysisCardGroup
@@ -3096,30 +3121,63 @@ class SQAStoreTest(TestCase):
             self.assertEqual(loaded_small_group.name, small_group.name)
             self.assertEqual(loaded_small_group.title, small_group.title)
             self.assertEqual(loaded_small_group.subtitle, small_group.subtitle)
+            self.assertEqual(
+                loaded_small_group.subtitle_toggle_label,
+                "Expand to see group children.",
+            )
 
             loaded_base = assert_is_instance(
                 loaded_small_group.children[0], AnalysisCard
             )
             self.assertEqual(loaded_base.name, base_analysis_card.name)
             self.assertEqual(loaded_base.blob, base_analysis_card.blob)
+            self.assertEqual(
+                loaded_base.subtitle_toggle_label, "Expand to see details."
+            )
 
             loaded_markdown = assert_is_instance(
                 loaded_small_group.children[1], MarkdownAnalysisCard
             )
             self.assertEqual(loaded_markdown.name, markdown_analysis_card.name)
             self.assertEqual(loaded_markdown.blob, markdown_analysis_card.blob)
+            self.assertEqual(loaded_markdown.subtitle_toggle_label, "See more")
 
             loaded_small_group_plotly = assert_is_instance(
                 loaded_small_group.children[2], PlotlyAnalysisCard
             )
             self.assertEqual(loaded_small_group_plotly.name, plotly_analysis_card.name)
             self.assertEqual(loaded_small_group_plotly.blob, plotly_analysis_card.blob)
+            self.assertEqual(loaded_small_group_plotly.subtitle_toggle_label, "See more")
+
+            loaded_healthcheck = assert_is_instance(
+                loaded_small_group.children[3], HealthcheckAnalysisCard
+            )
+            self.assertEqual(loaded_healthcheck.name, healthcheck_card.name)
+            self.assertEqual(loaded_healthcheck.blob, healthcheck_card.blob)
+            self.assertEqual(
+                loaded_healthcheck.subtitle_toggle_label,
+                "Expand to see healthcheck.",
+            )
+
+            loaded_graphviz = assert_is_instance(
+                loaded_small_group.children[4], GraphvizAnalysisCard
+            )
+            self.assertEqual(loaded_graphviz.name, graphviz_card.name)
+            self.assertEqual(loaded_graphviz.blob, graphviz_card.blob)
+            self.assertEqual(
+                loaded_graphviz.subtitle_toggle_label,
+                "Expand to see graph.",
+            )
 
             loaded_na = assert_is_instance(
-                loaded_small_group.children[3], NotApplicableStateAnalysisCard
+                loaded_small_group.children[5], NotApplicableStateAnalysisCard
             )
             self.assertEqual(loaded_na.name, na_card.name)
             self.assertEqual(loaded_na.blob, na_card.blob)
+            self.assertEqual(
+                loaded_na.subtitle_toggle_label,
+                "Expand to see why.",
+            )
 
     def test_delete_generation_strategy(self) -> None:
         # GIVEN an experiment with a generation strategy
