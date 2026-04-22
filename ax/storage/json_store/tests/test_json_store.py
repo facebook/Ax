@@ -1069,6 +1069,30 @@ class JSONStoreTest(TestCase):
             del expected_json["state_dict"]["lower_bound"]
             botorch_component_from_json(interval.__class__, expected_json)
 
+    def test_prior_roundtrip_serialization(self) -> None:
+        """Test encode/decode roundtrip for priors with buffered attributes.
+
+        Priors whose underlying distribution uses @property descriptors
+        (e.g. BetaPrior via Dirichlet, LogNormalPrior via TransformedDistribution)
+        store state_dict keys with BUFFERED_PREFIX. The decoder must strip
+        the prefix to match __init__ arg names.
+        """
+        from botorch.models.utils.priors import BetaPrior
+        from gpytorch.priors.torch_priors import GammaPrior, LogNormalPrior, NormalPrior
+
+        priors = [
+            ("BetaPrior", BetaPrior(concentration1=2.5, concentration0=1.5)),
+            ("GammaPrior", GammaPrior(concentration=2.0, rate=1.0)),
+            ("NormalPrior", NormalPrior(loc=0.0, scale=1.0)),
+            ("LogNormalPrior", LogNormalPrior(loc=0.0, scale=1.0)),
+        ]
+        for name, prior in priors:
+            with self.subTest(prior=name):
+                encoded = botorch_component_to_dict(prior)
+                decoded = botorch_component_from_json(prior.__class__, encoded)
+                self.assertIsInstance(decoded, prior.__class__)
+                self.assertEqual(decoded.state_dict(), prior.state_dict())
+
     def test_observation_features_backward_compatibility(self) -> None:
         json = {
             "__type": "ObservationFeatures",
