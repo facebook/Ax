@@ -673,7 +673,6 @@ class TestGenerationStrategy(TestCase):
                         "scramble": True,
                         "fallback_to_sample_polytope": False,
                         "polytope_sampler_kwargs": None,
-                        "generated_points": None,
                     },
                 )
                 self.assertEqual(
@@ -1631,7 +1630,6 @@ class TestGenerationStrategy(TestCase):
                         "scramble": True,
                         "fallback_to_sample_polytope": False,
                         "polytope_sampler_kwargs": None,
-                        "generated_points": None,
                     },
                 )
                 self.assertEqual(

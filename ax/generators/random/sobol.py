@@ -38,7 +38,6 @@ class SobolGenerator(RandomGenerator):
         seed: int | None = None,
         init_position: int = 0,
         scramble: bool = True,
-        generated_points: npt.NDArray | None = None,
         fallback_to_sample_polytope: bool = False,
         polytope_sampler_kwargs: dict[str, Any] | None = None,
     ) -> None:
@@ -46,7 +45,6 @@ class SobolGenerator(RandomGenerator):
             deduplicate=deduplicate,
             seed=seed,
             init_position=init_position,
-            generated_points=generated_points,
             fallback_to_sample_polytope=fallback_to_sample_polytope,
             polytope_sampler_kwargs=polytope_sampler_kwargs,
         )

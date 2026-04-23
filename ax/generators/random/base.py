@@ -6,7 +6,6 @@
 
 # pyre-strict
 
-import warnings
 from collections.abc import Callable
 from logging import Logger
 from typing import Any
@@ -57,9 +56,6 @@ class RandomGenerator(Generator):
             of samples to fast-forward before generating new samples.
             Used to ensure that the re-loaded generator will continue generating
             from the same sequence rather than starting from scratch.
-        generated_points: A set of previously generated points to use
-            for deduplication. These should be provided in the raw transformed
-            space the model operates in.
         fallback_to_sample_polytope: If True, when rejection sampling fails,
             we fall back to the HitAndRunPolytopeSampler.
     """
@@ -69,7 +65,6 @@ class RandomGenerator(Generator):
         deduplicate: bool = True,
         seed: int | None = None,
         init_position: int = 0,
-        generated_points: npt.NDArray | None = None,
         fallback_to_sample_polytope: bool = False,
         polytope_sampler_kwargs: dict[str, Any] | None = None,
     ) -> None:
@@ -86,15 +81,6 @@ class RandomGenerator(Generator):
         self.polytope_sampler_kwargs: dict[str, Any] = polytope_sampler_kwargs or {}
         self._bounds: npt.NDArray = np.empty((0, 2))
         self.attempted_draws: int = 0
-        if generated_points is not None:
-            # generated_points was deprecated in Ax 1.0.0, so it can now be reaped.
-            warnings.warn(
-                "The `generated_points` argument is deprecated and will be removed "
-                "in a future version of Ax. It is being ignored in favor of "
-                "extracting the generated points directly from the experiment.",
-                DeprecationWarning,
-                stacklevel=2,
-            )
 
     @property
     def can_predict(self) -> bool:

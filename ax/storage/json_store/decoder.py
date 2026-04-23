@@ -140,6 +140,7 @@ _DEPRECATED_GENERATOR_KWARGS: tuple[str, ...] = (
     "torch_dtype",
     "status_quo_name",
     "status_quo_features",
+    "generated_points",
 )
 
 # Deprecated node input constructors, removed from GNodes.

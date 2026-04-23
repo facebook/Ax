@@ -833,13 +833,13 @@ class SQAStoreTest(TestCase):
             # 3. Try case with model state and search space + opt.config on a
             # generator run in the experiment.
             gr = Generators.SOBOL(experiment=exp).gen(1)
-            # Expecting model kwargs to have 7 fields (seed, deduplicate, init_position,
-            # scramble, generated_points, fallback_to_sample_polytope,
+            # Expecting model kwargs to have 6 fields (seed, deduplicate, init_position,
+            # scramble, fallback_to_sample_polytope,
             # polytope_sampler_kwargs)
             # and the rest of model-state info on generator run to have values too.
             generator_kwargs = gr._generator_kwargs
             self.assertIsNotNone(generator_kwargs)
-            self.assertEqual(len(generator_kwargs), 7)
+            self.assertEqual(len(generator_kwargs), 6)
             adapter_kwargs = gr._adapter_kwargs
             self.assertIsNotNone(adapter_kwargs)
             self.assertEqual(len(adapter_kwargs), 6)
@@ -1896,8 +1896,6 @@ class SQAStoreTest(TestCase):
         sqa_parameter_constraint = SQAParameterConstraint(
             bound=Decimal(0),
             constraint_dict={},
-            # pyre-fixme[6]: For 3rd param expected `IntEnum` but got
-            #  `ParameterConstraintType`.
             type=ParameterConstraintType.LINEAR,
         )
         with self.assertRaises(ValueError):
@@ -1915,8 +1913,6 @@ class SQAStoreTest(TestCase):
         sqa_parameter_constraint = SQAParameterConstraint(
             bound=Decimal(0),
             constraint_dict={},
-            # pyre-fixme[6]: For 3rd param expected `IntEnum` but got
-            #  `ParameterConstraintType`.
             type=ParameterConstraintType.LINEAR,
             generator_run_id=0,
         )
@@ -1929,8 +1925,6 @@ class SQAStoreTest(TestCase):
 
     def test_decode_order_parameter_constraint_failure(self) -> None:
         sqa_parameter = SQAParameterConstraint(
-            # pyre-fixme[6]: For 1st param expected `IntEnum` but got
-            #  `ParameterConstraintType`.
             type=ParameterConstraintType.ORDER,
             constraint_dict={},
             bound=Decimal(0),
@@ -1942,8 +1936,6 @@ class SQAStoreTest(TestCase):
 
     def test_decode_sum_parameter_constraint_failure(self) -> None:
         sqa_parameter = SQAParameterConstraint(
-            # pyre-fixme[6]: For 1st param expected `IntEnum` but got
-            #  `ParameterConstraintType`.
             type=ParameterConstraintType.SUM,
             constraint_dict={},
             bound=Decimal(0),

@@ -1261,6 +1261,7 @@ class JSONStoreTest(TestCase):
                 "deduplicate": False,
                 "seed": None,
                 "torch_dtype": None,
+                "generated_points": None,
             },
             "bridge_kwargs": {
                 "transforms": {},
