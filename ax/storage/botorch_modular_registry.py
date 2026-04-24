@@ -86,6 +86,7 @@ from botorch.models.transforms.input import (
     FilterFeatures,
     InputPerturbation,
     InputTransform,
+    LearnedFeatureImputation,
     Normalize,
     Round,
     Warp,
@@ -215,6 +216,7 @@ Mapping of BoTorch `InputTransform` classes to class name strings.
 """
 INPUT_TRANSFORM_REGISTRY: dict[type[InputTransform], str] = {
     ChainedInputTransform: "ChainedInputTransform",
+    LearnedFeatureImputation: "LearnedFeatureImputation",
     Normalize: "Normalize",
     Round: "Round",
     Warp: "Warp",
