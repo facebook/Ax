@@ -48,7 +48,11 @@ from botorch.models.heterogeneous_mtgp import HeterogeneousMTGP
 from botorch.models.model import Model, ModelList
 from botorch.models.multitask import MultiTaskGP
 from botorch.models.pairwise_gp import PairwiseGP
-from botorch.models.transforms.input import InputTransform, Normalize
+from botorch.models.transforms.input import (
+    InputTransform,
+    LearnedFeatureImputation,
+    Normalize,
+)
 from botorch.models.transforms.outcome import OutcomeTransform
 from botorch.optim.parameter_constraints import (
     evaluate_feasibility,
@@ -231,21 +235,43 @@ def copy_model_config_with_default_values(
         specified_model_class=model_config_copy.botorch_model_class,
     )
 
-    # HeterogeneousMTGP requires Normalize input transform
-    if model_config_copy.botorch_model_class is HeterogeneousMTGP:
-        if (
-            isinstance(model_config_copy.input_transform_classes, list)
-            and Normalize not in model_config_copy.input_transform_classes
-        ):
-            model_config_copy.input_transform_classes.append(Normalize)
+    # Handle heterogeneous multi-task datasets.
+    if isinstance(dataset, MultiTaskDataset) and dataset.has_heterogeneous_features:
+        if model_config_copy.botorch_model_class is HeterogeneousMTGP:
+            # HeterogeneousMTGP handles heterogeneity natively; just ensure
+            # Normalize is present (bounds are set later by the TL adapter).
+            itc = model_config_copy.input_transform_classes
+            if isinstance(itc, list):
+                if Normalize not in itc:
+                    itc.insert(0, Normalize)
+                    ito = model_config_copy.input_transform_options or {}
+                    ito.setdefault("Normalize", {"bounds": None})
+                    model_config_copy.input_transform_options = ito
+            else:
+                model_config_copy.input_transform_classes = [Normalize]
+                ito = model_config_copy.input_transform_options or {}
+                ito.setdefault("Normalize", {"bounds": None})
+                model_config_copy.input_transform_options = ito
         else:
-            model_config_copy.input_transform_classes = [Normalize]
-
-        # Add Normalize options if not already present. Bounds should be None.
-        if model_config_copy.input_transform_options is None:
-            model_config_copy.input_transform_options = {}
-        if "Normalize" not in model_config_copy.input_transform_options:
-            model_config_copy.input_transform_options["Normalize"] = {"bounds": None}
+            # Other models need Normalize + LFI to pad features via
+            # map_heterogeneous_to_full.
+            itc = model_config_copy.input_transform_classes
+            if isinstance(itc, list):
+                if Normalize not in itc:
+                    itc.insert(0, Normalize)
+                    ito = model_config_copy.input_transform_options or {}
+                    ito.setdefault("Normalize", {"bounds": None})
+                    model_config_copy.input_transform_options = ito
+                if LearnedFeatureImputation not in itc:
+                    itc.append(LearnedFeatureImputation)
+            else:
+                model_config_copy.input_transform_classes = [
+                    Normalize,
+                    LearnedFeatureImputation,
+                ]
+                ito = model_config_copy.input_transform_options or {}
+                ito.setdefault("Normalize", {"bounds": None})
+                model_config_copy.input_transform_options = ito
 
     if model_config_copy.mll_class is None:
         model_config_copy.mll_class = (
@@ -274,8 +300,7 @@ def choose_model_class(
         dataset: The dataset on which the model will be fitted.
         search_space_digest: The digest of the search space the model will be
             fitted within.
-        specified_model_class: If provided, this model class will be used unless
-            overridden for specific cases (e.g., heterogeneous datasets).
+        specified_model_class: If provided, this model class will be used.
 
     Returns:
         A BoTorch `Model` class.
@@ -295,23 +320,18 @@ def choose_model_class(
             "Multi-task multi-fidelity optimization not yet supported."
         )
 
-    # Check for heterogeneous multi-task datasets & override model class if needed.
+    # Check for heterogeneous multi-task datasets. If a model class was
+    # explicitly specified, respect it; otherwise default to HeterogeneousMTGP.
     if (
         search_space_digest.task_features
         and isinstance(dataset, MultiTaskDataset)
         and dataset.has_heterogeneous_features
     ):
-        if (
-            specified_model_class is not None
-            and specified_model_class is not HeterogeneousMTGP
-        ):
-            logger.warning(
-                f"Detected heterogeneous features in MultiTaskDataset. "
-                f"Overriding specified model class {specified_model_class.__name__} "
-                f"with HeterogeneousMTGP for transfer learning with "
-                f"heterogeneous search spaces."
-            )
-        model_class = HeterogeneousMTGP
+        model_class = (
+            specified_model_class
+            if specified_model_class is not None
+            else HeterogeneousMTGP
+        )
         logger.debug(f"Chose BoTorch model class: {model_class}.")
         return model_class
 

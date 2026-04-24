@@ -70,7 +70,7 @@ from botorch.models.heterogeneous_mtgp import HeterogeneousMTGP
 from botorch.models.model_list_gp_regression import ModelListGP
 from botorch.models.multitask import MultiTaskGP
 from botorch.models.pairwise_gp import PairwiseGP
-from botorch.models.transforms.input import Normalize, Warp
+from botorch.models.transforms.input import LearnedFeatureImputation, Normalize
 from botorch.posteriors.ensemble import EnsemblePosterior
 from botorch.utils.datasets import MultiTaskDataset, SupervisedDataset
 from botorch.utils.types import DEFAULT
@@ -183,42 +183,38 @@ class BoTorchGeneratorUtilsTest(TestCase):
             )
 
     def test_choose_model_class_heterogeneous_task_features(self) -> None:
-        # Test that HeterogeneousMTGP is chosen when MultiTaskDataset has
-        # heterogeneous features.
         mt_dataset = self._get_heterogeneous_mt_dataset()
+        ssd = dataclasses.replace(self.search_space_digest, task_features=[-1])
 
-        # Execute: Choose model class with task features
-        model_class = choose_model_class(
-            dataset=mt_dataset,
-            search_space_digest=dataclasses.replace(
-                self.search_space_digest, task_features=[-1]
+        # Default: HeterogeneousMTGP.
+        self.assertEqual(
+            HeterogeneousMTGP,
+            choose_model_class(dataset=mt_dataset, search_space_digest=ssd),
+        )
+
+        # Explicit MultiTaskGP is respected.
+        self.assertEqual(
+            MultiTaskGP,
+            choose_model_class(
+                dataset=mt_dataset,
+                search_space_digest=ssd,
+                specified_model_class=MultiTaskGP,
             ),
         )
 
-        # Assert: Should select HeterogeneousMTGP for heterogeneous features
-        self.assertEqual(HeterogeneousMTGP, model_class)
-
-    def test_choose_model_class_heterogeneous_overrides_specified(self) -> None:
-        # Test that HeterogeneousMTGP overrides a pre-specified model class
-        # when heterogeneous features are detected
-        mt_dataset = self._get_heterogeneous_mt_dataset()
-
-        # Execute: Try to specify MultiTaskGP explicitly
-        model_class = choose_model_class(
-            dataset=mt_dataset,
-            search_space_digest=dataclasses.replace(
-                self.search_space_digest, task_features=[-1]
+        # Explicit HeterogeneousMTGP is respected.
+        self.assertEqual(
+            HeterogeneousMTGP,
+            choose_model_class(
+                dataset=mt_dataset,
+                search_space_digest=ssd,
+                specified_model_class=HeterogeneousMTGP,
             ),
-            specified_model_class=MultiTaskGP,
         )
-
-        # Assert: Should override to HeterogeneousMTGP despite specification
-        self.assertEqual(HeterogeneousMTGP, model_class)
 
     def test_choose_model_class_respects_specified_when_no_override_needed(
         self,
     ) -> None:
-        # Test that specified_model_class is used when no override is needed
         model_class = choose_model_class(
             dataset=self.supervised_dataset,
             search_space_digest=self.search_space_digest,
@@ -226,7 +222,6 @@ class BoTorchGeneratorUtilsTest(TestCase):
         )
         self.assertEqual(SingleTaskGP, model_class)
 
-        # Test with a different specified class
         model_class = choose_model_class(
             dataset=self.supervised_dataset,
             search_space_digest=self.search_space_digest,
@@ -234,18 +229,16 @@ class BoTorchGeneratorUtilsTest(TestCase):
         )
         self.assertEqual(MixedSingleTaskGP, model_class)
 
-    def test_copy_model_config_adds_normalize_for_heterogeneous_mtgp(self) -> None:
-        # Test that Normalize input transform is added for HeterogeneousMTGP
+    def test_copy_model_config_heterogeneous_mtgp(self) -> None:
         mt_dataset = self._get_heterogeneous_mt_dataset()
+        ssd = dataclasses.replace(self.search_space_digest, task_features=[-1])
 
-        # Case 1: No input transform classes specified
-        model_config = ModelConfig()
+        # Default (no model class specified) -> HeterogeneousMTGP.
+        # LFI is NOT injected; input_transform_classes stays DEFAULT.
         updated_config = copy_model_config_with_default_values(
-            model_config=model_config,
+            model_config=ModelConfig(),
             dataset=mt_dataset,
-            search_space_digest=dataclasses.replace(
-                self.search_space_digest, task_features=[-1]
-            ),
+            search_space_digest=ssd,
         )
         self.assertEqual(updated_config.botorch_model_class, HeterogeneousMTGP)
         self.assertEqual(updated_config.input_transform_classes, [Normalize])
@@ -254,52 +247,58 @@ class BoTorchGeneratorUtilsTest(TestCase):
             {"Normalize": {"bounds": None}},
         )
 
-        # Case 2: Input transform classes already specified (but not Normalize)
-        model_config = ModelConfig(
-            input_transform_classes=[Warp], input_transform_options={"Warp": {}}
-        )
+        # Explicit HeterogeneousMTGP behaves the same.
         updated_config = copy_model_config_with_default_values(
-            model_config=model_config,
+            model_config=ModelConfig(botorch_model_class=HeterogeneousMTGP),
             dataset=mt_dataset,
-            search_space_digest=dataclasses.replace(
-                self.search_space_digest, task_features=[-1]
-            ),
+            search_space_digest=ssd,
         )
-        self.assertEqual(updated_config.input_transform_classes, [Warp, Normalize])
-        self.assertEqual(
-            none_throws(updated_config.input_transform_options),
-            {"Warp": {}, "Normalize": {"bounds": None}},
-        )
-
-        # Case 3: Normalize already in input transform classes
-        model_config = ModelConfig(
-            input_transform_classes=[Normalize],
-            input_transform_options={"Normalize": {"bounds": None}},
-        )
-        updated_config = copy_model_config_with_default_values(
-            model_config=model_config,
-            dataset=mt_dataset,
-            search_space_digest=dataclasses.replace(
-                self.search_space_digest, task_features=[-1]
-            ),
-        )
+        self.assertEqual(updated_config.botorch_model_class, HeterogeneousMTGP)
         self.assertEqual(updated_config.input_transform_classes, [Normalize])
         self.assertEqual(
             none_throws(updated_config.input_transform_options),
             {"Normalize": {"bounds": None}},
         )
 
+    def test_copy_model_config_mtgp_with_lfi_injection(self) -> None:
+        mt_dataset = self._get_heterogeneous_mt_dataset()
+        ssd = dataclasses.replace(self.search_space_digest, task_features=[-1])
+
+        # Explicit MultiTaskGP on heterogeneous data -> LFI injected.
+        updated_config = copy_model_config_with_default_values(
+            model_config=ModelConfig(botorch_model_class=MultiTaskGP),
+            dataset=mt_dataset,
+            search_space_digest=ssd,
+        )
+        self.assertEqual(updated_config.botorch_model_class, MultiTaskGP)
+        self.assertEqual(
+            updated_config.input_transform_classes,
+            [Normalize, LearnedFeatureImputation],
+        )
+
+        # User already passed LFI in the list -> not duplicated.
+        updated_config = copy_model_config_with_default_values(
+            model_config=ModelConfig(
+                botorch_model_class=MultiTaskGP,
+                input_transform_classes=[Normalize, LearnedFeatureImputation],
+            ),
+            dataset=mt_dataset,
+            search_space_digest=ssd,
+        )
+        self.assertEqual(updated_config.botorch_model_class, MultiTaskGP)
+        self.assertEqual(
+            updated_config.input_transform_classes,
+            [Normalize, LearnedFeatureImputation],
+        )
+
     def test_copy_model_config_does_not_add_normalize_for_other_models(self) -> None:
-        # Test that Normalize is NOT added for non-HeterogeneousMTGP models
         model_config = ModelConfig()
         updated_config = copy_model_config_with_default_values(
             model_config=model_config,
             dataset=self.supervised_dataset,
             search_space_digest=self.search_space_digest,
         )
-        # Should be SingleTaskGP, not HeterogeneousMTGP
         self.assertEqual(updated_config.botorch_model_class, SingleTaskGP)
-        # Should not have added Normalize
         self.assertEqual(updated_config.input_transform_classes, DEFAULT)
         self.assertEqual(updated_config.input_transform_options, {})
 
