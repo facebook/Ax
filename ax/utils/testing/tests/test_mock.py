@@ -56,7 +56,7 @@ class TestMock(TestCase):
             "kernel_tausq": jnp.ones(num_mcmc_samples),
             "_kernel_inv_length_sq": jnp.ones((num_mcmc_samples, dim)),
         }
-        with patch("botorch.fit.MCMC") as mock_mcmc:
+        with patch("numpyro.infer.MCMC") as mock_mcmc:
             mock_mcmc.return_value.get_samples.return_value = mock_samples
             with mock_botorch_optimize_context_manager():
                 Generators.SAASBO(experiment=experiment, data=experiment.lookup_data())
