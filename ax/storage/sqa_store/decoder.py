@@ -6,6 +6,8 @@
 
 # pyre-strict
 
+import re
+import warnings
 from collections import defaultdict
 from collections.abc import Callable
 from copy import deepcopy
@@ -1336,6 +1338,14 @@ class Decoder:
                 parse_objective_expression,
             )
 
+            if re.search(r"[()]", expr):
+                warnings.warn(
+                    f"Objective expression {expr!r} contains characters that "
+                    "SymPy may misinterpret (parentheses, commas). Metric "
+                    "names with special characters may not round-trip "
+                    "correctly through this deserialization path.",
+                    stacklevel=2,
+                )
             parsed = parse_objective_expression(expr)
             sub_exprs = parsed if isinstance(parsed, tuple) else (parsed,)
             names: list[str] = []

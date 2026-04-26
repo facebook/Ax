@@ -27,7 +27,7 @@ from ax.adapter.transforms.utils import (
 )
 from ax.core.arm import Arm
 from ax.core.experiment import Experiment
-from ax.core.objective import Objective
+from ax.core.objective import _build_objective_expression, Objective
 from ax.core.observation import Observation, ObservationData, ObservationFeatures
 from ax.core.optimization_config import (
     MultiObjectiveOptimizationConfig,
@@ -379,8 +379,9 @@ def extract_objective_weight_matrix(
             rows.append(
                 extract_objective_weights(
                     objective=Objective(
-                        expression=f"{weight} * {name}",
+                        expression=_build_objective_expression([(name, weight)]),
                         metric_name_to_signature={name: name_to_sig[name]},
+                        _parsed=([name], [[(name, weight)]]),
                     ),
                     outcomes=outcomes,
                 )

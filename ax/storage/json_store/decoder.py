@@ -9,6 +9,8 @@
 import copy
 import datetime
 import json
+import re
+import warnings
 from collections import OrderedDict
 from collections.abc import Mapping
 from dataclasses import dataclass
@@ -1480,6 +1482,14 @@ def objective_from_json(
         expr = input_args["expression"]
         mapping = input_args.get("metric_name_to_signature")
         if mapping is None:
+            if re.search(r"[()]", expr):
+                warnings.warn(
+                    f"Objective expression {expr!r} contains characters that "
+                    "SymPy may misinterpret (parentheses, commas). Metric "
+                    "names with special characters may not round-trip "
+                    "correctly through this deserialization path.",
+                    stacklevel=2,
+                )
             parsed = parse_objective_expression(expr)
             sub_exprs = parsed if isinstance(parsed, tuple) else (parsed,)
             names: list[str] = []

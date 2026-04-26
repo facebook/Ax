@@ -121,7 +121,21 @@ class OutcomeConstraint(SortableBase):
 
         self._expression_str: str = expression
         self._metric_name_to_signature: dict[str, str] = {**metric_name_to_signature}
-        # Eagerly validate the expression so errors surface at construction time.
+
+        # Pre-set _parsed for the deprecated metric kwarg to bypass SymPy
+        # parsing, which fails for metric names containing characters SymPy
+        # interprets as operators (commas, parentheses, hyphens).
+        if metric is not None:
+            assert op is not None and bound is not None
+            self.__dict__["_parsed"] = (
+                [(metric.name, 1.0)],
+                op,
+                float(bound),
+                relative if relative is not None else False,
+            )
+
+        # Eagerly validate (same as before). For pre-set paths _parsed is
+        # already in __dict__ and the @cached_property returns immediately.
         _ = self._parsed
 
     @cached_property
@@ -265,6 +279,14 @@ class ObjectiveThreshold(OutcomeConstraint):
             bound=float(bound),
             relative=relative,
         )
+        # Pre-set _parsed before super().__init__() to bypass SymPy
+        # parsing of the expression string (same reason as Objective).
+        self.__dict__["_parsed"] = (
+            [(metric.name, 1.0)],
+            op,
+            float(bound),
+            relative,
+        )
         super().__init__(
             expression=expression,
             relative=relative,
@@ -276,6 +298,7 @@ class ObjectiveThreshold(OutcomeConstraint):
         ot = ObjectiveThreshold.__new__(ObjectiveThreshold)
         ot._expression_str = self._expression_str
         ot._metric_name_to_signature = self._metric_name_to_signature
+        ot.__dict__["_parsed"] = self._parsed
         return ot
 
     def __repr__(self) -> str:

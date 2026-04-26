@@ -13,7 +13,7 @@ from itertools import groupby
 from typing import Self
 
 from ax.core.arm import Arm
-from ax.core.objective import Objective
+from ax.core.objective import _build_objective_expression, Objective
 from ax.core.outcome_constraint import ComparisonOp, OutcomeConstraint
 from ax.exceptions.core import UserInputError
 from ax.utils.common.base import Base
@@ -446,15 +446,19 @@ class MultiObjectiveOptimizationConfig(OptimizationConfig):
         objective_thresholds = objective_thresholds or []
         if objective.is_multi_objective:
             # Build objectives_by_name by decomposing the multi-objective
-            # expression into sub-objectives
-            parts = [p.strip() for p in objective.expression.split(",")]
+            # into per-sub-objective Objectives using cached parse results.
+            # (Cannot use expression.split(",") because metric names may
+            # themselves contain commas.)
             objectives_by_name: dict[str, Objective] = {}
-            for part in parts:
+            mapping = objective.metric_name_to_signature
+            for sub_nw in objective._parsed[1]:
+                sub_names = [name for name, _w in sub_nw]
                 sub_obj = Objective(
-                    expression=part,
-                    metric_name_to_signature=objective.metric_name_to_signature,
+                    expression=_build_objective_expression(sub_nw),
+                    metric_name_to_signature={n: mapping[n] for n in sub_names},
+                    _parsed=(sub_names, [sub_nw]),
                 )
-                for name in sub_obj.metric_names:
+                for name in sub_names:
                     objectives_by_name[name] = sub_obj
 
             check_objective_thresholds_match_objectives(

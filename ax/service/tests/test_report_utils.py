@@ -402,9 +402,14 @@ class ReportUtilsTest(TestCase):
         exp = get_branin_experiment_with_multi_objective(with_batch=True)
         # Flip the minimize direction for the multi-objective:
         # first objective to maximize, second to minimize
-        obj = none_throws(exp.optimization_config).objective
+        opt_config = none_throws(exp.optimization_config)
+        obj = opt_config.objective
         names = obj.metric_names
-        obj._expression_str = f"{names[0]}, -{names[1]}"
+        mapping = dict(obj._metric_name_to_signature)
+        opt_config._objective = Objective(
+            expression=f"{names[0]}, -{names[1]}",
+            metric_name_to_signature=mapping,
+        )
         assert_is_instance(
             exp.optimization_config, MultiObjectiveOptimizationConfig
         )._objective_thresholds = [
@@ -720,12 +725,18 @@ class ReportUtilsTest(TestCase):
         exp.fetch_data()
         arm_names = list(exp.arms_by_name.keys())
 
-        # Use a different metric name in optimization config that doesn't exist in data
-        exp._optimization_config.objective._expression_str = "nonexistent_metric"
+        # Use a different metric name in optimization config that doesn't
+        # exist in data.
+        opt_config = OptimizationConfig(
+            objective=Objective(
+                expression="nonexistent_metric",
+                metric_name_to_signature={"nonexistent_metric": "nonexistent_metric"},
+            ),
+        )
 
         result = maybe_extract_baseline_comparison_values(
             experiment=exp,
-            optimization_config=exp.optimization_config,
+            optimization_config=opt_config,
             comparison_arm_names=[arm_names[1]],
             baseline_arm_name=arm_names[0],
         )
@@ -738,17 +749,21 @@ class ReportUtilsTest(TestCase):
         exp.fetch_data()
         arm_names = list(exp.arms_by_name.keys())
 
-        # Replace one objective metric with a nonexistent one
+        # Replace one objective metric with a nonexistent one.
         moo = none_throws(exp.optimization_config).objective
         names = list(moo.metric_names)
-        moo._expression_str = f"-nonexistent_metric, -{names[1]}"
-        new_mapping = dict(moo._metric_name_to_signature)
-        new_mapping["nonexistent_metric"] = "nonexistent_metric"
-        moo._metric_name_to_signature = new_mapping
+        mapping = dict(moo._metric_name_to_signature)
+        mapping["nonexistent_metric"] = "nonexistent_metric"
+        opt_config = MultiObjectiveOptimizationConfig(
+            objective=Objective(
+                expression=f"-nonexistent_metric, -{names[1]}",
+                metric_name_to_signature=mapping,
+            ),
+        )
 
         result = maybe_extract_baseline_comparison_values(
             experiment=exp,
-            optimization_config=exp.optimization_config,
+            optimization_config=opt_config,
             comparison_arm_names=[arm_names[1]],
             baseline_arm_name=arm_names[0],
         )

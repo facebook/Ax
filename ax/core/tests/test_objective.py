@@ -11,6 +11,7 @@ import warnings
 from ax.core.metric import Metric
 from ax.core.objective import MultiObjective, Objective, ScalarizedObjective
 from ax.exceptions.core import UserInputError
+from ax.utils.common.sympy import parse_objective_expression
 from ax.utils.common.testutils import TestCase
 
 
@@ -364,6 +365,52 @@ class ObjectiveTest(TestCase):
         self.assertIsInstance(mo, MultiObjective)
         self.assertIsInstance(so, Objective)
         self.assertIsInstance(so, ScalarizedObjective)
+
+    def test_SpecialCharMetricNames(self) -> None:
+        """Metric names with commas, parentheses, and hyphens are preserved
+        when SymPy parsing is bypassed via the metric= kwarg or _parsed."""
+        names = [
+            "metric_one (excl group_a, group_b, and group_c)",
+            "metric-two-with-hyphens",
+            "metric_three (sub-group)",
+        ]
+
+        with self.subTest("metric_kwarg"):
+            with warnings.catch_warnings():
+                warnings.simplefilter("ignore", DeprecationWarning)
+                obj = Objective(metric=Metric(name=names[0]), minimize=True)
+            self.assertEqual(obj.metric_names, [names[0]])
+            self.assertEqual(obj.metric_weights, [(names[0], -1.0)])
+            self.assertTrue(obj.minimize)
+            cloned = obj.clone()
+            self.assertEqual(cloned.metric_names, [names[0]])
+            self.assertEqual(cloned.metric_weights, [(names[0], -1.0)])
+
+        with self.subTest("parsed_bypass"):
+            obj = Objective(
+                expression=names[1],
+                metric_name_to_signature={names[1]: names[1]},
+                _parsed=([names[1]], [[(names[1], -1.0)]]),
+            )
+            self.assertEqual(obj.metric_names, [names[1]])
+            self.assertTrue(obj.minimize)
+
+        with self.subTest("multi_objective"):
+            with warnings.catch_warnings():
+                warnings.simplefilter("ignore", DeprecationWarning)
+                multi = MultiObjective(
+                    objectives=[
+                        Objective(metric=Metric(name=names[0]), minimize=True),
+                        Objective(metric=Metric(name=names[2]), minimize=False),
+                    ]
+                )
+            self.assertEqual(multi.metric_names, [names[0], names[2]])
+            self.assertTrue(multi.is_multi_objective)
+            self.assertFalse(multi.is_scalarized_objective)
+
+        with self.subTest("sympy_lossiness"):
+            parsed = parse_objective_expression(names[0])
+            self.assertNotEqual(str(parsed), names[0])
 
     def test_UniqueId(self) -> None:
         """Test _unique_id used for sorting."""

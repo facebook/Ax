@@ -10,16 +10,31 @@ from __future__ import annotations
 
 import warnings
 from collections.abc import Mapping
+from functools import cached_property
 from typing import Self
 
 from ax.core.metric import Metric
 from ax.exceptions.core import UserInputError
 from ax.utils.common.base import SortableBase
 from ax.utils.common.sympy import (
-    extract_metric_names_from_objective_expr,
     extract_metric_weights_from_objective_expr,
     parse_objective_expression,
 )
+
+
+def _build_objective_expression(
+    name_weights: list[tuple[str, float]],
+) -> str:
+    """Reconstruct an objective expression string from name-weight pairs."""
+    parts: list[str] = []
+    for name, weight in name_weights:
+        if weight == 1.0:
+            parts.append(name)
+        elif weight == -1.0:
+            parts.append(f"-{name}")
+        else:
+            parts.append(f"{weight}*{name}")
+    return " + ".join(parts).replace(" + -", " - ")
 
 
 class Objective(SortableBase):
@@ -48,6 +63,10 @@ class Objective(SortableBase):
         # Deprecated backward-compat kwargs
         metric: Metric | None = None,
         minimize: bool | None = None,
+        # Private: pre-computed parse result. Bypasses SymPy expression
+        # parsing, which is lossy for metric names containing characters
+        # SymPy interprets as operators (commas, parentheses, hyphens).
+        _parsed: tuple[list[str], list[list[tuple[str, float]]]] | None = None,
     ) -> None:
         """Create a new objective.
 
@@ -115,18 +134,48 @@ class Objective(SortableBase):
         self._expression_str: str = expression
         self._metric_name_to_signature: dict[str, str] = {**metric_name_to_signature}
 
-        # Eagerly validate: error on duplicate metric names
-        parsed = parse_objective_expression(expression)
+        # Pre-set _parsed for paths where SymPy parsing is unnecessary or
+        # would fail. Setting the instance attribute prevents the
+        # @cached_property from firing (it checks __dict__ first).
+        if _parsed is not None:
+            self.__dict__["_parsed"] = _parsed
+        elif metric is not None:
+            weight = -1.0 if minimize else 1.0
+            self.__dict__["_parsed"] = (
+                [metric.name],
+                [[(metric.name, weight)]],
+            )
+
+        # Eagerly validate (same pattern as OutcomeConstraint). For the
+        # expression path this triggers the @cached_property and parses via
+        # SymPy. For pre-set paths _parsed is already in __dict__ and this
+        # is a no-op.
+        _ = self._parsed
+
+    @cached_property
+    def _parsed(self) -> tuple[list[str], list[list[tuple[str, float]]]]:
+        """Parse the expression via SymPy.
+
+        Returns ``(metric_names, sub_objective_name_weights)`` where
+        ``sub_objective_name_weights`` is a list of per-sub-objective
+        ``(metric_name, weight)`` pairs.  All public properties delegate
+        to this parsed representation.
+        """
+        parsed = parse_objective_expression(self._expression_str)
         sub_exprs = parsed if isinstance(parsed, tuple) else (parsed,)
-        seen: list[str] = []
+        names: list[str] = []
+        sub_obj_nw: list[list[tuple[str, float]]] = []
         for sub_expr in sub_exprs:
-            for name in extract_metric_names_from_objective_expr(sub_expr):
-                if name in seen:
+            sub_nw = extract_metric_weights_from_objective_expr(sub_expr)
+            sub_obj_nw.append(sub_nw)
+            for name, _w in sub_nw:
+                if name in names:
                     raise UserInputError(
-                        f"Metric '{name}' appears more than once in the objective "
-                        f"expression '{expression}'."
+                        f"Metric '{name}' appears more than once in the "
+                        f"objective expression '{self._expression_str}'."
                     )
-                seen.append(name)
+                names.append(name)
+        return (names, sub_obj_nw)
 
     @property
     def expression(self) -> str:
@@ -136,14 +185,7 @@ class Objective(SortableBase):
     @property
     def metric_names(self) -> list[str]:
         """Get a list of all metric names referenced in the expression."""
-        parsed = parse_objective_expression(self._expression_str)
-        sub_exprs = parsed if isinstance(parsed, tuple) else (parsed,)
-        names: list[str] = []
-        for sub_expr in sub_exprs:
-            for name in extract_metric_names_from_objective_expr(sub_expr):
-                if name not in names:
-                    names.append(name)
-        return names
+        return list(self._parsed[0])
 
     @property
     def metric_name_to_signature(self) -> dict[str, str]:
@@ -180,22 +222,16 @@ class Objective(SortableBase):
         Each metric name from the expression is resolved to its canonical
         signature via ``metric_name_to_signature``.
         """
-        parsed = parse_objective_expression(self._expression_str)
-        sub_exprs = parsed if isinstance(parsed, tuple) else (parsed,)
         mapping = self.metric_name_to_signature
-
-        result: list[tuple[str, float]] = []
-        for sub_expr in sub_exprs:
-            for name, weight in extract_metric_weights_from_objective_expr(sub_expr):
-                result.append((mapping[name], weight))
-
-        return result
+        return [
+            (mapping[name], weight) for sub in self._parsed[1] for name, weight in sub
+        ]
 
     @property
     def is_multi_objective(self) -> bool:
         """True if the objective has multiple comma-separated
         sub-objectives."""
-        return isinstance(parse_objective_expression(self._expression_str), tuple)
+        return len(self._parsed[1]) > 1
 
     @property
     def is_scalarized_objective(self) -> bool:
@@ -239,6 +275,7 @@ class Objective(SortableBase):
         return self.__class__(
             expression=self._expression_str,
             metric_name_to_signature=self._metric_name_to_signature,
+            _parsed=(list(self._parsed[0]), [list(sub) for sub in self._parsed[1]]),
         )
 
     def __eq__(self, other: object) -> bool:
@@ -294,11 +331,21 @@ class MultiObjective(Objective):
             )
         expression = ", ".join(obj.expression for obj in objectives)
         merged_mapping: dict[str, str] = {}
+        child_names: list[str] = []
+        child_weights: list[list[tuple[str, float]]] = []
         for obj in objectives:
             merged_mapping.update(obj.metric_name_to_signature)
+            for name in obj.metric_names:
+                if name in child_names:
+                    raise UserInputError(
+                        f"Metric '{name}' appears in multiple child objectives."
+                    )
+                child_names.append(name)
+            child_weights.extend(obj._parsed[1])
         super().__init__(
             expression=expression,
             metric_name_to_signature=merged_mapping,
+            _parsed=(child_names, child_weights),
         )
 
     def clone(self) -> Objective:  # pyre-ignore[15]: Inconsistent override
@@ -306,6 +353,7 @@ class MultiObjective(Objective):
         return Objective(
             expression=self._expression_str,
             metric_name_to_signature=self._metric_name_to_signature,
+            _parsed=(list(self._parsed[0]), [list(sub) for sub in self._parsed[1]]),
         )
 
 
@@ -355,20 +403,11 @@ class ScalarizedObjective(Objective):
         # Build expression string
         # When minimize=True, flip sign so expression represents maximization
         sign = -1.0 if minimize else 1.0
-        parts: list[str] = []
-        for m, w in zip(metrics, weights):
-            effective_w = sign * w
-            if effective_w == 1.0:
-                parts.append(m.name)
-            elif effective_w == -1.0:
-                parts.append(f"-{m.name}")
-            else:
-                parts.append(f"{effective_w}*{m.name}")
-
-        expression_str = " + ".join(parts).replace(" + -", " - ")
+        name_weights = [(m.name, sign * w) for m, w in zip(metrics, weights)]
         super().__init__(
-            expression=expression_str,
+            expression=_build_objective_expression(name_weights),
             metric_name_to_signature={m.name: m.signature for m in metrics},
+            _parsed=([m.name for m in metrics], [name_weights]),
         )
 
     def clone(self) -> Objective:  # pyre-ignore[15]: Inconsistent override
@@ -376,4 +415,5 @@ class ScalarizedObjective(Objective):
         return Objective(
             expression=self._expression_str,
             metric_name_to_signature=self._metric_name_to_signature,
+            _parsed=(list(self._parsed[0]), [list(sub) for sub in self._parsed[1]]),
         )
