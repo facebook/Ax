@@ -7,6 +7,7 @@
 
 from __future__ import annotations
 
+import dataclasses
 import warnings
 from collections.abc import Mapping, Sequence
 from logging import Logger
@@ -38,7 +39,7 @@ from ax.core.generator_run import GeneratorRun
 from ax.core.observation import ObservationData, ObservationFeatures
 from ax.core.optimization_config import OptimizationConfig
 from ax.core.parameter import FixedParameter, RangeParameter
-from ax.core.search_space import SearchSpace
+from ax.core.search_space import SearchSpace, SearchSpaceDigest
 from ax.exceptions.core import DataRequiredError, UnsupportedError, UserInputError
 from ax.generation_strategy.best_model_selector import (
     ReductionCriterion,
@@ -504,6 +505,95 @@ class TransferLearningAdapter(TorchAdapter):
             )
         return task_datasets
 
+    def _expand_ssd_to_joint_space(
+        self,
+        search_space_digest: SearchSpaceDigest,
+    ) -> SearchSpaceDigest:
+        """Expand SSD bounds and feature_names to cover the joint search space.
+
+        The SSD produced by ``_get_fit_args`` reflects the target search space.
+        When source experiments have additional parameters, the model operates
+        in the full joint feature space. This method appends bounds and feature
+        names for source-only parameters so that input transforms receive
+        correct full-space bounds.
+        """
+        existing_names = set(search_space_digest.feature_names)
+        extra_names: list[str] = []
+        extra_bounds: list[tuple[int | float, int | float]] = []
+        # Only collect parameters absent from the target SSD. Shared
+        # parameters that appear in both target and source keep the target
+        # bounds -- source observations outside those bounds will normalize
+        # outside [0, 1]. This is intentional, as the GP hyperprior is calibrated
+        # for a __target__ task in [0, 1]^D.
+        for name, param in self.joint_search_space.parameters.items():
+            if name not in existing_names and isinstance(param, RangeParameter):
+                extra_names.append(name)
+                extra_bounds.append((param.lower, param.upper))
+        if not extra_names:
+            return search_space_digest
+        # Insert source-only params before the task feature
+        task_features = search_space_digest.task_features
+        if len(task_features) == 1:
+            tf_idx = task_features[0]
+            names = list(search_space_digest.feature_names)
+            bounds = list(search_space_digest.bounds)
+            # Raise if index-based fields (other than the task feature
+            # itself) reference indices at or above tf_idx, since we would
+            # need to shift them when inserting extra params.
+            for field_name in (
+                "ordinal_features",
+                "categorical_features",
+                "fidelity_features",
+            ):
+                indices = getattr(search_space_digest, field_name)
+                if any(i >= tf_idx for i in indices):
+                    raise UnsupportedError(
+                        f"Cannot expand SSD: {field_name} contains index >= {tf_idx}."
+                    )
+            if any(
+                i >= tf_idx and i not in task_features
+                for i in search_space_digest.discrete_choices
+            ):
+                raise UnsupportedError(
+                    f"Cannot expand SSD: discrete_choices contains index >= {tf_idx}."
+                )
+            if search_space_digest.hierarchical_dependencies is not None and any(
+                i >= tf_idx for i in search_space_digest.hierarchical_dependencies
+            ):
+                raise UnsupportedError(
+                    "Cannot expand SSD: hierarchical_dependencies contains "
+                    f"index >= {tf_idx}."
+                )
+            names[tf_idx:tf_idx] = extra_names
+            bounds[tf_idx:tf_idx] = extra_bounds
+            n_extra = len(extra_names)
+            new_task_features = [tf_idx + n_extra]
+            new_target_values = dict(search_space_digest.target_values)
+            if tf_idx in new_target_values:
+                new_target_values[new_task_features[0]] = new_target_values.pop(tf_idx)
+            new_discrete = dict(search_space_digest.discrete_choices)
+            if tf_idx in new_discrete:
+                new_discrete[new_task_features[0]] = new_discrete.pop(tf_idx)
+            return dataclasses.replace(
+                search_space_digest,
+                feature_names=names,
+                bounds=bounds,
+                task_features=new_task_features,
+                target_values=new_target_values,
+                discrete_choices=new_discrete,
+            )
+        elif len(task_features) == 0:
+            # No task feature -- just append.
+            return dataclasses.replace(
+                search_space_digest,
+                feature_names=search_space_digest.feature_names + extra_names,
+                bounds=search_space_digest.bounds + extra_bounds,
+            )
+        else:
+            raise UnsupportedError(
+                "Multiple task features are not supported in transfer learning."
+            )
+
     def _fit(
         self,
         search_space: SearchSpace,
@@ -525,6 +615,10 @@ class TransferLearningAdapter(TorchAdapter):
             experiment_data=experiment_data,
             update_outcomes_and_parameters=True,
         )
+        # Expand SSD bounds to cover source-only params from the joint search
+        # space. This ensures Normalize (and other input transforms) get bounds
+        # for the full feature space, not just the target dims.
+        search_space_digest = self._expand_ssd_to_joint_space(search_space_digest)
         if experiment_data.arm_data.empty:
             self.outcomes = outcomes
             # Temporarily set datasets to None. We will construct empty datasets
@@ -567,6 +661,7 @@ class TransferLearningAdapter(TorchAdapter):
             experiment_data=cv_training_data,
             update_outcomes_and_parameters=False,
         )
+        search_space_digest = self._expand_ssd_to_joint_space(search_space_digest)
         # Add the task feature to SSD, to ensure that a multi-task model is selected.
         if len(search_space_digest.task_features) > 1:
             raise UnsupportedError(
@@ -612,7 +707,7 @@ class TransferLearningAdapter(TorchAdapter):
 
         Once the ``GeneratorRun`` is produced, it checks for any fixed parameters
         that are not in the target search space and removes them. This is a hack
-        around limitations of the ``RemoveFixed`` transform. Since we construct the
+        around limitations of the Ax ``RemoveFixed`` transform. Since we construct the
         transforms with the joint space, we end up adding back all fixed parameters
         from the joint space rather than adding only the parameters from the
         target search space. A proper fix would require passing in the search space
@@ -633,6 +728,17 @@ class TransferLearningAdapter(TorchAdapter):
                 if fixed_features is None:
                     fixed_features = ObservationFeatures(parameters={})
                 fixed_features.parameters.setdefault(name, target_p.value)
+        # Fix source-only params so the optimizer doesn't search over them.
+        # Center is a reasonable default; LearnedFeatureImputation overwrites
+        # these with learned values when configured.
+        joint_center = self.joint_search_space.compute_naive_center()
+        for name, param in self.joint_search_space.parameters.items():
+            if name not in search_space.parameters and isinstance(
+                param, RangeParameter
+            ):
+                if fixed_features is None:
+                    fixed_features = ObservationFeatures(parameters={})
+                fixed_features.parameters.setdefault(name, joint_center[name])
         generator_run = super().gen(
             n=n,
             search_space=search_space,
@@ -719,12 +825,8 @@ def transfer_learning_generator_specs_constructor(
         selector in case there is model selection enabled.
     """
     input_transform_classes: list[type[InputTransform]] = [Normalize]
-    input_transform_options = {
-        "Normalize": {
-            # None for bounds here ensures we do not use bounds from
-            # the search space digest.
-            "bounds": None,
-        }
+    input_transform_options: dict[str, dict[str, Any]] = {
+        "Normalize": {},
     }
     transforms = transforms or MBM_X_trans + [MetadataToTask] + Y_trans
     transform_configs = get_derelativize_config(

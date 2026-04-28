@@ -738,11 +738,15 @@ class Surrogate(Base):
                     candidate_metadata=candidate_metadata,
                 )
 
-            # Only update the outcome names and models if the dataset input matches
-            # the feature names from the search space digest. Otherwise we only
-            # keep the model within self._submodels as it may be models fitted on
-            # auxiliary data such as the preference model for BOPE
-            if set(dataset.feature_names) == feature_names_set:
+            # Only update the outcome names and models if the dataset input
+            # matches the feature names from the SSD. In heterogeneous TL,
+            # _expand_ssd_to_joint_space adds source-only features to the SSD,
+            # so the target MultiTaskDataset's feature_names will be a strict
+            # subset -- the missing names are source-only params.
+            if set(dataset.feature_names) == feature_names_set or (
+                isinstance(dataset, MultiTaskDataset)
+                and set(dataset.feature_names).issubset(feature_names_set)
+            ):
                 models.append(model)
                 outcome_names.extend(dataset.outcome_names)
 
