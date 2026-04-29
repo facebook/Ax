@@ -23,7 +23,7 @@ from ax.adapter.registry import (
     Generators,
     GeneratorSetup,
     MBM_X_trans,
-    Y_trans,
+    TL_Y_trans,
 )
 from ax.adapter.torch import FIT_MODEL_ERROR, TorchAdapter
 from ax.adapter.transfer_learning.utils import get_joint_search_space
@@ -54,6 +54,7 @@ from ax.utils.common.constants import Keys
 from ax.utils.common.logger import get_logger
 from botorch.models.multitask import MultiTaskGP
 from botorch.models.transforms.input import InputTransform, Normalize
+from botorch.models.transforms.outcome import StratifiedStandardize
 from botorch.utils.datasets import MultiTaskDataset, SupervisedDataset
 from gpytorch.kernels.kernel import Kernel
 from pyre_extensions import assert_is_instance
@@ -793,7 +794,7 @@ def transfer_learning_generator_specs_constructor(
     Args:
         model_class: The MultiTask BoTorch Model to use in the BOTL.
         transform: Optional list of transforms to use in the Adapter.
-            Defaults to MBM_X_trans + [MetadataToTask] + Y_trans.
+            Defaults to MBM_X_trans + [MetadataToTask] + TL_Y_trans.
         jit_compile: Whether to use jit compilation in Pyro when the fully Bayesian
             model is used.
         torch_device: What torch device to use (defaults to None, i.e. falls back to
@@ -828,7 +829,7 @@ def transfer_learning_generator_specs_constructor(
     input_transform_options: dict[str, dict[str, Any]] = {
         "Normalize": {},
     }
-    transforms = transforms or MBM_X_trans + [MetadataToTask] + Y_trans
+    transforms = transforms or MBM_X_trans + [MetadataToTask] + TL_Y_trans
     transform_configs = get_derelativize_config(
         derelativize_with_raw_status_quo=derelativize_with_raw_status_quo
     )
@@ -846,6 +847,7 @@ def transfer_learning_generator_specs_constructor(
                     botorch_model_class=model_class,
                     model_options=botorch_model_kwargs or {},
                     input_transform_classes=input_transform_classes,
+                    outcome_transform_classes=[StratifiedStandardize],
                     input_transform_options=input_transform_options,
                     mll_options=mll_kwargs,
                     covar_module_class=covar_module_class,
@@ -887,5 +889,5 @@ def transfer_learning_generator_specs_constructor(
 GENERATOR_KEY_TO_GENERATOR_SETUP["BOTL"] = GeneratorSetup(
     adapter_class=TransferLearningAdapter,
     generator_class=BoTorchGenerator,
-    transforms=MBM_X_trans + [MetadataToTask] + Y_trans,
+    transforms=MBM_X_trans + [MetadataToTask] + TL_Y_trans,
 )
