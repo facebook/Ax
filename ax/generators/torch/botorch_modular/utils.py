@@ -319,16 +319,15 @@ def choose_model_class(
         )
 
     # Check for heterogeneous multi-task datasets. If a model class was
-    # explicitly specified, respect it; otherwise default to HeterogeneousMTGP.
+    # explicitly specified, respect it; otherwise default to MultiTaskGP
+    # (LearnedFeatureImputation handles missing features).
     if (
         search_space_digest.task_features
         and isinstance(dataset, MultiTaskDataset)
         and dataset.has_heterogeneous_features
     ):
         model_class = (
-            specified_model_class
-            if specified_model_class is not None
-            else HeterogeneousMTGP
+            specified_model_class if specified_model_class is not None else MultiTaskGP
         )
         logger.debug(f"Chose BoTorch model class: {model_class}.")
         return model_class
