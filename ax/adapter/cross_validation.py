@@ -39,6 +39,8 @@ from ax.utils.stats.model_fit_stats import (
 from botorch.cross_validation import loo_cv
 from botorch.models.gpytorch import GPyTorchModel
 from botorch.posteriors.fully_bayesian import GaussianMixturePosterior
+from botorch.posteriors.gpytorch import GPyTorchPosterior
+from botorch.posteriors.transformed import TransformedPosterior
 from botorch.settings import validate_input_scaling
 from pyre_extensions import assert_is_instance, none_throws
 
@@ -242,10 +244,15 @@ def _efficient_loo_cross_validate(
         # Shape: n x 1 x m
         loo_means = posterior.mixture_mean.detach().cpu().numpy()
         loo_vars = posterior.mixture_variance.detach().cpu().numpy()
-    else:
+    elif isinstance(posterior, (GPyTorchPosterior, TransformedPosterior)):
         # Shape: n x 1 x m
         loo_means = posterior.mean.detach().cpu().numpy()
         loo_vars = posterior.variance.detach().cpu().numpy()
+    else:
+        raise UnsupportedError(
+            f"Unsupported posterior type for LOO CV: {type(posterior)}. "
+            "Expected GPyTorchPosterior or TransformedPosterior."
+        )
 
     # Squeeze out the q dimension: n x 1 x m -> n x m
     loo_means = loo_means.squeeze(1)

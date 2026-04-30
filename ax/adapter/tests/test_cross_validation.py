@@ -644,6 +644,29 @@ class CrossValidationTest(TestCase):
                 self.assertIn("Efficient LOO CV failed", log_message)
                 self.assertIn("Test failure reason", log_message)
 
+        # Test that unsupported posterior types raise UnsupportedError
+        with self.subTest(condition="unsupported posterior type"):
+            mock_posterior = mock.MagicMock()
+            mock_posterior.__class__.__name__ = "UnknownPosterior"
+
+            surrogate = self.adapter.generator.surrogate
+            model = surrogate.model
+
+            mock_loo_results = CVResults(
+                model=model,
+                posterior=mock_posterior,
+                observed_Y=torch.tensor([[1.0], [2.0], [3.0], [4.0]]),
+                observed_Yvar=None,
+            )
+            with mock.patch(
+                "ax.adapter.cross_validation.loo_cv",
+                return_value=mock_loo_results,
+            ):
+                with self.assertRaisesRegex(
+                    UnsupportedError, "Unsupported posterior type for LOO CV"
+                ):
+                    _efficient_loo_cross_validate(adapter=self.adapter)
+
     def test_efficient_loo_cv_matches_naive(self) -> None:
         """End-to-end test: Ax.Adapter.cross_validate returns same results
         whether using efficient LOO CV or naive implementation.
