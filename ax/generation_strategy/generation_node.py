@@ -349,14 +349,31 @@ class GenerationNode(SerializationMixin, SortableBase):
         """Private property to return optional fitted_adapter from
         self.generator_spec_to_gen_from for convenience. If no model is fit,
         this will return None.
+
+        If the current adapter (e.g. from a Sobol fallback after
+        ``_try_gen_with_fallback``) cannot predict, prefer a predictive adapter
+        from the original ``generator_specs`` when available. This ensures that
+        analysis code which relies on model predictions (e.g. cross-validation,
+        sensitivity, surface plots) can still use the fitted surrogate model
+        even after a transient fallback during candidate generation.
         """
         try:
             # Using the private attribute since using the non-private `fitted_adapter`
             # property will raise a UserInputError if there is no fitted model.
-            return self.generator_spec_to_gen_from._fitted_adapter
+            adapter = self.generator_spec_to_gen_from._fitted_adapter
         except ModelError:
             # ModelError is raised if there are no fitted adapters to select from.
             return None
+
+        if adapter is not None and not adapter.can_predict:
+            for spec in self.generator_specs:
+                if (
+                    spec._fitted_adapter is not None
+                    and spec._fitted_adapter.can_predict
+                ):
+                    return spec._fitted_adapter
+
+        return adapter
 
     def __repr__(self) -> str:
         """String representation of this ``GenerationNode`` (note that it

@@ -286,6 +286,41 @@ class TestGenerationNode(TestCase):
         self.assertNotIn("trial_type", none_throws(gr.gen_metadata))
 
     @mock_botorch_optimize
+    def test_fitted_adapter_prefers_predictive_over_fallback(self) -> None:
+        """After a Sobol fallback, _fitted_adapter should still return the
+        original predictive TorchAdapter rather than the fallback's
+        RandomAdapter. This ensures analysis code can generate model-dependent
+        plots even after a transient fallback during candidate generation."""
+        node = GenerationNode(
+            name="test",
+            generator_specs=[
+                GeneratorSpec(
+                    generator_enum=Generators.BOTORCH_MODULAR,
+                    generator_kwargs={},
+                    generator_gen_kwargs={},
+                ),
+            ],
+        )
+        node._fit(experiment=self.branin_experiment)
+        original_adapter = none_throws(node._fitted_adapter)
+        self.assertTrue(original_adapter.can_predict)
+
+        # Simulate fallback: fit a Sobol fallback spec and override
+        # _generator_spec_to_gen_from, mimicking _try_gen_with_fallback.
+        fallback_spec = GeneratorSpec(
+            generator_enum=Generators.SOBOL,
+            generator_key_override="Fallback_Sobol",
+        )
+        fallback_spec.fit(experiment=self.branin_experiment)
+        self.assertFalse(none_throws(fallback_spec._fitted_adapter).can_predict)
+        node._generator_spec_to_gen_from = fallback_spec
+
+        # _fitted_adapter should still return the original predictive adapter.
+        adapter_after_fallback = none_throws(node._fitted_adapter)
+        self.assertTrue(adapter_after_fallback.can_predict)
+        self.assertIs(adapter_after_fallback, original_adapter)
+
+    @mock_botorch_optimize
     def test_generator_gen_kwargs_deepcopy(self) -> None:
         sampler = SobolQMCNormalSampler(torch.Size([1]))
         node = GenerationNode(
