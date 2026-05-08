@@ -68,6 +68,7 @@ def rejection_sample(
     fixed_features: dict[int, float] | None = None,
     rounding_func: Callable[[npt.NDArray], npt.NDArray] | None = None,
     existing_points: npt.NDArray | None = None,
+    equality_constraints: tuple[npt.NDArray, npt.NDArray] | None = None,
 ) -> tuple[npt.NDArray, int]:
     """Rejection sample in parameter space.
 
@@ -96,6 +97,9 @@ def rejection_sample(
         existing_points: A set of previously generated points to use
             for deduplication. These should be provided in the parameter
             space model operates in.
+        equality_constraints: A tuple of (A, b). For k equality constraints
+            on d-dimensional x, A is (k x d) and b is (k x 1) such that
+            A x = b.
 
     Returns:
         2-element tuple containing the generated points and the number of
@@ -124,9 +128,26 @@ def rejection_sample(
         )[0]
 
         # Check parameter constraints, always in raw transformed space.
+        has_constraints = (
+            linear_constraints is not None or equality_constraints is not None
+        )
         if linear_constraints is not None:
             all_constraints_satisfied, _ = check_param_constraints(
-                linear_constraints=linear_constraints, point=point
+                linear_constraints=linear_constraints,
+                point=point,
+                equality_constraints=equality_constraints,
+            )
+        elif equality_constraints is not None:
+            # No inequality constraints but have equality constraints.
+            # Use a dummy (0, d) inequality matrix so check_param_constraints works.
+            dummy_ineq = (
+                np.zeros((0, len(point))),
+                np.zeros((0, 1)),
+            )
+            all_constraints_satisfied, _ = check_param_constraints(
+                linear_constraints=dummy_ineq,
+                point=point,
+                equality_constraints=equality_constraints,
             )
         else:
             all_constraints_satisfied = True
@@ -140,9 +161,15 @@ def rejection_sample(
                 # Re-check constraints after rounding for discrete parameters
                 # (e.g. numerical choice parameters) because rounding can push values
                 # in a direction that violates sum constraints.
-                if linear_constraints is not None:
+                if has_constraints:
+                    ineq = linear_constraints or (
+                        np.zeros((0, len(point))),
+                        np.zeros((0, 1)),
+                    )
                     all_constraints_satisfied, _ = check_param_constraints(
-                        linear_constraints=linear_constraints, point=point
+                        linear_constraints=ineq,
+                        point=point,
+                        equality_constraints=equality_constraints,
                     )
                     if not all_constraints_satisfied:
                         attempted_draws += 1
@@ -228,6 +255,7 @@ def add_fixed_features(
 def check_param_constraints(
     linear_constraints: tuple[npt.NDArray, npt.NDArray],
     point: npt.NDArray,
+    equality_constraints: tuple[npt.NDArray, npt.NDArray] | None = None,
 ) -> tuple[bool, npt.NDArray]:
     """Check if a point satisfies parameter constraints.
 
@@ -236,6 +264,9 @@ def check_param_constraints(
             d-dimensional x, A is (k x d) and b is (k x 1) such that
             A x <= b.
         point: A candidate point in d-dimensional space, as a (1 x d) matrix.
+        equality_constraints: A tuple of (A, b). For k equality constraints on
+            d-dimensional x, A is (k x d) and b is (k x 1) such that
+            A x = b.
 
     Returns:
         2-element tuple containing
@@ -246,6 +277,17 @@ def check_param_constraints(
     constraints_satisfied = (
         linear_constraints[0] @ np.expand_dims(point, axis=1) <= linear_constraints[1]
     )
+    if equality_constraints is not None:
+        eq_satisfied = (
+            np.abs(
+                equality_constraints[0] @ np.expand_dims(point, axis=1)
+                - equality_constraints[1]
+            )
+            <= 1e-8
+        )
+        constraints_satisfied = np.concatenate(
+            [constraints_satisfied, eq_satisfied], axis=0
+        )
     if np.all(constraints_satisfied):
         return True, np.array([])
     else:
