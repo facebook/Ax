@@ -1831,6 +1831,7 @@ class AcquisitionTest(TestCase):
             candidates=candidates,
             search_space_digest=search_space_digest,
             inequality_constraints=inequality_constraints,
+            bounds=torch.tensor([[0.0, 0.0], [1.0, 1.0]]),
         )
         self.assertTrue(torch.equal(pruned_candidates, torch.tensor([[0.2, 0.8]])))
         self.assertTrue(torch.equal(pruned_values, torch.tensor([0.91])))
@@ -1848,6 +1849,7 @@ class AcquisitionTest(TestCase):
             inequality_constraints=[
                 (torch.tensor([0, 1]), torch.tensor([1.0, 1.0]), 1.5)
             ],
+            bounds=torch.tensor([[0.0, 0.0], [1.0, 1.0]]),
         )
         # No pruning: setting either dim to 0.2 gives sum=1.0 < 1.5 (infeasible)
         self.assertTrue(torch.equal(pruned_candidates, torch.tensor([[0.8, 0.8]])))
@@ -2055,12 +2057,135 @@ class AcquisitionTest(TestCase):
                     1.0,
                 )
             ],
+            bounds=torch.tensor([[0.0, 0.0], [1.0, 1.0]]),
         )
 
         # Only dimension 0 should be pruned
         expected_candidate = torch.tensor([[0.1, 1.0]])
         self.assertTrue(torch.equal(pruned_candidates, expected_candidate))
         self.assertTrue(torch.equal(pruned_values, torch.tensor([1.0])))
+
+    def test_prune_irrelevant_parameters_with_equality_constraints(self) -> None:
+        # Test pruning with an equality constraint (x1 + x2 + x3 = 1).
+        # When a dimension is pruned to its target, the remaining dims should
+        # be projected onto the equality constraint hyperplane.
+        search_space_digest = SearchSpaceDigest(
+            feature_names=["x1", "x2", "x3"],
+            bounds=[(0.0, 1.0), (0.0, 1.0), (0.0, 1.0)],
+        )
+        target_point = torch.tensor([1.0 / 3, 1.0 / 3, 1.0 / 3])
+        acq = Acquisition(
+            surrogate=self.surrogate,
+            search_space_digest=search_space_digest,
+            torch_opt_config=dataclasses.replace(
+                self.torch_opt_config,
+                pruning_target_point=target_point,
+            ),
+            botorch_acqf_class=DummyAcquisitionFunction,
+        )
+        mock_acqf = Mock()
+        mock_acqf._log = False
+        acq.acqf = mock_acqf
+        acq._instantiate_acquisition = Mock()
+
+        # Candidate that satisfies x1 + x2 + x3 = 1.
+        candidates = torch.tensor([[0.5, 0.3, 0.2]])
+        # Equality constraint: x1 + x2 + x3 = 1
+        equality_constraints = [
+            (torch.tensor([0, 1, 2]), torch.tensor([1.0, 1.0, 1.0]), 1.0)
+        ]
+        bounds = torch.tensor([[0.0, 0.0, 0.0], [1.0, 1.0, 1.0]])
+
+        mock_evaluate = Mock(
+            side_effect=[
+                torch.tensor([0.0]),  # baseline af val
+                torch.tensor([1.0]),  # dense af val
+                # After pruning dim 0 to 1/3 and projecting, the candidate
+                # still satisfies x1+x2+x3=1. Two pruning candidates
+                # (dim 1 and dim 2) survive projection.
+                torch.tensor([0.95, 0.90]),  # pruned af vals
+                torch.tensor([0.93]),  # second round pruned af val
+            ]
+        )
+        acq.evaluate = mock_evaluate
+
+        pruned_candidates, pruned_values = acq._prune_irrelevant_parameters(
+            candidates=candidates,
+            search_space_digest=search_space_digest,
+            equality_constraints=equality_constraints,
+            bounds=bounds,
+        )
+        # Verify that pruning occurred and the result satisfies the constraint.
+        self.assertEqual(pruned_candidates.shape[-1], 3)
+        for i in range(pruned_candidates.shape[0]):
+            self.assertAlmostEqual(
+                pruned_candidates[i].sum().item(),
+                1.0,
+                places=4,
+            )
+
+    def test_prune_irrelevant_parameters_fixed_features_pinned_in_projection(
+        self,
+    ) -> None:
+        # When constraints are active and `fixed_features` is provided, the
+        # SLSQP projection must pin the fixed dims so they cannot be silently
+        # adjusted to satisfy the constraint.
+        search_space_digest = SearchSpaceDigest(
+            feature_names=["x1", "x2", "x3"],
+            bounds=[(0.0, 1.0), (0.0, 1.0), (0.0, 1.0)],
+        )
+        target_point = torch.tensor([1.0 / 3, 1.0 / 3, 1.0 / 3])
+        acq = Acquisition(
+            surrogate=self.surrogate,
+            search_space_digest=search_space_digest,
+            torch_opt_config=dataclasses.replace(
+                self.torch_opt_config,
+                pruning_target_point=target_point,
+            ),
+            botorch_acqf_class=DummyAcquisitionFunction,
+        )
+        mock_acqf = Mock()
+        mock_acqf._log = False
+        acq.acqf = mock_acqf
+        acq._instantiate_acquisition = Mock()
+
+        # Candidate that satisfies x1 + x2 + x3 = 1 with x1 fixed at 0.6.
+        candidates = torch.tensor([[0.6, 0.3, 0.1]])
+        # Equality constraint: x1 + x2 + x3 = 1
+        equality_constraints = [
+            (torch.tensor([0, 1, 2]), torch.tensor([1.0, 1.0, 1.0]), 1.0)
+        ]
+        bounds = torch.tensor([[0.0, 0.0, 0.0], [1.0, 1.0, 1.0]])
+        # Fix x1 to its current value. Pruning dim 1 (x2 -> 1/3) breaks the
+        # constraint; without pinning x1 in the projection, SLSQP could move
+        # x1 to recover feasibility, silently overwriting the fixed value.
+        fixed_features = {0: 0.6}
+
+        mock_evaluate = Mock(
+            side_effect=[
+                torch.tensor([0.0]),  # baseline af val
+                torch.tensor([1.0]),  # dense af val
+                # Only dim 1 and dim 2 are eligible (dim 0 is fixed). Both
+                # pruning attempts should yield projected candidates that
+                # keep x1 == 0.6 exactly.
+                torch.tensor([0.95, 0.90]),  # pruned af vals
+                torch.tensor([0.93]),  # second-round pruned af val
+            ]
+        )
+        acq.evaluate = mock_evaluate
+
+        pruned_candidates, _ = acq._prune_irrelevant_parameters(
+            candidates=candidates,
+            search_space_digest=search_space_digest,
+            equality_constraints=equality_constraints,
+            bounds=bounds,
+            fixed_features=fixed_features,
+        )
+        # The fixed feature must be preserved exactly through projection,
+        # and the constraint must still be satisfied.
+        self.assertEqual(pruned_candidates.shape[-1], 3)
+        self.assertAlmostEqual(pruned_candidates[0, 0].item(), 0.6, places=6)
+        self.assertAlmostEqual(pruned_candidates[0].sum().item(), 1.0, places=4)
 
     def test_prune_irrelevant_parameters_with_task_and_fidelity_features(self) -> None:
         # Test pruning with both task and fidelity features that should be excluded
