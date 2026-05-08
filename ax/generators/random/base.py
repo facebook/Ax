@@ -154,6 +154,13 @@ class RandomGenerator(Generator):
             max_draws = model_gen_options.get("max_rs_draws", DEFAULT_MAX_RS_DRAWS)
             max_draws = int(assert_is_instance_of_tuple(max_draws, (int, float)))
         try:
+            # With equality constraints, unconstrained sampling has probability
+            # zero of producing feasible points, so skip straight to polytope
+            # sampling.
+            if equality_constraints is not None:
+                raise SearchSpaceExhausted(
+                    "Equality constraints require polytope sampling."
+                )
             # Always rejection sample, but this only rejects if there are
             # constraints or actual duplicates and deduplicate is specified.
             # If rejection sampling fails, fall back to polytope sampling.
@@ -184,11 +191,15 @@ class RandomGenerator(Generator):
                 num_generated = (
                     len(generated_points) if generated_points is not None else 0
                 )
-                interior_point = (  # A feasible point of shape `d x 1`.
-                    torch.from_numpy(generated_points[-1].reshape((-1, 1))).double()
-                    if generated_points is not None
-                    else None
-                )
+                # Use a previously generated point as the interior point
+                # hint, but only if it's likely feasible. When equality
+                # constraints are present, previous points (generated
+                # without those constraints) won't satisfy them.
+                interior_point: torch.Tensor | None = None
+                if generated_points is not None and equality_constraints is None:
+                    interior_point = torch.from_numpy(
+                        generated_points[-1].reshape((-1, 1))
+                    ).double()
                 kwargs = {"n_burnin": 100, "n_thinning": 20}
                 kwargs.update(self.polytope_sampler_kwargs)
                 polytope_sampler: HitAndRunPolytopeSampler = HitAndRunPolytopeSampler(
@@ -229,6 +240,7 @@ class RandomGenerator(Generator):
                     fixed_features=fixed_features,
                     rounding_func=rounding_func,
                     existing_points=generated_points,
+                    equality_constraints=equality_constraints,
                 )
             else:
                 raise e
