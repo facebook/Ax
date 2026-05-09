@@ -475,9 +475,7 @@ class InputTransformArgparseTest(TestCase):
                 target_outcome_name="y0",
                 task_feature_index=0,
             )
-            with self.assertRaisesRegex(
-                NotImplementedError, "task_feature_index == -1"
-            ):
+            with self.assertRaisesRegex(NotImplementedError, "task_feature_index.*-1"):
                 input_transform_argparse(
                     LearnedFeatureImputation,
                     dataset=bad_ds,

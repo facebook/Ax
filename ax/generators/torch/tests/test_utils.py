@@ -70,7 +70,7 @@ from botorch.models.heterogeneous_mtgp import HeterogeneousMTGP
 from botorch.models.model_list_gp_regression import ModelListGP
 from botorch.models.multitask import MultiTaskGP
 from botorch.models.pairwise_gp import PairwiseGP
-from botorch.models.transforms.input import LearnedFeatureImputation, Normalize
+from botorch.models.transforms.input import LearnedFeatureImputation, Normalize, Warp
 from botorch.posteriors.ensemble import EnsemblePosterior
 from botorch.utils.datasets import MultiTaskDataset, SupervisedDataset
 from botorch.utils.types import DEFAULT
@@ -186,9 +186,9 @@ class BoTorchGeneratorUtilsTest(TestCase):
         mt_dataset = self._get_heterogeneous_mt_dataset()
         ssd = dataclasses.replace(self.search_space_digest, task_features=[-1])
 
-        # Default: HeterogeneousMTGP.
+        # Default: MultiTaskGP (LearnedFeatureImputation handles missing features).
         self.assertEqual(
-            HeterogeneousMTGP,
+            MultiTaskGP,
             choose_model_class(dataset=mt_dataset, search_space_digest=ssd),
         )
 
@@ -233,19 +233,23 @@ class BoTorchGeneratorUtilsTest(TestCase):
         mt_dataset = self._get_heterogeneous_mt_dataset()
         ssd = dataclasses.replace(self.search_space_digest, task_features=[-1])
 
-        # Default (no model class specified) -> HeterogeneousMTGP.
-        # LFI is NOT injected; input_transform_classes stays DEFAULT.
+        # Default (no model class specified) -> MultiTaskGP.
+        # LFI is injected for MultiTaskGP with heterogeneous data.
         updated_config = copy_model_config_with_default_values(
             model_config=ModelConfig(),
             dataset=mt_dataset,
             search_space_digest=ssd,
         )
-        self.assertEqual(updated_config.botorch_model_class, HeterogeneousMTGP)
-        self.assertEqual(updated_config.input_transform_classes, [Normalize])
+        self.assertEqual(updated_config.botorch_model_class, MultiTaskGP)
         self.assertEqual(
-            none_throws(updated_config.input_transform_options),
-            {"Normalize": {"bounds": None}},
+            updated_config.input_transform_classes,
+            [Normalize, LearnedFeatureImputation],
         )
+        # LFI is present in transform classes but absent from options; its
+        # argparse computes kwargs from the dataset at construction time.
+        ito = none_throws(updated_config.input_transform_options)
+        self.assertEqual(ito, {"Normalize": {}})
+        self.assertNotIn("LearnedFeatureImputation", ito)
 
         # Explicit HeterogeneousMTGP behaves the same.
         updated_config = copy_model_config_with_default_values(
@@ -257,7 +261,7 @@ class BoTorchGeneratorUtilsTest(TestCase):
         self.assertEqual(updated_config.input_transform_classes, [Normalize])
         self.assertEqual(
             none_throws(updated_config.input_transform_options),
-            {"Normalize": {"bounds": None}},
+            {"Normalize": {}},
         )
 
     def test_copy_model_config_mtgp_with_lfi_injection(self) -> None:
@@ -301,6 +305,54 @@ class BoTorchGeneratorUtilsTest(TestCase):
         self.assertEqual(updated_config.botorch_model_class, SingleTaskGP)
         self.assertEqual(updated_config.input_transform_classes, DEFAULT)
         self.assertEqual(updated_config.input_transform_options, {})
+
+    def test_copy_model_config_adds_imputation_for_heterogeneous(self) -> None:
+        mt_dataset = self._get_heterogeneous_mt_dataset()
+        ssd = dataclasses.replace(self.search_space_digest, task_features=[-1])
+
+        with self.subTest("no_input_transform_classes"):
+            model_config = ModelConfig(botorch_model_class=MultiTaskGP)
+            updated_config = copy_model_config_with_default_values(
+                model_config=model_config,
+                dataset=mt_dataset,
+                search_space_digest=ssd,
+            )
+            self.assertEqual(updated_config.botorch_model_class, MultiTaskGP)
+            self.assertEqual(
+                updated_config.input_transform_classes,
+                [Normalize, LearnedFeatureImputation],
+            )
+
+        with self.subTest("existing_transform_classes"):
+            model_config = ModelConfig(
+                botorch_model_class=MultiTaskGP,
+                input_transform_classes=[Warp],
+                input_transform_options={"Warp": {}},
+            )
+            updated_config = copy_model_config_with_default_values(
+                model_config=model_config,
+                dataset=mt_dataset,
+                search_space_digest=ssd,
+            )
+            self.assertEqual(
+                updated_config.input_transform_classes,
+                [Normalize, Warp, LearnedFeatureImputation],
+            )
+
+        with self.subTest("imputation_already_present"):
+            model_config = ModelConfig(
+                botorch_model_class=MultiTaskGP,
+                input_transform_classes=[Normalize, LearnedFeatureImputation],
+            )
+            updated_config = copy_model_config_with_default_values(
+                model_config=model_config,
+                dataset=mt_dataset,
+                search_space_digest=ssd,
+            )
+            self.assertEqual(
+                updated_config.input_transform_classes,
+                [Normalize, LearnedFeatureImputation],
+            )
 
     def test_choose_model_class_discrete_features(self) -> None:
         # With discrete features, use MixedSingleTaskyGP.

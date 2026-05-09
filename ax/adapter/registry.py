@@ -139,6 +139,7 @@ Mixed_transforms: list[type[Transform]] = [
 ]
 
 Y_trans: list[type[Transform]] = [Derelativize, Winsorize, BilogY, StandardizeY]
+TL_Y_trans: list[type[Transform]] = [Derelativize, Winsorize, BilogY]
 
 # Expected `List[Type[Transform]]` for 2nd anonymous parameter to
 # call `list.__add__` but got `List[Type[SearchSpaceToChoice]]`.

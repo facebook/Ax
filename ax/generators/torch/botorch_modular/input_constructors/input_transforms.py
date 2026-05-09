@@ -357,40 +357,12 @@ def _input_transform_argparse_learned_feature_imputation(
         )
     input_transform_options = input_transform_options or {}
 
-    # Order datasets: target first, then remaining (same as HeterogeneousMTGP).
-    child_datasets = dataset.datasets.copy()
-    target_dataset = child_datasets.pop(dataset.target_outcome_name)
-    all_datasets = [target_dataset] + list(child_datasets.values())
-
-    # The feature_names[:task_feature_index] slice only works when the task
-    # column is the last column (index == -1). Guard against other positions
-    # the same way ImputedMultiTaskGP.construct_inputs does.
+    # Delegate feature ordering and index computation to MultiTaskDataset.
+    all_datasets, feature_indices_list, d = dataset.get_heterogeneous_feature_mapping()
+    feature_indices = dict(enumerate(feature_indices_list))
     task_feature_index = (
-        dataset.task_feature_index if (dataset.task_feature_index is not None) else -1
+        dataset.task_feature_index if dataset.task_feature_index is not None else -1
     )
-    if task_feature_index != -1:
-        raise NotImplementedError(
-            "LearnedFeatureImputation argparse only supports "
-            "task_feature_index == -1. Got "
-            f"task_feature_index={task_feature_index}."
-        )
-
-    # Use target's feature order as canonical (NO alphabetical sort).
-    # Source-only features are appended at the end.
-    all_features: list[str] = list(target_dataset.feature_names[:task_feature_index])
-    for ds in all_datasets[1:]:
-        for fn in ds.feature_names[:task_feature_index]:
-            if fn not in all_features:
-                all_features.append(fn)
-    d = len(all_features)
-
-    # Map each task's features to indices in the global feature space.
-    feature_indices = {
-        task_idx: [
-            all_features.index(fn) for fn in ds.feature_names[:task_feature_index]
-        ]
-        for task_idx, ds in enumerate(all_datasets)
-    }
 
     dtype = torch_dtype or torch.float64
     # Constrain imputation values to [0, 1] since the preceding Normalize
@@ -402,10 +374,14 @@ def _input_transform_argparse_learned_feature_imputation(
             torch.ones(d, dtype=dtype, device=torch_device),
         ]
     )
+    # The target task is at position 0 (target_dataset is prepended above), so
+    # at posterior time — when X arrives without a task column — LFI applies
+    # the target task's imputation pattern.
     kwargs: dict[str, Any] = {
         "feature_indices": feature_indices,
         "d": d,
         "task_feature_index": task_feature_index,
+        "target_task": 0,
         "bounds": bounds,
         "device": torch_device,
         "dtype": dtype,
