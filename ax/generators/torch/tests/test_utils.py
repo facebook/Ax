@@ -186,9 +186,9 @@ class BoTorchGeneratorUtilsTest(TestCase):
         mt_dataset = self._get_heterogeneous_mt_dataset()
         ssd = dataclasses.replace(self.search_space_digest, task_features=[-1])
 
-        # Default: HeterogeneousMTGP.
+        # Default: MultiTaskGP (LearnedFeatureImputation handles missing features).
         self.assertEqual(
-            HeterogeneousMTGP,
+            MultiTaskGP,
             choose_model_class(dataset=mt_dataset, search_space_digest=ssd),
         )
 
@@ -233,19 +233,23 @@ class BoTorchGeneratorUtilsTest(TestCase):
         mt_dataset = self._get_heterogeneous_mt_dataset()
         ssd = dataclasses.replace(self.search_space_digest, task_features=[-1])
 
-        # Default (no model class specified) -> HeterogeneousMTGP.
-        # LFI is NOT injected; input_transform_classes stays DEFAULT.
+        # Default (no model class specified) -> MultiTaskGP.
+        # LFI is injected for MultiTaskGP with heterogeneous data.
         updated_config = copy_model_config_with_default_values(
             model_config=ModelConfig(),
             dataset=mt_dataset,
             search_space_digest=ssd,
         )
-        self.assertEqual(updated_config.botorch_model_class, HeterogeneousMTGP)
-        self.assertEqual(updated_config.input_transform_classes, [Normalize])
+        self.assertEqual(updated_config.botorch_model_class, MultiTaskGP)
         self.assertEqual(
-            none_throws(updated_config.input_transform_options),
-            {"Normalize": {}},
+            updated_config.input_transform_classes,
+            [Normalize, LearnedFeatureImputation],
         )
+        # LFI is present in transform classes but absent from options; its
+        # argparse computes kwargs from the dataset at construction time.
+        ito = none_throws(updated_config.input_transform_options)
+        self.assertEqual(ito, {"Normalize": {}})
+        self.assertNotIn("LearnedFeatureImputation", ito)
 
         # Explicit HeterogeneousMTGP behaves the same.
         updated_config = copy_model_config_with_default_values(

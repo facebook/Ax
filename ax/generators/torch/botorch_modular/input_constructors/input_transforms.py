@@ -402,10 +402,14 @@ def _input_transform_argparse_learned_feature_imputation(
             torch.ones(d, dtype=dtype, device=torch_device),
         ]
     )
+    # The target task is at position 0 (target_dataset is prepended above), so
+    # at posterior time — when X arrives without a task column — LFI applies
+    # the target task's imputation pattern.
     kwargs: dict[str, Any] = {
         "feature_indices": feature_indices,
         "d": d,
         "task_feature_index": task_feature_index,
+        "target_task": 0,
         "bounds": bounds,
         "device": torch_device,
         "dtype": dtype,
