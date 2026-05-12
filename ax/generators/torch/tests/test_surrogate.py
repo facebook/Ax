@@ -32,6 +32,7 @@ from ax.generators.torch.botorch_modular.surrogate import (
     _construct_specified_input_transforms,
     _extract_model_kwargs,
     _make_botorch_input_transform,
+    _submodel_input_constructor_mtgp,
     submodel_input_constructor,
     Surrogate,
     SurrogateSpec,
@@ -59,7 +60,12 @@ from botorch.models.gp_regression_mixed import MixedSingleTaskGP
 from botorch.models.model import Model, ModelList  # noqa: F401 -- used in Mocks.
 from botorch.models.multitask import MultiTaskGP
 from botorch.models.pairwise_gp import PairwiseGP, PairwiseLaplaceMarginalLogLikelihood
-from botorch.models.transforms.input import ChainedInputTransform, Log10, Normalize
+from botorch.models.transforms.input import (
+    ChainedInputTransform,
+    LearnedFeatureImputation,
+    Log10,
+    Normalize,
+)
 from botorch.models.transforms.outcome import OutcomeTransform, Standardize
 from botorch.utils.datasets import MultiTaskDataset, SupervisedDataset
 from botorch.utils.evaluation import compute_in_sample_model_fit_metric
@@ -276,6 +282,74 @@ class SurrogateInputConstructorsTest(TestCase):
             transform = assert_is_instance(transform, Normalize)
             self.assertEqual(transform.indices.tolist(), [0])
             self.assertEqual(transform.bounds.tolist(), [[1.0], [5.0]])
+
+    def test_submodel_input_constructor_mtgp_map_heterogeneous(self) -> None:
+        """_submodel_input_constructor_mtgp passes map_heterogeneous_to_full
+        to construct_inputs when LFI is configured, enabling zero-padded
+        heterogeneous datasets to be used with MultiTaskGP."""
+        ds_target = SupervisedDataset(
+            X=torch.tensor([[1.0, 0.0], [2.0, 0.0]]),
+            Y=torch.tensor([[1.0], [2.0]]),
+            feature_names=["x0", "task"],
+            outcome_names=["y_task_0"],
+        )
+        ds_source = SupervisedDataset(
+            X=torch.tensor([[3.0, 4.0, 1.0], [5.0, 6.0, 1.0]]),
+            Y=torch.tensor([[3.0], [4.0]]),
+            feature_names=["x0", "x1", "task"],
+            outcome_names=["y_task_1"],
+        )
+        mt_dataset = MultiTaskDataset(
+            datasets=[ds_target, ds_source],
+            target_outcome_name="y_task_0",
+            task_feature_index=-1,
+        )
+        self.assertTrue(mt_dataset.has_heterogeneous_features)
+        ssd = SearchSpaceDigest(
+            feature_names=["x0", "x1", "task"],
+            bounds=[(0.0, 5.0), (0.0, 6.0), (0.0, 1.0)],
+            task_features=[2],
+            target_values={2: 0.0},
+        )
+        surrogate = Surrogate(
+            surrogate_spec=SurrogateSpec(
+                model_configs=[ModelConfig(botorch_model_class=MultiTaskGP)]
+            )
+        )
+
+        with self.subTest("with LFI — construct_inputs succeeds"):
+            config_with_lfi = ModelConfig(
+                botorch_model_class=MultiTaskGP,
+                input_transform_classes=[Normalize, LearnedFeatureImputation],
+            )
+            result = _submodel_input_constructor_mtgp(
+                botorch_model_class=MultiTaskGP,
+                model_config=config_with_lfi,
+                dataset=mt_dataset,
+                search_space_digest=ssd,
+                surrogate=surrogate,
+            )
+            self.assertEqual(result["train_X"].shape[-1], 3)
+
+        with self.subTest("without LFI — construct_inputs raises"):
+            from botorch.exceptions.errors import (
+                UnsupportedError as BotorchUnsupportedError,
+            )
+
+            config_no_lfi = ModelConfig(
+                botorch_model_class=MultiTaskGP,
+                input_transform_classes=[Normalize],
+            )
+            with self.assertRaisesRegex(
+                BotorchUnsupportedError, "heterogeneous feature sets"
+            ):
+                _submodel_input_constructor_mtgp(
+                    botorch_model_class=MultiTaskGP,
+                    model_config=config_no_lfi,
+                    dataset=mt_dataset,
+                    search_space_digest=ssd,
+                    surrogate=surrogate,
+                )
 
 
 class SurrogateTest(TestCase):

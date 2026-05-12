@@ -221,6 +221,32 @@ def use_model_list(
     return True
 
 
+def _ensure_input_transform(
+    model_config: ModelConfig,
+    transform_cls: type[InputTransform],
+    position: int | None = None,
+) -> None:
+    """Ensure ``transform_cls`` is in ``model_config.input_transform_classes``.
+
+    If the user hasn't specified any transforms (``DEFAULT``), initialise the
+    list with ``[transform_cls]``.  Otherwise append (or insert at ``position``)
+    only when the class isn't already present.  Mutates ``model_config``
+    in-place.
+    """
+    itc = model_config.input_transform_classes
+    if isinstance(itc, list):
+        if transform_cls not in itc:
+            if position is not None:
+                itc.insert(position, transform_cls)
+            else:
+                itc.append(transform_cls)
+    else:
+        model_config.input_transform_classes = [transform_cls]
+        ito = model_config.input_transform_options or {}
+        ito.setdefault(transform_cls.__name__, {})
+        model_config.input_transform_options = ito
+
+
 def copy_model_config_with_default_values(
     model_config: ModelConfig,
     dataset: SupervisedDataset,
@@ -235,43 +261,15 @@ def copy_model_config_with_default_values(
         specified_model_class=model_config_copy.botorch_model_class,
     )
 
-    # Handle heterogeneous multi-task datasets.
+    # Handle heterogeneous multi-task datasets: ensure Normalize is present
+    # and add LearnedFeatureImputation for models that don't handle
+    # heterogeneity natively.
     if isinstance(dataset, MultiTaskDataset) and dataset.has_heterogeneous_features:
-        if model_config_copy.botorch_model_class is HeterogeneousMTGP:
-            # HeterogeneousMTGP handles heterogeneity natively; just ensure
-            # Normalize is present (bounds are set later by the TL adapter).
-            itc = model_config_copy.input_transform_classes
-            if isinstance(itc, list):
-                if Normalize not in itc:
-                    itc.insert(0, Normalize)
-                    ito = model_config_copy.input_transform_options or {}
-                    ito.setdefault("Normalize", {"bounds": None})
-                    model_config_copy.input_transform_options = ito
-            else:
-                model_config_copy.input_transform_classes = [Normalize]
-                ito = model_config_copy.input_transform_options or {}
-                ito.setdefault("Normalize", {"bounds": None})
-                model_config_copy.input_transform_options = ito
-        else:
-            # Other models need Normalize + LFI to pad features via
-            # map_heterogeneous_to_full.
-            itc = model_config_copy.input_transform_classes
-            if isinstance(itc, list):
-                if Normalize not in itc:
-                    itc.insert(0, Normalize)
-                    ito = model_config_copy.input_transform_options or {}
-                    ito.setdefault("Normalize", {"bounds": None})
-                    model_config_copy.input_transform_options = ito
-                if LearnedFeatureImputation not in itc:
-                    itc.append(LearnedFeatureImputation)
-            else:
-                model_config_copy.input_transform_classes = [
-                    Normalize,
-                    LearnedFeatureImputation,
-                ]
-                ito = model_config_copy.input_transform_options or {}
-                ito.setdefault("Normalize", {"bounds": None})
-                model_config_copy.input_transform_options = ito
+        _ensure_input_transform(model_config_copy, Normalize, position=0)
+        if model_config_copy.botorch_model_class is not None and not issubclass(
+            model_config_copy.botorch_model_class, HeterogeneousMTGP
+        ):
+            _ensure_input_transform(model_config_copy, LearnedFeatureImputation)
 
     if model_config_copy.mll_class is None:
         model_config_copy.mll_class = (

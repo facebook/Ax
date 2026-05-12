@@ -12,7 +12,7 @@ import inspect
 from collections import OrderedDict
 from collections.abc import Mapping, Sequence
 from copy import deepcopy
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from logging import Logger
 from typing import Any, cast
 
@@ -67,6 +67,7 @@ from botorch.models.multitask import MultiTaskGP
 from botorch.models.transforms.input import (
     ChainedInputTransform,
     InputTransform,
+    LearnedFeatureImputation,
     Normalize,
 )
 from botorch.models.transforms.outcome import ChainedOutcomeTransform, OutcomeTransform
@@ -1253,6 +1254,22 @@ def _submodel_input_constructor_mtgp(
 ) -> dict[str, Any]:
     if len(dataset.outcome_names) > 1:
         raise NotImplementedError("Multi-output Multi-task GPs are not yet supported.")
+    # If LearnedFeatureImputation is in the model config, tell construct_inputs
+    # to map heterogeneous per-task features to the full joint feature space.
+    # This must happen before the base call so construct_inputs can handle
+    # heterogeneous MultiTaskDatasets without raising.
+    uses_lfi = isinstance(model_config.input_transform_classes, list) and any(
+        issubclass(cls, LearnedFeatureImputation)
+        for cls in model_config.input_transform_classes
+    )
+    if uses_lfi and "map_heterogeneous_to_full" not in model_config.model_options:
+        model_config = replace(
+            model_config,
+            model_options={
+                **model_config.model_options,
+                "map_heterogeneous_to_full": True,
+            },
+        )
     formatted_model_inputs = _submodel_input_constructor_base(
         botorch_model_class=botorch_model_class,
         model_config=model_config,
@@ -1266,9 +1283,12 @@ def _submodel_input_constructor_mtgp(
     # specify output tasks so that model.num_outputs = 1
     # since the model only models a single outcome
     if formatted_model_inputs.get("output_tasks") is None:
-        # SSD doesn't use -1, so we need to normalize here
+        # SSD doesn't use -1, so we need to normalize here. Use the SSD's bound
+        # length since target_values is keyed by SSD column index — for
+        # heterogeneous MultiTaskDatasets this differs from the per-task
+        # dataset's feature_names length.
         task_feature = none_throws(
-            normalize_indices(indices=[task_feature], d=len(dataset.feature_names))
+            normalize_indices(indices=[task_feature], d=len(search_space_digest.bounds))
         )[0]
         if (search_space_digest.target_values is not None) and (
             target_value := search_space_digest.target_values.get(task_feature)
