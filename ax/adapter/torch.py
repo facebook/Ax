@@ -774,6 +774,7 @@ class TorchAdapter(Adapter):
         search_space: SearchSpace,
         experiment_data: ExperimentData,
         update_outcomes_and_parameters: bool,
+        data_parameters: list[str] | None = None,
     ) -> tuple[
         list[SupervisedDataset],
         list[list[TCandidateMetadata]] | None,
@@ -791,6 +792,11 @@ class TorchAdapter(Adapter):
             update_outcomes_and_parameters: Whether to update `self.outcomes` with
                 all outcomes found in the observations and `self.parameters` with
                 all parameters in the search space. Typically only used in `_fit`.
+            data_parameters: When provided, columns to extract from
+                ``experiment_data``. Defaults to ``self.parameters``. Useful when
+                the model space is larger than the data (e.g. transfer learning
+                with heterogeneous search spaces where the data only contains
+                target columns but the model operates in a joint feature space).
 
         Returns:
             The datasets & metadata, extracted from the ``experiment_data``, and the
@@ -818,12 +824,23 @@ class TorchAdapter(Adapter):
         search_space_digest = extract_search_space_digest(
             search_space=search_space, param_names=self.parameters
         )
+        extract_params = (
+            data_parameters if data_parameters is not None else self.parameters
+        )
+        # When data_parameters differs from self.parameters, the SSD's
+        # task_feature indices don't match the data columns. Pass None
+        # to skip MultiTaskDataset wrapping (the caller handles it).
+        extraction_ssd = (
+            None
+            if data_parameters is not None and data_parameters != self.parameters
+            else search_space_digest
+        )
         # Convert observations to datasets
         datasets, ordered_outcomes, candidate_metadata = self._convert_experiment_data(
             experiment_data=experiment_data,
             outcomes=self.outcomes,
-            parameters=self.parameters,
-            search_space_digest=search_space_digest,
+            parameters=extract_params,
+            search_space_digest=extraction_ssd,
         )
         datasets = self._update_w_aux_exp_datasets(datasets=datasets)
 
