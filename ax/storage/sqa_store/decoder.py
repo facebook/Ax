@@ -194,8 +194,10 @@ class Decoder:
                 ):
                     continue
                 aux_experiment = auxiliary_experiment_from_name(
+                    # pyre-ignore[6]: SA 2.0 Column[T] vs plain T param.
                     experiment_name=auxiliary_experiment_sqa.source_experiment.name,
                     config=self.config,
+                    # pyre-ignore[6]: SA 2.0 Column[T] vs plain T param.
                     is_active=auxiliary_experiment_sqa.is_active,
                     reduced_state=reduced_state,
                 )
@@ -227,6 +229,7 @@ class Decoder:
         # so need to convert it to regular dict.
         properties = dict(experiment_sqa.properties or {})
         if Keys.LLM_MESSAGES in properties:
+            # pyre-ignore[6]: SA 2.0 properties values are ColumnElement; runtime list.
             properties[Keys.LLM_MESSAGES] = [
                 LLMMessage(**m) for m in properties[Keys.LLM_MESSAGES]
             ]
@@ -249,7 +252,9 @@ class Decoder:
             raise SQADecodeError("Experiment SearchSpace cannot be None.")
         status_quo = (
             Arm(
+                # pyre-ignore[6]: SA 2.0 Column[T] vs plain T param.
                 parameters=experiment_sqa.status_quo_parameters,
+                # pyre-ignore[6]: SA 2.0 Column[T] vs plain T param.
                 name=experiment_sqa.status_quo_name,
             )
             if experiment_sqa.status_quo_parameters is not None
@@ -295,6 +300,7 @@ class Decoder:
         """First step of conversion within experiment_from_sqa."""
         properties = dict(experiment_sqa.properties or {})
         if Keys.LLM_MESSAGES in properties:
+            # pyre-ignore[6]: SA 2.0 properties values are ColumnElement; runtime list.
             properties[Keys.LLM_MESSAGES] = [
                 LLMMessage(**m) for m in properties[Keys.LLM_MESSAGES]
             ]
@@ -317,7 +323,9 @@ class Decoder:
             raise SQADecodeError("Experiment SearchSpace cannot be None.")
         status_quo = (
             Arm(
+                # pyre-ignore[6]: SA 2.0 Column[T] vs plain T param.
                 parameters=experiment_sqa.status_quo_parameters,
+                # pyre-ignore[6]: SA 2.0 Column[T] vs plain T param.
                 name=experiment_sqa.status_quo_name,
             )
             if experiment_sqa.status_quo_parameters is not None

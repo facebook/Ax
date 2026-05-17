@@ -6,15 +6,18 @@
 
 # pyre-strict
 import logging
+import os
 import random
 import string
 from unittest.mock import patch
 
+import sqlalchemy
 from ax.core.base_trial import BaseTrial
 from ax.core.experiment import Experiment
 from ax.core.trial import Trial
 from ax.core.trial_status import TrialStatus
 from ax.generation_strategy.generation_strategy import GenerationStrategy
+from ax.storage.sqa_store import with_db_settings_base as _wdb_module
 from ax.storage.sqa_store.db import init_test_engine_and_session_factory
 from ax.storage.sqa_store.load import (
     _load_experiment,
@@ -396,3 +399,47 @@ class TestWithDBSettingsBase(TestCase):
                 lg.output[0],
             )
         self.assertEqual(output, generation_strategy)
+
+
+class TestSQLAlchemyDualVersionCompat(TestCase):
+    """Self-proving checks that the dual-version SA 2.0 BUCK targets actually
+    resolved their constraint_overrides and that the SA 2.0 hard guard is gone.
+
+    Part of the SA 2.0 dual-version migration (T163607006).
+    """
+
+    def test_module_level_dbsettings_is_defined(self) -> None:
+        """The SA 2.0 hard guard previously set DBSettings = None at module level
+        when SA major > 1, breaking WithDBSettingsBase.__init__ type checks. Now
+        that the guard is removed, DBSettings must always resolve to the real
+        type when SQLAlchemy is importable. Uses getattr because DBSettings is
+        conditionally defined in a try/except in with_db_settings_base.
+        """
+        # pyre-ignore[16]: DBSettings is conditionally defined in with_db_settings_base.
+        module_dbsettings = getattr(_wdb_module, "DBSettings", None)
+        self.assertIsNotNone(
+            module_dbsettings,
+            "with_db_settings_base.DBSettings is None -- guard removal regressed",
+        )
+        self.assertIs(module_dbsettings, DBSettings)
+
+    def test_sa_major_matches_buck_target(self) -> None:
+        """When the BUCK target sets EXPECTED_SA_MAJOR, assert the runtime
+        SQLAlchemy major matches. Makes :tests vs :tests_sa2 self-proving.
+        Skipped when EXPECTED_SA_MAJOR is unset (e.g., local one-off invocations).
+        """
+        expected_major_str = os.environ.get("EXPECTED_SA_MAJOR")
+        if expected_major_str is None:
+            self.skipTest(
+                "EXPECTED_SA_MAJOR not set; only enforced under the dual-version "
+                "BUCK targets that pin SQLAlchemy via constraint_overrides"
+            )
+        # pyre-ignore[16]: Module `sqlalchemy` has no attribute `__version__`.
+        actual_version = sqlalchemy.__version__
+        actual_major = int(actual_version.split(".")[0])
+        self.assertEqual(
+            actual_major,
+            int(expected_major_str),
+            f"BUCK target expected SQLAlchemy major {expected_major_str}, "
+            f"got {actual_version}",
+        )

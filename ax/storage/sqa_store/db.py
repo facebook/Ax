@@ -164,6 +164,7 @@ def init_engine_and_session_factory(
 
     if SESSION_FACTORY is not None:
         if force_init:
+            # pyre-ignore[16]: SA 2.0 bind is Union; runtime Engine.
             SESSION_FACTORY.bind.dispose()
         else:
             return
@@ -204,6 +205,7 @@ def init_test_engine_and_session_factory(
 
     if SESSION_FACTORY is not None:
         if force_init:
+            # pyre-ignore[16]: SA 2.0 bind is Union; runtime Engine.
             SESSION_FACTORY.bind.dispose()
         else:
             return
@@ -262,6 +264,7 @@ def get_engine() -> Engine:
     global SESSION_FACTORY
     if SESSION_FACTORY is None:
         raise ValueError("Engine must be initialized first.")
+    # pyre-ignore[7]: SA 2.0 bind is Union; runtime Engine.
     return SESSION_FACTORY.bind
 
 
@@ -330,5 +333,6 @@ def session_context(
     finally:
         # Restore the old session factory
         session_factory.close()
+        # pyre-ignore[16]: SA 2.0 bind is Union; runtime Engine.
         session_factory.bind.dispose()
         SESSION_FACTORY = old_session

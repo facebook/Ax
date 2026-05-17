@@ -240,9 +240,12 @@ class SQAStoreTest(TestCase):
         )
         with session_scope() as session:
             engine = session.bind
+            # pyre-ignore[16]: SA 2.0 bind is Union; runtime Engine.
             engine.connect()
             self.assertEqual(mocked_dbapi.connect.call_count, 1)
+            # pyre-ignore[16]: SA 2.0 bind is Union; runtime Engine.
             self.assertTrue(engine.echo)
+            # pyre-ignore[16]: SA 2.0 bind is Union; runtime Engine.
             self.assertEqual(engine.pool.size(), 2)
 
     def test_connection_to_db_with_session_context(self) -> None:
@@ -279,10 +282,12 @@ class SQAStoreTest(TestCase):
 
         generator_run._generator_run_type = "STATUS_QUO"
         generator_run_sqa = self.encoder.generator_run_to_sqa(generator_run)
+        # pyre-ignore[8]: SA 2.0 Column[T] attr; runtime assign is fine.
         generator_run_sqa.generator_run_type = 2
         with self.assertRaises(SQADecodeError):
             self.decoder.generator_run_from_sqa(generator_run_sqa, False, False)
 
+        # pyre-ignore[8]: SA 2.0 Column[T] attr; runtime assign is fine.
         generator_run_sqa.generator_run_type = 0
         self.decoder.generator_run_from_sqa(generator_run_sqa, False, False)
 

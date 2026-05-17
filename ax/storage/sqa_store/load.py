@@ -614,10 +614,12 @@ def get_generation_strategy_sqa_reduced_state(
                 gr_sqa_class.parameter_constraints
             ),
             defaultload(gs_sqa_class.generator_runs).lazyload(gr_sqa_class.metrics),
-            defaultload(gs_sqa_class.generator_runs).defer("model_kwargs"),
-            defaultload(gs_sqa_class.generator_runs).defer("bridge_kwargs"),
-            defaultload(gs_sqa_class.generator_runs).defer("model_state_after_gen"),
-            defaultload(gs_sqa_class.generator_runs).defer("gen_metadata"),
+            defaultload(gs_sqa_class.generator_runs).defer(gr_sqa_class.model_kwargs),
+            defaultload(gs_sqa_class.generator_runs).defer(gr_sqa_class.bridge_kwargs),
+            defaultload(gs_sqa_class.generator_runs).defer(
+                gr_sqa_class.model_state_after_gen
+            ),
+            defaultload(gs_sqa_class.generator_runs).defer(gr_sqa_class.gen_metadata),
         ],
     )
 
