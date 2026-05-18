@@ -93,6 +93,7 @@ class JSONEncodedLongText(JSONEncodedObject):
     impl = Text(LONGTEXT_BYTES)
 
 
+# pyre-ignore[9]: SA 2.0 typed as_mutable returns TypeEngine; runtime TypeDecorator.
 JSONEncodedList: TypeDecorator = MutableList.as_mutable(JSONEncodedObject)
 JSONEncodedDict: TypeDecorator = MutableDict.as_mutable(JSONEncodedObject)
 JSONEncodedTextDict: TypeDecorator = MutableDict.as_mutable(JSONEncodedText)

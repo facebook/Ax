@@ -58,6 +58,5 @@ def get_query_options_to_defer_large_model_cols() -> list[strategy_options.Load]
     when loading experiment and generation strategy in reduced state.
     """
     return [
-        defaultload(SQATrial.generator_runs).defer(col.key)
-        for col in GR_LARGE_MODEL_ATTRS
+        defaultload(SQATrial.generator_runs).defer(col) for col in GR_LARGE_MODEL_ATTRS
     ]
