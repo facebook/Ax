@@ -282,12 +282,10 @@ class SQAStoreTest(TestCase):
 
         generator_run._generator_run_type = "STATUS_QUO"
         generator_run_sqa = self.encoder.generator_run_to_sqa(generator_run)
-        # pyre-ignore[8]: SA 2.0 Column[T] attr; runtime assign is fine.
         generator_run_sqa.generator_run_type = 2
         with self.assertRaises(SQADecodeError):
             self.decoder.generator_run_from_sqa(generator_run_sqa, False, False)
 
-        # pyre-ignore[8]: SA 2.0 Column[T] attr; runtime assign is fine.
         generator_run_sqa.generator_run_type = 0
         self.decoder.generator_run_from_sqa(generator_run_sqa, False, False)
 
@@ -1841,12 +1839,10 @@ class SQAStoreTest(TestCase):
             with session_scope() as session:
                 session.add(sqa_parameter)
 
-        # pyre-ignore[8]: SA 2.0 Column[T] attr; runtime assign is fine.
         sqa_parameter.experiment_id = 0
         with session_scope() as session:
             session.add(sqa_parameter)
         with self.assertRaises(ValueError):
-            # pyre-ignore[8]: SA 2.0 Column[T] attr; runtime assign is fine.
             sqa_parameter.generator_run_id = 0
             with session_scope() as session:
                 session.add(sqa_parameter)
@@ -1860,7 +1856,6 @@ class SQAStoreTest(TestCase):
         with session_scope() as session:
             session.add(sqa_parameter)
         with self.assertRaises(ValueError):
-            # pyre-ignore[8]: SA 2.0 Column[T] attr; runtime assign is fine.
             sqa_parameter.experiment_id = 0
             with session_scope() as session:
                 session.add(sqa_parameter)
@@ -1910,12 +1905,10 @@ class SQAStoreTest(TestCase):
             with session_scope() as session:
                 session.add(sqa_parameter_constraint)
 
-        # pyre-ignore[8]: SA 2.0 Column[T] attr; runtime assign is fine.
         sqa_parameter_constraint.experiment_id = 0
         with session_scope() as session:
             session.add(sqa_parameter_constraint)
         with self.assertRaises(ValueError):
-            # pyre-ignore[8]: SA 2.0 Column[T] attr; runtime assign is fine.
             sqa_parameter_constraint.generator_run_id = 0
             with session_scope() as session:
                 session.add(sqa_parameter_constraint)
@@ -1929,7 +1922,6 @@ class SQAStoreTest(TestCase):
         with session_scope() as session:
             session.add(sqa_parameter_constraint)
         with self.assertRaises(ValueError):
-            # pyre-ignore[8]: SA 2.0 Column[T] attr; runtime assign is fine.
             sqa_parameter_constraint.experiment_id = 0
             with session_scope() as session:
                 session.add(sqa_parameter_constraint)
@@ -1967,12 +1959,10 @@ class SQAStoreTest(TestCase):
             with session_scope() as session:
                 session.add(sqa_metric)
 
-        # pyre-ignore[8]: SA 2.0 Column[T] attr; runtime assign is fine.
         sqa_metric.experiment_id = 0
         with session_scope() as session:
             session.add(sqa_metric)
         with self.assertRaises(ValueError):
-            # pyre-ignore[8]: SA 2.0 Column[T] attr; runtime assign is fine.
             sqa_metric.generator_run_id = 0
             with session_scope() as session:
                 session.add(sqa_metric)
@@ -1987,7 +1977,6 @@ class SQAStoreTest(TestCase):
         with session_scope() as session:
             session.add(sqa_metric)
         with self.assertRaises(ValueError):
-            # pyre-ignore[8]: SA 2.0 Column[T] attr; runtime assign is fine.
             sqa_metric.experiment_id = 0
             with session_scope() as session:
                 session.add(sqa_metric)
@@ -2034,16 +2023,13 @@ class SQAStoreTest(TestCase):
         with self.assertRaises(SQADecodeError):
             self.decoder.metric_from_sqa(sqa_metric)
 
-        # pyre-ignore[8]: SA 2.0 Column[T] attr; runtime assign is fine.
         sqa_metric.metric_type = CORE_METRIC_REGISTRY[BraninMetric]
         # pyre-fixme[8]: Attribute has type `MetricIntent`; used as `str`.
         sqa_metric.intent = "foobar"
         with self.assertRaises(SQADecodeError):
             self.decoder.metric_from_sqa(sqa_metric)
 
-        # pyre-ignore[8]: SA 2.0 Column[T] attr; runtime assign is fine.
         sqa_metric.intent = MetricIntent.TRACKING
-        # pyre-ignore[8]: SA 2.0 Column[T] attr; runtime assign is fine.
         sqa_metric.properties = {}
         with self.assertRaises(ValueError):
             self.decoder.metric_from_sqa(sqa_metric)
@@ -2092,12 +2078,10 @@ class SQAStoreTest(TestCase):
             with session_scope() as session:
                 session.add(sqa_runner)
 
-        # pyre-ignore[8]: SA 2.0 Column[T] attr; runtime assign is fine.
         sqa_runner.experiment_id = 0
         with session_scope() as session:
             session.add(sqa_runner)
         with self.assertRaises(ValueError):
-            # pyre-ignore[8]: SA 2.0 Column[T] attr; runtime assign is fine.
             sqa_runner.trial_id = 0
             with session_scope() as session:
                 session.add(sqa_runner)
@@ -2108,7 +2092,6 @@ class SQAStoreTest(TestCase):
         with session_scope() as session:
             session.add(sqa_runner)
         with self.assertRaises(ValueError):
-            # pyre-ignore[8]: SA 2.0 Column[T] attr; runtime assign is fine.
             sqa_runner.experiment_id = 0
             with session_scope() as session:
                 session.add(sqa_runner)
