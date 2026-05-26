@@ -42,6 +42,22 @@ EXPIRE_ON_COMMIT = False
 T = TypeVar("T")
 
 
+def _bound_engine(session_factory: scoped_session) -> Engine:
+    """Return the ``Engine`` bound to ``session_factory``, raising if not bound.
+
+    SA 2.0 types ``scoped_session.bind`` as ``Connection | Engine | None``. In
+    this module we always bind a freshly-created ``Engine`` via ``sessionmaker``,
+    so the runtime value is always an ``Engine``. This narrows the type for both
+    pyre and runtime safety.
+    """
+    bind = session_factory.bind
+    if not isinstance(bind, Engine):
+        raise ValueError(
+            f"SESSION_FACTORY must be bound to an Engine, got {type(bind).__name__}."
+        )
+    return bind
+
+
 class SQABase:
     """Metaclass for SQLAlchemy classes corresponding to core Ax classes."""
 
@@ -164,8 +180,7 @@ def init_engine_and_session_factory(
 
     if SESSION_FACTORY is not None:
         if force_init:
-            # pyre-ignore[16]: SA 2.0 bind is Union; runtime Engine.
-            SESSION_FACTORY.bind.dispose()
+            _bound_engine(SESSION_FACTORY).dispose()
         else:
             return
     if url is not None:
@@ -205,8 +220,7 @@ def init_test_engine_and_session_factory(
 
     if SESSION_FACTORY is not None:
         if force_init:
-            # pyre-ignore[16]: SA 2.0 bind is Union; runtime Engine.
-            SESSION_FACTORY.bind.dispose()
+            _bound_engine(SESSION_FACTORY).dispose()
         else:
             return
     engine = create_test_engine(path=tier_or_path, echo=echo)
@@ -264,8 +278,7 @@ def get_engine() -> Engine:
     global SESSION_FACTORY
     if SESSION_FACTORY is None:
         raise ValueError("Engine must be initialized first.")
-    # pyre-ignore[7]: SA 2.0 bind is Union; runtime Engine.
-    return SESSION_FACTORY.bind
+    return _bound_engine(SESSION_FACTORY)
 
 
 @contextmanager
@@ -333,6 +346,5 @@ def session_context(
     finally:
         # Restore the old session factory
         session_factory.close()
-        # pyre-ignore[16]: SA 2.0 bind is Union; runtime Engine.
-        session_factory.bind.dispose()
+        _bound_engine(session_factory).dispose()
         SESSION_FACTORY = old_session

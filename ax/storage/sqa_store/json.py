@@ -93,6 +93,10 @@ class JSONEncodedLongText(JSONEncodedObject):
     impl = Text(LONGTEXT_BYTES)
 
 
+# `Mutable*.as_mutable()` returns a `TypeEngine` subclass per SA 2.0 stubs.
+# Cannot annotate as `TypeEngine[Any]` because SA 1.4's `TypeEngine` is not a
+# Generic class (`type 'TypeEngine' is not subscriptable` at runtime under 1.4).
+# Keep `TypeDecorator` and suppress the SA 2.0 type-stub mismatch on each line.
 # pyre-ignore[9]: SA 2.0 typed as_mutable returns TypeEngine; runtime TypeDecorator.
 JSONEncodedList: TypeDecorator = MutableList.as_mutable(JSONEncodedObject)
 # pyre-ignore[9]: SA 2.0 typed as_mutable returns TypeEngine; runtime TypeDecorator.

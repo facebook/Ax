@@ -4,7 +4,6 @@
 # LICENSE file in the root directory of this source tree.
 
 # pyre-strict
-# pyre-ignore-all-errors[6]
 
 from logging import Logger
 from typing import cast

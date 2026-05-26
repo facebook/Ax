@@ -5,7 +5,6 @@
 # LICENSE file in the root directory of this source tree.
 
 # pyre-strict
-# pyre-ignore-all-errors[6, 8, 9]
 
 import os
 from collections.abc import Callable, Generator, Sequence
