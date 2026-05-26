@@ -95,6 +95,9 @@ class JSONEncodedLongText(JSONEncodedObject):
 
 # pyre-ignore[9]: SA 2.0 typed as_mutable returns TypeEngine; runtime TypeDecorator.
 JSONEncodedList: TypeDecorator = MutableList.as_mutable(JSONEncodedObject)
+# pyre-ignore[9]: SA 2.0 typed as_mutable returns TypeEngine; runtime TypeDecorator.
 JSONEncodedDict: TypeDecorator = MutableDict.as_mutable(JSONEncodedObject)
+# pyre-ignore[9]: SA 2.0 typed as_mutable returns TypeEngine; runtime TypeDecorator.
 JSONEncodedTextDict: TypeDecorator = MutableDict.as_mutable(JSONEncodedText)
+# pyre-ignore[9]: SA 2.0 typed as_mutable returns TypeEngine; runtime TypeDecorator.
 JSONEncodedLongTextDict: TypeDecorator = MutableDict.as_mutable(JSONEncodedLongText)

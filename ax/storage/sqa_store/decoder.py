@@ -5,6 +5,7 @@
 # LICENSE file in the root directory of this source tree.
 
 # pyre-strict
+# pyre-ignore-all-errors[6, 8, 9]
 
 import re
 import warnings
@@ -281,13 +282,16 @@ class Decoder:
         )
 
         return Experiment(
+            # pyre-ignore[6]: SA 2.0 Column[T] vs plain T param.
             name=experiment_sqa.name,
+            # pyre-ignore[6]: SA 2.0 Column[T] vs plain T param.
             description=experiment_sqa.description,
             search_space=search_space,
             optimization_config=opt_config,
             tracking_metrics=all_metrics,
             runner=runner,
             status_quo=status_quo,
+            # pyre-ignore[6]: SA 2.0 Column[T] vs plain T param.
             is_test=experiment_sqa.is_test,
             properties=properties,
             auxiliary_experiments_by_purpose=auxiliary_experiments_by_purpose,
@@ -333,11 +337,13 @@ class Decoder:
         )
 
         default_trial_type = none_throws(experiment_sqa.default_trial_type)
+        # pyre-ignore[9]: SA 2.0 Column[Optional[str]] keys; runtime str.
         trial_type_to_runner: dict[str, Runner | None] = {
             none_throws(sqa_runner.trial_type): self.runner_from_sqa(sqa_runner)
             for sqa_runner in experiment_sqa.runners
         }
         if len(trial_type_to_runner) == 0:
+            # pyre-ignore[9]: SA 2.0 Column[Optional[str]] keys; runtime str.
             trial_type_to_runner = {default_trial_type: None}
             trial_types_with_metrics = {
                 metric.trial_type
@@ -347,13 +353,18 @@ class Decoder:
             # trial_type_to_runner is instantiated to map all trial types to None,
             # so the trial types are associated with the experiment. This is
             # important for adding metrics.
+            # pyre-ignore[6]: SA 2.0 Column[T] keys vs str keys.
             trial_type_to_runner.update(dict.fromkeys(trial_types_with_metrics))
 
         experiment = MultiTypeExperiment(
+            # pyre-ignore[6]: SA 2.0 Column[T] vs plain T param.
             name=experiment_sqa.name,
+            # pyre-ignore[6]: SA 2.0 Column[T] vs plain T param.
             description=experiment_sqa.description,
             search_space=search_space,
+            # pyre-ignore[6]: SA 2.0 Column[T] vs plain T param.
             default_trial_type=default_trial_type,
+            # pyre-ignore[6]: SA 2.0 Column[T] vs plain T param.
             default_runner=trial_type_to_runner.get(default_trial_type),
             optimization_config=opt_config,
             status_quo=status_quo,
