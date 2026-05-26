@@ -5,113 +5,120 @@
 
 # pyre-strict
 
-from unittest.mock import MagicMock, PropertyMock
+from __future__ import annotations
 
-from ax.adapter.transfer_learning.adapter import TransferLearningAdapter
+from unittest.mock import MagicMock
+
+import torch
+from ax.adapter.transfer_learning.adapter import TL_EXP, TransferLearningAdapter
+from ax.adapter.transforms.metadata_to_task import MetadataToTask
+from ax.core.arm import Arm
+from ax.core.auxiliary_source import AuxiliarySource
+from ax.core.experiment import Experiment
 from ax.core.parameter import ParameterType, RangeParameter
-from ax.core.search_space import SearchSpace, SearchSpaceDigest
-from ax.exceptions.core import UnsupportedError
+from ax.core.search_space import SearchSpace
+from ax.generators.torch.botorch_modular.generator import BoTorchGenerator
+from ax.utils.common.constants import Keys
 from ax.utils.common.testutils import TestCase
+from ax.utils.testing.core_stubs import get_experiment_with_observations
+from pyre_extensions import assert_is_instance
 
 
-class ExpandSsdToJointSpaceTest(TestCase):
-    def setUp(self) -> None:
-        super().setUp()
-        self.adapter = MagicMock(spec=TransferLearningAdapter)
-
-    def _make_joint_ss(self, params: dict[str, tuple[float, float]]) -> SearchSpace:
-        return SearchSpace(
-            parameters=[
-                RangeParameter(
-                    name=n,
-                    lower=lo,
-                    upper=hi,
-                    parameter_type=ParameterType.FLOAT,
-                )
-                for n, (lo, hi) in params.items()
-            ]
-        )
-
-    def test_no_extra_params_returns_unchanged(self) -> None:
-        type(self.adapter).joint_search_space = PropertyMock(
-            return_value=self._make_joint_ss({"x1": (0, 1), "x2": (0, 1)})
-        )
-        ssd = SearchSpaceDigest(
-            feature_names=["x1", "x2", "task"],
-            bounds=[(0, 1), (0, 1), (0, 2)],
-            task_features=[2],
-            target_values={2: 0},
-        )
-        result = TransferLearningAdapter._expand_ssd_to_joint_space(self.adapter, ssd)
-        self.assertIs(result, ssd)
-
-    def test_single_task_feature_inserts_before_task(self) -> None:
-        type(self.adapter).joint_search_space = PropertyMock(
-            return_value=self._make_joint_ss(
-                {"x1": (0, 1), "x2": (0, 1), "x3": (-2, 5)}
+def _make_ss(params: dict[str, tuple[float, float]]) -> SearchSpace:
+    return SearchSpace(
+        parameters=[
+            RangeParameter(
+                name=n,
+                lower=lo,
+                upper=hi,
+                parameter_type=ParameterType.FLOAT,
             )
-        )
-        ssd = SearchSpaceDigest(
-            feature_names=["x1", "x2", "task"],
-            bounds=[(0, 1), (0, 1), (0, 2)],
-            task_features=[2],
-            target_values={2: 0},
-        )
-        result = TransferLearningAdapter._expand_ssd_to_joint_space(self.adapter, ssd)
-        self.assertEqual(result.feature_names, ["x1", "x2", "x3", "task"])
-        self.assertEqual(result.bounds, [(0, 1), (0, 1), (-2, 5), (0, 2)])
-        self.assertEqual(result.task_features, [3])
-        self.assertEqual(result.target_values, {3: 0})
+            for n, (lo, hi) in params.items()
+        ]
+    )
 
-    def test_zero_task_features_appends(self) -> None:
-        type(self.adapter).joint_search_space = PropertyMock(
-            return_value=self._make_joint_ss({"x1": (0, 1), "x2": (-1, 3)})
-        )
-        ssd = SearchSpaceDigest(
-            feature_names=["x1"],
-            bounds=[(0, 1)],
-        )
-        result = TransferLearningAdapter._expand_ssd_to_joint_space(self.adapter, ssd)
-        self.assertEqual(result.feature_names, ["x1", "x2"])
-        self.assertEqual(result.bounds, [(0, 1), (-1, 3)])
 
-    def test_discrete_choices_on_task_feature_shifted(self) -> None:
-        type(self.adapter).joint_search_space = PropertyMock(
-            return_value=self._make_joint_ss({"x1": (0, 1), "x2": (0, 1), "x3": (0, 1)})
-        )
-        ssd = SearchSpaceDigest(
-            feature_names=["x1", "x2", "task"],
-            bounds=[(0, 1), (0, 1), (0, 2)],
-            task_features=[2],
-            target_values={2: 0},
-            discrete_choices={2: [0, 1, 2]},
-        )
-        result = TransferLearningAdapter._expand_ssd_to_joint_space(self.adapter, ssd)
-        self.assertEqual(result.discrete_choices, {3: [0, 1, 2]})
-        self.assertEqual(result.task_features, [3])
+def _gen_experiment(
+    experiment_name: str,
+    num_trials: int,
+    search_space: SearchSpace | None = None,
+) -> Experiment:
+    exp = get_experiment_with_observations(
+        observations=torch.rand(num_trials, 1).tolist(),
+        search_space=search_space,
+    )
+    exp.name = experiment_name
+    return exp
 
-    def test_hierarchical_dependencies_at_task_idx_raises(self) -> None:
-        type(self.adapter).joint_search_space = PropertyMock(
-            return_value=self._make_joint_ss({"x1": (0, 1), "x2": (0, 1), "x3": (0, 1)})
-        )
-        ssd = SearchSpaceDigest(
-            feature_names=["x1", "x2", "task"],
-            bounds=[(0, 1), (0, 1), (0, 2)],
-            task_features=[2],
-            target_values={2: 0},
-            hierarchical_dependencies={2: {0: [1]}},
-        )
-        with self.assertRaisesRegex(UnsupportedError, "hierarchical_dependencies"):
-            TransferLearningAdapter._expand_ssd_to_joint_space(self.adapter, ssd)
 
-    def test_multiple_task_features_raises(self) -> None:
-        type(self.adapter).joint_search_space = PropertyMock(
-            return_value=self._make_joint_ss({"x1": (0, 1), "x2": (0, 1), "x3": (0, 1)})
+class SetSearchSpaceTest(TestCase):
+    """_set_search_space adds source-only params to _model_space while
+    preserving target bounds for shared params."""
+
+    def test_model_space_has_source_only_params(self) -> None:
+        target_ss = _make_ss({"x": (0, 1), "y": (0, 1)})
+        source_ss = _make_ss({"x": (0, 5), "y": (0, 5), "z": (0, 5)})
+        target_exp = _gen_experiment("target", num_trials=3, search_space=target_ss)
+        source_exp = _gen_experiment("source", num_trials=3, search_space=source_ss)
+        source_exp.status_quo = Arm(parameters={"x": 1.0, "y": 1.0, "z": 2.5})
+        target_exp.auxiliary_experiments_by_purpose[TL_EXP] = [
+            AuxiliarySource(experiment=source_exp)
+        ]
+        adapter = TransferLearningAdapter(
+            experiment=target_exp,
+            search_space=target_ss,
+            data=target_exp.lookup_data(),
+            generator=BoTorchGenerator(),
+            transforms=[MetadataToTask],
+            fit_on_init=False,
         )
-        ssd = SearchSpaceDigest(
-            feature_names=["x1", "task1", "task2"],
-            bounds=[(0, 1), (0, 1), (0, 1)],
-            task_features=[1, 2],
+        with self.subTest("model_space_has_z"):
+            self.assertIn("z", adapter._model_space.parameters)
+        with self.subTest("search_space_unchanged"):
+            self.assertNotIn("z", adapter._search_space.parameters)
+        with self.subTest("backfilled_not_source_only"):
+            self.assertNotIn("z", adapter._source_only_params)
+        with self.subTest("shared_params_keep_target_bounds"):
+            x_param = assert_is_instance(
+                adapter._model_space.parameters["x"], RangeParameter
+            )
+            self.assertEqual(x_param.lower, 0.0)
+            self.assertEqual(x_param.upper, 1.0)
+        with self.subTest("source_only_without_backfill"):
+            source_ss2 = _make_ss({"x": (0, 5), "w": (0, 10)})
+            source_exp2 = _gen_experiment(
+                "source2", num_trials=3, search_space=source_ss2
+            )
+            target_exp.auxiliary_experiments_by_purpose[TL_EXP] = [
+                AuxiliarySource(experiment=source_exp2)
+            ]
+            adapter2 = TransferLearningAdapter(
+                experiment=target_exp,
+                search_space=target_ss,
+                data=target_exp.lookup_data(),
+                generator=BoTorchGenerator(),
+                transforms=[MetadataToTask],
+                fit_on_init=False,
+            )
+            self.assertIn("w", adapter2._model_space.parameters)
+            self.assertIsInstance(adapter2._model_space.parameters["w"], RangeParameter)
+
+
+class GetTargetDataParametersTest(TestCase):
+    """_get_target_data_parameters filters joint params to target-only + task."""
+
+    def test_filters_source_only_params(self) -> None:
+        adapter = MagicMock(spec=TransferLearningAdapter)
+        adapter._source_only_params = {"z"}
+        joint_params = ["x", "y", "z", Keys.TASK_FEATURE_NAME.value]
+        result = TransferLearningAdapter._get_target_data_parameters(
+            adapter, joint_params
         )
-        with self.assertRaisesRegex(UnsupportedError, "Multiple task features"):
-            TransferLearningAdapter._expand_ssd_to_joint_space(self.adapter, ssd)
+        self.assertEqual(result, ["x", "y", Keys.TASK_FEATURE_NAME.value])
+
+    def test_no_source_only_params_returns_all(self) -> None:
+        adapter = MagicMock(spec=TransferLearningAdapter)
+        adapter._source_only_params = set()
+        params = ["x", "y", Keys.TASK_FEATURE_NAME.value]
+        result = TransferLearningAdapter._get_target_data_parameters(adapter, params)
+        self.assertEqual(result, params)
