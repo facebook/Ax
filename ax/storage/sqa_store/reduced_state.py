@@ -6,6 +6,10 @@
 
 # pyre-strict
 # pyre-ignore-all-errors[24]
+#
+# SA 2.0 requires a type param on InstrumentedAttribute, but SA 1.4
+# InstrumentedAttribute is not subscriptable at runtime (`type is not a generic
+# class`), so we keep the bare form to preserve dual-version compatibility.
 
 
 from ax.storage.sqa_store.sqa_classes import SQAGeneratorRun, SQATrial
@@ -13,9 +17,6 @@ from sqlalchemy.orm import defaultload, strategy_options
 from sqlalchemy.orm.attributes import InstrumentedAttribute
 
 
-# pyre-fixme[9]: `GR_LARGE_MODEL_ATTRS` is declared as `List[InstrumentedAttribute]`
-#  but SQLAlchemy class attributes are typed as `Column` in stubs; they are
-#  `InstrumentedAttribute` instances at runtime.
 GR_LARGE_MODEL_ATTRS: list[InstrumentedAttribute] = [
     SQAGeneratorRun.model_kwargs,
     SQAGeneratorRun.bridge_kwargs,

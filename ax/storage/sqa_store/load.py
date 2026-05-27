@@ -5,7 +5,6 @@
 # LICENSE file in the root directory of this source tree.
 
 # pyre-strict
-# pyre-ignore-all-errors[6, 8]
 
 import logging
 from collections.abc import Mapping
@@ -715,8 +714,8 @@ def load_analysis_cards_by_experiment_name(
             analysis_card_sqa_class.children
         )
 
-    exp_sqa_class: SQAExperiment = cast(
-        SQAExperiment, decoder.config.class_to_sqa_class[Experiment]
+    exp_sqa_class = cast(
+        type[SQAExperiment], decoder.config.class_to_sqa_class[Experiment]
     )
 
     with session_scope() as session:

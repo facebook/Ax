@@ -34,7 +34,8 @@ logger: Logger = get_logger(__name__)
 
 
 def listens_for_multiple(
-    # pyre-ignore[24]: SA 2.0 requires a type param on InstrumentedAttribute.
+    # pyre-ignore[24]: SA 2.0 requires a type param; SA 1.4 InstrumentedAttribute
+    # is not subscriptable at runtime, so we keep the bare form.
     targets: list[InstrumentedAttribute],
     identifier: str,
     *args: Any,

@@ -5,7 +5,6 @@
 # LICENSE file in the root directory of this source tree.
 
 # pyre-strict
-# pyre-ignore-all-errors[6, 8, 9]
 
 import re
 import warnings
@@ -195,10 +194,8 @@ class Decoder:
                 ):
                     continue
                 aux_experiment = auxiliary_experiment_from_name(
-                    # pyre-ignore[6]: SA 2.0 Column[T] vs plain T param.
                     experiment_name=auxiliary_experiment_sqa.source_experiment.name,
                     config=self.config,
-                    # pyre-ignore[6]: SA 2.0 Column[T] vs plain T param.
                     is_active=auxiliary_experiment_sqa.is_active,
                     reduced_state=reduced_state,
                 )
@@ -253,9 +250,7 @@ class Decoder:
             raise SQADecodeError("Experiment SearchSpace cannot be None.")
         status_quo = (
             Arm(
-                # pyre-ignore[6]: SA 2.0 Column[T] vs plain T param.
                 parameters=experiment_sqa.status_quo_parameters,
-                # pyre-ignore[6]: SA 2.0 Column[T] vs plain T param.
                 name=experiment_sqa.status_quo_name,
             )
             if experiment_sqa.status_quo_parameters is not None
@@ -282,16 +277,13 @@ class Decoder:
         )
 
         return Experiment(
-            # pyre-ignore[6]: SA 2.0 Column[T] vs plain T param.
             name=experiment_sqa.name,
-            # pyre-ignore[6]: SA 2.0 Column[T] vs plain T param.
             description=experiment_sqa.description,
             search_space=search_space,
             optimization_config=opt_config,
             tracking_metrics=all_metrics,
             runner=runner,
             status_quo=status_quo,
-            # pyre-ignore[6]: SA 2.0 Column[T] vs plain T param.
             is_test=experiment_sqa.is_test,
             properties=properties,
             auxiliary_experiments_by_purpose=auxiliary_experiments_by_purpose,
@@ -327,9 +319,7 @@ class Decoder:
             raise SQADecodeError("Experiment SearchSpace cannot be None.")
         status_quo = (
             Arm(
-                # pyre-ignore[6]: SA 2.0 Column[T] vs plain T param.
                 parameters=experiment_sqa.status_quo_parameters,
-                # pyre-ignore[6]: SA 2.0 Column[T] vs plain T param.
                 name=experiment_sqa.status_quo_name,
             )
             if experiment_sqa.status_quo_parameters is not None
@@ -357,14 +347,10 @@ class Decoder:
             trial_type_to_runner.update(dict.fromkeys(trial_types_with_metrics))
 
         experiment = MultiTypeExperiment(
-            # pyre-ignore[6]: SA 2.0 Column[T] vs plain T param.
             name=experiment_sqa.name,
-            # pyre-ignore[6]: SA 2.0 Column[T] vs plain T param.
             description=experiment_sqa.description,
             search_space=search_space,
-            # pyre-ignore[6]: SA 2.0 Column[T] vs plain T param.
             default_trial_type=default_trial_type,
-            # pyre-ignore[6]: SA 2.0 Column[T] vs plain T param.
             default_runner=trial_type_to_runner.get(default_trial_type),
             optimization_config=opt_config,
             status_quo=status_quo,
