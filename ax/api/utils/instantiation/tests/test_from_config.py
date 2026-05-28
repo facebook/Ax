@@ -153,6 +153,69 @@ class TestFromConfig(TestCase):
                 )
             )
 
+        digits_config = RangeParameterConfig(
+            name="digits_param",
+            parameter_type="float",
+            bounds=(0, 1),
+            digits=3,
+        )
+        self.assertEqual(
+            parameter_from_config(config=digits_config),
+            RangeParameter(
+                name="digits_param",
+                parameter_type=CoreParameterType.FLOAT,
+                lower=0,
+                upper=1,
+                digits=3,
+            ),
+        )
+
+        digits_config_with_log_scaling = RangeParameterConfig(
+            name="digits_param_with_log_scaling",
+            parameter_type="float",
+            bounds=(1e-3, 1),
+            scaling="log",
+            digits=4,
+        )
+        self.assertEqual(
+            parameter_from_config(config=digits_config_with_log_scaling),
+            RangeParameter(
+                name="digits_param_with_log_scaling",
+                parameter_type=CoreParameterType.FLOAT,
+                lower=1e-3,
+                upper=1,
+                log_scale=True,
+                digits=4,
+            ),
+        )
+
+        with self.assertRaisesRegex(
+            UserInputError,
+            "`step_size` and `digits` are mutually exclusive",
+        ):
+            parameter_from_config(
+                config=RangeParameterConfig(
+                    name="both_set",
+                    parameter_type="float",
+                    bounds=(0, 1),
+                    step_size=0.1,
+                    digits=3,
+                )
+            )
+
+        with self.assertRaisesRegex(
+            UserInputError,
+            "`digits` is only supported for `float` parameters",
+        ):
+            parameter_from_config(
+                config=RangeParameterConfig(
+                    name="int_with_digits",
+                    parameter_type="int",
+                    bounds=(0, 10),
+                    digits=2,
+                )
+            )
+
     def test_create_choice_parameter(self) -> None:
         es = ExitStack()
         ws = es.enter_context(warnings.catch_warnings(record=True))

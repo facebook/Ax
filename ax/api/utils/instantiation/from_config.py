@@ -37,6 +37,18 @@ def parameter_from_config(
     if isinstance(config, RangeParameterConfig):
         lower, upper = config.bounds
 
+        if config.step_size is not None and config.digits is not None:
+            raise UserInputError(
+                "`step_size` and `digits` are mutually exclusive on "
+                "`RangeParameterConfig`; set at most one."
+            )
+
+        if config.digits is not None and config.parameter_type != "float":
+            raise UserInputError(
+                "`digits` is only supported for `float` parameters; "
+                f"got parameter_type={config.parameter_type!r}."
+            )
+
         # TODO[mpolson64] Add support for RangeParameterConfig.step_size native to
         # RangeParameter instead of converting to ChoiceParameter
         if (step_size := config.step_size) is not None:
@@ -67,6 +79,7 @@ def parameter_from_config(
             lower=lower,
             upper=upper,
             log_scale=config.scaling == "log",
+            digits=config.digits,
         )
     elif isinstance(config, DerivedParameterConfig):
         return DerivedParameter(

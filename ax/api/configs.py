@@ -18,6 +18,23 @@ class RangeParameterConfig:
     """
     Allows specifying a continuous dimension of an experiment's search space
     and internally validates the inputs.
+
+    ``step_size`` and ``digits`` are two distinct ways to express limited
+    resolution and are mutually exclusive:
+
+    - ``step_size`` materializes an ordered ``ChoiceParameter`` over the
+      explicit grid ``[lower, lower + step, ..., upper]``. The optimizer
+      treats the parameter as discrete (with nearest-neighbor acquisition
+      optimization for low-cardinality grids). Use this when the domain
+      *is* the grid -- e.g. a small set of hardware settings. Requires
+      linear scaling and ``(upper - lower) % step_size == 0``.
+    - ``digits`` keeps the parameter as a continuous ``RangeParameter``
+      and rounds suggested values to ``digits`` decimal places at output
+      time. The optimizer treats the parameter as continuous. Use this
+      when the underlying quantity is continuous but the
+      measurement/control resolution is limited -- e.g. a laser intensity
+      dialed in 0.1 W increments. Float-only; works with log/logit
+      scaling and has no cardinality cap.
     """
 
     name: str
@@ -26,6 +43,7 @@ class RangeParameterConfig:
     parameter_type: Literal["float", "int"]
     step_size: float | None = None
     scaling: Literal["linear", "log"] | None = None
+    digits: int | None = None
 
 
 @dataclass
