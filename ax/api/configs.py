@@ -27,7 +27,9 @@ class RangeParameterConfig:
       treats the parameter as discrete (with nearest-neighbor acquisition
       optimization for low-cardinality grids). Use this when the domain
       *is* the grid -- e.g. a small set of hardware settings. Requires
-      linear scaling and ``(upper - lower) % step_size == 0``.
+      linear scaling and ``(upper - lower) % step_size == 0``. Capped at
+      1000 grid points (``MAX_VALUES_CHOICE_PARAM``); use ``digits`` for
+      finer resolutions.
     - ``digits`` keeps the parameter as a continuous ``RangeParameter``
       and rounds suggested values to ``digits`` decimal places at output
       time. The optimizer treats the parameter as continuous. Use this
