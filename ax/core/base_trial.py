@@ -556,7 +556,10 @@ class BaseTrial(ABC, SortableBase):
         return self
 
     def mark_running(
-        self, no_runner_required: bool = False, unsafe: bool = False
+        self,
+        no_runner_required: bool = False,
+        unsafe: bool = False,
+        started_time: datetime | None = None,
     ) -> Self:
         """Mark trial has started running.
 
@@ -566,6 +569,10 @@ class BaseTrial(ABC, SortableBase):
             no_runner_required: Whether to skip the check for presence of a
                 ``Runner`` on the experiment.
             unsafe: Ignore sanity checks on state transitions.
+            started_time: When the trial actually started running. Defaults
+                to ``datetime.now()`` if not provided. Useful for runners
+                that confirm deployment asynchronously and know the real
+                start time.
 
         Returns:
             The trial instance.
@@ -586,7 +593,9 @@ class BaseTrial(ABC, SortableBase):
                 f"Can only mark this trial as running when {prev_step_str}."
             )
         self._status = TrialStatus.RUNNING
-        self._time_run_started = datetime.now()
+        self._time_run_started = (
+            started_time if started_time is not None else datetime.now()
+        )
         return self
 
     def mark_completed(
@@ -749,7 +758,12 @@ class BaseTrial(ABC, SortableBase):
             self.mark_staged(unsafe=unsafe)
         elif status == TrialStatus.RUNNING:
             no_runner_required = kwargs.get("no_runner_required", False)
-            self.mark_running(no_runner_required=no_runner_required, unsafe=unsafe)
+            started_time = kwargs.get("started_time")
+            self.mark_running(
+                no_runner_required=no_runner_required,
+                unsafe=unsafe,
+                started_time=started_time,
+            )
         elif status == TrialStatus.ABANDONED:
             self.mark_abandoned(reason=kwargs.get("reason"), unsafe=unsafe)
         elif status == TrialStatus.FAILED:

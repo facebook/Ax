@@ -500,6 +500,18 @@ class TrialTest(TestCase):
             test_trial._time_run_started = self.trial._time_run_started
             self.assertEqual(self.trial, test_trial)
 
+    def test_mark_running_custom_started_time(self) -> None:
+        custom_time = datetime(2026, 5, 30, 4, 54, 38)
+        self.trial.mark_running(no_runner_required=True, started_time=custom_time)
+        self.assertEqual(self.trial.status, TrialStatus.RUNNING)
+        self.assertEqual(self.trial.time_run_started, custom_time)
+
+    def test_mark_running_default_started_time(self) -> None:
+        self.trial.mark_running(no_runner_required=True)
+        self.assertEqual(self.trial.status, TrialStatus.RUNNING)
+        self.assertIsNotNone(self.trial.time_run_started)
+        self.assertIsInstance(self.trial.time_run_started, datetime)
+
     def test_mark_complete_custom_date(self) -> None:
         self.trial.mark_running(no_runner_required=True)
         with self.subTest("custom completion time"):

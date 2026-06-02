@@ -95,6 +95,7 @@ class Keys(StrEnum):
     TRIAL_COMPLETION_TIMESTAMP = "trial_completion_timestamp"
     UNKNOWN_GENERATION_NODE = "unknown_gen_node"
     UNNAMED_ARM = "unnamed_arm"
+    START_TIME_STR = "start_time"
     WARM_START_REFITTING = "warm_start_refitting"
     WARMSTART_TRIAL_MODEL_KEY = "generation_model_key"
     X_BASELINE = "X_baseline"

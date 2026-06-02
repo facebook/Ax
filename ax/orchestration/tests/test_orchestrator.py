@@ -10,7 +10,7 @@ import os
 import re
 import time
 from collections.abc import Callable, Iterable
-from datetime import timedelta
+from datetime import datetime, timedelta
 from math import ceil
 from tempfile import NamedTemporaryFile
 from typing import Any, cast
@@ -1685,6 +1685,119 @@ class TestAxOrchestrator(TestCase):
             DUMMY_EXCEPTION,
         )
         self.assertIsNone(orchestrator.experiment.trials[completed_idx].status_reason)
+
+    def test_apply_trial_statuses_staged_to_running(self) -> None:
+        """Test that _apply_trial_statuses processes STAGED->RUNNING
+        transitions and uses time_started from run_metadata."""
+        gs = self.sobol_GS_no_parallelism
+        orchestrator = Orchestrator(
+            experiment=self.branin_experiment,
+            generation_strategy=gs,
+            options=OrchestratorOptions(
+                init_seconds_between_polls=0,
+                **self.orchestrator_options_kwargs,
+            ),
+            db_settings=self.db_settings_if_always_needed,
+        )
+        grs = gs.gen(experiment=orchestrator.experiment)
+        trial = orchestrator.experiment.new_trial(generator_run=grs[0][0])
+        trial.mark_staged(unsafe=True)
+        self.assertEqual(trial.status, TrialStatus.STAGED)
+
+        custom_time_str = "2026-05-30 04:54:38"
+        custom_time = datetime(2026, 5, 30, 4, 54, 38)
+        trial.update_run_metadata({Keys.START_TIME_STR: custom_time_str})
+
+        updated = orchestrator._apply_trial_statuses(
+            {TrialStatus.RUNNING: {trial.index}}
+        )
+        self.assertIn(trial.index, updated)
+        self.assertEqual(trial.status, TrialStatus.RUNNING)
+        self.assertEqual(trial.time_run_started, custom_time)
+
+    def test_apply_trial_statuses_skips_running_noop(self) -> None:
+        """Test that _apply_trial_statuses skips RUNNING->RUNNING no-ops."""
+        gs = self.sobol_GS_no_parallelism
+        orchestrator = Orchestrator(
+            experiment=self.branin_experiment,
+            generation_strategy=gs,
+            options=OrchestratorOptions(
+                init_seconds_between_polls=0,
+                **self.orchestrator_options_kwargs,
+            ),
+            db_settings=self.db_settings_if_always_needed,
+        )
+        grs = gs.gen(experiment=orchestrator.experiment)
+        trial = orchestrator.experiment.new_trial(generator_run=grs[0][0])
+        trial.mark_running(no_runner_required=True)
+        original_time = trial.time_run_started
+
+        updated = orchestrator._apply_trial_statuses(
+            {TrialStatus.RUNNING: {trial.index}}
+        )
+        self.assertEqual(len(updated), 0)
+        self.assertEqual(trial.time_run_started, original_time)
+
+    def test_apply_trial_statuses_staged_to_running_no_time_started(self) -> None:
+        """Test that STAGED->RUNNING defaults to datetime.now() when
+        time_started is not in run_metadata."""
+        gs = self.sobol_GS_no_parallelism
+        orchestrator = Orchestrator(
+            experiment=self.branin_experiment,
+            generation_strategy=gs,
+            options=OrchestratorOptions(
+                init_seconds_between_polls=0,
+                **self.orchestrator_options_kwargs,
+            ),
+            db_settings=self.db_settings_if_always_needed,
+        )
+        grs = gs.gen(experiment=orchestrator.experiment)
+        trial = orchestrator.experiment.new_trial(generator_run=grs[0][0])
+        trial.mark_staged(unsafe=True)
+
+        before = datetime.now()
+        updated = orchestrator._apply_trial_statuses(
+            {TrialStatus.RUNNING: {trial.index}}
+        )
+        after = datetime.now()
+
+        self.assertIn(trial.index, updated)
+        self.assertEqual(trial.status, TrialStatus.RUNNING)
+        started = trial.time_run_started
+        self.assertIsNotNone(started)
+        assert started is not None
+        self.assertGreaterEqual(started, before)
+        self.assertLessEqual(started, after)
+
+    def test_apply_trial_statuses_staged_to_running_int_timestamp(self) -> None:
+        """Test that STAGED->RUNNING handles integer timestamps in
+        run_metadata by converting from epoch seconds."""
+        gs = self.sobol_GS_no_parallelism
+        orchestrator = Orchestrator(
+            experiment=self.branin_experiment,
+            generation_strategy=gs,
+            options=OrchestratorOptions(
+                init_seconds_between_polls=0,
+                **self.orchestrator_options_kwargs,
+            ),
+            db_settings=self.db_settings_if_always_needed,
+        )
+        grs = gs.gen(experiment=orchestrator.experiment)
+        trial = orchestrator.experiment.new_trial(generator_run=grs[0][0])
+        trial.mark_staged(unsafe=True)
+
+        epoch = 1748580878
+        trial.update_run_metadata({Keys.START_TIME_STR: epoch})
+
+        updated = orchestrator._apply_trial_statuses(
+            {TrialStatus.RUNNING: {trial.index}}
+        )
+        self.assertIn(trial.index, updated)
+        self.assertEqual(trial.status, TrialStatus.RUNNING)
+        self.assertEqual(
+            trial.time_run_started,
+            datetime.fromtimestamp(epoch),
+        )
 
     def test_poll_trial_status_fallback_to_individual_polling(self) -> None:
         """Test that poll_trial_status falls back to individual polling when

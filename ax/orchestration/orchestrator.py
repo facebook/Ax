@@ -1437,10 +1437,18 @@ class Orchestrator(WithDBSettingsBase, BestPointMixin):
         """
         updated_trial_indices = set()
         for status, trial_idcs in polled_status_to_trial_idcs.items():
-            if status.is_candidate or status.is_deployed:
-                # No need to consider candidate, staged or running trials here (none of
-                # these trials should actually be candidates, but we can filter on that)
+            if status.is_candidate:
                 continue
+            if status.is_deployed:
+                # Only process trials whose status actually changed
+                # (e.g. STAGED -> RUNNING), skip no-ops.
+                trial_idcs = {
+                    idx
+                    for idx in trial_idcs
+                    if self.experiment.trials[idx].status != status
+                }
+                if not trial_idcs:
+                    continue
 
             if len(trial_idcs) > 0:
                 idcs = make_indices_str(indices=trial_idcs)
@@ -1459,7 +1467,34 @@ class Orchestrator(WithDBSettingsBase, BestPointMixin):
                         # we fall back to marking the without a reason.
                         trial.mark_as(status=status, unsafe=True)
                 else:
-                    trial.mark_as(status=status, unsafe=True)
+                    kwargs: dict[str, datetime] = {}
+                    if status == TrialStatus.RUNNING:
+                        started_time_raw = trial.run_metadata.get(Keys.START_TIME_STR)
+                        if isinstance(started_time_raw, str):
+                            try:
+                                kwargs["started_time"] = datetime.strptime(
+                                    started_time_raw, "%Y-%m-%d %H:%M:%S"
+                                )
+                            except ValueError:
+                                self.logger.warning(
+                                    f"Could not parse {Keys.START_TIME_STR} "
+                                    f"{started_time_raw!r} for trial "
+                                    f"{trial.index}; defaulting to now."
+                                )
+                        elif isinstance(started_time_raw, datetime):
+                            kwargs["started_time"] = started_time_raw
+                        elif isinstance(started_time_raw, (int, float)):
+                            kwargs["started_time"] = datetime.fromtimestamp(
+                                started_time_raw
+                            )
+                        elif started_time_raw is not None:
+                            self.logger.warning(
+                                f"Unexpected type for {Keys.START_TIME_STR} "
+                                f"in trial {trial.index} run_metadata: "
+                                f"{type(started_time_raw).__name__}; "
+                                f"defaulting to now."
+                            )
+                    trial.mark_as(status=status, unsafe=True, **kwargs)
         return updated_trial_indices
 
     def _identify_trial_indices_to_fetch(
