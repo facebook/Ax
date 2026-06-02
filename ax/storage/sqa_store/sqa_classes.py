@@ -102,6 +102,7 @@ class SQAParameter(Base):
 
     # Attributes for Range Parameters
     digits: Mapped[int | None] = Column(Integer)
+    step_size: Mapped[float | None] = Column(Float)
     log_scale: Mapped[bool | None] = Column(Boolean)
     lower: Mapped[Decimal | None] = Column(Float)
     upper: Mapped[Decimal | None] = Column(Float)
