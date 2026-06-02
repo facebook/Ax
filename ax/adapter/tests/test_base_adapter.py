@@ -15,6 +15,7 @@ from unittest import mock
 from unittest.mock import Mock
 
 import numpy as np
+import pandas as pd
 import torch
 from ax.adapter.base import (
     _combine_multiple_status_quo_observations,
@@ -27,7 +28,7 @@ from ax.adapter.base import (
 )
 from ax.adapter.data_utils import ExperimentData, extract_experiment_data
 from ax.adapter.factory import get_sobol
-from ax.adapter.registry import MBM_X_trans, MBM_X_trans_base, Y_trans
+from ax.adapter.registry import Generators, MBM_X_trans, MBM_X_trans_base, Y_trans
 from ax.adapter.transforms.cast import Cast
 from ax.adapter.transforms.fill_missing_parameters import FillMissingParameters
 from ax.adapter.transforms.standardize_y import StandardizeY
@@ -41,10 +42,15 @@ from ax.core.objective import Objective
 from ax.core.observation import ObservationData, ObservationFeatures
 from ax.core.optimization_config import OptimizationConfig
 from ax.core.outcome_constraint import ComparisonOp, OutcomeConstraint
-from ax.core.parameter import DerivedParameter, ParameterType, RangeParameter
+from ax.core.parameter import (
+    ChoiceParameter,
+    DerivedParameter,
+    ParameterType,
+    RangeParameter,
+)
 from ax.core.parameter_constraint import ParameterConstraint
 from ax.core.search_space import SearchSpace
-from ax.core.types import TParameterization
+from ax.core.types import TParameterization, TParamValue
 from ax.core.utils import get_target_trial_index
 from ax.exceptions.core import UnsupportedError, UserInputError
 from ax.exceptions.model import ModelError
@@ -69,6 +75,7 @@ from ax.utils.testing.core_stubs import (
     get_search_space_for_range_values,
     get_search_space_for_value,
 )
+from ax.utils.testing.mock import mock_botorch_optimize
 from ax.utils.testing.modeling_stubs import (
     get_experiment_for_value,
     get_observation1trans,
@@ -881,7 +888,7 @@ class BaseAdapterTest(TestCase):
 
     def test_set_model_space(self) -> None:
         # Set up experiment
-        experiment = get_branin_experiment()
+        experiment = get_branin_experiment(with_choice_parameter=True)
         # SQ values are OOD
         sq_vals = {"x1": 5.0, "x2": 20.0}
         # SQ is specified OOD
@@ -917,9 +924,9 @@ class BaseAdapterTest(TestCase):
             assert_is_instance(m.model_space.parameters["x1"], RangeParameter).lower,
             -5.0,
         )
-        self.assertEqual(
-            assert_is_instance(m.model_space.parameters["x2"], RangeParameter).upper,
-            15.0,
+        self.assertNotIn(
+            20.0,
+            assert_is_instance(m.model_space.parameters["x2"], ChoiceParameter).values,
         )
         self.assertEqual(len(m.model_space.parameter_constraints), 1)
 
@@ -940,9 +947,9 @@ class BaseAdapterTest(TestCase):
             assert_is_instance(m.model_space.parameters["x1"], RangeParameter).lower,
             -20.0,
         )
-        self.assertEqual(
-            assert_is_instance(m.model_space.parameters["x2"], RangeParameter).upper,
+        self.assertIn(
             18.0,
+            assert_is_instance(m.model_space.parameters["x2"], ChoiceParameter).values,
         )
         self.assertEqual(m.model_space.parameter_constraints, [])
 
@@ -958,9 +965,9 @@ class BaseAdapterTest(TestCase):
                 transform_configs={"FillMissingParameters": {"fill_values": sq_vals}},
             )
         self.assertEqual(sum(m.training_in_design), 7)
-        self.assertEqual(
-            assert_is_instance(m.model_space.parameters["x2"], RangeParameter).upper,
-            20,
+        self.assertIn(
+            20.0,
+            assert_is_instance(m.model_space.parameters["x2"], ChoiceParameter).values,
         )
         self.assertEqual(m.model_space.parameter_constraints, [])
 
@@ -975,9 +982,9 @@ class BaseAdapterTest(TestCase):
             search_space=ss,
         )
         self.assertEqual(sum(m.training_in_design), 7)
-        self.assertEqual(
-            assert_is_instance(m.model_space.parameters["x2"], RangeParameter).upper,
-            20,
+        self.assertIn(
+            20.0,
+            assert_is_instance(m.model_space.parameters["x2"], ChoiceParameter).values,
         )
         self.assertEqual(m.model_space.parameter_constraints, [])
 
@@ -1023,6 +1030,204 @@ class BaseAdapterTest(TestCase):
             assert_is_instance(m.model_space.parameters["x2"], RangeParameter).upper,
             2.0,
         )
+
+    def test_set_model_space_choice_parameter_expansion(self) -> None:
+        # Unit-level coverage of choice parameter expansion in _set_model_space:
+        # gating, order-preserving deduped merge with sort, fill_values, and
+        # INT->FLOAT relaxation on non-integer observations.
+
+        def _expand(
+            parameter: ChoiceParameter,
+            arm_data: pd.DataFrame,
+            fill_values: dict[str, TParamValue] | None = None,
+        ) -> ChoiceParameter:
+            experiment = get_experiment_with_observations(
+                observations=[[1.0]],
+                search_space=SearchSpace(parameters=[parameter]),
+                parameterizations=[{parameter.name: parameter.values[0]}],
+            )
+            adapter = Adapter(
+                experiment=experiment,
+                generator=Generator(),
+                expand_model_space=False,
+                fit_on_init=False,
+            )
+            if fill_values is not None:
+                adapter._transform_configs = {
+                    "FillMissingParameters": {"fill_values": fill_values}
+                }
+            adapter._set_model_space(arm_data=arm_data)
+            return assert_is_instance(
+                adapter.model_space.parameters[parameter.name], ChoiceParameter
+            )
+
+        def _numeric_ordered(values: list[TParamValue]) -> ChoiceParameter:
+            return ChoiceParameter(
+                name="x",
+                parameter_type=ParameterType.FLOAT,
+                values=values,
+                is_ordered=True,
+            )
+
+        with self.subTest("numeric ordered: observed value sorted in"):
+            self.assertEqual(
+                _expand(
+                    parameter=_numeric_ordered(values=[1.0, 3.0, 5.0]),
+                    arm_data=pd.DataFrame({"x": [2.0, 7.0]}),
+                ).values,
+                [1.0, 2.0, 3.0, 5.0, 7.0],
+            )
+
+        with self.subTest("numeric ordered: observed value already present is no-op"):
+            self.assertEqual(
+                _expand(
+                    parameter=_numeric_ordered(values=[1.0, 3.0, 5.0]),
+                    arm_data=pd.DataFrame({"x": [1.0, 3.0]}),
+                ).values,
+                [1.0, 3.0, 5.0],
+            )
+
+        with self.subTest("repeated observed OOD value is deduped"):
+            self.assertEqual(
+                _expand(
+                    parameter=_numeric_ordered(values=[1.0, 3.0, 5.0]),
+                    arm_data=pd.DataFrame({"x": [7.0, 7.0, 7.0]}),
+                ).values,
+                [1.0, 3.0, 5.0, 7.0],
+            )
+
+        with self.subTest("unordered numeric: not expanded"):
+            param = ChoiceParameter(
+                name="x",
+                parameter_type=ParameterType.FLOAT,
+                values=[1.0, 3.0, 5.0],
+                is_ordered=False,
+            )
+            self.assertEqual(
+                _expand(parameter=param, arm_data=pd.DataFrame({"x": [7.0]})).values,
+                [1.0, 3.0, 5.0],
+            )
+
+        with self.subTest("string ordered: not expanded"):
+            param = ChoiceParameter(
+                name="x",
+                parameter_type=ParameterType.STRING,
+                values=["a", "b", "c"],
+                is_ordered=True,
+            )
+            self.assertEqual(
+                _expand(parameter=param, arm_data=pd.DataFrame({"x": ["d"]})).values,
+                ["a", "b", "c"],
+            )
+
+        with self.subTest("fill_values path expands choice param without arm_data"):
+            param = ChoiceParameter(
+                name="x",
+                parameter_type=ParameterType.FLOAT,
+                values=[1.0, 3.0, 5.0],
+                is_ordered=True,
+            )
+            self.assertEqual(
+                _expand(
+                    parameter=param,
+                    arm_data=pd.DataFrame(),
+                    fill_values={"x": 9.0},
+                ).values,
+                [1.0, 3.0, 5.0, 9.0],
+            )
+
+        # INT-declared param relaxation. Non-integer obs flips the model-space
+        # copy to FLOAT and preserves the value exactly; integer-valued obs
+        # leaves the type alone. The original experiment search space is
+        # never mutated in either case.
+        int_param_kwargs: dict[str, Any] = {
+            "name": "x",
+            "parameter_type": ParameterType.INT,
+            "values": [1, 3, 5],
+            "is_ordered": True,
+        }
+        with self.subTest("INT-declared param relaxed to FLOAT on non-integer obs"):
+            # Need the experiment to verify search_space isolation, so build
+            # the adapter inline rather than going through `_expand`.
+            param = ChoiceParameter(**int_param_kwargs)
+            experiment = get_experiment_with_observations(
+                observations=[[1.0]],
+                search_space=SearchSpace(parameters=[param]),
+                parameterizations=[{"x": 1}],
+            )
+            adapter = Adapter(
+                experiment=experiment,
+                generator=Generator(),
+                expand_model_space=False,
+                fit_on_init=False,
+            )
+            adapter._set_model_space(arm_data=pd.DataFrame({"x": [2.5]}))
+            expanded = assert_is_instance(
+                adapter.model_space.parameters["x"], ChoiceParameter
+            )
+            self.assertEqual(expanded.parameter_type, ParameterType.FLOAT)
+            self.assertIn(2.5, expanded.values)
+            # Original experiment search space is unchanged.
+            self.assertEqual(
+                experiment.search_space.parameters["x"].parameter_type,
+                ParameterType.INT,
+            )
+
+        with self.subTest("INT-declared param stays INT on integer-valued obs"):
+            param = ChoiceParameter(**int_param_kwargs)
+            expanded = _expand(parameter=param, arm_data=pd.DataFrame({"x": [7.0]}))
+            self.assertEqual(expanded.parameter_type, ParameterType.INT)
+            self.assertEqual(expanded.values, [1, 3, 5, 7])
+
+    @mock_botorch_optimize
+    def test_choice_parameter_expansion_end_to_end(self) -> None:
+        # End-to-end fit+gen with an observed ordered-numeric choice value
+        # outside the declared set. Verifies that (a) the surrogate is fit on
+        # the expanded model space (so OOD observations inform training), and
+        # (b) generated candidates remain inside the user's original declared
+        # search space (transforms are re-built on the original search space
+        # at gen time).
+        declared_values: list[TParamValue] = [1.0, 3.0, 5.0]
+        ood_value: TParamValue = 7.0
+        search_space = SearchSpace(
+            parameters=[
+                RangeParameter(
+                    name="x1",
+                    parameter_type=ParameterType.FLOAT,
+                    lower=0.0,
+                    upper=1.0,
+                ),
+                ChoiceParameter(
+                    name="x_choice",
+                    parameter_type=ParameterType.FLOAT,
+                    values=declared_values,
+                    is_ordered=True,
+                ),
+            ]
+        )
+        experiment = get_experiment_with_observations(
+            observations=[[1.0], [2.0], [3.0], [4.0]],
+            search_space=search_space,
+            parameterizations=[
+                {"x1": 0.2, "x_choice": declared_values[0]},
+                {"x1": 0.4, "x_choice": declared_values[1]},
+                {"x1": 0.6, "x_choice": declared_values[2]},
+                # OOD arm: choice value is not in the declared set.
+                {"x1": 0.8, "x_choice": ood_value},
+            ],
+        )
+        adapter = Generators.BOTORCH_MODULAR(
+            experiment=experiment, data=experiment.lookup_data()
+        )
+        # Model space must include the OOD value (expansion ran).
+        expanded_choice = assert_is_instance(
+            adapter.model_space.parameters["x_choice"], ChoiceParameter
+        )
+        self.assertIn(ood_value, expanded_choice.values)
+        # Generated candidates must remain in the user-declared domain.
+        gen_run = adapter.gen(n=2)
+        for arm in gen_run.arms:
+            self.assertIn(arm.parameters["x_choice"], declared_values)
 
     @mock.patch(
         "ax.adapter.base.extract_experiment_data", wraps=extract_experiment_data
