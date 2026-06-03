@@ -7,11 +7,17 @@
 
 
 from collections.abc import Mapping, Sequence
+from functools import partial
 from typing import final
 
 import pandas as pd
 from ax.adapter.base import Adapter
-from ax.adapter.cross_validation import cross_validate, CVResult
+from ax.adapter.cross_validation import (
+    _pairwise_kfold_train_test_split,
+    compute_pairwise_accuracy,
+    cross_validate,
+    CVResult,
+)
 from ax.analysis.analysis import Analysis
 from ax.analysis.healthcheck.predictable_metrics import DEFAULT_MODEL_FIT_THRESHOLD
 from ax.analysis.plotly.color_constants import AX_BLUE
@@ -66,8 +72,10 @@ class CrossValidationPlot(Analysis):
         - predicted_sem: The SEM of the predicted mean of the metric specified
 
 
-    The card title includes the R² (coefficient of determination) score for
-    the metric.
+    For regression metrics the card title includes the R^2 (coefficient of
+    determination) score for the metric. For preference metrics (see
+    ``preference_metrics``) the card instead reports the pairwise classification
+    accuracy.
     """
 
     def __init__(
@@ -78,6 +86,7 @@ class CrossValidationPlot(Analysis):
         trial_index: int | None = None,
         labels: Mapping[str, str] | None = None,
         test_trial_index: int | None = None,
+        preference_metrics: set[str] | None = None,
     ) -> None:
         """
         Args:
@@ -105,6 +114,10 @@ class CrossValidationPlot(Analysis):
                 predictions for observations from this trial. Other trials'
                 observations will still be used for training but will not
                 appear as test points.
+            preference_metrics: Set of metric names that use preference/comparison-pair
+                semantics (e.g., pairwise_pref_query). For these metrics, CV uses
+                pair-aware fold splitting (by trial) and renders classification
+                accuracy instead of scatter + R^2.
         """
 
         self.metric_names = metric_names
@@ -113,6 +126,7 @@ class CrossValidationPlot(Analysis):
         self.trial_index = trial_index
         self.labels: dict[str, str] = {**labels} if labels is not None else {}
         self.test_trial_index = test_trial_index
+        self.preference_metrics: set[str] = preference_metrics or set()
         self._r2s: dict[str, float] = {}
 
     @override
@@ -151,11 +165,29 @@ class CrossValidationPlot(Analysis):
             if self.test_trial_index is not None
             else None
         )
+        # Use pair-aware fold splitting when preference metrics are present.
+        # Pairwise trials have 2 arms each; splitting by trial keeps pairs
+        # intact. Only split on trials with preference data -- holding out
+        # a non-preference trial (e.g., BO trial with only tracking metrics)
+        # would remove all data for those metrics.
+        if self.preference_metrics:
+            # TODO: If multiple preference metrics exist, each may need its
+            # own fold splitting strategy. Currently assumes a single metric.
+            pref_metric_name = next(iter(self.preference_metrics))
+            fold_generator = partial(
+                _pairwise_kfold_train_test_split,
+                self.folds,
+                preference_metric_name=pref_metric_name,
+            )
+        else:
+            fold_generator = None
+
         cv_results = cross_validate(
             adapter=relevant_adapter,
             folds=self.folds,
             untransform=self.untransform,
             test_selector=test_selector,
+            fold_generator=fold_generator,
         )
         relevant_adapter_metric_names = [
             relevant_adapter._experiment.signature_to_metric[signature].name
@@ -163,61 +195,94 @@ class CrossValidationPlot(Analysis):
         ]
         self._r2s = {}
         for metric_name in self.metric_names or relevant_adapter_metric_names:
-            df = _prepare_data(
-                metric_name=metric_name, cv_results=cv_results, adapter=relevant_adapter
-            )
-
-            fig = _prepare_plot(df=df)
-
-            k_folds_substring = (
-                f"{self.folds}-fold" if self.folds > 0 else "leave-one-out"
-            )
-
             # If a human readable metric name is provided, use it in the title
             metric_title = self.labels.get(metric_name, metric_name)
 
-            r_squared = coefficient_of_determination(
-                y_obs=df["observed"].to_numpy(),
-                y_pred=df["predicted"].to_numpy(),
-            )
-            self._r2s[metric_title] = r_squared
+            is_preference = metric_name in self.preference_metrics
 
-            # Define the cross-validation description based on the number of folds
-            cv_description = (
-                (
-                    f"the data is split into {self.folds} subsets and the model is "
-                    f"trained on {self.folds - 1} subsets while the remaining subset "
-                    "is used for validation"
+            if is_preference:
+                # Preference metrics: compute classification accuracy and
+                # render a bar chart instead of scatter + R^2.
+                accuracy = compute_pairwise_accuracy(
+                    cv_results=cv_results,
+                    metric_name=metric_name,
                 )
-                if self.folds > 0
-                else (
-                    "the model is trained on all data except one sample, which is "
-                    "used for validation"
+                fig = _prepare_preference_cv_plot(
+                    accuracy=accuracy, metric_title=metric_title
                 )
-            )
 
-            card = create_plotly_analysis_card(
-                name=self.__class__.__name__,
-                title=(
-                    f"Cross Validation for {metric_title} (R\u00b2 = {r_squared:.2f})"
-                ),
-                subtitle=(
-                    "The cross-validation plot displays the model fit for each "
-                    f"metric in the experiment. It employs a {k_folds_substring} "
-                    f"approach, where {cv_description}. The plot shows the "
-                    "predicted outcome for the validation set on the y-axis against "
-                    "its actual value on the x-axis. Points that align closely with "
-                    "the dotted diagonal line indicate a strong model fit, signifying "
-                    "accurate predictions. Additionally, the plot includes 95% "
-                    "confidence intervals that provide insight into the noise in "
-                    "observations and the uncertainty in model predictions. A "
-                    "horizontal, flat line of predictions indicates that the model "
-                    "has not picked up on sufficient signal in the data, and instead "
-                    "is just predicting the mean."
-                ),
-                df=df,
-                fig=fig,
-            )
+                card = create_plotly_analysis_card(
+                    name=self.__class__.__name__,
+                    title=(
+                        f"Preference CV for {metric_title} (Accuracy = {accuracy:.0%})"
+                    ),
+                    subtitle=(
+                        "Classification accuracy of the preference model on "
+                        "held-out comparison pairs. For each held-out pair, "
+                        "checks if the model correctly predicts which arm is "
+                        "preferred. Random baseline = 50%."
+                    ),
+                    df=pd.DataFrame({"metric": [metric_name], "accuracy": [accuracy]}),
+                    fig=fig,
+                )
+            else:
+                # Standard regression metrics: scatter + R^2 (unchanged).
+                df = _prepare_data(
+                    metric_name=metric_name,
+                    cv_results=cv_results,
+                    adapter=relevant_adapter,
+                )
+
+                fig = _prepare_plot(df=df)
+
+                k_folds_substring = (
+                    f"{self.folds}-fold" if self.folds > 0 else "leave-one-out"
+                )
+
+                r_squared = coefficient_of_determination(
+                    y_obs=df["observed"].to_numpy(),
+                    y_pred=df["predicted"].to_numpy(),
+                )
+                self._r2s[metric_title] = r_squared
+
+                cv_description = (
+                    (
+                        f"the data is split into {self.folds} subsets and the "
+                        f"model is trained on {self.folds - 1} subsets while "
+                        "the remaining subset is used for validation"
+                    )
+                    if self.folds > 0
+                    else (
+                        "the model is trained on all data except one sample, "
+                        "which is used for validation"
+                    )
+                )
+
+                card = create_plotly_analysis_card(
+                    name=self.__class__.__name__,
+                    title=(
+                        f"Cross Validation for {metric_title}"
+                        f" (R\u00b2 = {r_squared:.2f})"
+                    ),
+                    subtitle=(
+                        "The cross-validation plot displays the model fit for "
+                        "each metric in the experiment. It employs a "
+                        f"{k_folds_substring} approach, where {cv_description}."
+                        " The plot shows the predicted outcome for the "
+                        "validation set on the y-axis against its actual value "
+                        "on the x-axis. Points that align closely with the "
+                        "dotted diagonal line indicate a strong model fit, "
+                        "signifying accurate predictions. Additionally, the "
+                        "plot includes 95% confidence intervals that provide "
+                        "insight into the noise in observations and the "
+                        "uncertainty in model predictions. A horizontal, flat "
+                        "line of predictions indicates that the model has not "
+                        "picked up on sufficient signal in the data, and "
+                        "instead is just predicting the mean."
+                    ),
+                    df=df,
+                    fig=fig,
+                )
 
             cards.append(card)
 
@@ -459,4 +524,43 @@ def _prepare_plot(
         scaleratio=1,
         title="Predicted Outcome",
     )
+    return fig
+
+
+def _prepare_preference_cv_plot(
+    accuracy: float,
+    metric_title: str,
+) -> go.Figure:
+    """Build a preference CV accuracy bar chart.
+
+    For preference metrics, the predicted-vs-observed scatter is meaningless
+    (observed = binary 0/1, predicted = latent utility). Instead, show a
+    single accuracy bar -- the fraction of held-out comparison pairs where
+    the model correctly predicts which arm is preferred (random = 50%).
+    """
+    fig = go.Figure(
+        data=[
+            go.Bar(
+                x=["Accuracy"],
+                y=[accuracy],
+                marker={
+                    "color": "rgb(40, 160, 100)"
+                    if accuracy > 0.5
+                    else "rgb(220, 80, 60)"
+                },
+                text=[f"{accuracy:.0%}"],
+                textposition="outside",
+                showlegend=False,
+            )
+        ]
+    )
+    fig.add_hline(
+        y=0.5,
+        line_dash="dash",
+        line_color="gray",
+        annotation_text="Random (50%)",
+    )
+    fig.update_yaxes(range=[0, 1.1], title="Pairwise Classification Accuracy")
+    fig.update_xaxes(title=metric_title)
+    fig.update_layout(margin={"l": 60, "r": 40, "t": 40, "b": 60})
     return fig
