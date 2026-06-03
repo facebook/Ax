@@ -10,9 +10,9 @@ import pandas as pd
 from ax.analysis.summary import Summary
 from ax.api.client import Client
 from ax.api.configs import RangeParameterConfig
-from ax.core.arm import Arm
 from ax.core.base_trial import TrialStatus
 from ax.core.data import Data
+from ax.core.experiment import Experiment
 from ax.core.metric import Metric
 from ax.core.objective import MultiObjective, Objective
 from ax.core.optimization_config import MultiObjectiveOptimizationConfig
@@ -224,35 +224,97 @@ class TestSummary(TestCase):
         self.assertIn(0, card.df["trial_index"].values)
         self.assertIn(1, card.df["trial_index"].values)
 
-    def test_compute_with_preference_objective_skips_relativization(self) -> None:
-        """Summary should skip relativization when a preference metric is an
-        objective, since binary 0/1 labels have SQ mean near zero which causes
-        'mean_control too small' errors."""
+    def _attach_binary_pairwise_data(
+        self, experiment: Experiment, pairwise_name: str
+    ) -> None:
+        """Attach binary 0/1 pairwise data to every trial, with the status-quo
+        (control) arm set to 0. A near-zero control mean is exactly what makes
+        relativizing this metric crash with 'mean_control too small', so this
+        deterministically reproduces the crash unless the preference metric is
+        scoped out of relativization."""
+        status_quo_name = none_throws(experiment.status_quo).name
+        for trial in experiment.trials.values():
+            arm_names = [arm.name for arm in trial.arms]
+            # Control arm gets 0.0 so |mean_control| is below the relativization
+            # epsilon; all other arms get 1.0.
+            means = [0.0 if name == status_quo_name else 1.0 for name in arm_names]
+            experiment.attach_data(
+                Data(
+                    df=pd.DataFrame(
+                        {
+                            "arm_name": arm_names,
+                            "metric_name": [pairwise_name] * len(arm_names),
+                            "mean": means,
+                            "sem": [0.0] * len(arm_names),
+                            "trial_index": [trial.index] * len(arm_names),
+                            "metric_signature": [pairwise_name] * len(arm_names),
+                        }
+                    )
+                )
+            )
+
+    def test_compute_with_preference_objective_per_metric_relativization(
+        self,
+    ) -> None:
+        """Summary with a preference metric objective should relativize only
+        non-preference metrics. The preference metric (pairwise_pref_query)
+        has binary 0/1 labels with SQ mean near zero -- relativizing it would
+        crash with 'mean_control too small'. Non-preference metrics should
+        be relativized normally."""
         pairwise_name = Keys.PAIRWISE_PREFERENCE_QUERY.value
 
-        # Use Client to set up experiment with SQ and data
-        client = self.client
-        client.configure_optimization(objective="foo")
-        experiment = client._experiment
-        experiment.status_quo = Arm(parameters={"x1": 0.5, "x2": 0.5})
+        # Use an experiment with BatchTrials and SQ data, which triggers
+        # relativization in the Summary. get_branin_experiment_with_status_quo_trials
+        # creates BatchTrials with a SQ arm, so data.relativize() has SQ data.
+        experiment = get_branin_experiment_with_status_quo_trials()
 
-        # Add pairwise_pref_query as an additional objective
+        # Add pairwise_pref_query as an additional objective alongside branin.
         experiment.add_tracking_metric(Metric(name=pairwise_name))
         experiment.optimization_config = MultiObjectiveOptimizationConfig(
             objective=MultiObjective(
                 objectives=[
-                    Objective(metric=Metric(name="foo"), minimize=True),
+                    Objective(metric=experiment.metrics["branin"], minimize=True),
                     Objective(metric=Metric(name=pairwise_name), minimize=False),
                 ]
             )
         )
 
-        client.get_next_trials(max_trials=1)
-        client.complete_trial(trial_index=0, raw_data={"foo": 1.0, pairwise_name: 0.0})
+        self._attach_binary_pairwise_data(experiment, pairwise_name)
 
-        # Should succeed without "mean_control too small" error
+        # Should succeed without "mean_control too small" crash
         card = Summary().compute(experiment=experiment)
-        self.assertNotIn("relativized", card.subtitle)
+
+        # Subtitle should indicate relativization (non-preference metrics)
+        self.assertIn("relativized", card.subtitle)
+
+        # Preference metric column should be dropped from the summary
+        self.assertNotIn(pairwise_name, card.df.columns)
+
+    def test_compute_with_preference_tracking_metric_and_no_optimization_config(
+        self,
+    ) -> None:
+        """A preference metric attached as a tracking metric (with a status quo
+        but no optimization_config) must still be scoped out of relativization.
+        Relativization is gated only on metrics/status_quo/step data, not on the
+        optimization_config, so without scoping the binary 0/1 preference metric
+        (SQ mean ~0) would crash with 'mean_control too small'."""
+        pairwise_name = Keys.PAIRWISE_PREFERENCE_QUERY.value
+
+        experiment = get_branin_experiment_with_status_quo_trials()
+        # Preference metric is tracking-only; there is no optimization_config.
+        experiment.add_tracking_metric(Metric(name=pairwise_name))
+        experiment._optimization_config = None
+
+        self._attach_binary_pairwise_data(experiment, pairwise_name)
+
+        # Should succeed without "mean_control too small" crash even though
+        # there is no optimization_config.
+        card = Summary().compute(experiment=experiment)
+
+        # branin is still relativized (non-preference metric).
+        self.assertIn("relativized", card.subtitle)
+        # Preference metric column should be dropped from the summary.
+        self.assertNotIn(pairwise_name, card.df.columns)
 
     def test_default_excludes_stale_trials(self) -> None:
         """Test that Summary defaults to excluding STALE trials."""

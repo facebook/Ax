@@ -845,7 +845,14 @@ def _relativize_df_with_sq(
         and 'METRIC_NAME_sem' columns relativized to the status quo arm for each metric
         within each trial.
     """
-    metric_names = [name[:-5] for name in df.columns if name.endswith("_mean")]
+    # Only relativize metrics present in both the data df and the status quo
+    # df. Model predictions may include metrics (e.g., pairwise_pref_query)
+    # that the status quo df doesn't have columns for.
+    metric_names = [
+        name[:-5]
+        for name in df.columns
+        if name.endswith("_mean") and name in status_quo_df.columns
+    ]
 
     rel_df = df.copy()
 
