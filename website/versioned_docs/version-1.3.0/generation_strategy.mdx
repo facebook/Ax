@@ -1,0 +1,108 @@
+---
+id: generation_strategy
+title: Generation Strategy
+---
+
+import transfer_learning_generation_strategy from
+'./assets/transfer_learning_generation_strategy.png';
+
+:::info
+
+This document discusses non-API components of Ax, which may change between major
+library versions. Contributor guides are most useful for developers intending to
+publish PRs to Ax, not those using Ax directly or building tools on top of Ax.
+
+:::
+
+# Generation Strategy
+
+The Generation Strategy is an entry-point to the methodology layer in Ax: it
+allows for pre-specification of all optimization algorithms and for the dynamic
+conditions for transitions between them. It is essentially a finite state
+machine for methods Ax will use in the course of a given optimization.
+
+An example generation strategy consists of three "generation nodes":
+
+- **"Sobol": Quasi-random initialization node for the first few trials**
+  (samples initial points in the search space before any trials finish and their
+  data becomes available);
+- **"Transfer-Learning BayesOpt": Node with Bayesian optimization with Transfer
+  Learning** that leverages data from pre-existing experiments as well as from
+  the current one;
+- **"BoTorch": Standard Bayesian optimization node** to use if no previous
+  experiments are available to transfer knowledge from.
+
+<center><img src={transfer_learning_generation_strategy} alt="A sample GenerationStrategy with three nodes" width="60%" /></center>
+
+A generation strategy typically acts as an "experiment contract" and reflects
+how Ax will generate subsequent trials depending on the current state of the
+experiment. Notably, not all GenerationNodes within a GenerationStrategy must be
+traversed. Before proceeding, we recommend ensuring familiarity with
+[Internal Organization of Ax: Experiment + Trials](./experiment.mdx).
+
+## Generation Node
+
+A `GenerationNode` represents a single "generation purpose" that applies at a
+specific point in the course of an experiment. `GenerationNode`s directly
+interfaces with the `Adapter`s that expose the underlying methodologies (via
+`Generator`s). `GenerationNode`s can be thought of as producers of new trials
+for a given experiment.
+
+## Node Transitions
+
+Generation strategies transition between nodes via transition edges, made up of
+transition criteria: A `TransitionCriterion` represents a condition for whether
+a transition should occur between two nodes in a `GenerationStrategy`. Examples
+include:
+
+- Is there enough data to start AI-driven optimization, e.g. with Bayesian
+  optimization?
+- Is data from previous experiments available?
+- Is the optimization currently configured for a single or multiple
+  objective(s)?
+
+All transition criteria along a given edge must be met for the
+`GenerationStrategy` to proceed to the destination node.
+
+### Can a `GenerationNode` have outgoing transition edges to different nodes?
+
+Yes, competing edges are possible. They will both be defined on the source
+`GenerationNode` and their order on that node’s `transition_criteria` attribute
+will indicate priority. The `GenerationStrategy` will transition to the target
+node of the first edge where all transition criteria are met at a given point in
+the experiment.
+
+## Specifying a custom GenerationStrategy to the API
+
+Typically, configuring common aspects of the `GenerationStrategy` through the
+`Client.configure_generation_strategy` API method is recommended (see
+[corresponding recipe](./recipes/influence-gs-choice.md)).
+
+It’s possible to specify a fully custom `GenerationStrategy` via
+`Client.set_generation_strategy` (see
+[Utilizing custom Generators via Modular BoTorch Interface](./tutorials/modular_botorch/index.mdx),
+but this usage is not part of the Ax backward-compatible API and backward
+compatibility is not guaranteed: the method or its input could thus change
+between minor versions in the future.
+
+## Advanced features
+
+Generation strategies include a number of advanced, optional features which are
+not required for typical use cases, but can be useful for more exotic setups.
+
+### External Generation Node
+
+Additionally, Ax provides an `ExternalGenerationNode` abstraction, which enables
+seamless support for non-Ax methodologies. A `GenerationStrategy` might be
+composed of both `ExternalGenerationNode`s and regular Ax `GenerationNode`s, or
+entirely of one type. When defining an `ExternalGenerationNode`, two abstract
+methods must be implemented: `update_generator_state()`, which updates the state
+of generation methods, and `get_next_candidate()` which retrieves the next
+suggested candidate from custom methods.
+
+### Input Constructors
+
+"Input constructors" define the logic for dynamically computing certain
+`GenerationNode` settings based on the current experiment state. For example,
+target task when using a `MultiTaskGP` or a number of arms to produce from a
+given `GenerationNode` given the output of other `GenerationNode`s.

@@ -1,0 +1,136 @@
+---
+title: Quickstart
+sidebar_label: Quickstart
+---
+
+import LinkButtons from "@site/src/components/LinkButtons.jsx";
+import CellOutput from "@site/src/components/CellOutput.jsx";
+import {PlotlyFigure} from "@site/src/components/Plotting.jsx";
+
+<LinkButtons
+  githubUrl="https://github.com/facebook/ax/blob/main/tutorials/quickstart/quickstart.ipynb"
+  colabUrl="https://colab.research.google.com/github/facebook/ax/blob/main/tutorials/quickstart/quickstart.ipynb"
+/>
+
+# Quickstart
+
+Ax is an open-source platform for adaptive experimentation, a technique used to
+efficiently tune parameters in complex systems. This guide will walk through
+installation, core concepts, and basic usage of Ax.
+
+## Installation
+
+We recommend using `pip` to install Ax.
+
+```shell
+pip install ax-platform
+```
+
+## Core concepts
+
+- **Experiment:** A process of iteratively suggesting and evaluating parameters to
+  improve some objective.
+- **Parameter:** A variable that can be adjusted -- a collection of these form the space
+  we are searching over during the optimization.
+- **Objective:** The value being optimized.
+- **Trial:** A set of parameters and the associated objective.
+- **Client:** An object that manages the experiment and provides methods for interacting
+  with it.
+
+```python
+from ax.api.client import Client
+from ax.api.configs import RangeParameterConfig
+
+# 1. Initialize the Client.
+client = Client()
+
+# 2. Configure where Ax will search.
+client.configure_experiment(
+    name="booth_function",
+    parameters=[
+        RangeParameterConfig(
+            name="x1",
+            bounds=(-10.0, 10.0),
+            parameter_type="float",
+        ),
+        RangeParameterConfig(
+            name="x2",
+            bounds=(-10.0, 10.0),
+            parameter_type="float",
+        ),
+    ],
+)
+
+# 3. Configure a metric for Ax to target (see other Tutorials for adding constraints,
+# multiple objectives, tracking metrics etc.)
+client.configure_optimization(objective="-1 * booth")
+
+# 4. Conduct the experiment with 20 trials: get each trial from Ax, evaluate the
+# objective function, and log data back to Ax.
+for _ in range(20):
+    # Use higher value of `max_trials` to run trials in parallel.
+    for trial_index, parameters in client.get_next_trials(max_trials=1).items():
+        client.complete_trial(
+            trial_index=trial_index,
+            raw_data={
+                "booth": (parameters["x1"] + 2 * parameters["x2"] - 7) ** 2
+                + (2 * parameters["x1"] + parameters["x2"] - 5) ** 2
+            },
+        )
+
+# 5. Obtain the best-performing configuration; the true minimum for the booth
+# function is at (1, 3).
+client.get_best_parameterization()
+```
+
+<CellOutput>
+{
+`[INFO 06-04 15:50:31] ax.storage.sqa_store.with_db_settings_base: Ax SQL storage initialized with SQLAlchemy 1.4.17
+[INFO 06-04 15:50:32] ax.api.client: GenerationStrategy(name='Center+Sobol+MBM:fast', nodes=[CenterGenerationNode(next_node_name='Sobol', use_existing_trials_for_initialization=True), GenerationNode(name='Sobol', generator_specs=[GeneratorSpec(generator_enum=Sobol, generator_key_override=None)], transition_criteria=[MinTrials(transition_to='MBM'), MinTrials(transition_to='MBM')], suggested_experiment_status=ExperimentStatus.INITIALIZATION, pausing_criteria=[MaxTrialsAwaitingData(threshold=5)]), GenerationNode(name='MBM', generator_specs=[GeneratorSpec(generator_enum=BoTorch, generator_key_override=None)], transition_criteria=None, suggested_experiment_status=ExperimentStatus.OPTIMIZATION, pausing_criteria=None)]) chosen based on user input and problem structure.
+[INFO 06-04 15:50:32] ax.api.client: Generated new trial 0 with parameters {'x1': 0.0, 'x2': 0.0} using GenerationNode CenterOfSearchSpace.
+[INFO 06-04 15:50:32] ax.api.client: Trial 0 marked COMPLETED.
+[INFO 06-04 15:50:32] ax.api.client: Generated new trial 1 with parameters {'x1': 9.282724, 'x2': -6.977362} using GenerationNode Sobol.
+[INFO 06-04 15:50:32] ax.api.client: Trial 1 marked COMPLETED.
+[INFO 06-04 15:50:32] ax.api.client: Generated new trial 2 with parameters {'x1': -7.2808, 'x2': 9.202343} using GenerationNode Sobol.
+[INFO 06-04 15:50:32] ax.api.client: Trial 2 marked COMPLETED.
+[INFO 06-04 15:50:32] ax.api.client: Generated new trial 3 with parameters {'x1': -1.138991, 'x2': -1.387857} using GenerationNode Sobol.
+[INFO 06-04 15:50:32] ax.api.client: Trial 3 marked COMPLETED.
+[INFO 06-04 15:50:32] ax.api.client: Generated new trial 4 with parameters {'x1': 2.926073, 'x2': 4.78727} using GenerationNode Sobol.
+[INFO 06-04 15:50:32] ax.api.client: Trial 4 marked COMPLETED.
+[INFO 06-04 15:50:33] ax.api.client: Generated new trial 5 with parameters {'x1': 2.025022, 'x2': 4.182395} using GenerationNode MBM.
+[INFO 06-04 15:50:33] ax.api.client: Trial 5 marked COMPLETED.
+[INFO 06-04 15:50:33] ax.api.client: Generated new trial 6 with parameters {'x1': 4.671647, 'x2': 3.706335} using GenerationNode MBM.
+[INFO 06-04 15:50:33] ax.api.client: Trial 6 marked COMPLETED.
+[INFO 06-04 15:50:33] ax.api.client: Generated new trial 7 with parameters {'x1': 0.136928, 'x2': 4.181882} using GenerationNode MBM.
+[INFO 06-04 15:50:34] ax.api.client: Trial 7 marked COMPLETED.
+[INFO 06-04 15:50:34] ax.api.client: Generated new trial 8 with parameters {'x1': -2.031943, 'x2': 3.848161} using GenerationNode MBM.
+[INFO 06-04 15:50:34] ax.api.client: Trial 8 marked COMPLETED.
+[INFO 06-04 15:50:34] ax.api.client: Generated new trial 9 with parameters {'x1': -1.443116, 'x2': 4.498102} using GenerationNode MBM.
+[INFO 06-04 15:50:34] ax.api.client: Trial 9 marked COMPLETED.
+[INFO 06-04 15:50:35] ax.api.client: Generated new trial 10 with parameters {'x1': -3.708926, 'x2': 4.237894} using GenerationNode MBM.
+[INFO 06-04 15:50:35] ax.api.client: Trial 10 marked COMPLETED.
+[INFO 06-04 15:50:35] ax.api.client: Generated new trial 11 with parameters {'x1': 0.586413, 'x2': 1.838688} using GenerationNode MBM.
+[INFO 06-04 15:50:35] ax.api.client: Trial 11 marked COMPLETED.
+[INFO 06-04 15:50:36] ax.api.client: Generated new trial 12 with parameters {'x1': 3.361634, 'x2': 0.818303} using GenerationNode MBM.
+[INFO 06-04 15:50:36] ax.api.client: Trial 12 marked COMPLETED.
+[INFO 06-04 15:50:36] ax.api.client: Generated new trial 13 with parameters {'x1': 1.53258, 'x2': 2.20285} using GenerationNode MBM.
+[INFO 06-04 15:50:36] ax.api.client: Trial 13 marked COMPLETED.
+[INFO 06-04 15:50:36] ax.api.client: Generated new trial 14 with parameters {'x1': -1.0169, 'x2': 7.18828} using GenerationNode MBM.
+[INFO 06-04 15:50:36] ax.api.client: Trial 14 marked COMPLETED.
+[INFO 06-04 15:50:37] ax.api.client: Generated new trial 15 with parameters {'x1': 0.483058, 'x2': 3.305059} using GenerationNode MBM.
+[INFO 06-04 15:50:37] ax.api.client: Trial 15 marked COMPLETED.
+[INFO 06-04 15:50:37] ax.api.client: Generated new trial 16 with parameters {'x1': 4.29202, 'x2': -2.448692} using GenerationNode MBM.
+[INFO 06-04 15:50:37] ax.api.client: Trial 16 marked COMPLETED.
+[INFO 06-04 15:50:37] ax.api.client: Generated new trial 17 with parameters {'x1': 1.007908, 'x2': 2.934326} using GenerationNode MBM.
+[INFO 06-04 15:50:37] ax.api.client: Trial 17 marked COMPLETED.
+[INFO 06-04 15:50:38] ax.api.client: Generated new trial 18 with parameters {'x1': 0.375101, 'x2': 3.643596} using GenerationNode MBM.
+[INFO 06-04 15:50:38] ax.api.client: Trial 18 marked COMPLETED.
+[INFO 06-04 15:50:38] ax.api.client: Generated new trial 19 with parameters {'x1': -10.0, 'x2': -10.0} using GenerationNode MBM.
+[INFO 06-04 15:50:38] ax.api.client: Trial 19 marked COMPLETED.
+({'x1': 1.007908239818328, 'x2': 2.934325710015072},
+ {'booth': (np.float64(-0.04564706435525068), np.float64(1.3426378630378248))},
+ 17,
+ '17_0')`
+}
+</CellOutput>
+
