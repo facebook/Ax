@@ -73,8 +73,12 @@ class UnitX(Transform):
             if (p_bounds := self.bounds.get(p_name)) is not None and isinstance(
                 p, RangeParameter
             ):
-                # Don't round in unit space; digits will be re-applied in
-                # the original space by the Cast transform during untransform.
+                # Don't snap/round in unit space; step_size (or legacy digits)
+                # will be re-applied in the original space by the Cast transform
+                # during untransform. Both are cleared until digits is fully
+                # removed (see step_size unification RFC).
+                if p.step_size is not None:
+                    p.set_step_size(step_size=None)
                 if p.digits is not None:
                     p.set_digits(digits=None)
                 p.update_range(

@@ -127,13 +127,18 @@ class MapKeyToFloat(MetadataToParameterMixin, Transform):
                 return
 
             p_config = self.parameters[MAP_KEY]
+            # Prefer ``step_size``; fall back to legacy ``digits``. Only one may
+            # be passed to the constructor (it rejects both being set).
+            step_size = p_config.get("step_size", None)
+            digits = None if step_size is not None else p_config.get("digits", None)
             self._parameter_list.append(
                 RangeParameter(
                     name=MAP_KEY,
                     parameter_type=ParameterType.FLOAT,
                     lower=p_config.get("lower", min(values)),
                     upper=p_config.get("upper", max(values)),
-                    digits=p_config.get("digits", None),
+                    digits=digits,
+                    step_size=step_size,
                     is_fidelity=p_config.get("is_fidelity", False),
                     target_value=p_config.get("target_value", None),
                 )

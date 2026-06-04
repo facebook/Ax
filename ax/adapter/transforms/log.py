@@ -79,7 +79,12 @@ class Log(Transform):
                     isinstance(p, RangeParameter)
                     and p.parameter_type == ParameterType.FLOAT
                 ):
-                    # Don't round in log space
+                    # Don't snap/round in log space; step_size (or legacy
+                    # digits) will be re-applied in the original space by the
+                    # Cast transform during untransform. Both are cleared until
+                    # digits is fully removed (see step_size unification RFC).
+                    if p.step_size is not None:
+                        p.set_step_size(step_size=None)
                     if p.digits is not None:
                         p.set_digits(digits=None)
                     p.set_log_scale(False).update_range(

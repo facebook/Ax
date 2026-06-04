@@ -1966,6 +1966,17 @@ def get_range_parameter2() -> RangeParameter:
     return RangeParameter(name="x", parameter_type=ParameterType.INT, lower=1, upper=10)
 
 
+def get_range_parameter_with_step_size() -> RangeParameter:
+    return RangeParameter(
+        name="w",
+        parameter_type=ParameterType.FLOAT,
+        lower=0.0,
+        upper=1.0,
+        log_scale=False,
+        step_size=0.1,
+    )
+
+
 def get_choice_parameter() -> ChoiceParameter:
     return ChoiceParameter(
         name="y",

@@ -111,6 +111,7 @@ def merge_parameters(
             log_scale=p1.log_scale,
             logit_scale=p1.logit_scale,
             digits=p1.digits,
+            step_size=p1.step_size,
             is_fidelity=p1.is_fidelity,
             target_value=p1.target_value,
         )

@@ -355,6 +355,20 @@ class MapKeyToFloatTransformTest(TestCase):
             self.assertEqual(p.upper, 1.0)
             self.assertFalse(p.log_scale)
 
+        # step_size from the config is forwarded to the surrogate parameter.
+        with self.subTest(msg="step_size from config"):
+            t = MapKeyToFloat(
+                experiment_data=self.experiment_data,
+                config={
+                    "parameters": {
+                        self.map_key: {"lower": 0.0, "upper": 1.0, "step_size": 0.1}
+                    }
+                },
+            )
+            p = t._parameter_list[0]
+            self.assertEqual(p.step_size, 0.1)
+            self.assertIsNone(p.digits)
+
     def test_TransformSearchSpace(self) -> None:
         ss2 = deepcopy(self.search_space)
         ss2 = self.t.transform_search_space(ss2)

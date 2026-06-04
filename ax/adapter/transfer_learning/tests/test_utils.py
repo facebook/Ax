@@ -254,6 +254,41 @@ class AxFbCoreUtilsTest(TestCase):
                 name="p", parameter_type=ParameterType.INT, lower=0, upper=3
             ),
         )
+        # The grid spec (step_size, or legacy digits) is forwarded from p1, even
+        # when the merged bounds are widened by p2 (as long as they stay on p1's
+        # grid).
+        p_range_step = RangeParameter(
+            name="p",
+            parameter_type=ParameterType.FLOAT,
+            lower=0.0,
+            upper=1.0,
+            step_size=0.1,
+        )
+        p_range_wide = RangeParameter(
+            name="p", parameter_type=ParameterType.FLOAT, lower=0.0, upper=2.0
+        )
+        merged_step = assert_is_instance(
+            merge_parameters(p1=p_range_step, p2=p_range_wide, reverse_param_config={}),
+            RangeParameter,
+        )
+        self.assertEqual(merged_step.upper, 2.0)
+        self.assertEqual(merged_step.step_size, 0.1)
+        self.assertIsNone(merged_step.digits)
+        p_range_digits = RangeParameter(
+            name="p",
+            parameter_type=ParameterType.FLOAT,
+            lower=0.0,
+            upper=1.0,
+            digits=2,
+        )
+        merged_digits = assert_is_instance(
+            merge_parameters(
+                p1=p_range_digits, p2=p_range_wide, reverse_param_config={}
+            ),
+            RangeParameter,
+        )
+        self.assertEqual(merged_digits.digits, 2)
+        self.assertIsNone(merged_digits.step_size)
         p_choice_1 = ChoiceParameter(
             name="p",
             parameter_type=ParameterType.STRING,

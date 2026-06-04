@@ -390,6 +390,39 @@ class TestInstantiationtUtils(TestCase):
             }
             _ = InstantiationBase.parameter_from_json(representation)
 
+    def test_range_parameter_step_size_and_digits(self) -> None:
+        # ``step_size`` is forwarded from the representation to the parameter.
+        step_size_param = assert_is_instance(
+            InstantiationBase.parameter_from_json(
+                {
+                    "name": "x",
+                    "type": "range",
+                    "bounds": [0.0, 1.0],
+                    "step_size": 0.1,
+                }
+            ),
+            RangeParameter,
+        )
+        self.assertEqual(step_size_param.step_size, 0.1)
+        self.assertIsNone(step_size_param.digits)
+
+        # Legacy ``digits`` is still accepted for backwards compatibility.
+        digits_param = assert_is_instance(
+            InstantiationBase.parameter_from_json(
+                {
+                    "name": "x",
+                    "type": "range",
+                    "bounds": [0.0, 1.0],
+                    "digits": 2,
+                }
+            ),
+            RangeParameter,
+        )
+        self.assertEqual(digits_param.digits, 2)
+        self.assertIsNone(digits_param.step_size)
+        # ``digits=2`` rounds cast values to two decimal places.
+        self.assertEqual(digits_param.cast(0.123), 0.12)
+
     def test_hss(self) -> None:
         parameter_dicts: list[
             dict[str, TParamValue | Sequence[TParamValue] | dict[str, list[str]]]

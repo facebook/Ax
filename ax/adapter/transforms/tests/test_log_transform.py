@@ -117,11 +117,35 @@ class LogTransformTest(TestCase):
         ss2 = deepcopy(self.search_space)
         ss2 = self.t.transform_search_space(ss2)
 
-        # Test float log-scale parameter transformation
+        # Test float log-scale parameter transformation. The grid (legacy
+        # ``digits`` here; ``step_size`` covered below) must be cleared during
+        # the transform -- a grid meaningful in the original space is
+        # meaningless after a log10 rescale, and Cast re-applies it in the
+        # original space on untransform.
         param_x = assert_is_instance(ss2.parameters["x"], RangeParameter)
         self.assertEqual(param_x.lower, math.log10(1))
         self.assertEqual(param_x.upper, math.log10(3))
         self.assertIsNone(param_x.digits)
+
+        # Same clearing behavior for ``step_size`` (mutually exclusive with
+        # ``digits``, so it needs its own parameter).
+        ss_step = SearchSpace(
+            parameters=[
+                RangeParameter(
+                    "x",
+                    lower=1.0,
+                    upper=1000.0,
+                    parameter_type=ParameterType.FLOAT,
+                    log_scale=True,
+                    step_size=1.0,
+                ),
+            ]
+        )
+        ss_step = Log(search_space=ss_step).transform_search_space(ss_step)
+        param_x_step = assert_is_instance(ss_step.parameters["x"], RangeParameter)
+        self.assertIsNone(param_x_step.step_size)
+        self.assertEqual(param_x_step.lower, math.log10(1.0))
+        self.assertEqual(param_x_step.upper, math.log10(1000.0))
 
         # Test integer log-scale parameter transformation (converted to ChoiceParameter)
         param_y = assert_is_instance(ss2.parameters["y"], ChoiceParameter)
