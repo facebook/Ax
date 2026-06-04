@@ -81,6 +81,7 @@ EXPECTED_KEYS_IN_PARAM_REPR = {
     "is_ordered",
     "is_task",
     "digits",
+    "step_size",
     "dependents",
     "expression_str",
 }
@@ -246,7 +247,18 @@ class InstantiationBase:
             lower=assert_is_instance_of_tuple(bounds[0], (float, int)),
             upper=assert_is_instance_of_tuple(bounds[1], (float, int)),
             log_scale=assert_is_instance(representation.get("log_scale", False), bool),
-            digits=assert_is_instance_optional(representation.get("digits", None), int),
+            # Prefer ``step_size``; fall back to legacy ``digits`` (only one may
+            # be passed -- the constructor rejects both being set).
+            digits=(
+                None
+                if representation.get("step_size", None) is not None
+                else assert_is_instance_optional(
+                    representation.get("digits", None), int
+                )
+            ),
+            step_size=assert_is_instance_optional(
+                representation.get("step_size", None), float
+            ),
             is_fidelity=assert_is_instance(
                 representation.get("is_fidelity", False), bool
             ),

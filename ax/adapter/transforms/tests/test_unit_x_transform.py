@@ -167,28 +167,38 @@ class UnitXTransformTest(TestCase):
         self.assertEqual(ineq_c.constraint_dict, {"x": -1.0, "y": 1.0})
         self.assertEqual(ineq_c.bound, 0.0)
 
-    def test_transform_search_space_clears_digits(self) -> None:
-        """Test that digits is cleared during transform to avoid rounding
-        in unit space. Regression test for a bug where digits=-3 (round to
-        nearest 1000) collapsed [0, 1] bounds to (0.0, 0.0)."""
-        ss = SearchSpace(
-            parameters=[
-                RangeParameter(
-                    "w",
-                    lower=5000.0,
-                    upper=500000.0,
-                    parameter_type=ParameterType.FLOAT,
-                    digits=-3,
-                ),
-            ]
-        )
-        t = UnitX(search_space=ss)
-        ss = t.transform_search_space(ss)
-        w = assert_is_instance(ss.parameters["w"], RangeParameter)
-        # digits must be cleared so rounding doesn't corrupt [0, 1] bounds.
-        self.assertIsNone(w.digits)
-        self.assertEqual(w.lower, 0.0)
-        self.assertEqual(w.upper, 1.0)
+    def test_transform_search_space_clears_grid(self) -> None:
+        """The grid (legacy ``digits`` or ``step_size``, which are mutually
+        exclusive) must be cleared during transform to avoid rounding / snapping
+        in unit space; a grid meaningful in the original space is meaningless
+        after rescaling to [0, 1]. The ``digits=-3`` case is a regression test
+        for a bug where rounding to the nearest 1000 collapsed the [0, 1] bounds
+        to (0.0, 0.0)."""
+        grid_params = [
+            RangeParameter(
+                "w",
+                lower=5000.0,
+                upper=500000.0,
+                parameter_type=ParameterType.FLOAT,
+                digits=-3,
+            ),
+            RangeParameter(
+                "w",
+                lower=5000.0,
+                upper=500000.0,
+                parameter_type=ParameterType.FLOAT,
+                step_size=1000.0,
+            ),
+        ]
+        for param in grid_params:
+            with self.subTest(param=param):
+                ss = SearchSpace(parameters=[param])
+                ss = UnitX(search_space=ss).transform_search_space(ss)
+                w = assert_is_instance(ss.parameters["w"], RangeParameter)
+                self.assertIsNone(w.digits)
+                self.assertIsNone(w.step_size)
+                self.assertEqual(w.lower, 0.0)
+                self.assertEqual(w.upper, 1.0)
 
     def test_TransformNewSearchSpace(self) -> None:
         new_ss = SearchSpace(

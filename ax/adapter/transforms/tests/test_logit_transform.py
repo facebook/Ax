@@ -122,27 +122,38 @@ class LogitTransformTest(TestCase):
         self.assertEqual(x_param.lower, logit(0.1))
         self.assertEqual(x_param.upper, logit(0.3))
 
-    def test_transform_search_space_clears_digits(self) -> None:
-        """Test that digits is cleared during transform to avoid rounding
-        in logit space."""
-        ss = SearchSpace(
-            parameters=[
-                RangeParameter(
-                    "x",
-                    lower=0.1,
-                    upper=0.9,
-                    parameter_type=ParameterType.FLOAT,
-                    logit_scale=True,
-                    digits=3,
-                ),
-            ]
-        )
-        t = Logit(search_space=ss)
-        ss = t.transform_search_space(ss)
-        x = assert_is_instance(ss.parameters["x"], RangeParameter)
-        self.assertIsNone(x.digits)
-        self.assertAlmostEqual(x.lower, logit(0.1))
-        self.assertAlmostEqual(x.upper, logit(0.9))
+    def test_transform_search_space_clears_grid(self) -> None:
+        """The grid (legacy ``digits`` or ``step_size``, which are mutually
+        exclusive) must be cleared during the transform to avoid rounding /
+        snapping in logit space; it is re-applied in the original space by Cast
+        on untransform."""
+        grid_params = [
+            RangeParameter(
+                "x",
+                lower=0.1,
+                upper=0.9,
+                parameter_type=ParameterType.FLOAT,
+                logit_scale=True,
+                digits=3,
+            ),
+            RangeParameter(
+                "x",
+                lower=0.1,
+                upper=0.9,
+                parameter_type=ParameterType.FLOAT,
+                logit_scale=True,
+                step_size=0.1,
+            ),
+        ]
+        for param in grid_params:
+            with self.subTest(param=param):
+                ss = SearchSpace(parameters=[param])
+                ss = Logit(search_space=ss).transform_search_space(ss)
+                x = assert_is_instance(ss.parameters["x"], RangeParameter)
+                self.assertIsNone(x.digits)
+                self.assertIsNone(x.step_size)
+                self.assertAlmostEqual(x.lower, logit(0.1))
+                self.assertAlmostEqual(x.upper, logit(0.9))
 
     def test_transform_experiment_data(self) -> None:
         parameterizations = [

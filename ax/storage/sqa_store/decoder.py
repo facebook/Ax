@@ -470,13 +470,21 @@ class Decoder:
                     "`dependents` unexpectedly non-null on range parameter "
                     f"{parameter_sqa.name}."
                 )
+            # Prefer the newer ``step_size`` column; fall back to the legacy
+            # ``digits`` column for rows written by older code. Only one may be
+            # passed to the constructor (it rejects both being set). The
+            # constructor converts ``digits`` to ``step_size`` internally.
+            # We should never have the two together in the DB, so this is extra.
+            step_size = parameter_sqa.step_size
+            digits = None if step_size is not None else parameter_sqa.digits
             parameter = RangeParameter(
                 name=parameter_sqa.name,
                 parameter_type=parameter_sqa.parameter_type,
                 lower=float(none_throws(parameter_sqa.lower)),
                 upper=float(none_throws(parameter_sqa.upper)),
                 log_scale=parameter_sqa.log_scale or False,
-                digits=parameter_sqa.digits,
+                digits=digits,
+                step_size=float(step_size) if step_size is not None else None,
                 is_fidelity=parameter_sqa.is_fidelity or False,
                 target_value=parameter_sqa.target_value,
                 backfill_value=parameter_sqa.backfill_value,

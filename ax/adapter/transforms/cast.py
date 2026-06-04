@@ -25,7 +25,7 @@ from ax.core.search_space import SearchSpace
 from ax.exceptions.core import UserInputError
 from ax.generators.types import TConfig
 from ax.utils.common.constants import Keys
-from pandas import DataFrame
+from pandas import DataFrame, Series
 from pyre_extensions import assert_is_instance, none_throws
 
 if TYPE_CHECKING:
@@ -314,11 +314,38 @@ class Cast(Transform):
             for p, param in self.search_space.parameters.items()
         }
         arm_data = arm_data.astype(dtype=column_to_type)
-        # Round to digits if any parameter specifies it.
+        # Snap to the parameter's grid (digits or step_size) if specified.
+        # These mirror ``RangeParameter.cast``'s rounding logic, but are applied
+        # in a vectorized manner over the whole column rather than via a per-row
+        # ``Series.apply`` (which calls ``parameter.cast`` once per element and is
+        # slow for large DataFrames). NaN / ``<NA>`` values (added for missing
+        # columns during the ``reindex`` above) propagate through ``round`` and
+        # the arithmetic, matching the previous ``value if value is None`` guard.
         for p_name in parameter_names:
             parameter = self.search_space.parameters[p_name]
-            if isinstance(parameter, RangeParameter) and parameter.digits is not None:
-                arm_data[p_name] = arm_data[p_name].round(parameter.digits)
+            if not isinstance(parameter, RangeParameter):
+                continue
+            column: Series = arm_data[p_name]
+            if (
+                parameter.parameter_type is ParameterType.FLOAT
+                and parameter.digits is not None
+            ):
+                # ``Series.round`` uses round-half-to-even, same as Python's
+                # built-in ``round`` used in ``RangeParameter.cast``.
+                arm_data[p_name] = column.round(parameter.digits)
+            elif parameter.step_size is not None:
+                # Snap to the grid ``{lower + k * step_size : k in Z}`` by
+                # rounding ``(value - lower) / step_size`` to the nearest integer.
+                lower = float(parameter.lower)
+                step_size = none_throws(parameter.step_size)
+                steps: Series = column.sub(lower).div(step_size).round()
+                snapped: Series = steps.mul(step_size).add(lower)
+                if parameter.parameter_type is ParameterType.INT:
+                    # Preserve the nullable ``Int64`` dtype so reindex-added
+                    # ``<NA>`` values survive the cast.
+                    arm_data[p_name] = snapped.round().astype("Int64")
+                else:
+                    arm_data[p_name] = snapped
 
         return ExperimentData(arm_data=arm_data, observation_data=observation_data)
 

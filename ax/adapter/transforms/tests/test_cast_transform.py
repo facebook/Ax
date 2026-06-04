@@ -323,6 +323,77 @@ class CastTransformTest(TestCase):
         ]
         self.assertEqual(tf_observations, expected)
 
+    def test_cast_step_size_observation_features(self) -> None:
+        # Cast snaps RangeParameter values to step_size on (un)transform, just
+        # as it rounds to digits.
+        search_space = SearchSpace(
+            parameters=[
+                RangeParameter(
+                    name="range",
+                    parameter_type=ParameterType.FLOAT,
+                    lower=0.0,
+                    upper=1.0,
+                    step_size=0.1,
+                ),
+            ]
+        )
+        t = Cast(search_space=search_space)
+        obs_features = [
+            ObservationFeatures(parameters={"range": 0.12}),
+            ObservationFeatures(parameters={"range": 0.36}),
+        ]
+        tf_obs_features = t.transform_observation_features(
+            observation_features=obs_features
+        )
+        self.assertAlmostEqual(
+            float(none_throws(tf_obs_features[0].parameters["range"])), 0.1
+        )
+        self.assertAlmostEqual(
+            float(none_throws(tf_obs_features[1].parameters["range"])), 0.4
+        )
+
+    def test_transform_experiment_data_step_size(self) -> None:
+        # The experiment_data dataframe path snaps RangeParameter values to
+        # step_size, for both FLOAT and INT parameters. The INT parameter also
+        # checks that the snapped column keeps the nullable Int64 dtype.
+        experiment = get_experiment_with_observations(
+            observations=[[0.0], [1.0]],
+            search_space=SearchSpace(
+                parameters=[
+                    RangeParameter(
+                        name="x",
+                        parameter_type=ParameterType.FLOAT,
+                        lower=0.0,
+                        upper=1.0,
+                        step_size=0.1,
+                    ),
+                    RangeParameter(
+                        name="y",
+                        parameter_type=ParameterType.INT,
+                        lower=0,
+                        upper=10,
+                        step_size=2,
+                    ),
+                ]
+            ),
+            parameterizations=[
+                {"x": 0.12, "y": 3},
+                {"x": 0.36, "y": 7},
+            ],
+        )
+        experiment_data = extract_experiment_data(
+            experiment=experiment, data_loader_config=DataLoaderConfig()
+        )
+        transformed = Cast(
+            search_space=experiment.search_space
+        ).transform_experiment_data(experiment_data=deepcopy(experiment_data))
+        self.assertAlmostEqual(transformed.arm_data["x"].iloc[0], 0.1)
+        self.assertAlmostEqual(transformed.arm_data["x"].iloc[1], 0.4)
+        # 3 snaps to 4 (round half to even: 1.5 -> 2 steps), 7 snaps to 8.
+        self.assertEqual(transformed.arm_data["y"].iloc[0], 4)
+        self.assertEqual(transformed.arm_data["y"].iloc[1], 8)
+        self.assertEqual(transformed.arm_data["y"].dtype, "Int64")
+
     def test_transform_experiment_data_flatten(self) -> None:
         # Tests for flattening of hierarchical parameterizations.
         columns = [

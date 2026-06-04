@@ -94,12 +94,12 @@ class Transform:
         transform (does nothing).
 
         NOTE for subclasses: If a transform changes the *scale* of a
-        RangeParameter (e.g., Log, UnitX, Logit), it must clear ``digits``
-        via ``p.set_digits(digits=None)`` before calling ``update_range``.
-        Otherwise, rounding calibrated for the original scale will corrupt
-        the transformed bounds (e.g., ``digits=-3`` rounds to the nearest
-        1000, which collapses [0, 1] to 0). The Cast transform re-applies
-        ``digits`` in the original space during untransform.
+        RangeParameter (e.g., Log, UnitX, Logit), it must clear ``step_size``
+        via ``p.set_step_size(step_size=None)`` before calling ``update_range``.
+        Otherwise, snapping calibrated for the original scale will corrupt the
+        transformed bounds (a grid spacing meaningful in the original space is
+        meaningless after a non-linear rescale). The Cast transform re-applies
+        ``step_size`` in the original space during untransform.
 
         Args:
             search_space: The search space
