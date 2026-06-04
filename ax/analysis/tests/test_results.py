@@ -5,6 +5,9 @@
 
 # pyre-strict
 
+from collections.abc import Callable
+from unittest.mock import patch
+
 import pandas as pd
 from ax.adapter.registry import Generators
 from ax.analysis.results import ArmEffectsPair, ResultsAnalysis
@@ -16,7 +19,11 @@ from ax.core.data import Data
 from ax.core.experiment import Experiment
 from ax.core.generator_run import GeneratorRun
 from ax.core.metric import Metric
-from ax.core.optimization_config import Objective, OptimizationConfig
+from ax.core.objective import MultiObjective, Objective
+from ax.core.optimization_config import (
+    MultiObjectiveOptimizationConfig,
+    OptimizationConfig,
+)
 from ax.core.parameter import ChoiceParameter, ParameterType
 from ax.core.search_space import SearchSpace
 from ax.exceptions.core import UserInputError
@@ -68,7 +75,7 @@ class TestResultsAnalysis(TestCase):
         with self.subTest("requires_experiment"):
             error_message = analysis.validate_applicable_state()
             self.assertIsNotNone(error_message)
-            self.assertIn("Requires an Experiment", none_throws(error_message))
+            self.assertIn("An Experiment must be provided", none_throws(error_message))
 
         with self.subTest("requires_trials"):
             experiment = get_branin_experiment()
@@ -329,12 +336,9 @@ class TestResultsAnalysis(TestCase):
     def test_compute_without_optimization_config(self) -> None:
         # Setup: Create experiment without optimization config
         experiment = get_branin_experiment()
-        metrics = [
-            m.clone()
-            for m in none_throws(experiment.optimization_config).metrics.values()
-        ]
         experiment._optimization_config = None
-        experiment.add_tracking_metrics(metrics)
+        # Metrics are already in experiment._metrics; with no opt config,
+        # they are automatically treated as tracking metrics.
 
         trial = experiment.new_trial()
         trial.add_arm(
@@ -532,6 +536,80 @@ class TestResultsAnalysis(TestCase):
             len(assert_is_instance(progression_group, AnalysisCardGroup).children),
             0,
             "ProgressionAnalysis group should have at least one progression plot",
+        )
+
+    @mock_botorch_optimize
+    def test_compute_with_preference_objective(self) -> None:
+        """Preference metrics (pairwise_pref_query) should be excluded from
+        ArmEffectsPlot and ScatterPlot but should not cause errors.
+
+        Uses a branin experiment where both branin and pairwise are objectives.
+        Model fitting runs on branin; pairwise is filtered from per-arm analyses.
+        Verifies via patching that ArmEffectsPair receives only branin, not
+        pairwise_pref_query.
+        """
+        pairwise_name = Keys.PAIRWISE_PREFERENCE_QUERY.value
+        experiment = get_branin_experiment()
+
+        trial = experiment.new_trial()
+        trial.add_arm(Arm(parameters={"x1": 0.5, "x2": 0.5}))
+        trial.mark_running(no_runner_required=True)
+        data = get_data(metric_name="branin", trial_index=trial.index)
+        experiment.attach_data(data)
+        trial.mark_completed()
+
+        # Override the opt config to include pairwise as an additional objective.
+        # We set this AFTER data is attached so model fitting already ran on branin.
+        branin_metric = experiment.metrics["branin"]
+        pairwise_metric = Metric(name=pairwise_name, lower_is_better=False)
+        experiment.add_tracking_metric(pairwise_metric)
+        experiment.optimization_config = MultiObjectiveOptimizationConfig(
+            objective=MultiObjective(
+                objectives=[
+                    Objective(metric=branin_metric, minimize=True),
+                    Objective(metric=pairwise_metric, minimize=False),
+                ]
+            )
+        )
+
+        generation_strategy = get_default_generation_strategy_at_MBM_node(
+            experiment=experiment
+        )
+
+        # Capture what metric_names ArmEffectsPair receives
+        captured_metric_names: list[list[str]] = []
+        original_init: Callable[..., None] = ArmEffectsPair.__init__
+
+        def capturing_init(self: ArmEffectsPair, **kwargs: object) -> None:
+            # pyre-ignore[6]
+            captured_metric_names.append(kwargs.get("metric_names", []))
+            original_init(self, **kwargs)
+
+        with patch.object(ArmEffectsPair, "__init__", capturing_init):
+            card_group = ResultsAnalysis().compute(
+                experiment=experiment,
+                generation_strategy=generation_strategy,
+            )
+
+        # ArmEffectsPair should have received only branin, not pairwise
+        self.assertGreater(len(captured_metric_names), 0)
+        for names in captured_metric_names:
+            self.assertIn("branin", names)
+            self.assertNotIn(pairwise_name, names)
+
+        # UtilityRankingPlot should be dispatched for the preference metric
+        card_group = assert_is_instance(card_group, AnalysisCardGroup)
+        child_names = [c.name for c in card_group.children]
+        self.assertIn("Utility Ranking", child_names)
+
+        # Tracking metric (branin) should still be surfaced in ArmEffects
+        arm_effects_names = [
+            n for n in child_names if "ArmEffects" in n or "Metric Effects" in n
+        ]
+        self.assertGreater(
+            len(arm_effects_names),
+            0,
+            "Tracking metrics should still appear in ArmEffectsPlot",
         )
 
 

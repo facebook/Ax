@@ -9,6 +9,10 @@
 import numpy as np
 import numpy.typing as npt
 
+# Minimum absolute value for a control mean to be considered non-zero
+# for relativization via the delta method.
+MEAN_CONTROL_EPSILON: float = 1e-10
+
 
 def relativize(
     means_t: npt.NDArray | list[float] | float,
@@ -83,8 +87,7 @@ def relativize(
 
     """
     # if mean_c is too small, bail
-    epsilon = 1e-10
-    if np.any(np.abs(mean_c) < epsilon):
+    if np.any(np.abs(mean_c) < MEAN_CONTROL_EPSILON):
         raise ValueError(
             "mean_control ({} +/- {}) is smaller than 1 in 10 billion, "
             "which is too small to reliably analyze ratios using the delta "
@@ -147,6 +150,7 @@ def unrelativize(
     """
     means_t = np.array(means_t, dtype=float)
     sems_t = np.array(sems_t, dtype=float)
+    cov_means = np.array(cov_means, dtype=float)
 
     if as_percent:
         means_t = means_t / 100
@@ -180,8 +184,4 @@ def unrelativize(
         m_t[means_t == 0.0] = mean_c
         s_t[means_t == 0.0] = sem_c
 
-    # pyre-fixme[7]: Expected `Tuple[ndarray[typing.Any, typing.Any],
-    #  ndarray[typing.Any, typing.Any]]` but got `Tuple[Union[ndarray[typing.Any,
-    #  dtype[typing.Any]], float], Union[ndarray[typing.Any, dtype[typing.Any]],
-    #  float]]`.
-    return m_t, s_t
+    return np.asarray(m_t), np.asarray(s_t)

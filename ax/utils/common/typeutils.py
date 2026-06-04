@@ -66,8 +66,7 @@ def assert_is_instance_dict(
     return new_dict
 
 
-# pyre-fixme[34]: `T` isn't present in the function's parameters.
-def assert_is_instance_of_tuple(val: V, typ: tuple[type[V], ...]) -> T:
+def assert_is_instance_of_tuple(val: V, typ: tuple[type[V], ...]) -> V:
     """
     Asserts that a value is an instance of any type in a tuple of types.
 
@@ -79,13 +78,10 @@ def assert_is_instance_of_tuple(val: V, typ: tuple[type[V], ...]) -> T:
     """
     if not isinstance(val, typ):
         raise TypeError(f"Value was not of any type {typ!r}:\n{val!r}")
-    # pyre-fixme[7]: Expected `T` but got `V`.
     return val
 
 
-# pyre-fixme[24]: Generic type `type` expects 1 type parameter, use `typing.Type` to
-#  avoid runtime subscripting errors.
-def _argparse_type_encoder(arg: Any) -> type:
+def _argparse_type_encoder(arg: Any) -> type[Any]:
     """
     Transforms arguments passed to `optimizer_argparse.__call__`
     at runtime to construct the key used for method lookup as

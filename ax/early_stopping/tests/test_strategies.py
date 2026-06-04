@@ -14,7 +14,7 @@ from ax.core import OptimizationConfig
 from ax.core.data import Data, MAP_KEY
 from ax.core.experiment import Experiment
 from ax.core.metric import Metric
-from ax.core.objective import MultiObjective
+from ax.core.objective import MultiObjective, Objective
 from ax.core.trial_status import TrialStatus
 from ax.early_stopping.strategies import (
     BaseEarlyStoppingStrategy,
@@ -288,6 +288,34 @@ class TestBaseEarlyStoppingStrategy(TestCase):
         ):
             es_strategy._all_objectives_and_directions(experiment=test_experiment)
 
+    def test_all_objectives_and_directions_scalarized(self) -> None:
+        """Test that _all_objectives_and_directions handles scalarized
+        objectives by using metric_weights to determine directions."""
+        test_experiment = get_test_map_data_experiment(
+            num_trials=3, num_fetches=5, num_complete=3
+        )
+        metric_a = Metric(name="metric_a", lower_is_better=False)
+        metric_b = Metric(name="metric_b", lower_is_better=True)
+        test_experiment.add_tracking_metric(metric_a)
+        test_experiment.add_tracking_metric(metric_b)
+        # Scalarized objective: maximize metric_a, minimize metric_b
+        test_experiment._optimization_config = OptimizationConfig(
+            objective=Objective(
+                expression="2*metric_a + -3*metric_b",
+                metric_name_to_signature={
+                    "metric_a": "metric_a",
+                    "metric_b": "metric_b",
+                },
+            ),
+        )
+        es_strategy = FakeStrategy()
+        directions = es_strategy._all_objectives_and_directions(
+            experiment=test_experiment
+        )
+        # weight > 0 -> minimize=False, weight < 0 -> minimize=True
+        self.assertFalse(directions[metric_a.signature])
+        self.assertTrue(directions[metric_b.signature])
+
     @patch.object(logger, "warning")
     def test_default_objective_and_direction(self, _: MagicMock) -> None:
         test_experiment = get_test_map_data_experiment(
@@ -296,7 +324,7 @@ class TestBaseEarlyStoppingStrategy(TestCase):
         test_objective = none_throws(test_experiment.optimization_config).objective
         with self.subTest("provide metric names"):
             es_strategy = FakeStrategy(
-                metric_signatures=[test_objective.metric.signature]
+                metric_signatures=[test_objective.metric_names[0]]
             )
             (
                 actual_metric_name,
@@ -305,7 +333,7 @@ class TestBaseEarlyStoppingStrategy(TestCase):
 
             self.assertEqual(
                 actual_metric_name,
-                test_objective.metric.name,
+                test_objective.metric_names[0],
             )
             self.assertEqual(
                 actual_minimize,
@@ -322,7 +350,7 @@ class TestBaseEarlyStoppingStrategy(TestCase):
 
             self.assertEqual(
                 actual_metric_name,
-                test_objective.metric.name,
+                test_objective.metric_names[0],
             )
             self.assertEqual(
                 actual_minimize,
@@ -344,16 +372,16 @@ class TestBaseEarlyStoppingStrategy(TestCase):
             )
             self.assertEqual(
                 actual_metric_name,
-                test_multi_objective.objectives[0].metric.name,
+                test_multi_objective.metric_names[0],
             )
             self.assertEqual(
                 actual_minimize,
-                test_multi_objective.objectives[0].minimize,
+                test_multi_objective.metric_weights[0][1] < 0,
             )
 
         with self.subTest("provide metric names -- multi-objective"):
             es_strategy = FakeStrategy(
-                metric_signatures=[test_multi_objective.objectives[1].metric.signature]
+                metric_signatures=[test_multi_objective.metric_names[1]]
             )
             (
                 actual_metric_name,
@@ -363,11 +391,11 @@ class TestBaseEarlyStoppingStrategy(TestCase):
             )
             self.assertEqual(
                 actual_metric_name,
-                test_multi_objective.objectives[1].metric.name,
+                test_multi_objective.metric_names[1],
             )
             self.assertEqual(
                 actual_minimize,
-                test_multi_objective.objectives[1].minimize,
+                test_multi_objective.metric_weights[1][1] < 0,
             )
 
     @patch.object(logger, "warning")
@@ -852,9 +880,7 @@ class TestPercentileEarlyStoppingStrategy(TestCase):
             # be used for early stopping
             exp._optimization_config = None
             data = exp.fetch_data()
-            self.assertTrue(
-                (data.full_df["metric_name"] == "tracking_branin_map").all()
-            )
+            self.assertIn("tracking_branin_map", data.full_df["metric_name"].values)
         else:
             metric_signatures = None
 

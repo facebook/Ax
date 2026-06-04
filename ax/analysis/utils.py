@@ -5,7 +5,7 @@
 
 # pyre-strict
 
-from collections.abc import Sequence
+from collections.abc import Mapping, Sequence
 from logging import Logger
 
 import numpy as np
@@ -18,6 +18,7 @@ from ax.core.arm import Arm
 from ax.core.base_trial import BaseTrial
 from ax.core.batch_trial import BatchTrial
 from ax.core.experiment import Experiment
+from ax.core.generator_run import GeneratorRun
 from ax.core.observation import ObservationFeatures
 from ax.core.outcome_constraint import OutcomeConstraint, ScalarizedOutcomeConstraint
 from ax.core.trial_status import TrialStatus
@@ -32,6 +33,7 @@ from botorch.utils.probability.utils import compute_log_prob_feas_from_bounds, l
 from pyre_extensions import none_throws
 
 logger: Logger = get_logger(__name__)
+
 
 # Warn if p_feasible is less than this threshold.
 # TODO: Move this constrant to best point utilities so that the logic for warning in
@@ -76,9 +78,7 @@ def extract_relevant_adapter(
             "Provided GenerationStrategy has no adapter, but no Experiment was "
             "provided to source data to fit the adapter."
         )
-
-    generation_strategy.current_node._fit(experiment=experiment)
-    adapter = generation_strategy.adapter
+    adapter = generation_strategy.fit(experiment=experiment)
 
     if adapter is None:
         raise UserInputError(
@@ -102,6 +102,7 @@ def prepare_arm_data(
     trial_index: int | None = None,
     trial_statuses: Sequence[TrialStatus] | None = None,
     additional_arms: Sequence[Arm] | None = None,
+    generator_runs: Mapping[str, GeneratorRun] | None = None,
     relativize: bool = False,
     compute_p_feasible_per_constraint: bool = False,
 ) -> pd.DataFrame:
@@ -174,6 +175,7 @@ def prepare_arm_data(
     target_trial_index = get_target_trial_index(
         experiment=experiment,
     )
+
     if use_model_predictions:
         if adapter is None:
             raise UserInputError(
@@ -204,6 +206,7 @@ def prepare_arm_data(
             trial_index=trial_index,
             trial_statuses=trial_statuses,
             additional_arms=additional_arms,
+            generator_runs=generator_runs,
             target_trial_index=target_trial_index,
         )
     else:
@@ -211,6 +214,12 @@ def prepare_arm_data(
             raise UserInputError(
                 "Cannot provide additional arms when use_model_predictions=False since "
                 "there is no observed raw data for the additional arms that are not "
+                "part of the Experiment."
+            )
+        if generator_runs is not None:
+            raise UserInputError(
+                "Cannot provide generator_runs when use_model_predictions=False since "
+                "there is no observed raw data for the generator run arms that are not "
                 "part of the Experiment."
             )
 
@@ -222,6 +231,8 @@ def prepare_arm_data(
             target_trial_index=target_trial_index,
         )
     raw_df = df
+    if "generator_run_key" not in df.columns:
+        df["generator_run_key"] = None
     has_relative_constraints = experiment.optimization_config is not None and any(
         oc.relative for oc in experiment.optimization_config.outcome_constraints
     )
@@ -250,10 +261,15 @@ def prepare_arm_data(
             )
 
     # Add additional columns which do not require predicting or extracting data.
-    df["trial_status"] = df["trial_index"].apply(
-        lambda trial_index: experiment.trials[trial_index].status.name
-        if trial_index != -1
-        else "Additional Arm"
+    df["trial_status"] = df.apply(
+        lambda row: experiment.trials[row["trial_index"]].status.name
+        if row["trial_index"] != -1
+        else (
+            row["generator_run_key"]
+            if pd.notna(row.get("generator_run_key"))
+            else "Additional Arm"
+        ),
+        axis=1,
     )
     df["status_reason"] = df["trial_index"].apply(
         lambda trial_index: experiment.trials[trial_index].status_reason
@@ -302,6 +318,28 @@ def prepare_arm_data(
         ):
             df = df[df["trial_index"] != target_trial_index]
 
+    # Drop extra metric columns that were included for p_feasible computation
+    # but are not part of the requested metric_names.
+    requested_metric_cols = {
+        f"{m}_{suffix}" for m in metric_names for suffix in ("mean", "sem")
+    }
+    non_metric_cols = {
+        "trial_index",
+        "arm_name",
+        "trial_status",
+        "status_reason",
+        "generation_node",
+        "generator_run_key",
+        "p_feasible_mean",
+        "p_feasible_sem",
+    }
+    # Also keep any per-constraint p_feasible columns
+    keep_cols = non_metric_cols | requested_metric_cols
+    cols_to_keep = [
+        c for c in df.columns if c in keep_cols or c.startswith("p_feasible_")
+    ]
+    df = df[cols_to_keep]
+
     return df
 
 
@@ -312,6 +350,7 @@ def _prepare_modeled_arm_data(
     trial_index: int | None = None,
     trial_statuses: Sequence[TrialStatus] | None = None,
     additional_arms: Sequence[Arm] | None = None,
+    generator_runs: Mapping[str, GeneratorRun] | None = None,
     target_trial_index: int | None = None,
 ) -> pd.DataFrame:
     """
@@ -366,13 +405,29 @@ def _prepare_modeled_arm_data(
             else trial.arms
         )
     ]
+    # Track generator_run_key for each pair: None for trial/additional arms
+    generator_run_keys: list[str | None] = [
+        None for _ in range(len(trial_index_arm_pairs))
+    ]
     # Add additional arms passed in by the user
-    trial_index_arm_pairs += [(-1, arm) for arm in additional_arms or []]
+    additional_arms_list = additional_arms or []
+    trial_index_arm_pairs += [(-1, arm) for arm in additional_arms_list]
+    generator_run_keys += [None] * len(additional_arms_list)
+    # Add generator run arms with naming
+    if generator_runs is not None:
+        for gr_key, gr in generator_runs.items():
+            for j, arm in enumerate(gr.arms):
+                if not arm.has_name:
+                    arm = Arm(parameters=arm.parameters, name=f"{gr_key}_{j}")
+                trial_index_arm_pairs.append((-1, arm))
+                generator_run_keys.append(gr_key)
 
     # Remove arms with missing parameters since we cannot predict for them.
     predictable_pairs = []
     unpredictable_pairs = []
-    for trial_index, arm in trial_index_arm_pairs:
+    predictable_gr_keys: list[str | None] = []
+    unpredictable_gr_keys: list[str | None] = []
+    for i, (trial_index, arm) in enumerate(trial_index_arm_pairs):
         if adapter.model_space.check_membership(
             parameterization=arm.parameters,
             raise_error=False,
@@ -380,8 +435,10 @@ def _prepare_modeled_arm_data(
             check_range_bounds=False,
         ):
             predictable_pairs.append((trial_index, arm))
+            predictable_gr_keys.append(generator_run_keys[i])
         else:
             unpredictable_pairs.append((trial_index, arm))
+            unpredictable_gr_keys.append(generator_run_keys[i])
 
     # Batch predict for efficiency.
     predictions = adapter.predict(
@@ -394,6 +451,11 @@ def _prepare_modeled_arm_data(
             for _, arm in predictable_pairs
         ]
     )
+
+    # Extract all predicted metrics (not just requested ones) so that constraint
+    # metrics are available for _prepare_p_feasible even when they differ from
+    # the plotted metrics.
+    all_predicted_metrics = list(predictions[0].keys()) if predictions[0] else []
     records = [
         *[
             {
@@ -401,14 +463,15 @@ def _prepare_modeled_arm_data(
                 "arm_name": predictable_pairs[i][1].name
                 if predictable_pairs[i][1].has_name
                 else f"{Keys.UNNAMED_ARM.value}_{i}",
+                "generator_run_key": predictable_gr_keys[i],
                 **{
                     f"{metric_name}_mean": predictions[0][metric_name][i]
-                    for metric_name in metric_names
+                    for metric_name in all_predicted_metrics
                 },
                 **{
                     f"{metric_name}_sem": predictions[1][metric_name][metric_name][i]
                     ** 0.5
-                    for metric_name in metric_names
+                    for metric_name in all_predicted_metrics
                 },
             }
             for i in range(len(predictable_pairs))
@@ -419,8 +482,11 @@ def _prepare_modeled_arm_data(
                 "arm_name": unpredictable_pairs[i][1].name
                 if unpredictable_pairs[i][1].has_name
                 else f"{Keys.UNNAMED_ARM.value}_{i}",
-                **{f"{metric_name}_mean": None for metric_name in metric_names},
-                **{f"{metric_name}_sem": None for metric_name in metric_names},
+                "generator_run_key": unpredictable_gr_keys[i],
+                **{
+                    f"{metric_name}_mean": None for metric_name in all_predicted_metrics
+                },
+                **{f"{metric_name}_sem": None for metric_name in all_predicted_metrics},
             }
             for i in range(len(unpredictable_pairs))
         ],
@@ -483,13 +549,17 @@ def _prepare_raw_arm_data(
         ).df
 
     records = []
+    # Extract all available metrics (not just requested ones) so that constraint
+    # metrics are available for _prepare_p_feasible even when they differ from
+    # the plotted metrics.
+    all_data_metrics = sorted(data_df["metric_name"].unique().tolist())
     for trial in trials:
         for arm in trial.arms:
             # Extract (mean, sem) pairs for each metric when available, otherwise set to
             # None.
             means = {}
             sems = {}
-            for metric_name in metric_names:
+            for metric_name in all_data_metrics:
                 mask = (
                     (data_df["trial_index"] == trial.index)
                     & (data_df["arm_name"] == arm.name)
@@ -509,11 +579,11 @@ def _prepare_raw_arm_data(
                     "arm_name": arm.name,
                     **{
                         f"{metric_name}_mean": means[metric_name]
-                        for metric_name in metric_names
+                        for metric_name in all_data_metrics
                     },
                     **{
                         f"{metric_name}_sem": sems[metric_name]
-                        for metric_name in metric_names
+                        for metric_name in all_data_metrics
                     },
                 }
             )
@@ -565,9 +635,9 @@ def _get_scalarized_constraint_mean_and_sem(
     combined_var = np.zeros(n_rows)
     all_metrics_present = True
 
-    for metric, weight in constraint.metric_weights:
-        mean_col = f"{metric.name}_mean"
-        sem_col = f"{metric.name}_sem"
+    for metric_name, weight in constraint.metric_weights:
+        mean_col = f"{metric_name}_mean"
+        sem_col = f"{metric_name}_sem"
 
         if mean_col in df.columns:
             combined_mean += weight * df[mean_col].values
@@ -630,7 +700,7 @@ def _prepare_p_feasible(
             means.append(mean.tolist())
             sigmas.append(sem.tolist())
         else:
-            metric_name = oc.metric.name
+            metric_name = oc.metric_names[0]
             if f"{metric_name}_mean" in df_constraint.columns:
                 means.append(df_constraint[f"{metric_name}_mean"].tolist())
             else:
@@ -716,7 +786,7 @@ def _prepare_p_feasible_per_constraint(
             mean, sigma = _get_scalarized_constraint_mean_and_sem(df_constraint, oc)
             oc_display_name = str(oc)
         else:
-            metric_name = oc.metric.name
+            metric_name = oc.metric_names[0]
             oc_display_name = metric_name
 
             if f"{metric_name}_mean" in df_constraint.columns:
@@ -912,7 +982,12 @@ def _get_status_quo_df(
 
         # Use the raw status quo effects if no model predictions are available
         # (ex. if the status quo had None in its parameters).
-        if not mask.any() or df[mask].isna().any().any():
+        # Only check the requested metric columns for NaN, not all columns,
+        # since extra columns (e.g. constraint metrics) may legitimately be NaN.
+        requested_cols = [
+            f"{m}_{suffix}" for m in metric_names for suffix in ("mean", "sem")
+        ]
+        if not mask.any() or df.loc[mask, requested_cols].isna().any().any():
             raw_df = _prepare_raw_arm_data(
                 metric_names=metric_names,
                 experiment=experiment,
@@ -963,13 +1038,12 @@ def _get_status_quo_df(
             row["trial_index"] = trial_idx
             status_quo_rows.append(row)
 
-        status_quo_df = pd.DataFrame(status_quo_rows)[
-            [
-                "trial_index",
-                *[f"{name}_mean" for name in metric_names],
-                *[f"{name}_sem" for name in metric_names],
-            ]
+        # Include all _mean and _sem columns so constraint metrics are
+        # available for _prepare_p_feasible relativization.
+        all_metric_cols = [
+            col for col in df.columns if col.endswith("_mean") or col.endswith("_sem")
         ]
+        status_quo_df = pd.DataFrame(status_quo_rows)[["trial_index", *all_metric_cols]]
     return status_quo_df
 
 
@@ -993,7 +1067,7 @@ def validate_experiment(
     """
 
     if experiment is None:
-        return "Requires an Experiment."
+        return "An Experiment must be provided to compute this analysis."
 
     if require_trials:
         if len(experiment.trials) == 0:
@@ -1016,7 +1090,11 @@ def validate_experiment_has_trials(
     )
 
     if len(filtered_trials) == 0:
-        return f"Experiment has no trials in {trial_indices=} with {trial_statuses=}."
+        return (
+            "No trials were found matching the requested filters "
+            f"(trial_indices={trial_indices}, trial_statuses={trial_statuses}). "
+            "Check that your experiment has trials with the expected status."
+        )
 
     if required_metric_names is not None:
         filtered_trial_indices = [trial.index for trial in filtered_trials]
@@ -1030,8 +1108,10 @@ def validate_experiment_has_trials(
 
         if len(missing_metrics) > 0:
             return (
-                f"Experiment has no data for metrics {missing_metrics} in "
-                f"{trial_indices=} with {trial_statuses=}."
+                f"Data for the following metrics is not yet available: "
+                f"{missing_metrics} "
+                f"(trial_indices={trial_indices}, trial_statuses={trial_statuses}). "
+                "Wait for trials to complete, and for data to be attached."
             )
 
 
@@ -1051,10 +1131,9 @@ def validate_adapter_can_predict(
 
         if not adapter.can_predict:
             return (
-                f"Adapter {adapter} does not support predictions, please "
-                "use use_model_predictions=False, provide a suitable "
-                "Adapter, or wait until GenerationStrategy reaches a "
-                "GenerationNode with an adapter that is able to predict."
+                f"The current model ({type(adapter).__name__}) does not support "
+                "predictions. This typically means the optimization has not yet "
+                "reached a modeling stage. Wait for more trials to complete."
             )
 
         if required_metric_names is not None:
@@ -1075,8 +1154,9 @@ def validate_adapter_can_predict(
 
             if len(missing_metric_names) > 0:
                 return (
-                    f"Adapter {adapter} does not support metrics "
-                    f"{missing_metric_names}."
+                    f"The current model ({type(adapter).__name__}) does not include "
+                    f"the following metrics: {missing_metric_names}. These metrics "
+                    "may not have been observed yet or may not be part of the model."
                 )
 
     except UserInputError as e:
@@ -1099,16 +1179,20 @@ def validate_outcome_constraints(
     """
     optimization_config = experiment.optimization_config
     if optimization_config is None:
-        return "Experiment must have an OptimizationConfig."
+        return (
+            "The experiment must have an OptimizationConfig (with defined objectives "
+            "and constraints) to compute outcome constraints."
+        )
 
     outcome_constraint_metrics = [
-        outcome_constraint.metric.name
+        outcome_constraint.metric_names[0]
         for outcome_constraint in optimization_config.outcome_constraints
     ]
     if len(outcome_constraint_metrics) == 0:
         return (
-            "Experiment must have at least one OutcomeConstraint to calculate "
-            "probability of feasibility."
+            "The experiment must have at least one OutcomeConstraint (a metric "
+            "constraint defined in the optimization config) to calculate probability "
+            "of feasibility."
         )
 
     return None

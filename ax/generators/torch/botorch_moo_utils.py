@@ -50,32 +50,22 @@ NO_FEASIBLE_POINTS_MESSAGE = (
 )
 
 
-def get_weighted_mc_objective_and_objective_thresholds(
-    objective_weights: Tensor, objective_thresholds: Tensor
-) -> tuple[WeightedMCMultiOutputObjective, Tensor]:
-    r"""Construct weighted objective and apply the weights to objective thresholds.
+def get_weighted_mc_objective(
+    objective_weights: Tensor,
+) -> WeightedMCMultiOutputObjective:
+    r"""Construct a weighted MC multi-output objective from objective weights.
 
     Args:
         objective_weights: A ``(n_objectives, n_outcomes)`` tensor of objective
             weights.
-        objective_thresholds: A tensor containing thresholds forming a reference point
-            from which to calculate pareto frontier hypervolume. Points that do not
-            dominate the objective_thresholds contribute nothing to hypervolume.
 
     Returns:
-        A two-element tuple with the objective and objective thresholds:
-
-            - The objective
-            - The objective thresholds
-
+        A WeightedMCMultiOutputObjective.
     """
     outcome_indices, weights = extract_objectives(objective_weights)
-    objective_thresholds = objective_thresholds[outcome_indices]
-    objective = WeightedMCMultiOutputObjective(
+    return WeightedMCMultiOutputObjective(
         weights=weights, outcomes=outcome_indices.tolist()
     )
-    objective_thresholds = torch.mul(objective_thresholds, weights)
-    return objective, objective_thresholds
 
 
 def pareto_frontier_evaluator(
@@ -128,31 +118,14 @@ def pareto_frontier_evaluator(
             "points on the pareto frontier."
         )
 
-    # Apply objective_weights to outcomes and objective_thresholds.
-    # If objective_thresholds is not None use a dummy tensor of zeros.
-    (
-        obj,
-        weighted_objective_thresholds,
-    ) = get_weighted_mc_objective_and_objective_thresholds(
-        objective_weights=objective_weights,
-        objective_thresholds=(
-            objective_thresholds
-            if objective_thresholds is not None
-            else torch.zeros(
-                objective_weights.shape[1],
-                dtype=objective_weights.dtype,
-                device=objective_weights.device,
-            )
-        ),
-    )
+    # Apply objective_weights to outcomes.
+    obj = get_weighted_mc_objective(objective_weights=objective_weights)
     Y_obj = obj(Y)
     indx_frontier = torch.arange(Y.shape[0], dtype=torch.long, device=Y.device)
 
     # Filter Y, Yvar, Y_obj to items that dominate all objective thresholds
     if objective_thresholds is not None:
-        objective_thresholds_mask = torch.all(
-            Y_obj >= weighted_objective_thresholds, dim=1
-        )
+        objective_thresholds_mask = torch.all(Y_obj >= objective_thresholds, dim=1)
         Y = Y[objective_thresholds_mask]
         Yvar = Yvar[objective_thresholds_mask]
         Y_obj = Y_obj[objective_thresholds_mask]
@@ -160,13 +133,12 @@ def pareto_frontier_evaluator(
 
     # Get feasible points that do not violate outcome_constraints
     if outcome_constraints is not None:
-        cons_tfs = get_outcome_constraint_transforms(outcome_constraints)
+        cons_tfs = none_throws(get_outcome_constraint_transforms(outcome_constraints))
         # Handle NaNs in Y, if those elements are not part of the constraints.
         # By setting the unused elements to 0, we prevent them from marking
         # the whole constraint value as NaN and evaluating to infeasible.
         Y_cons = Y.clone()
         Y_cons[..., (outcome_constraints[0] == 0).all(dim=0)] = 0
-        # pyre-ignore [16]
         feas = torch.stack([c(Y_cons) <= 0 for c in cons_tfs], dim=-1).all(dim=-1)
         Y = Y[feas]
         Yvar = Yvar[feas]
@@ -190,7 +162,7 @@ def pareto_frontier_evaluator(
 
 def infer_objective_thresholds(
     model: Model,
-    objective_weights: Tensor,  # objective_directions
+    objective_weights: Tensor,
     X_observed: Tensor,
     outcome_constraints: tuple[Tensor, Tensor] | None = None,
     subset_idcs: Tensor | None = None,
@@ -212,25 +184,23 @@ def infer_objective_thresholds(
         model: A fitted botorch Model.
         objective_weights: A ``(n_objectives, n_outcomes)`` tensor of objective
             weights. These should not be subsetted.
-        X_observed: A `n x d`-dim tensor of in-sample points to use for
+        X_observed: A ``n x d``-dim tensor of in-sample points to use for
             determining the current in-sample Pareto frontier.
         outcome_constraints: A tuple of (A, b). For k outcome constraints
             and m outputs at f(x), A is (k x m) and b is (k x 1) such that
             A f(x) <= b. These should not be subsetted.
         subset_idcs: The indices of the outcomes that are modeled by the
-            provided model. If subset_idcs not None, this method infers
+            provided model. If subset_idcs is not None, this method infers
             whether the model is subsetted.
-        objective_thresholds: Any known objective thresholds to pass to
-            `infer_reference_point` heuristic. This should not be subsetted.
-            If only a subset of the objectives have known thresholds, the
-            remaining objectives should be NaN. If no objective threshold
-            was provided, this can be `None`.
+        objective_thresholds: A ``(n_objectives,)`` tensor of maximization-
+            aligned objective thresholds. NaN entries indicate thresholds to
+            infer. If no objective thresholds are provided, this can be
+            ``None``.
 
     Returns:
-        A `m`-dim tensor of objective thresholds, where the objective
-            threshold is `nan` if the outcome is not an objective.
+        A ``(n_objectives,)`` tensor of maximization-aligned objective
+        thresholds.
     """
-    num_outcomes = objective_weights.shape[1]
     if subset_idcs is None:
         # Subset the model so that we only compute the posterior
         # over the relevant outcomes.
@@ -258,38 +228,23 @@ def infer_objective_thresholds(
         ).mean
 
     if outcome_constraints is not None:
-        cons_tfs = get_outcome_constraint_transforms(outcome_constraints)
-        # pyre-ignore [16]
+        cons_tfs = none_throws(get_outcome_constraint_transforms(outcome_constraints))
         feas = torch.stack([c(pred) <= 0 for c in cons_tfs], dim=-1).all(dim=-1)
         pred = pred[feas]
     if pred.shape[0] == 0:
         raise AxError(NO_FEASIBLE_POINTS_MESSAGE)
     obj_indices, obj_weights_subset = extract_objectives(objective_weights)
     obj_mask = torch.tensor(obj_indices, device=objective_weights.device)
+    # Convert predictions to maximization-aligned objective values.
     obj = pred[..., obj_mask] * obj_weights_subset
     pareto_obj = obj[is_non_dominated(obj)]
-    # If objective thresholds are provided, set max_ref_point accordingly.
-    if objective_thresholds is not None:
-        max_ref_point = objective_thresholds[obj_mask] * obj_weights_subset
-    else:
-        max_ref_point = None
-    objective_thresholds = infer_reference_point(
+    # Input thresholds are already (n_objectives,) and maximization-aligned.
+    max_ref_point = objective_thresholds
+    return infer_reference_point(
         pareto_Y=pareto_obj,
         max_ref_point=max_ref_point,
         scale=0.1,
     )
-    # multiply by objective weights to return objective thresholds in the
-    # unweighted space
-    objective_thresholds = objective_thresholds * obj_weights_subset
-    full_objective_thresholds = torch.full(
-        (num_outcomes,),
-        float("nan"),
-        dtype=objective_weights.dtype,
-        device=objective_weights.device,
-    )
-    obj_idcs = subset_idcs[obj_mask]
-    full_objective_thresholds[obj_idcs] = objective_thresholds.clone()
-    return full_objective_thresholds
 
 
 def _check_posterior_type(

@@ -6,131 +6,56 @@
 
 # pyre-strict
 
-from collections.abc import Callable, Iterable
+from collections.abc import Callable, Iterable, Sequence
 from copy import deepcopy
 from datetime import datetime, timedelta
 from enum import Enum
 from functools import wraps
 from logging import Logger
-from typing import Any, NamedTuple
+from typing import Any
 
-import numpy as np
-import numpy.typing as npt
 import pandas as pd
 from ax.core.arm import Arm
 from ax.core.base_trial import BaseTrial, TrialStatus
 from ax.core.batch_trial import BatchTrial
-from ax.core.data import Data
 from ax.core.experiment import Experiment
 from ax.core.generator_run import GeneratorRun
 from ax.core.map_metric import MapMetric
-from ax.core.objective import MultiObjective
+from ax.core.metric import Metric
 from ax.core.observation import ObservationFeatures
 from ax.core.optimization_config import OptimizationConfig
 from ax.core.trial import Trial
-from ax.core.types import ComparisonOp
 from ax.exceptions.core import AxError
 from ax.utils.common.constants import Keys
 from ax.utils.common.logger import get_logger
 from pyre_extensions import none_throws
 
 logger: Logger = get_logger(__name__)
-TArmTrial = tuple[str, int]
 
 # Threshold for switching to pending points extraction based on trial status.
 MANY_TRIALS_IN_EXPERIMENT = 100
 OLD_TRIAL_THRESHOLD_DAYS = 10
 
-# --------------------------- Data integrity utils. ---------------------------
 
+def is_lilo_experiment(experiment: Experiment) -> bool:
+    """Return ``True`` if *experiment* is configured for LILO.
 
-class MissingMetrics(NamedTuple):
-    objective: dict[str, set[TArmTrial]]
-    outcome_constraints: dict[str, set[TArmTrial]]
-    tracking_metrics: dict[str, set[TArmTrial]]
+    An experiment is considered a LILO experiment when **both**:
+    1. The objective references the pairwise preference query metric.
+    2. The experiment has LLM messages.
 
-
-def get_missing_metrics(
-    data: Data, optimization_config: OptimizationConfig
-) -> MissingMetrics:
-    """Return all arm_name, trial_index pairs, for which some of the
-    observations of optimization config metrics are missing.
-
-    Args:
-        data: Data to search.
-        optimization_config: provides metric_names to search for.
-
-    Returns:
-        A NamedTuple(missing_objective, Dict[str, missing_outcome_constraint])
+    Condition 1 alone (without LLM messages) indicates a PBO experiment
+    (human-provided pairwise preferences).  Condition 2 alone means
+    ``configure_lilo()`` has not been called yet.
     """
-    objective = optimization_config.objective
-    if isinstance(objective, MultiObjective):
-        objective_metric_names = [m.name for m in objective.metrics]
-    else:
-        objective_metric_names = [optimization_config.objective.metric.name]
-
-    outcome_constraints_metric_names = [
-        outcome_constraint.metric.name
-        for outcome_constraint in optimization_config.outcome_constraints
-    ]
-    missing_objectives = {
-        objective_metric_name: _get_missing_arm_trial_pairs(data, objective_metric_name)
-        for objective_metric_name in objective_metric_names
-    }
-    missing_outcome_constraints = get_missing_metrics_by_name(
-        data, outcome_constraints_metric_names
-    )
-    all_metric_names = set(data.df["metric_name"])
-    optimization_config_metric_names = set(missing_objectives.keys()).union(
-        outcome_constraints_metric_names
-    )
-    missing_tracking_metric_names = all_metric_names.difference(
-        optimization_config_metric_names
-    )
-    missing_tracking_metrics = get_missing_metrics_by_name(
-        data=data, metric_names=missing_tracking_metric_names
-    )
-    return MissingMetrics(
-        objective={k: v for k, v in missing_objectives.items() if len(v) > 0},
-        outcome_constraints={
-            k: v for k, v in missing_outcome_constraints.items() if len(v) > 0
-        },
-        tracking_metrics={
-            k: v for k, v in missing_tracking_metrics.items() if len(v) > 0
-        },
-    )
-
-
-def get_missing_metrics_by_name(
-    data: Data, metric_names: Iterable[str]
-) -> dict[str, set[TArmTrial]]:
-    """Return all arm_name, trial_index pairs missing some observations of
-    specified metrics.
-
-    Args:
-        data: Data to search.
-        metric_names: list of metrics to search for.
-
-    Returns:
-        A Dict[str, missing_metrics], one entry for each metric_name.
-    """
-    missing_metrics = {
-        metric_name: _get_missing_arm_trial_pairs(data=data, metric_name=metric_name)
-        for metric_name in metric_names
-    }
-    return missing_metrics
-
-
-def _get_missing_arm_trial_pairs(data: Data, metric_name: str) -> set[TArmTrial]:
-    """Return arm_name and trial_index pairs missing a specified metric."""
-    metric_df = data.df[data.df.metric_name == metric_name]
-    present_metric_df = metric_df[metric_df["mean"].notnull()]
-    arm_trial_pairs = set(zip(data.df["arm_name"], data.df["trial_index"]))
-    arm_trial_pairs_with_metric = set(
-        zip(present_metric_df["arm_name"], present_metric_df["trial_index"])
-    )
-    missing_arm_trial_pairs = arm_trial_pairs.difference(arm_trial_pairs_with_metric)
-    return missing_arm_trial_pairs
+    opt_config = experiment.optimization_config
+    if opt_config is None:
+        return False
+    if Keys.PAIRWISE_PREFERENCE_QUERY.value not in opt_config.objective.metric_names:
+        return False
+    if not experiment.llm_messages:
+        return False
+    return True
 
 
 # ------------------- Utils shared by Client and BatchClient--------------------
@@ -154,7 +79,7 @@ def _maybe_update_trial_status_to_complete(
     if experiment.optimization_config is not None:
         optimization_config = experiment.optimization_config
         trial_data = experiment.lookup_data(trial_indices=[trial_index])
-        missing_metrics = set(optimization_config.metrics.keys()) - {
+        missing_metrics = {*optimization_config.metric_names} - {
             *trial_data.metric_names
         }
 
@@ -167,40 +92,6 @@ def _maybe_update_trial_status_to_complete(
 
 
 # -------------------- Experiment result extraction utils. ---------------------
-
-
-def best_feasible_objective(
-    optimization_config: OptimizationConfig,
-    values: dict[str, npt.NDArray],
-) -> npt.NDArray:
-    """Compute the best feasible objective value found by each iteration.
-
-    Args:
-        optimization_config: Optimization config.
-        values: Dictionary from metric name to array of value at each
-            iteration. If optimization config contains outcome constraints, values
-            for them must be present in `values`.
-
-    Returns: Array of cumulative best feasible value.
-    """
-    # Get objective at each iteration
-    objective = optimization_config.objective
-    f = values[objective.metric.signature]
-    # Set infeasible points to have infinitely bad values
-    infeas_val = np.inf if objective.minimize else -np.inf
-    for oc in optimization_config.outcome_constraints:
-        if oc.relative:
-            raise ValueError(
-                "Benchmark aggregation does not support relative constraints"
-            )
-        g = values[oc.metric.signature]
-        feas = g <= oc.bound if oc.op == ComparisonOp.LEQ else g >= oc.bound
-        f[~feas] = infeas_val
-
-    # Get cumulative best
-    minimize = objective.minimize
-    accumulate = np.minimum.accumulate if minimize else np.maximum.accumulate
-    return accumulate(f)
 
 
 def _extract_generator_runs(trial: BaseTrial) -> list[GeneratorRun]:
@@ -337,7 +228,7 @@ def compute_metric_availability(
                 "Either pass one explicitly, set one on the experiment, or provide "
                 "metric_names."
             )
-        required_metrics = set(resolved_opt_config.metrics.keys())
+        required_metrics = resolved_opt_config.metric_names
 
     # Resolve trial indices.
     if trial_indices is not None:
@@ -682,10 +573,45 @@ def get_target_trial_index(
     sq_df = df[df["arm_name"] == status_quo.name]
     trial_indices_with_sq_data = set(sq_df.trial_index.unique())
 
+    # Exclude LILO labeling trials — they carry only pairwise preference
+    # data and should never serve as the relativization reference.
+    lilo_trial_indices = {
+        t.index
+        for t in experiment.trials.values()
+        if t.trial_type == Keys.LILO_LABELING
+    }
+
     # trials with both SQ data and required metrics
     valid_trial_indices = (
         trial_indices_with_sq_data & trial_indices_with_required_metrics
-    )
+    ) - lilo_trial_indices
+
+    # Fallback: accept INCOMPLETE availability for LILO experiments.
+    # configure_lilo() adds pairwise_pref_query to the opt config, but
+    # non-LILO trials can never have data for that metric (it requires
+    # a specific LILO labeling trial setup).  Relaxing to INCOMPLETE
+    # lets those trials qualify as relativization references.
+    # Scoped to LILO experiments to avoid masking real data issues
+    # elsewhere.
+    if not valid_trial_indices and is_lilo_experiment(experiment):
+        # Check availability against ALL experiment metrics (not just opt
+        # config) so that non-LILO trials with base-metric data are found
+        # even though they lack the pairwise preference metric that
+        # configure_lilo() added to the opt config.
+        availability = compute_metric_availability(
+            experiment=experiment,
+            trial_indices={int(idx) for idx in df.trial_index.unique()},
+            metric_names=set(experiment.metrics.keys()),
+        )
+        valid_trial_indices = (
+            trial_indices_with_sq_data
+            & {
+                idx
+                for idx, avail in availability.items()
+                if avail in (MetricAvailability.COMPLETE, MetricAvailability.INCOMPLETE)
+            }
+            - lilo_trial_indices
+        )
 
     # only consider running trials with valid data
     running_trials = [
@@ -862,18 +788,15 @@ def _time_trial_completed_safe(trial: BatchTrial) -> datetime:
 # -------------------- MapMetric related utils. ---------------------
 
 
-def has_map_metrics(optimization_config: OptimizationConfig) -> bool:
-    """Check if the optimization config has any ``MapMetric``s.
+def has_map_metrics(metrics: Sequence[Metric]) -> bool:
+    """Check if the given metrics contain any ``MapMetric``s.
 
     Args:
-        optimization_config: Optimization config.
+        metrics: A mapping from metric name to Metric object.
     """
-    metrics = optimization_config.metrics
-    # Technically an OptimizationConfig could have zero metrics since a
-    # MultiObjective could have 0 objectives
     if len(metrics) == 0:
         return False
-    return any(isinstance(metric, MapMetric) for metric in metrics.values())
+    return any(isinstance(metric, MapMetric) for metric in metrics)
 
 
 # -------------------- Context manager and decorator utils. ---------------------

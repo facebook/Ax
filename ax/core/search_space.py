@@ -13,6 +13,7 @@ import warnings
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, field
 from logging import Logger
+from typing import Any
 
 import numpy as np
 import pandas as pd
@@ -29,6 +30,7 @@ from ax.core.parameter import (
     TParamValue,
 )
 from ax.core.parameter_constraint import (
+    PARAMETER_CONSTRAINT_TOLERANCE,
     ParameterConstraint,
     validate_constraint_parameters,
 )
@@ -315,7 +317,7 @@ class SearchSpace(Base):
         self, parameterization: Mapping[str, TParamValue], raise_error: bool = False
     ) -> bool:
         """Whether a given parameterization contains all the parameters in the
-        search space.
+        search space. Parameters with a backfill value are considered present.
 
         Args:
             parameterization: Dict from parameter name to value to validate.
@@ -328,12 +330,19 @@ class SearchSpace(Base):
         parameterization_params = set(parameterization.keys())
         ss_params = set(self.parameters.keys())
         if parameterization_params != ss_params:
-            if raise_error:
-                raise ValueError(
-                    f"Parameterization has parameters: {parameterization_params}, "
-                    f"but search space has parameters: {ss_params}."
-                )
-            return False
+            # Allow missing parameters if they have backfill values set.
+            missing_params = ss_params - parameterization_params
+            extra_params = parameterization_params - ss_params
+            missing_without_backfill = {
+                p for p in missing_params if self.parameters[p].backfill_value is None
+            }
+            if missing_without_backfill or extra_params:
+                if raise_error:
+                    raise ValueError(
+                        f"Parameterization has parameters: {parameterization_params}, "
+                        f"but search space has parameters: {ss_params}."
+                    )
+                return False
         return True
 
     def check_membership(
@@ -354,7 +363,8 @@ class SearchSpace(Base):
             raise_error: If true parameterization does not belong, raises an error
                 with detailed explanation of why.
             check_all_parameters_present: Ensure that parameterization specifies
-                values for all parameters as expected by the search space.
+                values for all parameters as expected by the search space. Parameters
+                with a backfill value set are considered always present.
             check_range_bounds: If False, only check that values for
                 RangeParameters have the correct type, without enforcing
                 the parameter bounds. Other parameter types (ChoiceParameter,
@@ -463,7 +473,12 @@ class SearchSpace(Base):
         # Check all parameters present (for non-hierarchical search spaces)
         # This must happen BEFORE filtering to detect extra columns
         if check_all_parameters_present and not self.is_hierarchical:
-            if df_cols != ss_params:
+            missing_params = ss_params - df_cols
+            extra_params = df_cols - ss_params
+            missing_without_backfill = {
+                p for p in missing_params if self.parameters[p].backfill_value is None
+            }
+            if missing_without_backfill or extra_params:
                 # All rows are out of design if parameters don't match
                 return [False] * len(arm_data)
 
@@ -501,7 +516,7 @@ class SearchSpace(Base):
                 valid = valid | is_null
             in_design &= pd.Series(valid, index=df.index)
 
-        # Check parameter constraints (linear inequalities) vectorized
+        # Check parameter constraints vectorized
         for constraint in self._parameter_constraints:
             weighted_sum = pd.Series(0.0, index=df.index)
             for param_name, weight in constraint.constraint_dict.items():
@@ -511,7 +526,15 @@ class SearchSpace(Base):
                     break
                 # NaN values propagate if exists, causing comparison to return False
                 weighted_sum = weighted_sum + df[param_name] * weight
-            in_design &= weighted_sum <= constraint.bound + 1e-8
+            if constraint.is_equality:
+                in_design &= (
+                    np.abs(weighted_sum - constraint.bound)
+                    <= PARAMETER_CONSTRAINT_TOLERANCE
+                )
+            else:
+                in_design &= (
+                    weighted_sum <= constraint.bound + PARAMETER_CONSTRAINT_TOLERANCE
+                )
 
         # Handle hierarchical search space structure
         if self.is_hierarchical:
@@ -578,25 +601,30 @@ class SearchSpace(Base):
         return True
 
     def get_overlapping_parameters(
-        self, other: SearchSpace, raise_error: bool = False
+        self,
+        other: SearchSpace,
+        raise_error: bool = False,
     ) -> list[str]:
         """Get the list of compatible overlapping parameters between this search
         space and another.
 
         Two parameters are considered overlapping if they have the same name and
-        are compatible (same parameter type and domain type, and for fixed and
-        choice parameters, the same values).
+        are compatible (same parameter type and compatible domain types --
+        see ``Parameter.is_compatible_with`` for the full definition).
+
+        RangeParameters and DerivedParameters are always exempt from the
+        incompatibility check (they never block overlap). Incompatible
+        exempt parameters are simply excluded from the result.
 
         Args:
             other: Another SearchSpace object to compare against.
             raise_error: Whether to raise an error if there are incompatible
-                non-range parameters with the same name.
+                parameters with the same name.
 
         Returns:
             A list of parameter names that are present and compatible in both
-            search spaces. Returns an empty list if there are incompatible
-            fixed or choice parameters (since such search spaces cannot be
-            meaningfully compared).
+            search spaces. Returns an empty list if there are any
+            incompatible non-exempt parameters.
         """
         common_param_names = set(self.parameters.keys()) & set(other.parameters.keys())
 
@@ -606,12 +634,13 @@ class SearchSpace(Base):
             )
             for param_name in common_param_names
         }
-
         incompatible_params = {
             param_name
             for param_name in common_param_names
             if not common_param_compatibility[param_name]
-            and not isinstance(other.parameters[param_name], RangeParameter)
+            and not isinstance(
+                other.parameters[param_name], (RangeParameter, DerivedParameter)
+            )
         }
 
         if len(incompatible_params) > 0:
@@ -739,10 +768,14 @@ class SearchSpace(Base):
         feasible region defined by the parameter constraints. This is computed
         by solving a linear program. It is most limited by the tightest constraint.
 
-        For a polytope defined by a @ x <= b, the Chebyshev center (x_c, r) is
-        the solution to:
-            maximize r, where r is the radius of the inscribed ball
+        For inequality constraints a_i^T x <= b_i, the inscribed ball must fit
+        inside each half-space, so the radius is augmented:
+            maximize r
             subject to: a_i^T x + r ||a_i||_2 <= b_i for all i
+
+        Equality constraints c_j^T x = d_j require the center to lie on the
+        hyperplane and are passed through without radius augmentation (the ball
+        is inscribed within the lower-dimensional affine subspace).
 
         Note: this only considers natural (non-log, non-logit) range parameters.
         Other parameter types are handled naively via compute_naive_center.
@@ -761,8 +794,10 @@ class SearchSpace(Base):
         if not natural_range_params:
             return {}
 
-        constraint_matrix = []
-        bound_vector = []
+        ineq_constraint_matrix = []
+        ineq_bound_vector = []
+        eq_constraint_matrix = []
+        eq_bound_vector = []
         param_names = list(natural_range_params.keys())
         num_params = len(natural_range_params)
         param_name_to_idx = {name: idx for idx, name in enumerate(param_names)}
@@ -774,30 +809,47 @@ class SearchSpace(Base):
                 if param_name in param_name_to_idx:
                     row[param_name_to_idx[param_name]] = weight
 
-            constraint_matrix.append(row)
-            bound_vector.append(constraint.bound)
+            if constraint.is_equality:
+                eq_constraint_matrix.append(row)
+                eq_bound_vector.append(constraint.bound)
+            else:
+                ineq_constraint_matrix.append(row)
+                ineq_bound_vector.append(constraint.bound)
 
-        # Add parameter bounds
+        # Add parameter bounds (always inequality)
         for name, idx in param_name_to_idx.items():
             param = natural_range_params[name]
             # lower bound: -x_i <= -lower_i
             row_lower = np.zeros(num_params)
             row_lower[idx] = -1.0
-            constraint_matrix.append(row_lower)
-            bound_vector.append(-float(param.lower))
+            ineq_constraint_matrix.append(row_lower)
+            ineq_bound_vector.append(-float(param.lower))
 
             # upper bound: x_i <= upper_i
             row_upper = np.zeros(num_params)
             row_upper[idx] = 1.0
-            constraint_matrix.append(row_upper)
-            bound_vector.append(float(param.upper))
+            ineq_constraint_matrix.append(row_upper)
+            ineq_bound_vector.append(float(param.upper))
 
-        constraint_matrix = np.array(constraint_matrix)
-        bound_vector = np.array(bound_vector)
+        ineq_constraint_matrix_np = np.array(ineq_constraint_matrix)
+        ineq_bound_vector_np = np.array(ineq_bound_vector)
 
-        # Compute norm for each vector in constraint matrix
-        row_norms = np.linalg.norm(constraint_matrix, axis=1)
-        augmented_constraint_matrix = np.column_stack([constraint_matrix, row_norms])
+        # For the Chebyshev center, augment inequality constraints with
+        # r * ||a_i|| (the ball must fit inside each half-space).
+        row_norms = np.linalg.norm(ineq_constraint_matrix_np, axis=1)
+        augmented_constraint_matrix = np.column_stack(
+            [ineq_constraint_matrix_np, row_norms]
+        )
+
+        # Equality constraints: the ball center must lie on the hyperplane,
+        # so no radius augmentation is needed.
+        A_eq = None
+        b_eq = None
+        if eq_constraint_matrix:
+            # Pad equality rows with a zero column for the radius variable
+            eq_matrix_np = np.array(eq_constraint_matrix)
+            A_eq = np.column_stack([eq_matrix_np, np.zeros(eq_matrix_np.shape[0])])
+            b_eq = np.array(eq_bound_vector)
 
         # Set objective vector which maximizes r (minimize -r == maximize r)
         radius_objective_vector = np.zeros(num_params + 1)
@@ -805,7 +857,9 @@ class SearchSpace(Base):
         result = linprog(
             c=radius_objective_vector,
             A_ub=augmented_constraint_matrix,
-            b_ub=bound_vector,
+            b_ub=ineq_bound_vector_np,
+            A_eq=A_eq,
+            b_eq=b_eq,
             bounds=[(None, None)] * num_params + [(0, None)],  # no bounds except r >= 0
         )
 
@@ -1079,7 +1133,7 @@ class SearchSpace(Base):
         parameter should not be in the arm within the search space due to its
         hierarchical structure.
         """
-        full_parameterization_md = {
+        full_parameterization_md: dict[str, Any] = {
             Keys.FULL_PARAMETERIZATION: observation_features.parameters.copy()
         }
         obs_feats = observation_features.clone(
@@ -1089,7 +1143,7 @@ class SearchSpace(Base):
             )
         )
         if not obs_feats.metadata:
-            obs_feats.metadata = full_parameterization_md  # pyre-ignore[8]
+            obs_feats.metadata = full_parameterization_md
         else:
             obs_feats.metadata = {**obs_feats.metadata, **full_parameterization_md}
 

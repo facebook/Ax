@@ -10,6 +10,7 @@ from datetime import datetime, timedelta
 from typing import Any
 
 import pandas as pd
+from ax.analysis.healthcheck.healthcheck_analysis import HealthcheckStatus
 from ax.analysis.healthcheck.metric_fetching_errors import MetricFetchingErrorsAnalysis
 from ax.core.base_trial import BaseTrial
 from ax.core.data import Data
@@ -168,6 +169,8 @@ class TestMetricFetchingErrors(TestCase):
             card.df["timestamp"].iloc[0],
             (datetime.now() - timedelta(minutes=1)).isoformat(),
         )
+        # Tracking metric errors should produce WARNING, not FAIL
+        self.assertEqual(card.get_status(), HealthcheckStatus.WARNING)
 
     def test_metric_fetching_errors_without_traceback(self) -> None:
         # GIVEN an experiment with a test metric and running trial
@@ -221,6 +224,8 @@ class TestMetricFetchingErrors(TestCase):
             card.df["timestamp"].iloc[0],
             (datetime.now() - timedelta(minutes=1)).isoformat(),
         )
+        # Tracking metric errors should produce WARNING, not FAIL
+        self.assertEqual(card.get_status(), HealthcheckStatus.WARNING)
 
     def test_error_order(self) -> None:
         # GIVEN an experiment with a test metric and running trial
@@ -294,3 +299,45 @@ class TestMetricFetchingErrors(TestCase):
         orchestrator.poll_and_process_results()
 
         self.assertEqual(len(exp._metric_fetching_errors), 0)
+
+    def _make_metric_fetching_error(
+        self, trial_index: int, metric_name: str
+    ) -> dict[str, Any]:
+        return {
+            "trial_index": trial_index,
+            "metric_name": metric_name,
+            "reason": f"Simulated {metric_name} fetch failure",
+            "timestamp": datetime.now().isoformat(),
+            "traceback": "",
+        }
+
+    def test_critical_metric_errors_returns_fail(self) -> None:
+        cases: list[dict[str, Any]] = [
+            {
+                "label": "objective_metric",
+                "exp_kwargs": {"with_batch": True},
+                "error_metrics": ["branin"],
+            },
+            {
+                "label": "constraint_metric",
+                "exp_kwargs": {
+                    "with_batch": True,
+                    "with_absolute_constraint": True,
+                },
+                "error_metrics": ["branin_e"],
+            },
+            {
+                "label": "mixed_objective_and_tracking",
+                "exp_kwargs": {"with_batch": True},
+                "error_metrics": ["branin", "tracking_metric"],
+            },
+        ]
+        for case in cases:
+            with self.subTest(case=case["label"]):
+                exp = get_branin_experiment(**case["exp_kwargs"])
+                for metric_name in case["error_metrics"]:
+                    exp._metric_fetching_errors[(0, metric_name)] = (
+                        self._make_metric_fetching_error(0, metric_name)
+                    )
+                card = MetricFetchingErrorsAnalysis().compute(experiment=exp)
+                self.assertEqual(card.get_status(), HealthcheckStatus.FAIL)

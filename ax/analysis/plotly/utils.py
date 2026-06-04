@@ -10,19 +10,21 @@ import re
 from collections.abc import Sequence
 
 import pandas as pd
-from ax.analysis.plotly.color_constants import BOTORCH_COLOR_SCALE, LIGHT_AX_BLUE
+from ax.analysis.plotly.color_constants import (
+    BOTORCH_COLOR_SCALE,
+    GENERATOR_RUN_COLOR_SCALE,
+    LIGHT_AX_BLUE,
+)
 from ax.core.experiment import Experiment
-from ax.core.objective import MultiObjective, ScalarizedObjective
+from ax.core.objective import ScalarizedObjective
 from ax.core.trial_status import DEFAULT_ANALYSIS_STATUSES, TrialStatus
 from ax.exceptions.core import UnsupportedError
 from plotly import express as px
 
 MAX_LABEL_LEN: int = 50
 
-# Because normal distributions have long tails, every arm has a non-zero
-# probability of violating the constraint. But below a certain threshold, we
-# consider probability of violation to be negligible.
-MINIMUM_CONTRAINT_VIOLATION_THRESHOLD = 0.01
+# Minimum p_feasible to mark an arm as infeasible
+MINIMUM_P_FEASIBLE = 0.1
 
 # Z-score for 95% confidence interval
 Z_SCORE_95_CI = 1.96
@@ -75,6 +77,10 @@ MAX_HOVER_LABEL_LEN: int = 300
 SINGLE_CANDIDATE_TRIAL_LEGEND: str = "Candidate Trial"
 MULTIPLE_CANDIDATE_TRIALS_LEGEND: str = "Candidate Trials"
 
+INFEASIBLE_OUTLINE_COLOR: str = "rgba(255, 0, 0, 0.6)"
+INFEASIBLE_OUTLINE_WIDTH: float = 2.0
+INFEASIBLE_LEGEND_NAME: str = "Likely Infeasible"
+
 
 def get_scatter_point_color(
     hex_color: str,
@@ -123,6 +129,17 @@ def trial_index_to_color(
     return get_scatter_point_color(hex_color=hex_color, ci_transparency=transparent)
 
 
+def generator_run_key_to_color(
+    generator_run_key: str,
+    all_generator_run_keys: Sequence[str],
+    transparent: bool,
+) -> str:
+    """Determines the color for a generator run based on its key."""
+    key_index = list(all_generator_run_keys).index(generator_run_key)
+    hex_color = GENERATOR_RUN_COLOR_SCALE[key_index % len(GENERATOR_RUN_COLOR_SCALE)]
+    return get_scatter_point_color(hex_color=hex_color, ci_transparency=transparent)
+
+
 def get_arm_tooltip(
     row: pd.Series,
     metric_names: Sequence[str],
@@ -133,8 +150,10 @@ def get_arm_tooltip(
     """
     tooltip_strs = []
     trial_index = row["trial_index"]
-    if trial_index != -1:
-        # omit the trial tooltip for additional arms
+    generator_run_key = row.get("generator_run_key")
+    if pd.notna(generator_run_key):
+        tooltip_strs.append(f"Generator Run: {generator_run_key}")
+    elif trial_index != -1:
         tooltip_strs.append(f"Trial: {trial_index}")
 
     tooltip_strs.append(f"Arm: {row['arm_name']}")
@@ -153,7 +172,7 @@ def get_arm_tooltip(
         ]
     )
 
-    if row["p_feasible_mean"] < MINIMUM_CONTRAINT_VIOLATION_THRESHOLD:
+    if row["p_feasible_mean"] < MINIMUM_P_FEASIBLE:
         constraints_warning_str = "[Warning] This arm is likely infeasible"
     else:
         constraints_warning_str = ""
@@ -162,8 +181,13 @@ def get_arm_tooltip(
     return "<br />".join(tooltip_strs)
 
 
-def get_trial_trace_name(trial_index: int) -> str:
+def get_trial_trace_name(
+    trial_index: int,
+    generator_run_key: str | None = None,
+) -> str:
     """Get a trace name for a trial index."""
+    if generator_run_key is not None:
+        return generator_run_key
     return "Additional Arms" if trial_index == -1 else f"Trial {trial_index}"
 
 
@@ -206,7 +230,7 @@ def select_metric(experiment: Experiment) -> str:
             "Cannot infer metric to plot from Experiment without OptimizationConfig"
         )
     objective = experiment.optimization_config.objective
-    if isinstance(objective, MultiObjective):
+    if objective.is_multi_objective:
         raise UnsupportedError(
             "Cannot infer metric to plot from MultiObjective, please specify a metric"
         )
@@ -215,7 +239,7 @@ def select_metric(experiment: Experiment) -> str:
             "Cannot infer metric to plot from ScalarizedObjective, please "
             "specify a metric"
         )
-    return experiment.optimization_config.objective.metric.name
+    return experiment.optimization_config.objective.metric_names[0]
 
 
 def get_trial_statuses_with_fallback(

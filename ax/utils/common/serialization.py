@@ -72,9 +72,7 @@ def serialize_init_args(
     return properties
 
 
-# pyre-fixme[24]: Generic type `type` expects 1 type parameter, use `typing.Type` to
-#  avoid runtime subscripting errors.
-def extract_init_args(args: dict[str, Any], class_: type) -> dict[str, Any]:
+def extract_init_args(args: dict[str, Any], class_: type[Any]) -> dict[str, Any]:
     """Given a dictionary, extract the arguments required for the
     given class's constructor.
     """

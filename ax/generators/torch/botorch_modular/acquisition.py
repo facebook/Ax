@@ -31,6 +31,7 @@ from ax.generators.torch.botorch_modular.surrogate import Surrogate
 from ax.generators.torch.botorch_modular.utils import (
     _fix_map_key_to_target,
     _objective_threshold_to_outcome_constraints,
+    validate_candidates,
 )
 from ax.generators.torch.botorch_moo_utils import infer_objective_thresholds
 from ax.generators.torch.utils import (
@@ -47,9 +48,20 @@ from botorch.acquisition.acquisition import AcquisitionFunction
 from botorch.acquisition.input_constructors import get_acqf_input_constructor
 from botorch.acquisition.knowledge_gradient import qKnowledgeGradient
 from botorch.acquisition.logei import qLogProbabilityOfFeasibility
-from botorch.acquisition.multioutput_acquisition import MultiOutputAcquisitionFunction
+from botorch.acquisition.multioutput_acquisition import (
+    MultiOutputAcquisitionFunction,
+    MultiOutputAcquisitionFunctionWrapper,
+)
 from botorch.acquisition.objective import MCAcquisitionObjective, PosteriorTransform
-from botorch.exceptions.errors import BotorchError, InputDataError
+from botorch.acquisition.preference import (
+    AnalyticExpectedUtilityOfBestOption,
+    qExpectedUtilityOfBestOption,
+)
+from botorch.exceptions.errors import (
+    BotorchError,
+    CandidateGenerationError,
+    InputDataError,
+)
 from botorch.generation.sampling import SamplingStrategy
 from botorch.models.model import Model
 from botorch.optim.optimize import (
@@ -64,9 +76,12 @@ from botorch.optim.optimize_mixed import (
     optimize_acqf_mixed_alternating,
     should_use_mixed_alternating_optimizer,
 )
-from botorch.optim.parameter_constraints import evaluate_feasibility
+from botorch.optim.parameter_constraints import (
+    evaluate_feasibility,
+    project_to_feasible_space_via_slsqp,
+)
 from botorch.utils.constraints import get_outcome_constraint_transforms
-from pyre_extensions import none_throws
+from pyre_extensions import assert_is_instance, none_throws
 from torch import Tensor
 
 try:
@@ -222,8 +237,8 @@ class Acquisition(Base):
         self.X_pending: Tensor | None = X_pending
         self.X_observed: Tensor | None = X_observed
 
-        # Store objective thresholds for all outcomes (including non-objectives).
-        self._full_objective_thresholds: Tensor | None = (
+        # Store (n_objectives,) maximization-aligned objective thresholds.
+        self._objective_thresholds: Tensor | None = (
             torch_opt_config.objective_thresholds
         )
         self._full_objective_weights: Tensor = torch_opt_config.objective_weights
@@ -232,12 +247,10 @@ class Acquisition(Base):
             self._model,
             self._objective_weights,
             self._outcome_constraints,
-            self._objective_thresholds,
         ) = self._subset_model(
             model=surrogate.model,
             objective_weights=torch_opt_config.objective_weights,
             outcome_constraints=torch_opt_config.outcome_constraints,
-            objective_thresholds=torch_opt_config.objective_thresholds,
         )
         self._update_objective_thresholds(torch_opt_config=torch_opt_config)
         self._set_preference_model(torch_opt_config=torch_opt_config)
@@ -261,16 +274,14 @@ class Acquisition(Base):
         model: Model,
         objective_weights: Tensor,
         outcome_constraints: tuple[Tensor, Tensor] | None = None,
-        objective_thresholds: Tensor | None = None,
-    ) -> tuple[Model, Tensor, tuple[Tensor, Tensor] | None, Tensor | None]:
+    ) -> tuple[Model, Tensor, tuple[Tensor, Tensor] | None]:
         if not self._should_subset_model:
-            return model, objective_weights, outcome_constraints, objective_thresholds
+            return model, objective_weights, outcome_constraints
         # Otherwise, subset
         subset_model_results = subset_model(
             model=model,
             objective_weights=objective_weights,
             outcome_constraints=outcome_constraints,
-            objective_thresholds=objective_thresholds,
         )
         if self._subset_idcs is None:
             self._subset_idcs = subset_model_results.indices
@@ -282,7 +293,6 @@ class Acquisition(Base):
             subset_model_results.model,
             subset_model_results.objective_weights,
             subset_model_results.outcome_constraints,
-            subset_model_results.objective_thresholds,
         )
 
     def _update_objective_thresholds(self, torch_opt_config: TorchOptConfig) -> None:
@@ -300,27 +310,20 @@ class Acquisition(Base):
         if not (
             torch_opt_config.is_moo
             and (
-                self._full_objective_thresholds is None
-                or self._full_objective_thresholds[torch_opt_config.outcome_mask]
-                .isnan()
-                .any()
+                self._objective_thresholds is None
+                or self._objective_thresholds.isnan().any()
             )
             and self.X_observed is not None
         ):
             return
         try:
-            self._full_objective_thresholds = infer_objective_thresholds(
+            self._objective_thresholds = infer_objective_thresholds(
                 model=self._model,
                 objective_weights=self._full_objective_weights,
                 X_observed=self.X_observed,
                 outcome_constraints=torch_opt_config.outcome_constraints,
                 subset_idcs=self._subset_idcs,
-                objective_thresholds=self._full_objective_thresholds,
-            )
-            self._objective_thresholds = (
-                none_throws(self._full_objective_thresholds)[self._subset_idcs]
-                if self._subset_idcs is not None
-                else self._full_objective_thresholds
+                objective_thresholds=self._objective_thresholds,
             )
         except (AxError, BotorchError) as e:
             logger.warning(
@@ -365,6 +368,20 @@ class Acquisition(Base):
         botorch_acqf_options: dict[str, Any],
         model: Model,
     ) -> AcquisitionFunction:
+        # EUBO (PBO / BOPE): bypass the generic path because EUBO input
+        # constructors don't accept training_data, bounds, X_baseline, etc.
+        # TODO: Update EUBO input constructors to accept and validate these
+        # kwargs so we can use the generic path.
+        # Guard: skip when pref_model was popped by PreferenceModelAcquisition
+        # (legacy BOPE) -- detected by multi-output model without pref_model.
+        if issubclass(
+            botorch_acqf_class,
+            (AnalyticExpectedUtilityOfBestOption, qExpectedUtilityOfBestOption),
+        ) and ("pref_model" in botorch_acqf_options or model.num_outputs == 1):
+            input_constructor = get_acqf_input_constructor(botorch_acqf_class)
+            acqf_inputs = input_constructor(model=model, **botorch_acqf_options)
+            return botorch_acqf_class(**acqf_inputs)  # pyre-ignore [45]
+
         objective, posterior_transform = self.get_botorch_objective_and_transform(
             botorch_acqf_class=botorch_acqf_class,
             model=model,
@@ -395,11 +412,13 @@ class Acquisition(Base):
                 constraint_transforms = constraint_transforms + threshold_transforms
             elif threshold_transforms is not None:
                 constraint_transforms = threshold_transforms
+        # Pass thresholds directly as ref_point. Our thresholds are already
+        # maximization-aligned, so no further transformation is needed.
         input_constructor_kwargs = {
             "model": model,
             "X_baseline": self.X_observed,
             "X_pending": self.X_pending,
-            "objective_thresholds": self._objective_thresholds,
+            "ref_point": self._objective_thresholds,
             "constraints": constraint_transforms,
             "constraints_tuple": self._outcome_constraints,
             "objective": objective,
@@ -454,11 +473,8 @@ class Acquisition(Base):
 
     @property
     def objective_thresholds(self) -> Tensor | None:
-        """The objective thresholds for all outcomes.
-
-        For non-objective outcomes, the objective thresholds are nans.
-        """
-        return self._full_objective_thresholds
+        """The ``(n_objectives,)`` maximization-aligned objective thresholds."""
+        return self._objective_thresholds
 
     @property
     def objective_weights(self) -> Tensor | None:
@@ -587,6 +603,7 @@ class Acquisition(Base):
         n: int,
         search_space_digest: SearchSpaceDigest,
         inequality_constraints: list[tuple[Tensor, Tensor, float]] | None = None,
+        equality_constraints: list[tuple[Tensor, Tensor, float]] | None = None,
         fixed_features: dict[int, float] | None = None,
         rounding_func: Callable[[Tensor], Tensor] | None = None,
         optimizer_options: dict[str, Any] | None = None,
@@ -603,6 +620,9 @@ class Acquisition(Base):
             inequality_constraints: A list of tuples (indices, coefficients, rhs),
                 with each tuple encoding an inequality constraint of the form
                 ``sum_i (X[indices[i]] * coefficients[i]) >= rhs``.
+            equality_constraints: A list of tuples (indices, coefficients, rhs),
+                with each tuple encoding an equality constraint of the form
+                ``sum_i (X[indices[i]] * coefficients[i]) = rhs``.
             fixed_features: A map `{feature_index: value}` for features that
                 should be fixed to a particular value during generation.
             rounding_func: A function that post-processes an optimization
@@ -655,8 +675,8 @@ class Acquisition(Base):
         # Ax expects `optimize_acqf` to return tensors of a certain shape.
         if optimizer_options is not None:
             forbidden_optimizer_options = [
-                "equality_constraints",
-                "inequality_constraints",  # These should be constructed by Ax
+                "equality_constraints",  # Constructed by Ax
+                "inequality_constraints",  # Constructed by Ax
                 "batch_initial_conditions",
                 "return_best_only",
                 "return_full_tree",
@@ -707,6 +727,7 @@ class Acquisition(Base):
                 bounds=bounds,
                 q=n,
                 inequality_constraints=inequality_constraints,
+                equality_constraints=equality_constraints,
                 fixed_features=fixed_features,
                 post_processing_func=rounding_func,
                 acq_function_sequence=self.acq_function_sequence,
@@ -718,6 +739,11 @@ class Acquisition(Base):
             "optimize_acqf_discrete",
             "optimize_acqf_discrete_local_search",
         ):
+            if equality_constraints:
+                raise ValueError(
+                    "Equality constraints are not supported with discrete "
+                    f"optimizer '{optimizer}'."
+                )
             X_observed = self.X_observed
             if self.X_pending is not None:
                 if X_observed is None:
@@ -738,6 +764,17 @@ class Acquisition(Base):
                     inequality_constraints=inequality_constraints,
                     X_avoid=X_observed,
                     **optimizer_options_with_defaults,
+                )
+                # Validate candidates before returning
+                validate_candidates(
+                    candidates=candidates,
+                    bounds=bounds,
+                    discrete_choices=ssd.discrete_choices
+                    if ssd.discrete_choices
+                    else None,
+                    inequality_constraints=inequality_constraints,
+                    feature_names=ssd.feature_names,
+                    task_features=ssd.task_features,
                 )
                 n_candidates = candidates.shape[0]
                 return (
@@ -785,6 +822,7 @@ class Acquisition(Base):
                     discrete_choices=discrete_choices
                 ),
                 inequality_constraints=inequality_constraints,
+                equality_constraints=equality_constraints,
                 post_processing_func=rounding_func,
                 **optimizer_options_with_defaults,
             )
@@ -812,22 +850,28 @@ class Acquisition(Base):
                 post_processing_func=rounding_func,
                 fixed_features=fixed_features,
                 inequality_constraints=inequality_constraints,
+                equality_constraints=equality_constraints,
                 **optimizer_options_with_defaults,
             )
         elif optimizer == "optimize_with_nsgaii":
+            if equality_constraints:
+                raise ValueError(
+                    "Equality constraints are not supported with "
+                    "optimizer 'optimize_with_nsgaii'."
+                )
             if optimize_with_nsgaii is not None:
-                # TODO: support post_processing_func
+                acqf = assert_is_instance(
+                    self.acqf, MultiOutputAcquisitionFunctionWrapper
+                )
                 candidates, acqf_values = optimize_with_nsgaii(
                     acq_function=self.acqf,
                     bounds=bounds,
                     q=n,
                     fixed_features=fixed_features,
-                    # We use pyre-ignore here to avoid a circular import.
-                    # pyre-ignore [6]: Incompatible parameter type [6]: In call `len`,
-                    # for 1st positional argument, expected
-                    # `pyre_extensions.PyreReadOnly[Sized]` but got `Union[Tensor,
-                    # Module]`.
-                    num_objectives=len(self.acqf.acqfs),
+                    inequality_constraints=inequality_constraints,
+                    num_objectives=len(acqf.acqfs),
+                    discrete_choices=discrete_choices if discrete_choices else None,
+                    post_processing_func=rounding_func,
                     **optimizer_options_with_defaults,
                 )
             else:
@@ -853,8 +897,21 @@ class Acquisition(Base):
                     candidates=candidates,
                     search_space_digest=search_space_digest,
                     inequality_constraints=inequality_constraints,
+                    equality_constraints=equality_constraints,
                     fixed_features=fixed_features,
+                    bounds=bounds,
                 )
+        # Validate candidates before returning
+        validate_candidates(
+            candidates=candidates,
+            bounds=bounds,
+            discrete_choices=discrete_choices if discrete_choices else None,
+            inequality_constraints=inequality_constraints,
+            feature_names=search_space_digest.feature_names,
+            task_features=search_space_digest.task_features,
+            equality_constraints=equality_constraints,
+        )
+
         n_candidates = candidates.shape[0]
         return candidates, acqf_values, arm_weights[:n_candidates] * n_candidates / n
 
@@ -956,7 +1013,9 @@ class Acquisition(Base):
         candidates: Tensor,
         search_space_digest: SearchSpaceDigest,
         inequality_constraints: list[tuple[Tensor, Tensor, float]] | None = None,
+        equality_constraints: list[tuple[Tensor, Tensor, float]] | None = None,
         fixed_features: dict[int, float] | None = None,
+        bounds: Tensor | None = None,
     ) -> tuple[Tensor, Tensor]:
         r"""Prune irrelevant parameters from the candidates using BONSAI.
 
@@ -992,6 +1051,11 @@ class Acquisition(Base):
                 corresponds to the `l_i`-th feature of that element.
             fixed_features: A map `{feature_index: value}` for features that
                 should be fixed to a particular value during generation.
+            bounds: A `2 x d`-dim tensor of lower and upper parameter bounds.
+                Required when `inequality_constraints` or `equality_constraints`
+                are provided: pruned candidates are projected onto the feasible
+                set via SLSQP, and the projection needs the parameter bounds to
+                define the feasible region. Unused when no constraints are set.
 
         Returns:
             A two-element tuple containing an `q x d`-dim tensor of generated
@@ -1035,12 +1099,14 @@ class Acquisition(Base):
             # dense AF val
             final_af_val = dense_af_val
             # If the current incremental AF value is zero, then we skip pruning
+            has_constraints = bool(inequality_constraints or equality_constraints)
             if dense_incremental_af_val > 0.0:
                 remaining_indices = set(range(candidates.shape[-1])) - excluded_indices
                 # remove features that are already set to target_point
                 remaining_indices -= set(
                     (candidates[i] == target_point).nonzero().view(-1).tolist()
                 )
+                initial_remaining = set(remaining_indices)
                 # len(remaining_indices) - 1 is used here so that we do not prune
                 # every dimension
                 for _ in range(len(remaining_indices) - 1):
@@ -1057,12 +1123,23 @@ class Acquisition(Base):
                         indices=indices,
                         targets=target_point[indices],
                     )
-                    # remove candidates that violate constraints after pruning
-                    pruned_candidates, indices = _remove_infeasible_candidates(
-                        candidates=pruned_candidates,
-                        indices=indices,
-                        inequality_constraints=inequality_constraints,
-                    )
+                    # Project pruned candidates onto the feasible set
+                    # (pinning the pruned dim and previously pruned dims),
+                    # then filter any that remain infeasible.
+                    if has_constraints:
+                        previously_pruned = initial_remaining - remaining_indices
+                        pruned_candidates, indices = (
+                            _project_and_filter_pruned_candidates(
+                                candidates=pruned_candidates,
+                                indices=indices,
+                                target_point=target_point,
+                                pruned_dims=previously_pruned,
+                                bounds=none_throws(bounds),
+                                inequality_constraints=inequality_constraints,
+                                equality_constraints=equality_constraints,
+                                fixed_features=fixed_features,
+                            )
+                        )
                     if pruned_candidates.shape[0] == 0:
                         # no feasible points, continue to
                         # next candidate
@@ -1175,6 +1252,7 @@ def _remove_infeasible_candidates(
     candidates: Tensor,
     indices: Tensor,
     inequality_constraints: list[tuple[Tensor, Tensor, float]] | None = None,
+    equality_constraints: list[tuple[Tensor, Tensor, float]] | None = None,
 ) -> tuple[Tensor, Tensor]:
     r"""Filter out infeasible candidates, based on the parameter constraints.
 
@@ -1184,25 +1262,146 @@ def _remove_infeasible_candidates(
             in [0, d-1).
         inequality_constraints: A list of tuples (indices, coefficients, rhs),
             with each tuple encoding an inequality constraint of the form
-            `\sum_i (X[indices[i]] * coefficients[i]) >= rhs`. `indices` and
-            `coefficients` should be torch tensors. See the docstring of
-            `make_scipy_linear_constraints` for an example. When q=1, or when
-            applying the same constraint to each candidate in the batch
-            (intra-point constraint), `indices` should be a 1-d tensor.
-            For inter-point constraints, in which the constraint is applied to the
-            whole batch of candidates, `indices` must be a 2-d tensor, where
-            in each row `indices[i] =(k_i, l_i)` the first index `k_i` corresponds
-            to the `k_i`-th element of the `q`-batch and the second index `l_i`
-            corresponds to the `l_i`-th feature of that element.
+            `\sum_i (X[indices[i]] * coefficients[i]) >= rhs`.
+        equality_constraints: A list of tuples (indices, coefficients, rhs),
+            with each tuple encoding an equality constraint of the form
+            `\sum_i (X[indices[i]] * coefficients[i]) = rhs`.
 
     Returns:
-        A two-element tuple containing the filter candidates and indices.
+        A two-element tuple containing the filtered candidates and indices.
     """
-    if inequality_constraints is not None:
+    if inequality_constraints is not None or equality_constraints is not None:
         is_feasible = evaluate_feasibility(
             X=candidates,
             inequality_constraints=inequality_constraints,
+            equality_constraints=equality_constraints,
         )
         candidates = candidates[is_feasible]
         indices = indices[is_feasible]
     return candidates, indices
+
+
+def _project_and_filter_pruned_candidates(
+    candidates: Tensor,
+    indices: Tensor,
+    target_point: Tensor,
+    pruned_dims: set[int],
+    bounds: Tensor,
+    inequality_constraints: list[tuple[Tensor, Tensor, float]] | None = None,
+    equality_constraints: list[tuple[Tensor, Tensor, float]] | None = None,
+    fixed_features: dict[int, float] | None = None,
+) -> tuple[Tensor, Tensor]:
+    r"""Project pruned candidates onto the feasible set, then filter infeasible.
+
+    Helper for ``Acquisition._prune_irrelevant_parameters`` (BONSAI). It is
+    only meaningful in the context of that greedy-pruning loop and is not
+    intended for standalone use.
+
+    Background: BONSAI pruning evaluates a candidate dimension-by-dimension
+    by setting one dimension at a time to its target-point value. Each row
+    of ``candidates`` is one such trial -- the dense candidate with the
+    dimension at ``indices[i]`` swapped to ``target_point[indices[i]]``.
+    Under linear constraints, swapping a single dimension to the target
+    typically violates the constraints; rather than discarding the trial
+    (the prior behavior), we adjust the *other* free dimensions to recover
+    feasibility while keeping the swapped dimension and all previously
+    pruned dimensions pinned. Trials whose pins make the constraint system
+    infeasible -- and the rare case where projection succeeds but the
+    result still violates constraints -- are filtered out via the mask
+    returned to the caller.
+
+    Args:
+        candidates: A ``b x 1 x d``-dim tensor of pruned candidates (one row
+            per single-dimension prune attempt for the current BONSAI
+            iteration).
+        indices: A ``b``-dim tensor indicating which dimension was pruned
+            in each batch element.
+        target_point: A ``d``-dim tensor of target values for pruning.
+        pruned_dims: Set of dimension indices already pruned in prior
+            greedy iterations (to be kept pinned during projection).
+        bounds: A ``2 x d``-dim tensor of lower and upper bounds.
+        inequality_constraints: Inequality constraints in BoTorch format.
+        equality_constraints: Equality constraints in BoTorch format.
+        fixed_features: A map ``{feature_index: value}`` from the caller.
+            These dimensions are excluded from pruning at the outer loop and
+            must also be pinned during projection so SLSQP cannot adjust
+            them while satisfying the constraints. Without this, fixed
+            features could be silently altered.
+
+    Returns:
+        A two-element tuple of filtered ``(candidates, indices)``.
+    """
+    # Pre-compute which dims participate in any constraint, and check whether
+    # any constraint is inter-point (2D index tensor). Inter-point constraints
+    # apply across the q-batch, but each row here is a single-candidate prune
+    # attempt -- ``project_to_feasible_space_via_slsqp`` cannot evaluate
+    # inter-point constraints on a 1 x d input. Fall back to the original
+    # filter-only behavior in that case.
+    constrained_dims: set[int] = set()
+    has_interpoint_constraint = False
+    for constraints in (inequality_constraints, equality_constraints):
+        if constraints is not None:
+            for c_indices, _, _ in constraints:
+                if c_indices.dim() == 1:
+                    constrained_dims.update(c_indices.tolist())
+                else:
+                    constrained_dims.update(c_indices[:, -1].tolist())
+                    has_interpoint_constraint = True
+    if has_interpoint_constraint:
+        return _remove_infeasible_candidates(
+            candidates=candidates,
+            indices=indices,
+            inequality_constraints=inequality_constraints,
+            equality_constraints=equality_constraints,
+        )
+
+    # Build fixed_features for previously pruned dims and the caller's
+    # fixed_features (both shared across all candidates in this iteration).
+    prev_fixed: dict[int, float] = {k: target_point[k].item() for k in pruned_dims}
+    if fixed_features is not None:
+        prev_fixed.update(fixed_features)
+
+    feasible_mask = torch.ones(candidates.shape[0], dtype=torch.bool)
+    result = candidates.clone()
+
+    for i in range(candidates.shape[0]):
+        j: int = int(indices[i].item())
+        # If the pruned dim doesn't participate in any constraint,
+        # pruning it can't violate anything — skip projection.
+        if j not in constrained_dims:
+            continue
+        # Pin the currently pruned dim, all previously pruned dims, and the
+        # caller's fixed features.
+        fixed: dict[int, float | Tensor] = {
+            j: float(target_point[j].item()),
+            **prev_fixed,
+        }
+        try:
+            projected = project_to_feasible_space_via_slsqp(
+                X=candidates[i],  # 1 x d
+                bounds=bounds,
+                inequality_constraints=inequality_constraints,
+                equality_constraints=equality_constraints,
+                fixed_features=fixed,
+            )
+            result[i] = projected
+        except CandidateGenerationError:
+            # Pin makes the system infeasible — mark for removal.
+            # The post-projection feasibility check below is the safety net
+            # for any candidates that project but still violate constraints.
+            feasible_mask[i] = False
+
+    # Final safety-net feasibility check after projection.
+    if feasible_mask.any():
+        is_feasible = evaluate_feasibility(
+            X=result[feasible_mask],
+            inequality_constraints=inequality_constraints,
+            equality_constraints=equality_constraints,
+        )
+        # Map back to the full mask.
+        feasible_subset_indices = feasible_mask.nonzero(as_tuple=True)[0]
+        for idx, feas in zip(feasible_subset_indices, is_feasible):
+            if not feas:
+                feasible_mask[idx] = False
+
+    return result[feasible_mask], indices[feasible_mask]

@@ -233,7 +233,7 @@ class EarlyStoppingAnalysis(Analysis):
                 "auto_early_stopping_config='standard' or configure an "
                 "early_stopping_strategy_config."
             ),
-            status=HealthcheckStatus.PASS,
+            status=HealthcheckStatus.INFO,
             df=df,
         )
 
@@ -272,12 +272,13 @@ class EarlyStoppingAnalysis(Analysis):
             )
             return self._create_card(
                 subtitle=(
-                    f"This experiment has {n_stopped} early stopped trial(s), but no "
-                    "early stopping strategy was provided. For multi-objective or "
-                    "constrained experiments, please pass the original "
-                    "early_stopping_strategy used during the experiment to "
-                    "EarlyStoppingAnalysis for accurate reporting of metrics and "
-                    "savings."
+                    f"This experiment has {n_stopped} early stopped trial(s), but "
+                    "no early stopping strategy was provided to "
+                    "EarlyStoppingAnalysis. This typically happens when loading a "
+                    "historical experiment where early stopping was used, but the "
+                    "original strategy object was not passed to this analysis. "
+                    "To get accurate savings reporting, pass the original "
+                    "early_stopping_strategy to EarlyStoppingAnalysis."
                 ),
                 status=HealthcheckStatus.WARNING,
                 df=df,
@@ -340,9 +341,13 @@ class EarlyStoppingAnalysis(Analysis):
             )
             return self._create_card(
                 subtitle=(
-                    f"None of the {len(target_ess_metric_names)} metrics used for "
-                    f"early stopping are MapMetrics with map data. Early stopping "
-                    f"requires time-series data."
+                    f"Early stopping strategy is enabled, but none of the "
+                    f"{len(target_ess_metric_names)} metrics used for early "
+                    f"stopping are MapMetrics with map data. Early stopping "
+                    f"requires time-series (map) data to make stopping decisions. "
+                    f"To fix this, ensure that the metrics used by your early "
+                    f"stopping strategy are MapMetrics and that map data is "
+                    f"attached to the experiment."
                 ),
                 status=HealthcheckStatus.FAIL,
                 df=df,
@@ -391,7 +396,7 @@ class EarlyStoppingAnalysis(Analysis):
             title=EARLY_STOPPING_SAVINGS_TITLE,
             subtitle=subtitle,
             df=df,
-            status=HealthcheckStatus.PASS,
+            status=HealthcheckStatus.INFO,
         )
 
     def _report_early_stopping_nudge(
@@ -404,7 +409,7 @@ class EarlyStoppingAnalysis(Analysis):
         default early stopping strategy is available.
         """
         opt_config = none_throws(experiment.optimization_config)
-        metric = next(iter(opt_config.objective.metrics))
+        metric = experiment.get_metric(opt_config.objective.metric_names[0])
         try:
             savings = estimate_hypothetical_early_stopping_savings(
                 experiment=experiment,
@@ -467,7 +472,7 @@ class EarlyStoppingAnalysis(Analysis):
             title=title,
             subtitle=subtitle,
             df=df,
-            status=HealthcheckStatus.WARNING,
+            status=HealthcheckStatus.INFO,
             potential_savings=savings_pct,
             best_metric=metric.name,
         )
@@ -492,9 +497,7 @@ class EarlyStoppingAnalysis(Analysis):
 
         # Sort so that objective metrics appear first
         if experiment.optimization_config is not None:
-            metric_names = [
-                m.name for m in experiment.optimization_config.objective.metrics
-            ]
+            metric_names = experiment.optimization_config.objective.metric_names
             map_metrics.sort(
                 key=lambda e: e.name in metric_names,
                 reverse=True,

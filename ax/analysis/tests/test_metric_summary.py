@@ -27,7 +27,7 @@ class TestMetricSummary(TestCase):
         # TODO: Debug error raised by
         # client.configure_metrics(metrics=[IMetric(name="qux")])
 
-        client._experiment._tracking_metrics = {"qux": Metric(name="qux")}
+        client._experiment._metrics["qux"] = Metric(name="qux")
 
         analysis = MetricSummary()
 
@@ -79,7 +79,7 @@ class TestMetricSummary(TestCase):
 
     def test_validate_applicable_state(self) -> None:
         self.assertIn(
-            "Requires an Experiment",
+            "An Experiment must be provided",
             none_throws(MetricSummary().validate_applicable_state()),
         )
 

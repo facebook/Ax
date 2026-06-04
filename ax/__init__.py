@@ -10,6 +10,11 @@ from ax.api.client import Client
 from ax.api.configs import ChoiceParameterConfig, RangeParameterConfig, StorageConfig
 from ax.api.types import TOutcome, TParameterization
 
+try:
+    from ax.version import version as __version__  # @manual
+except Exception:  # pragma: no cover
+    __version__: str = "Unknown"
+
 __all__ = [
     "Client",
     "ChoiceParameterConfig",

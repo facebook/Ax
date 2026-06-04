@@ -30,7 +30,6 @@ from ax.benchmark.problems.surrogate.lcbench.utils import (
     get_lcbench_parameter_names,
     get_lcbench_search_space,
 )
-from ax.core.optimization_config import OptimizationConfig
 from ax.core.search_space import SearchSpace
 from ax.core.types import TParamValue
 from ax.exceptions.core import UserInputError
@@ -197,7 +196,7 @@ class LearningCurveBenchmarkTestFunction(BenchmarkTestFunction):
     Example:
         test_function = LearningCurveBenchmarkTestFunction(dataset_name="vehicle")
         search_space = get_lcbench_search_space()
-        optimization_config = get_lcbench_optimization_config(
+        optimization_config, opt_config_metrics = get_lcbench_optimization_config(
             metric_name="Train/val_accuracy", observe_noise_sd=True, use_map_metric=True
         )
         problem = BenchmarkProblem(
@@ -206,6 +205,7 @@ class LearningCurveBenchmarkTestFunction(BenchmarkTestFunction):
             optimization_config=optimization_config,
             test_function=test_function,
             step_runtime_function=None,
+            opt_config_metrics=opt_config_metrics,
             ...
         )
     """
@@ -292,7 +292,7 @@ def _get_lcbench_early_stopping_benchmark_problem(
     baseline_value = BASELINE_VALUES[dataset_name]
 
     search_space: SearchSpace = get_lcbench_search_space()
-    optimization_config: OptimizationConfig = get_lcbench_optimization_config(
+    optimization_config, opt_config_metrics = get_lcbench_optimization_config(
         metric_name=DEFAULT_METRIC_NAME,
         observe_noise_sd=False,
         use_map_metric=True,
@@ -312,6 +312,7 @@ def _get_lcbench_early_stopping_benchmark_problem(
         baseline_value=baseline_value,
         test_function=test_function,
         step_runtime_function=step_runtime_function,
+        opt_config_metrics=opt_config_metrics,
     )
 
 

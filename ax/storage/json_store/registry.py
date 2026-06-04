@@ -14,6 +14,10 @@ import torch
 from ax.adapter.base import DataLoaderConfig
 from ax.adapter.registry import GeneratorRegistryBase, Generators
 from ax.adapter.transforms.base import Transform
+from ax.analysis.graphviz.graphviz_analysis import GraphvizAnalysisCard
+from ax.analysis.healthcheck.healthcheck_analysis import HealthcheckAnalysisCard
+from ax.analysis.markdown.markdown_analysis import MarkdownAnalysisCard
+from ax.analysis.plotly.plotly_analysis import PlotlyAnalysisCard
 from ax.benchmark.benchmark_method import BenchmarkMethod
 from ax.benchmark.benchmark_metric import (
     BenchmarkMapMetric,
@@ -24,6 +28,12 @@ from ax.benchmark.benchmark_metric import (
 from ax.benchmark.benchmark_result import AggregatedBenchmarkResult, BenchmarkResult
 from ax.benchmark.benchmark_trial_metadata import BenchmarkTrialMetadata
 from ax.core import Experiment, ObservationFeatures
+from ax.core.analysis_card import (
+    AnalysisCard,
+    AnalysisCardGroup,
+    ErrorAnalysisCard,
+    NotApplicableStateAnalysisCard,
+)
 from ax.core.arm import Arm
 from ax.core.auxiliary import AuxiliaryExperiment, AuxiliaryExperimentPurpose
 from ax.core.batch_trial import AbandonedArm, BatchTrial
@@ -42,7 +52,11 @@ from ax.core.optimization_config import (
     OptimizationConfig,
     PreferenceOptimizationConfig,
 )
-from ax.core.outcome_constraint import ObjectiveThreshold, OutcomeConstraint
+from ax.core.outcome_constraint import (
+    ObjectiveThreshold,
+    OutcomeConstraint,
+    ScalarizedOutcomeConstraint,
+)
 from ax.core.parameter import (
     ChoiceParameter,
     DerivedParameter,
@@ -78,6 +92,7 @@ from ax.generation_strategy.generator_spec import GeneratorSpec
 from ax.generation_strategy.transition_criterion import (
     AutoTransitionAfterGen,
     AuxiliaryExperimentCheck,
+    FreshLILOLabelCheck,
     IsSingleObjective,
     MaxGenerationParallelism,
     MaxTrialsAwaitingData,
@@ -115,6 +130,8 @@ from ax.storage.json_store.decoders import (
     transform_type_from_json,
 )
 from ax.storage.json_store.encoders import (
+    analysis_card_group_to_dict,
+    analysis_card_to_dict,
     arm_to_dict,
     auxiliary_experiment_to_dict,
     backend_simulator_to_dict,
@@ -151,6 +168,7 @@ from ax.storage.json_store.encoders import (
     range_parameter_to_dict,
     runner_to_dict,
     scalarized_objective_to_dict,
+    scalarized_outcome_constraint_to_dict,
     search_space_to_dict,
     surrogate_to_dict,
     threshold_early_stopping_strategy_to_dict,
@@ -176,6 +194,7 @@ from botorch.models.transforms.input import (
     Normalize,
     Round,
 )
+from botorch.models.utils.priors import BetaPrior
 from botorch.sampling.normal import SobolQMCNormalSampler
 from botorch.utils.types import DEFAULT
 from gpytorch.constraints import Interval
@@ -184,9 +203,9 @@ from gpytorch.mlls.marginal_log_likelihood import MarginalLogLikelihood
 from gpytorch.priors.torch_priors import GammaPrior, LogNormalPrior
 
 
-# pyre-fixme[24]: Generic type `type` expects 1 type parameter, use `typing.Type` to
-#  avoid runtime subscripting errors.
-CORE_ENCODER_REGISTRY: dict[type, Callable[[Any], dict[str, Any]]] = {
+CORE_ENCODER_REGISTRY: dict[type[Any], Callable[[Any], dict[str, Any]]] = {
+    AnalysisCard: analysis_card_to_dict,
+    AnalysisCardGroup: analysis_card_group_to_dict,
     Arm: arm_to_dict,
     AuxiliaryExperiment: auxiliary_experiment_to_dict,
     AndEarlyStoppingStrategy: logical_early_stopping_strategy_to_dict,
@@ -205,25 +224,32 @@ CORE_ENCODER_REGISTRY: dict[type, Callable[[Any], dict[str, Any]]] = {
     Data: data_to_dict,
     ExpressionDerivedMetric: metric_to_dict,
     DerivedParameter: derived_parameter_to_dict,
+    ErrorAnalysisCard: analysis_card_to_dict,
+    NotApplicableStateAnalysisCard: analysis_card_to_dict,
     Experiment: experiment_to_dict,
     FactorialMetric: metric_to_dict,
     FixedParameter: fixed_parameter_to_dict,
+    BetaPrior: botorch_component_to_dict,
     GammaPrior: botorch_component_to_dict,
+    GraphvizAnalysisCard: analysis_card_to_dict,
     GenerationStep: generation_node_to_dict,
     GenerationNode: generation_node_to_dict,
     GenerationStrategy: generation_strategy_to_dict,
     GeneratorRun: generator_run_to_dict,
     Hartmann6Metric: metric_to_dict,
+    HealthcheckAnalysisCard: analysis_card_to_dict,
     ImprovementGlobalStoppingStrategy: improvement_global_stopping_strategy_to_dict,
     Interval: botorch_component_to_dict,
     IsSingleObjective: transition_criterion_to_dict,
     L2NormMetric: metric_to_dict,
     LogNormalPrior: botorch_component_to_dict,
     MapMetric: metric_to_dict,
+    MarkdownAnalysisCard: analysis_card_to_dict,
     MaxGenerationParallelism: pausing_criterion_to_dict,
     MaxTrialsAwaitingData: pausing_criterion_to_dict,
     Metric: metric_to_dict,
     MinTrials: transition_criterion_to_dict,
+    FreshLILOLabelCheck: transition_criterion_to_dict,
     AuxiliaryExperimentCheck: transition_criterion_to_dict,
     GeneratorSpec: generator_spec_to_dict,
     MultiObjective: multi_objective_to_dict,
@@ -232,6 +258,7 @@ CORE_ENCODER_REGISTRY: dict[type, Callable[[Any], dict[str, Any]]] = {
     Normalize: botorch_component_to_dict,
     FilterFeatures: botorch_component_to_dict,
     PercentileEarlyStoppingStrategy: percentile_early_stopping_strategy_to_dict,
+    PlotlyAnalysisCard: analysis_card_to_dict,
     SklearnMetric: metric_to_dict,
     ChemistryMetric: metric_to_dict,
     NegativeBraninMetric: metric_to_dict,
@@ -241,6 +268,7 @@ CORE_ENCODER_REGISTRY: dict[type, Callable[[Any], dict[str, Any]]] = {
     OptimizationConfig: optimization_config_to_dict,
     OrEarlyStoppingStrategy: logical_early_stopping_strategy_to_dict,
     OutcomeConstraint: outcome_constraint_to_dict,
+    ScalarizedOutcomeConstraint: scalarized_outcome_constraint_to_dict,
     ParameterConstraint: parameter_constraint_to_dict,
     pathlib.Path: pathlib_to_dict,
     pathlib.PurePath: pathlib_to_dict,
@@ -269,9 +297,7 @@ CORE_ENCODER_REGISTRY: dict[type, Callable[[Any], dict[str, Any]]] = {
 # NOTE: Avoid putting a class along with its subclass in `CLASS_ENCODER_REGISTRY`.
 # The encoder iterates through this dictionary and uses the first superclass that
 # it finds, which might not be the intended superclass.
-# pyre-fixme[24]: Generic type `type` expects 1 type parameter, use `typing.Type` to
-#  avoid runtime subscripting errors.
-CORE_CLASS_ENCODER_REGISTRY: dict[type, Callable[[Any], dict[str, Any]]] = {
+CORE_CLASS_ENCODER_REGISTRY: dict[type[Any], Callable[[Any], dict[str, Any]]] = {
     Acquisition: botorch_modular_to_dict,  # Ax MBM component
     AcquisitionFunction: botorch_modular_to_dict,  # BoTorch component
     InputTransform: botorch_modular_to_dict,  # BoTorch input transform component
@@ -287,6 +313,8 @@ CORE_CLASS_ENCODER_REGISTRY: dict[type, Callable[[Any], dict[str, Any]]] = {
 # splattable inputs to the resultant class, not just Types with kwarg inits.
 CORE_DECODER_REGISTRY: TDecoderRegistry = {
     "AbandonedArm": AbandonedArm,
+    "AnalysisCard": AnalysisCard,
+    "AnalysisCardGroup": AnalysisCardGroup,
     "AndEarlyStoppingStrategy": AndEarlyStoppingStrategy,
     "AutoTransitionAfterGen": AutoTransitionAfterGen,
     "AuxiliaryExperiment": AuxiliaryExperiment,
@@ -322,12 +350,16 @@ CORE_DECODER_REGISTRY: TDecoderRegistry = {
     "ExpressionDerivedMetric": ExpressionDerivedMetric,
     "DerivedParameter": DerivedParameter,
     "DomainType": DomainType,
+    "ErrorAnalysisCard": ErrorAnalysisCard,
+    "NotApplicableStateAnalysisCard": NotApplicableStateAnalysisCard,
     "Experiment": Experiment,
     "ExperimentStatus": ExperimentStatus,
     "FactorialMetric": FactorialMetric,
     "FilterFeatures": FilterFeatures,
     "FixedParameter": fixed_parameter_from_json,
+    "BetaPrior": BetaPrior,
     "GammaPrior": GammaPrior,
+    "GraphvizAnalysisCard": GraphvizAnalysisCard,
     "GenerationNode": GenerationNode,
     "GenerationStrategy": GenerationStrategy,
     "GenerationStep": GenerationStep,
@@ -335,6 +367,7 @@ CORE_DECODER_REGISTRY: TDecoderRegistry = {
     "Generators": Generators,
     "GeneratorSpec": GeneratorSpec,
     "Hartmann6Metric": Hartmann6Metric,
+    "HealthcheckAnalysisCard": HealthcheckAnalysisCard,
     "HierarchicalSearchSpace": HierarchicalSearchSpace,
     "ImprovementGlobalStoppingStrategy": ImprovementGlobalStoppingStrategy,
     "InputConstructorPurpose": InputConstructorPurpose,
@@ -349,11 +382,13 @@ CORE_DECODER_REGISTRY: TDecoderRegistry = {
     "LogNormalPrior": LogNormalPrior,
     "MapData": Data,
     "MapMetric": MapMetric,
+    "MarkdownAnalysisCard": MarkdownAnalysisCard,
     "MaxTrials": MinTrials,
     "MaxGenerationParallelism": MaxGenerationParallelism,
     "MaxTrialsAwaitingData": MaxTrialsAwaitingData,
     "Metric": Metric,
     "MinTrials": MinTrials,
+    "FreshLILOLabelCheck": FreshLILOLabelCheck,
     # DEPRECATED; backward compatibility for MinimumTrialsInStatus -> MinTrials
     "MinimumTrialsInStatus": MinTrials,
     "GeneratorRegistryBase": GeneratorRegistryBase,
@@ -386,10 +421,12 @@ CORE_DECODER_REGISTRY: TDecoderRegistry = {
     "PurePosixPath": pathlib_from_json,
     "PureWindowsPath": pathlib_from_json,
     "PercentileEarlyStoppingStrategy": percentile_early_stopping_strategy_from_json,
+    "PlotlyAnalysisCard": PlotlyAnalysisCard,
     "RangeParameter": RangeParameter,
     "ReductionCriterion": ReductionCriterion,
     "Round": Round,
     "ScalarizedObjective": ScalarizedObjective,
+    "ScalarizedOutcomeConstraint": ScalarizedOutcomeConstraint,
     "SchedulerOptions": OrchestratorOptions,  # DEPRECATED; backward compatibility
     "SearchSpace": SearchSpace,
     "SimTrial": SimTrial,

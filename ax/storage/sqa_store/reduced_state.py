@@ -5,6 +5,11 @@
 # LICENSE file in the root directory of this source tree.
 
 # pyre-strict
+# pyre-ignore-all-errors[24]
+#
+# SA 2.0 requires a type param on InstrumentedAttribute, but SA 1.4
+# InstrumentedAttribute is not subscriptable at runtime (`type is not a generic
+# class`), so we keep the bare form to preserve dual-version compatibility.
 
 
 from ax.storage.sqa_store.sqa_classes import SQAGeneratorRun, SQATrial
@@ -12,7 +17,7 @@ from sqlalchemy.orm import defaultload, strategy_options
 from sqlalchemy.orm.attributes import InstrumentedAttribute
 
 
-GR_LARGE_MODEL_ATTRS: list[InstrumentedAttribute] = [  # pyre-ignore[9]
+GR_LARGE_MODEL_ATTRS: list[InstrumentedAttribute] = [
     SQAGeneratorRun.model_kwargs,
     SQAGeneratorRun.bridge_kwargs,
     SQAGeneratorRun.model_state_after_gen,
@@ -55,6 +60,5 @@ def get_query_options_to_defer_large_model_cols() -> list[strategy_options.Load]
     when loading experiment and generation strategy in reduced state.
     """
     return [
-        defaultload(SQATrial.generator_runs).defer(col.key)
-        for col in GR_LARGE_MODEL_ATTRS
+        defaultload(SQATrial.generator_runs).defer(col) for col in GR_LARGE_MODEL_ATTRS
     ]

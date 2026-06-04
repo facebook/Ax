@@ -18,14 +18,10 @@ from ax.core.optimization_config import (
     MultiObjectiveOptimizationConfig,
     OptimizationConfig,
 )
-from ax.core.outcome_constraint import ScalarizedOutcomeConstraint
+from ax.core.outcome_constraint import OutcomeConstraint
 from ax.core.trial_status import DEFAULT_ANALYSIS_STATUSES, TrialStatus
-from ax.core.types import ComparisonOp
 from ax.utils.common.testutils import TestCase
-from ax.utils.testing.core_stubs import (
-    get_branin_experiment_with_multi_objective,
-    get_branin_metric,
-)
+from ax.utils.testing.core_stubs import get_branin_experiment_with_multi_objective
 from ax.utils.testing.mock import mock_botorch_optimize
 from botorch.utils.testing import skip_if_import_error
 from pyre_extensions import none_throws
@@ -43,9 +39,12 @@ class TestObjectivePFeasibleFrontierPlot(TestCase):
             objective=Objective(metric=self.experiment.metrics["branin_a"]),
             outcome_constraints=self.experiment.optimization_config.outcome_constraints,
         )
-        oc = none_throws(self.experiment.optimization_config).outcome_constraints[0]
-        oc.bound = 10.0
-        oc.op = ComparisonOp.LEQ
+        opt_config = none_throws(self.experiment.optimization_config)
+        oc = opt_config.outcome_constraints[0]
+        opt_config.outcome_constraints[0] = OutcomeConstraint(
+            expression=f"{oc.metric_names[0]} <= 10.0",
+            metric_name_to_signature={oc.metric_names[0]: oc.metric_names[0]},
+        )
 
     def test_trial_statuses_behavior(self) -> None:
         # When neither trial_statuses nor trial_index is provided,
@@ -156,14 +155,15 @@ class TestObjectivePFeasibleFrontierPlot(TestCase):
 
     def test_validate_applicable_state(self) -> None:
         self.assertIn(
-            "Requires an Experiment.",
+            "An Experiment must be provided",
             none_throws(ObjectivePFeasibleFrontierPlot().validate_applicable_state()),
         )
 
         opt_config = self.experiment.optimization_config
         self.experiment._optimization_config = None
         self.assertIn(
-            "Optimization_config must be set to compute frontier",
+            "The experiment must have an OptimizationConfig set in "
+            "order to compute the objective vs. P(feasible) frontier",
             none_throws(
                 ObjectivePFeasibleFrontierPlot().validate_applicable_state(
                     experiment=self.experiment
@@ -198,24 +198,58 @@ class TestObjectivePFeasibleFrontierPlot(TestCase):
                 )
             ),
         )
-        self.experiment.add_tracking_metric(get_branin_metric("branin2"))
-        # Get only tracking metrics, excluding the objective metric to avoid
-        # "Cannot constrain on objective metric" error
-        constraint_metrics = [
-            self.experiment.metrics["branin_b"],
-            self.experiment.metrics["branin_c"],
-        ]
         opt_config.outcome_constraints = [
-            ScalarizedOutcomeConstraint(
-                metrics=constraint_metrics,
-                weights=[1.0, 1.0],
-                relative=False,
-                bound=10.0,
-                op=ComparisonOp.LEQ,
-            )
+            OutcomeConstraint(
+                expression="1.0*branin_b + 1.0*branin_c <= 10.0",
+                metric_name_to_signature={
+                    "branin_b": "branin_b",
+                    "branin_c": "branin_c",
+                },
+            ),
         ]
         self.assertIn(
             "Scalarized outcome constraints are not supported yet.",
+            none_throws(
+                ObjectivePFeasibleFrontierPlot().validate_applicable_state(
+                    experiment=self.experiment
+                )
+            ),
+        )
+
+        # Restore valid constraints and verify type().__name__ renders correctly
+        # for the adapter/generator type check
+        metric_name = self.experiment.metrics["branin_b"].name
+        opt_config.outcome_constraints = [
+            OutcomeConstraint(
+                expression=f"{metric_name} <= 10.0",
+                metric_name_to_signature={metric_name: metric_name},
+            ),
+        ]
+        adapter = Generators.SOBOL(experiment=self.experiment)
+        result = none_throws(
+            ObjectivePFeasibleFrontierPlot().validate_applicable_state(
+                experiment=self.experiment, adapter=adapter
+            )
+        )
+        self.assertIn("RandomAdapter", result)
+        self.assertIn("SobolGenerator", result)
+
+    def test_scalarized_objective_raises(self) -> None:
+        """Scalarized objectives should be rejected in validate_applicable_state."""
+        self.experiment.optimization_config = OptimizationConfig(
+            objective=Objective(
+                expression="2*branin_a + -1*branin_b",
+                metric_name_to_signature={
+                    "branin_a": "branin_a",
+                    "branin_b": "branin_b",
+                },
+            ),
+            outcome_constraints=none_throws(
+                self.experiment.optimization_config
+            ).outcome_constraints,
+        )
+        self.assertIn(
+            "Scalarized objectives are not supported.",
             none_throws(
                 ObjectivePFeasibleFrontierPlot().validate_applicable_state(
                     experiment=self.experiment

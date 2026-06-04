@@ -9,6 +9,7 @@ from typing import final
 from ax.adapter.base import Adapter
 from ax.analysis.analysis import Analysis
 from ax.analysis.plotly.arm_effects import ArmEffectsPlot
+from ax.analysis.plotly.utility_ranking import UtilityRankingPlot
 from ax.analysis.utils import extract_relevant_adapter, validate_experiment
 from ax.core.analysis_card import AnalysisCardGroup
 from ax.core.base_trial import BaseTrial
@@ -17,6 +18,7 @@ from ax.core.experiment import Experiment
 from ax.core.trial_status import TrialStatus
 from ax.exceptions.core import UserInputError
 from ax.generation_strategy.generation_strategy import GenerationStrategy
+from ax.utils.common.constants import is_preference_metric
 from pyre_extensions import override
 
 TRIALS_CARDGROUP_TITLE = "Trial-Level Analyses"
@@ -127,14 +129,26 @@ class TrialAnalysis(Analysis):
         )
 
         # If the Experiment has an OptimizationConfig set, extract the objective and
-        # constraint names.
+        # constraint names. Filter preference metrics (e.g., pairwise_pref_query)
+        # which use comparison-pair data and are meaningless in per-arm ArmEffects.
         objective_names = []
         constraint_names = []
+        preference_objective_names = []
         if (optimization_config := experiment.optimization_config) is not None:
-            objective_names = optimization_config.objective.metric_names
+            objective_names = [
+                n
+                for n in optimization_config.objective.metric_names
+                if not is_preference_metric(n)
+            ]
             constraint_names = [
-                constraint.metric.name
+                constraint.metric_names[0]
                 for constraint in optimization_config.outcome_constraints
+                if not is_preference_metric(constraint.metric_names[0])
+            ]
+            preference_objective_names = [
+                n
+                for n in optimization_config.objective.metric_names
+                if is_preference_metric(n)
             ]
 
         relativize = experiment.status_quo is not None and isinstance(
@@ -148,6 +162,10 @@ class TrialAnalysis(Analysis):
                 trial_index=self.trial.index,
             )
             for metric_name in [*objective_names, *constraint_names]
+            if self.trial.status == TrialStatus.CANDIDATE
+        ] + [
+            UtilityRankingPlot(metric_name=metric_name)
+            for metric_name in preference_objective_names
             if self.trial.status == TrialStatus.CANDIDATE
         ]
         return AnalysisCardGroup(

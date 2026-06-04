@@ -61,12 +61,12 @@ class TestComplexityRatingAnalysis(TestCase):
         self.assertTrue(card.is_passing())
         self.assertEqual(card.get_status(), HealthcheckStatus.PASS)
         self.assertIn("Standard", card.subtitle)
-        self.assertEqual(card.get_aditional_attrs()["tier"], "Standard")
+        self.assertEqual(card.get_additional_attrs()["tier"], "Standard")
 
     def test_parameter_counts(self) -> None:
         test_cases = [
-            (60, HealthcheckStatus.WARNING, "Advanced", "60 tunable parameter(s)"),
-            (250, HealthcheckStatus.FAIL, "Unsupported", "250 tunable parameter(s)"),
+            (60, HealthcheckStatus.INFO, "Advanced", "60 tunable parameter(s)"),
+            (250, HealthcheckStatus.WARNING, "Unsupported", "250 tunable parameter(s)"),
         ]
 
         for num_params, expected_status, expected_tier, expected_msg in test_cases:
@@ -88,17 +88,20 @@ class TestComplexityRatingAnalysis(TestCase):
                 self.assertEqual(card.get_status(), expected_status)
                 self.assertIn(expected_tier, card.subtitle)
                 self.assertIn(expected_msg, card.subtitle)
-                self.assertEqual(card.get_aditional_attrs()["tier"], expected_tier)
+                self.assertEqual(card.get_additional_attrs()["tier"], expected_tier)
 
     def test_objectives_count(self) -> None:
         test_cases = [
-            (3, HealthcheckStatus.WARNING, "Advanced", "3 objectives"),
-            (5, HealthcheckStatus.FAIL, "Unsupported", "5 objectives"),
+            (3, HealthcheckStatus.INFO, "Advanced", "3 objectives"),
+            (5, HealthcheckStatus.WARNING, "Unsupported", "5 objectives"),
         ]
 
         for num_objs, expected_status, expected_tier, expected_msg in test_cases:
             with self.subTest(num_objectives=num_objs):
                 metrics = [Metric(name=f"m{i}") for i in range(num_objs)]
+                for m in metrics:
+                    if m.name not in self.experiment.metrics:
+                        self.experiment.add_tracking_metric(m)
                 self.experiment._optimization_config = MultiObjectiveOptimizationConfig(
                     objective=MultiObjective(
                         objectives=[
@@ -116,7 +119,11 @@ class TestComplexityRatingAnalysis(TestCase):
 
     def test_constraints(self) -> None:
         with self.subTest(constraint_type="outcome"):
+            obj_metric = Metric(name="obj")
             metrics = [Metric(name=f"m{i}") for i in range(3)]
+            for m in [obj_metric] + metrics:
+                if m.name not in self.experiment.metrics:
+                    self.experiment.add_tracking_metric(m)
             self.experiment._optimization_config = OptimizationConfig(
                 objective=Objective(metric=Metric(name="obj"), minimize=False),
                 outcome_constraints=[
@@ -128,7 +135,7 @@ class TestComplexityRatingAnalysis(TestCase):
                 options=self.options, tier_metadata=self.tier_metadata
             ).compute(experiment=self.experiment)
 
-            self.assertEqual(card.get_status(), HealthcheckStatus.WARNING)
+            self.assertEqual(card.get_status(), HealthcheckStatus.INFO)
             self.assertIn("Advanced", card.subtitle)
             self.assertIn("3 outcome constraints", card.subtitle)
 
@@ -152,7 +159,7 @@ class TestComplexityRatingAnalysis(TestCase):
                 options=self.options, tier_metadata=self.tier_metadata
             ).compute(experiment=self.experiment)
 
-            self.assertEqual(card.get_status(), HealthcheckStatus.WARNING)
+            self.assertEqual(card.get_status(), HealthcheckStatus.INFO)
             self.assertIn("Advanced", card.subtitle)
             self.assertIn("3 parameter constraints", card.subtitle)
 
@@ -174,14 +181,14 @@ class TestComplexityRatingAnalysis(TestCase):
                     options=options, tier_metadata=self.tier_metadata
                 ).compute(experiment=self.experiment)
 
-                self.assertEqual(card.get_status(), HealthcheckStatus.WARNING)
+                self.assertEqual(card.get_status(), HealthcheckStatus.INFO)
                 self.assertIn("Advanced", card.subtitle)
                 self.assertIn(expected_msg, card.subtitle)
 
     def test_trial_counts(self) -> None:
         test_cases = [
-            (300, HealthcheckStatus.WARNING, "Advanced", "300 total trials"),
-            (600, HealthcheckStatus.FAIL, "Unsupported", "600 total trials"),
+            (300, HealthcheckStatus.INFO, "Advanced", "300 total trials"),
+            (600, HealthcheckStatus.WARNING, "Unsupported", "600 total trials"),
         ]
 
         for max_trials, expected_status, expected_tier, expected_msg in test_cases:
@@ -229,7 +236,7 @@ class TestComplexityRatingAnalysis(TestCase):
                     options=options, tier_metadata=tier_metadata
                 ).compute(experiment=self.experiment)
 
-                self.assertEqual(card.get_status(), HealthcheckStatus.FAIL)
+                self.assertEqual(card.get_status(), HealthcheckStatus.WARNING)
                 self.assertIn("Unsupported", card.subtitle)
                 self.assertIn(expected_msg, card.subtitle)
 
@@ -253,7 +260,7 @@ class TestComplexityRatingAnalysis(TestCase):
             options=self.options, tier_metadata=self.tier_metadata
         ).compute(experiment=self.experiment)
 
-        self.assertEqual(card.get_status(), HealthcheckStatus.WARNING)
+        self.assertEqual(card.get_status(), HealthcheckStatus.INFO)
         self.assertIn("Advanced", card.subtitle)
         self.assertIn("unordered choice parameter(s)", card.subtitle)
 
@@ -275,7 +282,7 @@ class TestComplexityRatingAnalysis(TestCase):
             options=self.options, tier_metadata=self.tier_metadata
         ).compute(experiment=self.experiment)
 
-        self.assertEqual(card.get_status(), HealthcheckStatus.WARNING)
+        self.assertEqual(card.get_status(), HealthcheckStatus.INFO)
         self.assertIn("Advanced", card.subtitle)
         self.assertIn("60 binary tunable parameter(s)", card.subtitle)
 
@@ -298,7 +305,7 @@ class TestComplexityRatingAnalysis(TestCase):
             options=options, tier_metadata=tier_metadata
         ).compute(experiment=experiment)
 
-        self.assertEqual(card.get_status(), HealthcheckStatus.WARNING)
+        self.assertEqual(card.get_status(), HealthcheckStatus.INFO)
         self.assertIn("Advanced", card.subtitle)
         self.assertIn("60 tunable parameter(s)", card.subtitle)
         self.assertIn("300 total trials", card.subtitle)

@@ -12,7 +12,7 @@ from collections.abc import Mapping, MutableMapping, Sequence
 from copy import deepcopy
 from dataclasses import dataclass, field
 from logging import Logger
-from typing import Any
+from typing import Any, cast
 
 import numpy as np
 from ax.adapter.data_utils import (
@@ -31,14 +31,15 @@ from ax.core.generator_run import extract_arm_predictions, GeneratorRun
 from ax.core.observation import Observation, ObservationData, ObservationFeatures
 from ax.core.observation_utils import recombine_observations
 from ax.core.optimization_config import OptimizationConfig
-from ax.core.parameter import ParameterType, RangeParameter
+from ax.core.parameter import ChoiceParameter, ParameterType, RangeParameter
 from ax.core.search_space import SearchSpace
-from ax.core.types import TCandidateMetadata, TModelPredict
+from ax.core.types import TCandidateMetadata, TModelPredict, TParamValue
 from ax.core.utils import get_target_trial_index, has_map_metrics
 from ax.exceptions.core import UnsupportedError, UserInputError
 from ax.exceptions.model import AdapterMethodNotImplementedError, ModelError
 from ax.generators.base import Generator
 from ax.generators.types import TConfig
+from ax.utils.common.constants import Keys
 from ax.utils.common.logger import get_logger
 from botorch.settings import validate_input_scaling
 from pandas import DataFrame
@@ -88,7 +89,8 @@ class Adapter:
     specification.
     """
 
-    # pyre-ignore [13] Assigned in _set_and_filter_training_data.
+    # pyre-ignore[13]: Initialized in _set_and_filter_training_data, called
+    # from __init__. Pyre can't trace through method calls.
     _training_data: ExperimentData
 
     # The space used for optimization.
@@ -200,7 +202,7 @@ class Adapter:
                     "Optimization config is required when "
                     "`fit_tracking_metrics` is False."
                 )
-            self.outcomes = sorted(self._optimization_config.metrics.keys())
+            self.outcomes = sorted(self._optimization_config.metric_names)
 
         # Set training data (in the raw / untransformed space). This also omits
         # out-of-design and abandoned observations depending on the corresponding flags.
@@ -310,7 +312,28 @@ class Adapter:
         transform_configs: Mapping[str, TConfig],
         assign_transforms: bool = True,
     ) -> tuple[ExperimentData, SearchSpace]:
-        """Initialize transforms and apply them to provided data."""
+        """Initialize transforms and apply them to provided data.
+
+        Pairwise preference labels (binary 0/1) are popped before
+        transforms and reattached afterward to prevent corruption by
+        Y-transforms like StandardizeY or Winsorize.
+        """
+        pairwise_key = Keys.PAIRWISE_PREFERENCE_QUERY.value
+        obs_data = experiment_data.observation_data
+        saved_pairwise = None
+        if ("mean", pairwise_key) in obs_data.columns:
+            saved_pairwise = {
+                "mean": obs_data[("mean", pairwise_key)].copy(),
+                "sem": obs_data[("sem", pairwise_key)].copy(),
+            }
+            obs_data = obs_data.drop(
+                columns=[("mean", pairwise_key), ("sem", pairwise_key)]
+            )
+            experiment_data = ExperimentData(
+                arm_data=experiment_data.arm_data,
+                observation_data=obs_data,
+            )
+
         search_space = search_space.clone()
         if transforms is not None:
             for t in transforms:
@@ -328,6 +351,19 @@ class Adapter:
                 )
                 if assign_transforms:
                     self.transforms[t.__name__] = t_instance
+
+        if saved_pairwise is not None:
+            # Reattach by index alignment. Safe because pairwise labeling
+            # trials are in _non_relativizable_trial_indices and are never
+            # dropped by transforms like TransformToNewSQ.
+            obs_data = experiment_data.observation_data
+            obs_data[("mean", pairwise_key)] = saved_pairwise["mean"]
+            obs_data[("sem", pairwise_key)] = saved_pairwise["sem"]
+            experiment_data = ExperimentData(
+                arm_data=experiment_data.arm_data,
+                observation_data=obs_data,
+            )
+
         return experiment_data, search_space
 
     def _set_search_space(
@@ -374,17 +410,33 @@ class Adapter:
         return search_space.check_membership_df(arm_data=experiment_data.arm_data)
 
     def _set_model_space(self, arm_data: DataFrame) -> None:
-        """Set model space, possibly expanding range parameters to cover data."""
+        """Set model space, possibly expanding parameters to cover data.
+
+        For ``RangeParameter``, expand ``lower`` / ``upper`` bounds to cover the
+        range of values observed in ``arm_data``.
+
+        For ``ChoiceParameter``, append any observed values not already in
+        ``p.values``. Expansion is restricted to numeric ordered choice
+        parameters: expanding unordered choices breaks ``OneHot`` at gen time
+        (the surrogate's ``self.parameters`` is frozen at fit and contains
+        one-hot dimensions for every expanded value, but
+        ``OneHot.transform_search_space`` prunes back to the user-declared
+        values at gen, leaving stale entries that ``extract_search_space_digest``
+        fails to look up). Expanding non-numeric choices is unsupported for
+        a similar reason. If a numeric ordered choice parameter is declared
+        as ``INT`` but an observed value is non-integer, the model space copy
+        of the parameter is relaxed to ``FLOAT`` to preserve the observation
+        exactly. This only mutates the adapter-local ``_model_space``;
+        ``experiment.search_space`` is untouched.
+        """
         # If fill for missing values, include those in expansion.
         t = FillMissingParameters(
             search_space=self._model_space,
             config=self._transform_configs.get("FillMissingParameters", None),
         )
         fill_values = t._fill_values
-        # Update model space. Expand bounds as needed to cover the values found
-        # in the data. Only applies to range parameters.
         for p_name, p in self._model_space.parameters.items():
-            if not isinstance(p, RangeParameter):
+            if not isinstance(p, (RangeParameter, ChoiceParameter)):
                 continue
             if p_name in arm_data:
                 param_vals = arm_data[p_name].dropna().tolist()
@@ -394,19 +446,49 @@ class Adapter:
                 param_vals.append(fill_values[p_name])
             if len(param_vals) == 0:
                 continue
-            # For log_scale parameters, ensure lower bound is > 0
-            # as OOD arms may have values <= 0
-            if p.log_scale:
-                # Find the smallest positive value from param_vals
-                positive_vals = [v for v in param_vals if v > 0]
-                if positive_vals:
+            if isinstance(p, RangeParameter):
+                # For log_scale parameters, ensure lower bound is > 0
+                # as OOD arms may have values <= 0
+                if p.log_scale:
+                    positive_vals = [v for v in param_vals if v > 0]
+                    if not positive_vals:
+                        # keep original lower bound
+                        continue
                     p.lower = min(p.lower, min(positive_vals))
                 else:
-                    # keep original lower bound
+                    p.lower = min(p.lower, min(param_vals))
+                p.upper = max(p.upper, max(param_vals))
+            elif p.is_ordered and p.parameter_type.is_numeric:
+                # ChoiceParameter. Only expand numeric ordered choice
+                # parameters; unordered / non-numeric choices break OneHot
+                # at gen time (stale one-hot dimensions in self.parameters).
+
+                # If the parameter is declared INT but an observed value is
+                # non-integer, relax the model-space copy to FLOAT so the
+                # observation is preserved exactly rather than truncated by
+                # `_cast_values`. Safe because `_model_space` is adapter-local
+                # and not persisted; downstream consumers of ChoiceParameter
+                # do not branch on INT vs FLOAT.
+                if p.parameter_type == ParameterType.INT and any(
+                    not float(v).is_integer() for v in param_vals
+                ):
+                    p._parameter_type = ParameterType.FLOAT
+                # Dedupe while preserving order: `set_values` (unlike
+                # `__init__`) does not dedupe its input, so duplicate observed
+                # values would otherwise corrupt downstream integer encodings.
+                existing = set(p.values)
+                extra_values: list[TParamValue] = []
+                for v in param_vals:
+                    if v not in existing:
+                        extra_values.append(v)
+                        existing.add(v)
+                if not extra_values:
                     continue
-            else:
-                p.lower = min(p.lower, min(param_vals))
-            p.upper = max(p.upper, max(param_vals))
+                # Numeric ordered choice parameters are enforced to have
+                # `sort_values=True` at construction time, so we can always
+                # sort here. Values are guaranteed numeric by the gate above,
+                # hence sortable.
+                p.set_values(sorted(cast(list[float], [*p.values, *extra_values])))
         # Remove parameter constraints from the model space.
         self._model_space.set_parameter_constraints([])
 
@@ -465,10 +547,14 @@ class Adapter:
                 )
                 return
 
-            if has_map_metrics(optimization_config=self._optimization_config):
+            if has_map_metrics(
+                metrics=experiment.get_metrics(
+                    metric_names=[*self._optimization_config.metric_names]
+                )
+            ):
                 self._status_quo = _combine_multiple_status_quo_observations(
                     status_quo_observations=status_quo_observations,
-                    metrics=set(none_throws(self._optimization_config).metrics),
+                    metrics=none_throws(self._optimization_config).metric_names,
                 )
             else:
                 logger.warning(
@@ -688,7 +774,7 @@ class Adapter:
                 # Check that the optimization config has the same metrics as
                 # the original one. Otherwise, we may attempt to optimize over
                 # metrics that do not have a fitted model.
-                outcomes = set(optimization_config.metrics.keys())
+                outcomes = optimization_config.metric_names
                 if not outcomes.issubset(self.outcomes):
                     raise UnsupportedError(
                         "When fit_tracking_metrics is False, the optimization config "
@@ -725,11 +811,11 @@ class Adapter:
             optimization_config = optimization_config.clone()
 
         pending_observations = deepcopy(pending_observations)
-        fixed_features = (
-            ObservationFeatures(parameters={})
-            if fixed_features is None
-            else fixed_features.clone()
+        fixed_features = search_space.get_disabled_parameter_fixed_features(
+            fixed_features_to_overlay_on=fixed_features
         )
+        if fixed_features is None:
+            fixed_features = ObservationFeatures(parameters={})
         search_space = search_space.clone()
 
         # Transform

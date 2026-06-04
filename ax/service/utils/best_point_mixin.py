@@ -10,6 +10,7 @@ from abc import ABC
 from collections.abc import Iterable
 
 import numpy as np
+import numpy.typing as npt
 from ax.adapter.adapter_utils import observed_hypervolume, predicted_hypervolume
 from ax.adapter.torch import TorchAdapter
 from ax.core.data import Data, MAP_KEY
@@ -21,7 +22,7 @@ from ax.core.optimization_config import (
 )
 from ax.core.trial import Trial
 from ax.core.types import TModelPredictArm, TParameterization
-from ax.exceptions.core import UserInputError
+from ax.exceptions.core import UnsupportedError, UserInputError
 from ax.generation_strategy.generation_strategy import GenerationStrategy
 from ax.service.utils import best_point as best_point_utils
 from ax.service.utils.best_point import get_tensor_converter_adapter
@@ -305,8 +306,10 @@ class BestPointMixin(ABC):
         objective = optimization_config.objective
         if isinstance(objective, ScalarizedObjective):
             value = 0
-            for metric, weight in objective.metric_weights:
-                value += means[metric.name] * weight
+            names = objective.metric_names
+            weights = [w for _, w in objective.metric_weights]
+            for metric_name, weight in zip(names, weights):
+                value += means[metric_name] * weight
             return value
         else:
             name = objective.metric_names[0]
@@ -384,7 +387,13 @@ class BestPointMixin(ABC):
         optimization_config = optimization_config or none_throws(
             experiment.optimization_config
         )
-        objective = optimization_config.objective.metric.name
+        if optimization_config.objective.is_scalarized_objective:
+            raise UnsupportedError(
+                "`_get_trace_by_progression` is not supported for scalarized "
+                "objectives. The objective is a combination of metrics, not a "
+                "single metric."
+            )
+        objective = optimization_config.objective.metric_names[0]
         minimize = optimization_config.objective.minimize
         map_data = experiment.lookup_data()
         if not map_data.has_step_column:
@@ -422,26 +431,22 @@ class BestPointMixin(ABC):
             # reached the maximum progression
             prog_per_trial = df[MAP_KEY].max()
             num_trials = len(experiment.trials)
-            bins = np.linspace(
+            bins_arr: npt.NDArray = np.linspace(
                 0, prog_per_trial * num_trials, NUM_BINS_PER_TRIAL * num_trials
             )
         else:
-            bins = np.array(bins)  # pyre-ignore[9]
+            bins_arr = np.array(bins)
 
-        # pyre-fixme[9]: bins has type `Optional[List[float]]`; used as
-        #  `ndarray[typing.Any, dtype[typing.Any]]`.
-        bins = np.expand_dims(bins, axis=0)
+        bins_arr = np.expand_dims(bins_arr, axis=0)
 
         # compute for each bin value the largest trial index finished by then
         # (interpreting the bin value as a cumulative progression)
         best_observed_idcs = np.maximum.accumulate(
-            np.argmax(np.expand_dims(progressions, axis=1) >= bins, axis=0)
+            np.argmax(np.expand_dims(progressions, axis=1) >= bins_arr, axis=0)
         )
         obj_vals = (df["mean"].cummin() if minimize else df["mean"].cummax()).to_numpy()
         best_observed = obj_vals[best_observed_idcs]
-        # pyre-fixme[16]: Item `List` of `Union[List[float], ndarray[typing.Any,
-        #  np.dtype[typing.Any]]]` has no attribute `squeeze`.
-        return best_observed.tolist(), bins.squeeze(axis=0).tolist()
+        return best_observed.tolist(), bins_arr.squeeze(axis=0).tolist()
 
     def get_improvement_over_baseline(
         self,
@@ -461,17 +466,22 @@ class BestPointMixin(ABC):
                 "`get_improvement_over_baseline` not yet implemented"
                 + " for multi-objective problems."
             )
+        optimization_config = experiment.optimization_config
+        if not optimization_config:
+            raise ValueError("No optimization config found.")
+        if optimization_config.objective.is_scalarized_objective:
+            raise UnsupportedError(
+                "`get_improvement_over_baseline` is not supported for "
+                "scalarized objectives. The objective is a combination of "
+                "metrics, not a single metric."
+            )
         if not baseline_arm_name:
             baseline_arm_name, _ = select_baseline_name_default_first_trial(
                 experiment=experiment,
                 baseline_arm_name=baseline_arm_name,
             )
 
-        optimization_config = experiment.optimization_config
-        if not optimization_config:
-            raise ValueError("No optimization config found.")
-
-        objective_metric_name = optimization_config.objective.metric.name
+        objective_metric_name = optimization_config.objective.metric_names[0]
 
         # get the baseline trial
         data = experiment.lookup_data().df

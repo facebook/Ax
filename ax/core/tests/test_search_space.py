@@ -303,6 +303,40 @@ class SearchSpaceTest(TestCase):
         with self.assertRaises(ValueError):
             self.ss2.check_membership(p_dict, raise_error=True)
 
+    def test_CheckMembershipMissingParamWithBackfill(self) -> None:
+        """Missing parameters with backfill values should pass membership check."""
+        ss = SearchSpace(
+            parameters=[
+                RangeParameter(
+                    name="x",
+                    parameter_type=ParameterType.FLOAT,
+                    lower=0.0,
+                    upper=1.0,
+                ),
+                RangeParameter(
+                    name="y",
+                    parameter_type=ParameterType.FLOAT,
+                    lower=0.0,
+                    upper=1.0,
+                    backfill_value=0.5,
+                ),
+            ]
+        )
+
+        # Both present: valid
+        self.assertTrue(ss.check_membership({"x": 0.5, "y": 0.5}))
+
+        # Missing param with backfill value: valid
+        self.assertTrue(ss.check_membership({"x": 0.5}))
+
+        # Missing param without backfill value: invalid
+        self.assertFalse(ss.check_membership({"y": 0.5}))
+        with self.assertRaises(ValueError):
+            ss.check_membership({"y": 0.5}, raise_error=True)
+
+        # Extra param: still invalid
+        self.assertFalse(ss.check_membership({"x": 0.5, "y": 0.5, "z": 1.0}))
+
     def test_CheckMembershipSkipRangeBounds(self) -> None:
         ss = SearchSpace(
             parameters=[
@@ -426,6 +460,48 @@ class SearchSpaceTest(TestCase):
         test_data_with_metadata["metadata"] = [{"key": "value"}] * len(test_data)
         result_with_metadata = self.ss1.check_membership_df(test_data_with_metadata)
         self.assertEqual(result, result_with_metadata)
+
+    def test_check_membership_df_missing_param_with_backfill(self) -> None:
+        """Missing columns with backfill values should not cause all-False."""
+        ss = SearchSpace(
+            parameters=[
+                RangeParameter(
+                    name="x",
+                    parameter_type=ParameterType.FLOAT,
+                    lower=0.0,
+                    upper=1.0,
+                ),
+                RangeParameter(
+                    name="y",
+                    parameter_type=ParameterType.FLOAT,
+                    lower=0.0,
+                    upper=1.0,
+                    backfill_value=0.5,
+                ),
+            ]
+        )
+
+        # DataFrame missing column "y" which has backfill: should pass
+        df = pd.DataFrame(
+            {"x": [0.5, 0.3]},
+            index=pd.MultiIndex.from_tuples(
+                [(0, "arm0"), (1, "arm1")],
+                names=["trial_index", "arm_name"],
+            ),
+        )
+        result = ss.check_membership_df(df)
+        self.assertEqual(result, [True, True])
+
+        # DataFrame missing column "x" which has no backfill: should fail
+        df_missing_x = pd.DataFrame(
+            {"y": [0.5, 0.3]},
+            index=pd.MultiIndex.from_tuples(
+                [(0, "arm0"), (1, "arm1")],
+                names=["trial_index", "arm_name"],
+            ),
+        )
+        result_missing_x = ss.check_membership_df(df_missing_x)
+        self.assertEqual(result_missing_x, [False, False])
 
     def test_CheckTypes(self) -> None:
         p_dict = {"a": 1.0, "b": 5, "c": "foo", "d": True, "e": 0.2, "f": 5}
@@ -815,7 +891,9 @@ class SearchSpaceTest(TestCase):
             result = search_space_1.get_overlapping_parameters(search_space_2)
             self.assertEqual(result, [])
 
-        with self.subTest("no_overlap_incompatible_fixed_params"):
+        with self.subTest("overlap_fixed_params_different_values"):
+            # Fixed params with different values are now compatible
+            # (consistent with merge_parameters).
             fixed_param_1 = FixedParameter(
                 name="x",
                 parameter_type=ParameterType.STRING,
@@ -831,7 +909,270 @@ class SearchSpaceTest(TestCase):
             search_space_2 = SearchSpace(parameters=[fixed_param_2])
 
             result = search_space_1.get_overlapping_parameters(search_space_2)
-            self.assertEqual(result, [])
+            self.assertEqual(result, ["x"])
+
+        with self.subTest("compatible_fixed_different_values_with_range"):
+            # Fixed params with different values are compatible
+            # (consistent with merge_parameters), so both x and y overlap.
+            range_param_1 = RangeParameter(
+                name="x",
+                parameter_type=ParameterType.FLOAT,
+                lower=0.0,
+                upper=1.0,
+            )
+            fixed_param_1 = FixedParameter(
+                name="y",
+                parameter_type=ParameterType.STRING,
+                value="foo",
+            )
+            search_space_1 = SearchSpace(parameters=[range_param_1, fixed_param_1])
+
+            range_param_2 = RangeParameter(
+                name="x",
+                parameter_type=ParameterType.FLOAT,
+                lower=0.5,
+                upper=2.0,
+            )
+            fixed_param_2 = FixedParameter(
+                name="y",
+                parameter_type=ParameterType.STRING,
+                value="bar",
+            )
+            search_space_2 = SearchSpace(parameters=[range_param_2, fixed_param_2])
+
+            result = search_space_1.get_overlapping_parameters(search_space_2)
+            self.assertCountEqual(result, ["x", "y"])
+
+        with self.subTest("derived_params_always_exempt"):
+            # Incompatible derived params never block overlap and are
+            # excluded from the result.
+            range_param = RangeParameter(
+                name="x",
+                parameter_type=ParameterType.FLOAT,
+                lower=0.0,
+                upper=1.0,
+            )
+            derived_param_1 = DerivedParameter(
+                name="d",
+                parameter_type=ParameterType.FLOAT,
+                expression_str="x * 2",
+            )
+            search_space_1 = SearchSpace(parameters=[range_param, derived_param_1])
+
+            range_param_2 = RangeParameter(
+                name="x",
+                parameter_type=ParameterType.FLOAT,
+                lower=0.5,
+                upper=2.0,
+            )
+            derived_param_2 = DerivedParameter(
+                name="d",
+                parameter_type=ParameterType.FLOAT,
+                expression_str="x * 3",
+            )
+            search_space_2 = SearchSpace(parameters=[range_param_2, derived_param_2])
+
+            # Derived params are always exempt -- only compatible
+            # non-derived params (x) are returned.
+            result = search_space_1.get_overlapping_parameters(search_space_2)
+            self.assertEqual(result, ["x"])
+
+        with self.subTest("overlap_choice_params_different_values"):
+            # Choice params with different values are compatible
+            # (consistent with merge_parameters).
+            choice_param_1 = ChoiceParameter(
+                name="c",
+                parameter_type=ParameterType.STRING,
+                values=["a", "b"],
+            )
+            search_space_1 = SearchSpace(parameters=[choice_param_1])
+
+            choice_param_2 = ChoiceParameter(
+                name="c",
+                parameter_type=ParameterType.STRING,
+                values=["x", "y"],
+            )
+            search_space_2 = SearchSpace(parameters=[choice_param_2])
+
+            result = search_space_1.get_overlapping_parameters(search_space_2)
+            self.assertEqual(result, ["c"])
+
+    def test_get_disabled_parameter_fixed_features(self) -> None:
+        ss = SearchSpace(
+            parameters=[
+                RangeParameter(
+                    name="x1",
+                    parameter_type=ParameterType.FLOAT,
+                    lower=0.0,
+                    upper=1.0,
+                ),
+                RangeParameter(
+                    name="x2",
+                    parameter_type=ParameterType.FLOAT,
+                    lower=0.0,
+                    upper=1.0,
+                ),
+            ]
+        )
+
+        # No disabled params, no overlay: returns None.
+        with self.subTest("no_disabled_params_no_overlay"):
+            result = ss.get_disabled_parameter_fixed_features()
+            self.assertIsNone(result)
+
+        # No disabled params, with overlay: returns the overlay as-is.
+        with self.subTest("no_disabled_params_with_overlay"):
+            overlay = ObservationFeatures(parameters={"x1": 0.5})
+            result = ss.get_disabled_parameter_fixed_features(
+                fixed_features_to_overlay_on=overlay,
+            )
+            self.assertIsNotNone(result)
+            self.assertEqual(result.parameters, {"x1": 0.5})
+
+        # Disable x2: it appears in result with its default value.
+        ss.parameters["x2"].disable(default_value=0.75)
+
+        with self.subTest("disabled_params_no_overlay"):
+            result = ss.get_disabled_parameter_fixed_features()
+            self.assertIsNotNone(result)
+            self.assertEqual(result.parameters, {"x2": 0.75})
+
+        with self.subTest("disabled_params_with_overlay"):
+            overlay = ObservationFeatures(parameters={"x1": 0.5})
+            result = ss.get_disabled_parameter_fixed_features(
+                fixed_features_to_overlay_on=overlay,
+            )
+            self.assertIsNotNone(result)
+            self.assertEqual(result.parameters, {"x1": 0.5, "x2": 0.75})
+
+        # Overlay value takes precedence over disabled default.
+        with self.subTest("overlay_overrides_disabled_default"):
+            overlay = ObservationFeatures(parameters={"x2": 0.0})
+            result = ss.get_disabled_parameter_fixed_features(
+                fixed_features_to_overlay_on=overlay,
+            )
+            self.assertIsNotNone(result)
+            self.assertEqual(result.parameters, {"x2": 0.0})
+
+    def test_check_membership_df_equality_constraint(self) -> None:
+        """Test vectorized membership check with equality constraints."""
+        ss = SearchSpace(
+            parameters=[
+                RangeParameter(
+                    name="x",
+                    parameter_type=ParameterType.FLOAT,
+                    lower=0.0,
+                    upper=1.0,
+                ),
+                RangeParameter(
+                    name="y",
+                    parameter_type=ParameterType.FLOAT,
+                    lower=0.0,
+                    upper=1.0,
+                ),
+            ],
+            parameter_constraints=[
+                ParameterConstraint(equality="x + y == 1.0"),
+            ],
+        )
+        df = pd.DataFrame({"x": [0.3, 0.5, 0.7, 0.6], "y": [0.7, 0.5, 0.2, 0.4]})
+
+        result = ss.check_membership_df(df)
+        # Rows 0, 1, 3 satisfy x + y == 1.0; row 2 has x + y = 0.9
+        self.assertEqual(result, [True, True, False, True])
+
+    def test_check_membership_df_mixed_constraints(self) -> None:
+        """Test vectorized membership with both equality and inequality."""
+        ss = SearchSpace(
+            parameters=[
+                RangeParameter(
+                    name="x",
+                    parameter_type=ParameterType.FLOAT,
+                    lower=0.0,
+                    upper=1.0,
+                ),
+                RangeParameter(
+                    name="y",
+                    parameter_type=ParameterType.FLOAT,
+                    lower=0.0,
+                    upper=1.0,
+                ),
+            ],
+            parameter_constraints=[
+                ParameterConstraint(equality="x + y == 1.0"),
+                ParameterConstraint(inequality="x <= 0.6"),
+            ],
+        )
+        df = pd.DataFrame({"x": [0.3, 0.7, 0.5], "y": [0.7, 0.3, 0.5]})
+
+        result = ss.check_membership_df(df)
+        # Row 0: x+y=1 OK, x=0.3<=0.6 OK  -> True
+        # Row 1: x+y=1 OK, x=0.7<=0.6 FAIL -> False
+        # Row 2: x+y=1 OK, x=0.5<=0.6 OK  -> True
+        self.assertEqual(result, [True, False, True])
+
+    def test_compute_chebyshev_center_with_equality_constraint(self) -> None:
+        """Chebyshev center must lie on the equality hyperplane."""
+        ss = SearchSpace(
+            parameters=[
+                RangeParameter(
+                    name="x",
+                    parameter_type=ParameterType.FLOAT,
+                    lower=0.0,
+                    upper=1.0,
+                ),
+                RangeParameter(
+                    name="y",
+                    parameter_type=ParameterType.FLOAT,
+                    lower=0.0,
+                    upper=1.0,
+                ),
+            ],
+            parameter_constraints=[
+                ParameterConstraint(equality="x + y == 1.0"),
+            ],
+        )
+        center = ss.compute_chebyshev_center()
+        self.assertIsNotNone(center)
+        assert center is not None
+        # Center must satisfy x + y == 1
+        self.assertAlmostEqual(center["x"] + center["y"], 1.0, places=6)
+        # By symmetry, center should be at (0.5, 0.5)
+        self.assertAlmostEqual(center["x"], 0.5, places=6)
+        self.assertAlmostEqual(center["y"], 0.5, places=6)
+
+    def test_compute_chebyshev_center_equality_and_inequality(self) -> None:
+        """Chebyshev center with both equality and inequality constraints."""
+        ss = SearchSpace(
+            parameters=[
+                RangeParameter(
+                    name="x",
+                    parameter_type=ParameterType.FLOAT,
+                    lower=0.0,
+                    upper=1.0,
+                ),
+                RangeParameter(
+                    name="y",
+                    parameter_type=ParameterType.FLOAT,
+                    lower=0.0,
+                    upper=1.0,
+                ),
+            ],
+            parameter_constraints=[
+                ParameterConstraint(equality="x + y == 1.0"),
+                ParameterConstraint(inequality="x <= 0.8"),
+            ],
+        )
+        center = ss.compute_chebyshev_center()
+        self.assertIsNotNone(center)
+        assert center is not None
+        # Must satisfy equality constraint
+        self.assertAlmostEqual(center["x"] + center["y"], 1.0, places=6)
+        # Must satisfy inequality: x <= 0.8
+        self.assertLessEqual(center["x"], 0.8 + 1e-6)
+        # Must satisfy bounds
+        self.assertGreaterEqual(center["x"], -1e-6)
+        self.assertGreaterEqual(center["y"], -1e-6)
 
 
 class SearchSpaceDigestTest(TestCase):

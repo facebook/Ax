@@ -178,3 +178,35 @@ class TestSearchSpaceAnalysis(TestCase):
                 )
             )
         )
+
+    def test_search_space_boundary_proportions_string_ordered_choice(self) -> None:
+        """Test that ordered choice parameters with string values are skipped."""
+        ss = SearchSpace(
+            parameters=[
+                RangeParameter(
+                    name="float_range",
+                    parameter_type=ParameterType.FLOAT,
+                    lower=1.0,
+                    upper=6.0,
+                ),
+                ChoiceParameter(
+                    name="string_ordered_choice",
+                    parameter_type=ParameterType.STRING,
+                    values=["option_a", "option_b", "option_c"],
+                    is_ordered=True,
+                ),
+            ],
+        )
+
+        parameterizations: list[dict[str, None | bool | float | int | str]] = [
+            {"float_range": 1.0, "string_ordered_choice": "option_a"},
+            {"float_range": 3.0, "string_ordered_choice": "option_b"},
+        ]
+
+        # Should not raise -- string ordered choice should be skipped
+        df = search_space_boundary_proportions(
+            search_space=ss, parameterizations=parameterizations
+        )
+        # Only float_range boundaries should be present (lower and upper)
+        self.assertEqual(len(df), 2)
+        self.assertTrue(all("float_range" in b for b in df["Boundary"].values))

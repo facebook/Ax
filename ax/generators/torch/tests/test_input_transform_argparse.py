@@ -22,6 +22,7 @@ from botorch.models.transforms.input import (
     FilterFeatures,
     InputStandardize,
     InputTransform,
+    LearnedFeatureImputation,
     Normalize,
     Warp,
 )
@@ -376,3 +377,193 @@ class InputTransformArgparseTest(TestCase):
                     "ignored_params": ["x0", "x1"],
                 },
             )
+
+    def test_argparse_learned_feature_imputation(self) -> None:
+        task_feature_name = Keys.TASK_FEATURE_NAME.value
+
+        # Task 0 (target): features x0, x1, x2, x3 + task
+        dataset_target = SupervisedDataset(
+            X=torch.cat([torch.rand(5, 4), torch.zeros(5, 1)], dim=-1),
+            Y=torch.randn(5, 1),
+            feature_names=["x0", "x1", "x2", "x3", task_feature_name],
+            outcome_names=["y0"],
+        )
+        # Task 1 (aux): features x0, x1 + task (subset of target features)
+        dataset_aux = SupervisedDataset(
+            X=torch.cat([torch.rand(5, 2), torch.ones(5, 1)], dim=-1),
+            Y=torch.randn(5, 1),
+            feature_names=["x0", "x1", task_feature_name],
+            outcome_names=["y1"],
+        )
+        mtds = MultiTaskDataset(
+            datasets=[dataset_target, dataset_aux],
+            target_outcome_name="y0",
+            task_feature_index=-1,
+        )
+        mt_ssd = dataclasses.replace(
+            self.search_space_digest,
+            feature_names=["x0", "x1", "x2", "x3", task_feature_name],
+            task_features=[-1],
+            bounds=[(0.0, 1.0)] * 5,
+        )
+
+        kwargs = input_transform_argparse(
+            LearnedFeatureImputation,
+            dataset=mtds,
+            search_space_digest=mt_ssd,
+        )
+
+        # all_features uses target-first ordering: ["x0","x1","x2","x3"]
+        self.assertEqual(kwargs["d"], 4)
+        # Target has all 4 features, aux has x0, x1 -> indices [0, 1]
+        self.assertEqual(kwargs["feature_indices"], {0: [0, 1, 2, 3], 1: [0, 1]})
+        self.assertEqual(kwargs["task_feature_index"], -1)
+        self.assertTrue(torch.equal(kwargs["bounds"][0], torch.zeros(4)))
+        self.assertTrue(torch.equal(kwargs["bounds"][1], torch.ones(4)))
+        self.assertEqual(kwargs["dtype"], torch.float64)
+
+        with self.subTest("non_multitask_dataset_raises"):
+            with self.assertRaisesRegex(ValueError, "requires a MultiTaskDataset"):
+                input_transform_argparse(
+                    LearnedFeatureImputation,
+                    dataset=self.dataset,
+                    search_space_digest=self.search_space_digest,
+                )
+
+        with self.subTest("homogeneous_features_raises"):
+            homogeneous_ds = MultiTaskDataset(
+                datasets=[
+                    SupervisedDataset(
+                        X=torch.rand(5, 3),
+                        Y=torch.randn(5, 1),
+                        feature_names=["x0", "x1", task_feature_name],
+                        outcome_names=["y0"],
+                    ),
+                    SupervisedDataset(
+                        X=torch.rand(5, 3),
+                        Y=torch.randn(5, 1),
+                        feature_names=["x0", "x1", task_feature_name],
+                        outcome_names=["y1"],
+                    ),
+                ],
+                target_outcome_name="y0",
+                task_feature_index=-1,
+            )
+            with self.assertRaisesRegex(ValueError, "heterogeneous features"):
+                input_transform_argparse(
+                    LearnedFeatureImputation,
+                    dataset=homogeneous_ds,
+                    search_space_digest=mt_ssd,
+                )
+
+        with self.subTest("non_last_task_feature_raises"):
+            bad_ds = MultiTaskDataset(
+                datasets=[
+                    SupervisedDataset(
+                        X=torch.rand(5, 5),
+                        Y=torch.randn(5, 1),
+                        feature_names=[task_feature_name, "x0", "x1", "x2", "x3"],
+                        outcome_names=["y0"],
+                    ),
+                    SupervisedDataset(
+                        X=torch.rand(5, 3),
+                        Y=torch.randn(5, 1),
+                        feature_names=[task_feature_name, "x0", "x1"],
+                        outcome_names=["y1"],
+                    ),
+                ],
+                target_outcome_name="y0",
+                task_feature_index=0,
+            )
+            with self.assertRaisesRegex(
+                NotImplementedError, "task_feature_index == -1"
+            ):
+                input_transform_argparse(
+                    LearnedFeatureImputation,
+                    dataset=bad_ds,
+                    search_space_digest=mt_ssd,
+                )
+
+        with self.subTest("options_override"):
+            kwargs = input_transform_argparse(
+                LearnedFeatureImputation,
+                dataset=mtds,
+                search_space_digest=mt_ssd,
+                torch_dtype=torch.float32,
+            )
+            self.assertEqual(kwargs["dtype"], torch.float32)
+
+    def test_argparse_learned_feature_imputation_feature_ordering(self) -> None:
+        """Test that feature ordering preserves target's order, not alphabetical."""
+        task_feature_name = Keys.TASK_FEATURE_NAME.value
+
+        with self.subTest("target_order_preserved_not_alphabetical"):
+            # Target: features C, A, B (NOT alphabetical)
+            target_ds = SupervisedDataset(
+                X=torch.cat([torch.rand(3, 3), torch.zeros(3, 1)], dim=-1),
+                Y=torch.randn(3, 1),
+                feature_names=["C", "A", "B", task_feature_name],
+                outcome_names=["target"],
+            )
+            # Source: features A, B (subset, different order)
+            source_ds = SupervisedDataset(
+                X=torch.cat([torch.rand(2, 2), torch.ones(2, 1)], dim=-1),
+                Y=torch.randn(2, 1),
+                feature_names=["A", "B", task_feature_name],
+                outcome_names=["source"],
+            )
+            mtds = MultiTaskDataset(
+                datasets=[target_ds, source_ds],
+                target_outcome_name="target",
+                task_feature_index=-1,
+            )
+            ssd = dataclasses.replace(
+                self.search_space_digest,
+                feature_names=["C", "A", "B", task_feature_name],
+                task_features=[-1],
+                bounds=[(0.0, 1.0)] * 4,
+            )
+            kwargs = input_transform_argparse(
+                LearnedFeatureImputation,
+                dataset=mtds,
+                search_space_digest=ssd,
+            )
+            # Canonical order should be C, A, B (target's order), not A, B, C
+            self.assertEqual(kwargs["d"], 3)
+            # Target: C, A, B -> [0, 1, 2]; Source: A, B -> [1, 2]
+            self.assertEqual(kwargs["feature_indices"], {0: [0, 1, 2], 1: [1, 2]})
+
+        with self.subTest("source_only_features_appended_at_end"):
+            # Target: A, B; Source: B, C, D (C, D are source-only)
+            target_ds = SupervisedDataset(
+                X=torch.cat([torch.rand(3, 2), torch.zeros(3, 1)], dim=-1),
+                Y=torch.randn(3, 1),
+                feature_names=["A", "B", task_feature_name],
+                outcome_names=["target"],
+            )
+            source_ds = SupervisedDataset(
+                X=torch.cat([torch.rand(2, 3), torch.ones(2, 1)], dim=-1),
+                Y=torch.randn(2, 1),
+                feature_names=["B", "C", "D", task_feature_name],
+                outcome_names=["source"],
+            )
+            mtds = MultiTaskDataset(
+                datasets=[target_ds, source_ds],
+                target_outcome_name="target",
+                task_feature_index=-1,
+            )
+            ssd = dataclasses.replace(
+                self.search_space_digest,
+                feature_names=["A", "B", "C", "D", task_feature_name],
+                task_features=[-1],
+                bounds=[(0.0, 1.0)] * 5,
+            )
+            kwargs = input_transform_argparse(
+                LearnedFeatureImputation,
+                dataset=mtds,
+                search_space_digest=ssd,
+            )
+            # Canonical order: A, B (target), then C, D (source-only, appended)
+            self.assertEqual(kwargs["d"], 4)
+            # Target: A, B -> [0, 1]; Source: B, C, D -> [1, 2, 3]
+            self.assertEqual(kwargs["feature_indices"], {0: [0, 1], 1: [1, 2, 3]})

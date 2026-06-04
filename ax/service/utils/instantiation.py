@@ -11,7 +11,7 @@ from collections.abc import Mapping, Sequence
 from copy import deepcopy
 from dataclasses import dataclass
 from logging import Logger
-from typing import Any, Union
+from typing import Any, cast, Union
 
 from ax.core.arm import Arm
 from ax.core.auxiliary import AuxiliaryExperiment, AuxiliaryExperimentPurpose
@@ -22,10 +22,9 @@ from ax.core.objective import MultiObjective, Objective
 from ax.core.observation import ObservationFeatures
 from ax.core.optimization_config import (
     MultiObjectiveOptimizationConfig,
-    ObjectiveThreshold,
     OptimizationConfig,
 )
-from ax.core.outcome_constraint import OutcomeConstraint
+from ax.core.outcome_constraint import ObjectiveThreshold, OutcomeConstraint
 from ax.core.parameter import (
     ChoiceParameter,
     DerivedParameter,
@@ -87,6 +86,8 @@ EXPECTED_KEYS_IN_PARAM_REPR = {
 }
 
 
+COMPARISON_OPS_WITH_EQ: set[str] = {"<=", ">=", "=="}
+
 INVALID_CONSTRAINT_ERROR_MSG = (
     "Received invalid parameter constraint format: `{}`. "
     "Please use one of the following forms:\n"
@@ -97,7 +98,10 @@ INVALID_CONSTRAINT_ERROR_MSG = (
     "* Weighted linear constraints: `<w1>*<p1> >= <b>` or "
     "`<w1>*<p1> + <w2>*<p2> <= <b>`, where you can add one or more weighted terms on "
     "the left side, and there should be no spaces between weights and parameter "
-    'names.\nAcceptable comparison operators are ">=" and "<=".'
+    "names.\n"
+    "* Equality constraints: `<p1> + <p2> == <b>` or `<w1>*<p1> + <w2>*<p2> == <b>`, "
+    "same as linear constraints but using `==` instead of `<=` or `>=`.\n"
+    'Acceptable comparison operators are ">=", "<=", and "==".'
 )
 
 
@@ -175,12 +179,6 @@ class InstantiationBase:
         for_opt_config: bool = False,
         metric_definitions: dict[str, dict[str, Any]] | None = None,
     ) -> Metric:
-        if " " in name:
-            raise ValueError(
-                "Metric names cannot contain spaces when used with AxClient. Got "
-                f"{name!r}."
-            )
-
         metric_definitions = metric_definitions or {}
 
         metric_class, kwargs = cls._get_deserialized_metric_kwargs(
@@ -210,9 +208,11 @@ class InstantiationBase:
         field_name: str,
     ) -> ParameterType:
         if typ is None:
-            typ = type(none_throws(vals[0]))
-            parameter_type = cls._get_parameter_type(typ)  # pyre-ignore[6]
-            assert all(isinstance(x, typ) for x in vals), (
+            inferred_type = type(none_throws(vals[0]))
+            parameter_type = cls._get_parameter_type(
+                cast(TParameterType, inferred_type)
+            )
+            assert all(isinstance(x, inferred_type) for x in vals), (
                 f"Values in `{field_name}` not of the same type and no "
                 "`value_type` was explicitly specified; cannot infer "
                 f"value type for parameter {param_name}."
@@ -223,7 +223,7 @@ class InstantiationBase:
                 "'value_type' ('int', 'float', 'bool' or 'str') in parameter dict."
             )
             return parameter_type
-        return cls._get_parameter_type(PARAM_TYPES[typ])  # pyre-ignore[6]
+        return cls._get_parameter_type(cast(TParameterType, PARAM_TYPES[typ]))
 
     @classmethod
     def _make_range_param(
@@ -246,14 +246,11 @@ class InstantiationBase:
             lower=assert_is_instance_of_tuple(bounds[0], (float, int)),
             upper=assert_is_instance_of_tuple(bounds[1], (float, int)),
             log_scale=assert_is_instance(representation.get("log_scale", False), bool),
-            digits=representation.get("digits", None),  # pyre-ignore[6]
+            digits=assert_is_instance_optional(representation.get("digits", None), int),
             is_fidelity=assert_is_instance(
                 representation.get("is_fidelity", False), bool
             ),
-            # pyre-ignore[6]: Expected `Union[None, bool, float, int, str]`
-            #  for 8th param but got `Union[None, List[
-            #  Union[None, bool, float, int, str]], bool, float, int, str]`.
-            target_value=representation.get("target_value", None),
+            target_value=cast(TParamValue, representation.get("target_value", None)),
         )
 
     @classmethod
@@ -281,7 +278,7 @@ class InstantiationBase:
                 representation.get("is_fidelity", False), bool
             ),
             is_task=assert_is_instance(representation.get("is_task", False), bool),
-            target_value=representation.get("target_value", None),  # pyre-ignore[6]
+            target_value=cast(TParamValue, representation.get("target_value", None)),
             sort_values=assert_is_instance_optional(
                 representation.get("sort_values", None), bool
             ),
@@ -306,17 +303,21 @@ class InstantiationBase:
         return FixedParameter(
             name=name,
             parameter_type=(
-                cls._get_parameter_type(type(value))  # pyre-ignore[6]
+                cls._get_parameter_type(cast(TParameterType, type(value)))
                 if parameter_type is None
-                # pyre-ignore[6]
-                else cls._get_parameter_type(PARAM_TYPES[parameter_type])
+                else cls._get_parameter_type(
+                    cast(TParameterType, PARAM_TYPES[parameter_type])
+                )
             ),
-            value=value,  # pyre-ignore[6]
+            value=cast(TParamValue, value),
             is_fidelity=assert_is_instance(
                 representation.get("is_fidelity", False), bool
             ),
-            target_value=representation.get("target_value", None),  # pyre-ignore[6]
-            dependents=representation.get("dependents", None),  # pyre-ignore[6]
+            target_value=cast(TParamValue, representation.get("target_value", None)),
+            dependents=cast(
+                dict[TParamValue, list[str]] | None,
+                representation.get("dependents", None),
+            ),
         )
 
     @classmethod
@@ -333,7 +334,7 @@ class InstantiationBase:
         return DerivedParameter(
             name=name,
             parameter_type=cls._get_parameter_type(
-                PARAM_TYPES[none_throws(parameter_type, msg)]  # pyre-ignore[6]
+                cast(TParameterType, PARAM_TYPES[none_throws(parameter_type, msg)])
             ),
             expression_str=assert_is_instance(representation["expression_str"], str),
         )
@@ -370,12 +371,6 @@ class InstantiationBase:
             assert isinstance(parameter_type, str) and parameter_type in PARAM_TYPES, (
                 "Value type in parameter JSON representation must be 'int', 'float', "
                 "'bool' or 'str'."
-            )
-
-        if " " in name:
-            raise ValueError(
-                "Parameter names cannot contain spaces when used with AxClient. Got "
-                f"{name!r}."
             )
 
         if parameter_class == "range":
@@ -438,33 +433,54 @@ class InstantiationBase:
             An instantiated ParameterConstraint, either an OrderConstraint or a
             ParameterConstraint, representing a linear constraint.
         """
+        for param_name in parameters:
+            if " " in param_name:
+                raise ValueError(
+                    "Parameter names cannot contain spaces when used in "
+                    f"constraint strings. Got {param_name!r}."
+                )
         tokens = representation.split()
         try:
             float(tokens[-1])
             last_token_is_numeric = True
         except ValueError:
             last_token_is_numeric = False
+
+        # Identify the comparison operator (second-to-last for linear, middle
+        # for order constraints).
         is_order_constraint = (
             len(tokens) == 3
-            and tokens[1] in COMPARISON_OPS
+            and tokens[1] in COMPARISON_OPS_WITH_EQ
             and not last_token_is_numeric
         )
         is_linear_constraint = (
-            # if len == 3, then this is a single parameter bound constraint, otherwise
-            # it corresponds to a numerical bound on a sum of parameters
+            # if len == 3, then this is a single parameter bound constraint,
+            # otherwise it corresponds to a numerical bound on a sum of
+            # parameters
             len(tokens) >= 3
             and len(tokens) % 2 == 1
-            and tokens[-2] in COMPARISON_OPS
+            and tokens[-2] in COMPARISON_OPS_WITH_EQ
             and last_token_is_numeric
         )
 
         if is_order_constraint:  # e.g. "x1 >= x2"
+            if tokens[1] == "==":
+                raise ValueError(
+                    "Equality order constraints (e.g. 'x1 == x2') are not "
+                    "supported. Use a DerivedParameter to express that two "
+                    "parameters must be equal."
+                )
             return _process_order_constraint(
                 tokens=tokens,
                 parameters=parameters,
             )
 
-        if is_linear_constraint:  # e.g. "x1 + x2 >= 3"
+        if is_linear_constraint:  # e.g. "x1 + x2 >= 3" or "x1 + x2 == 3"
+            if tokens[-2] == "==":
+                return _process_equality_constraint(
+                    tokens=tokens,
+                    parameters=parameters,
+                )
             return _process_linear_constraint(
                 tokens=tokens,
                 parameters=parameters,
@@ -480,11 +496,13 @@ class InstantiationBase:
     ) -> OutcomeConstraint:
         """Parse string representation of an outcome constraint."""
         tokens = representation.split()
-        assert len(tokens) == 3 and tokens[1] in COMPARISON_OPS, (
-            f"Outcome constraint '{representation}' should be of "
-            "form `metric_name >= x`, where x is a "
-            "float bound and comparison operator is >= or <=."
-        )
+        if len(tokens) != 3 or tokens[1] not in COMPARISON_OPS:
+            raise ValueError(
+                f"Outcome constraint '{representation}' should be of "
+                "form `metric_name >= x`, where x is a float bound and "
+                "comparison operator is >= or <=. Note that metric names "
+                "cannot contain spaces in constraint strings."
+            )
         op = COMPARISON_OPS[tokens[1]]
         rel = False
         try:
@@ -498,7 +516,7 @@ class InstantiationBase:
                 f"Outcome constraint bound should be a float for '{representation}'."
             )
         return OutcomeConstraint(
-            cls._make_metric(
+            metric=cls._make_metric(
                 name=tokens[0],
                 for_opt_config=True,
                 metric_definitions=metric_definitions,
@@ -518,12 +536,12 @@ class InstantiationBase:
         oc = cls.outcome_constraint_from_str(
             representation, metric_definitions=metric_definitions
         )
-        return ObjectiveThreshold(
-            metric=oc.metric.clone(),
-            bound=oc.bound,
-            relative=oc.relative,
-            op=oc.op,
-        )
+        # Create an ObjectiveThreshold that shares the same expression string
+        # as the OutcomeConstraint, bypassing the deprecated __init__.
+        ot = ObjectiveThreshold.__new__(ObjectiveThreshold)
+        ot._expression_str = oc._expression_str
+        ot._metric_name_to_signature = oc._metric_name_to_signature
+        return ot
 
     @classmethod
     def make_objectives(
@@ -583,8 +601,10 @@ class InstantiationBase:
         objective_thresholds: list[str],
         status_quo_defined: bool,
         metric_definitions: dict[str, dict[str, Any]] | None = None,
-    ) -> list[ObjectiveThreshold]:
-        typed_objective_thresholds = (
+    ) -> list[OutcomeConstraint]:
+        # pyre-ignore[9]: ObjectiveThreshold is a subclass of OutcomeConstraint;
+        # list invariance prevents direct assignment.
+        typed_objective_thresholds: list[OutcomeConstraint] = (
             [
                 cls.objective_threshold_constraint_from_str(
                     c, metric_definitions=metric_definitions
@@ -607,7 +627,7 @@ class InstantiationBase:
     @staticmethod
     def optimization_config_from_objectives(
         objectives: list[Objective],
-        objective_thresholds: list[ObjectiveThreshold],
+        objective_thresholds: list[OutcomeConstraint],
         outcome_constraints: list[OutcomeConstraint],
     ) -> OptimizationConfig:
         """Parse objectives and constraints to define optimization config.
@@ -879,6 +899,35 @@ class InstantiationBase:
             ]
         )
 
+        # Also create properly-typed metrics for optimization config metric
+        # names so they are registered with proper types and properties
+        # before the auto-registration in Experiment.__init__ fires.
+        if optimization_config is not None:
+            # Build lower_is_better map from the optimization config so
+            # that pre-registered metrics carry the correct directionality.
+            lower_is_better_map: dict[str, bool] = {}
+            obj = optimization_config.objective
+            obj_names = obj.metric_names
+            obj_weights = [w for _, w in obj.metric_weights]
+            for mn, weight in zip(obj_names, obj_weights):
+                lower_is_better_map[mn] = weight < 0
+            for constraint in optimization_config.outcome_constraints:
+                for mn in constraint.metric_names:
+                    if mn not in lower_is_better_map:
+                        lower_is_better_map[mn] = constraint.op is ComparisonOp.LEQ
+
+            tracking_names = {m.name for m in (tracking_metrics or [])}
+            for metric_name in optimization_config.metric_names:
+                if metric_name not in tracking_names:
+                    opt_metric = cls._make_metric(
+                        name=metric_name,
+                        metric_definitions=metric_definitions,
+                        lower_is_better=lower_is_better_map.get(metric_name),
+                    )
+                    if tracking_metrics is None:
+                        tracking_metrics = []
+                    tracking_metrics.append(opt_metric)
+
         properties: dict[str, Any] = {}
 
         if immutable_search_space_and_opt_config:
@@ -1013,32 +1062,41 @@ def _process_order_constraint(
     )
 
 
-def _process_linear_constraint(
+def _parse_linear_constraint_tokens(
     tokens: Sequence[str],
     parameters: Mapping[str, Parameter],
-) -> ParameterConstraint:
-    """Processes a linear constraint, e.g. "x1 + x2 <= 3". The last token is expected
-    to be a numeric constant, and the other tokens are expected to be parameters, their
-    multiplicative coefficients (e.g."2.5*x1") and "+" or "-" operators (e.g. "+").
+    operator_str: str,
+) -> tuple[dict[str, float], float]:
+    """Parse tokens of a linear constraint into parameter weights and bound.
+
+    Shared helper for ``_process_linear_constraint`` and
+    ``_process_equality_constraint``.  Validates ``*`` placement, processes
+    alternating monomials / operators, and returns the raw
+    ``parameter_weights`` dict and ``bound``.
 
     Args:
         tokens: A list of tokens in the constraint string.
         parameters: A mapping from parameter names to their definitions.
+        operator_str: The comparison operator string (e.g. ``"<="``/``">="``
+            /``"=="``), used only for error messages.
 
     Returns:
-        A ParameterConstraint object representing the linear constraint.
+        A tuple of (parameter_weights, bound).
     """
     parameter_names = parameters.keys()
 
     bound = float(tokens[-1])
     if any(token[0] == "*" or token[-1] == "*" for token in tokens):
         raise ValueError(
-            "A linear constraint should be the form a*x + b*y - c*z <= d"
-            ", where a,b,c,d are float constants and x,y,z are parameters. "
-            "There should be no space in each term around the operator `*`, and "
-            "there should be a single space around each operator +, -, <= and >=."
+            f"A linear constraint should be the form "
+            f"a*x + b*y - c*z {operator_str} d"
+            ", where a,b,c,d are float constants and x,y,z are "
+            "parameters. There should be no space in each term "
+            "around the operator `*`, and there should be a "
+            f"single space around each operator +, -, "
+            f"and {operator_str}."
         )
-    parameter_weights = {}
+    parameter_weights: dict[str, float] = {}
     current_sign = 1.0  # Determines whether the operator is + or -
     # tokens are alternating monomials and operators
     for idx, token in enumerate(tokens[:-2]):
@@ -1062,6 +1120,27 @@ def _process_linear_constraint(
                 raise ValueError(
                     f"Expected a mixed constraint, found operator `{token}`."
                 )
+    return parameter_weights, bound
+
+
+def _process_linear_constraint(
+    tokens: Sequence[str],
+    parameters: Mapping[str, Parameter],
+) -> ParameterConstraint:
+    """Processes a linear constraint, e.g. "x1 + x2 <= 3". The last token is expected
+    to be a numeric constant, and the other tokens are expected to be parameters, their
+    multiplicative coefficients (e.g."2.5*x1") and "+" or "-" operators (e.g. "+").
+
+    Args:
+        tokens: A list of tokens in the constraint string.
+        parameters: A mapping from parameter names to their definitions.
+
+    Returns:
+        A ParameterConstraint object representing the linear constraint.
+    """
+    parameter_weights, bound = _parse_linear_constraint_tokens(
+        tokens=tokens, parameters=parameters, operator_str="<= or >="
+    )
     # tokens[-2] is checked to be either LEQ or GEQ if sum_const is True
     comparison_multiplier = (
         1.0 if COMPARISON_OPS[tokens[-2]] is ComparisonOp.LEQ else -1.0
@@ -1073,6 +1152,45 @@ def _process_linear_constraint(
     return ParameterConstraint(
         inequality=f"{expr} <= {comparison_multiplier * bound}",
     )
+
+
+def _process_equality_constraint(
+    tokens: Sequence[str],
+    parameters: Mapping[str, Parameter],
+) -> ParameterConstraint:
+    """Processes a linear equality constraint, e.g. "x1 + x2 == 3".
+
+    The last token is expected to be a numeric constant, the second-to-last
+    is ``"=="``, and the other tokens are parameters, their multiplicative
+    coefficients (e.g. ``"2.5*x1"``) and ``"+"`` or ``"-"`` operators.
+
+    Args:
+        tokens: A list of tokens in the constraint string.
+        parameters: A mapping from parameter names to their definitions.
+
+    Returns:
+        A ParameterConstraint with ``equality=...``.
+    """
+    parameter_weights, bound = _parse_linear_constraint_tokens(
+        tokens=tokens, parameters=parameters, operator_str="=="
+    )
+    # Reject equality constraints that equate two parameters
+    # (e.g. "x1 - x2 == 0"). DerivedParameter is the correct tool.
+    if (
+        bound == 0.0
+        and len(parameter_weights) == 2
+        and set(parameter_weights.values()) == {1.0, -1.0}
+    ):
+        params = list(parameter_weights.keys())
+        raise ValueError(
+            f"Equality constraint '{' '.join(tokens)}' is equivalent to "
+            f"'{params[0]} == {params[1]}'. Use a DerivedParameter to "
+            "express that two parameters must be equal."
+        )
+    expr = " + ".join(
+        f"{coeff} * {param}" for param, coeff in parameter_weights.items()
+    )
+    return ParameterConstraint(equality=f"{expr} == {bound}")
 
 
 def _process_monomial(monomial_str: str) -> tuple[float, str]:

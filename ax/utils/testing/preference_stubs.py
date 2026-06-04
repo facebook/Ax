@@ -5,14 +5,14 @@
 
 # pyre-strict
 
-from typing import Any
+from typing import Any, cast
 
 import numpy as np
 import torch
 from ax.core import Arm, GeneratorRun, OptimizationConfig
 from ax.core.experiment import Experiment
 from ax.core.types import TEvaluationOutcome, TParameterization
-from ax.service.utils.instantiation import InstantiationBase
+from ax.service.utils.instantiation import InstantiationBase, TParameterRepresentation
 from ax.utils.common.constants import Keys
 from botorch.utils.sampling import draw_sobol_samples
 from pyre_extensions import assert_is_instance, none_throws
@@ -102,13 +102,16 @@ def get_pbo_experiment(
         sq = None
         sq_arm = None
 
-    parameters = [
-        {
-            "name": param_name,
-            "type": "range",
-            # make the default search space non-unit for better clarity in testing
-            "bounds": param_bounds,  # Changed from list to tuple
-        }
+    parameters: list[TParameterRepresentation] = [
+        cast(
+            TParameterRepresentation,
+            {
+                "name": param_name,
+                "type": "range",
+                # make the default search space non-unit for better clarity in testing
+                "bounds": param_bounds,  # Changed from list to tuple
+            },
+        )
         for param_name in parameter_names
     ]
 
@@ -145,7 +148,6 @@ def get_pbo_experiment(
         description="This is a test exp",
         experiment_type="NOTEBOOK",
         search_space=InstantiationBase.make_search_space(
-            # pyre-fixme[6]: Incompatible parameter type
             parameters=parameters,
             parameter_constraints=None,
         ),
@@ -170,8 +172,7 @@ def get_pbo_experiment(
         for i, param_name in enumerate(experiment.search_space.parameters.keys()):
             arm[param_name] = none_throws(X)[t, i].item()
         gr = (
-            # pyre-ignore: Incompatible parameter type [6]
-            GeneratorRun([Arm(arm), Arm(sq)])
+            GeneratorRun([Arm(arm), Arm(none_throws(sq))])
             if include_sq
             else GeneratorRun([Arm(arm)])
         )

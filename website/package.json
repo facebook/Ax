@@ -1,4 +1,5 @@
 {
+  "license": "MIT",
   "scripts": {
     "examples": "docusaurus-examples",
     "start": "docusaurus start",
@@ -14,18 +15,21 @@
     "docusaurus": "docusaurus"
   },
   "devDependencies": {},
-  "//": "TODO: T239136996 Unpin Docusaurus canary after 3.8.2 or 3.9 is released",
   "dependencies": {
-    "@docusaurus/core": "3.8.1-canary-6401",
-    "@docusaurus/plugin-client-redirects": "3.8.1-canary-6401",
-    "@docusaurus/preset-classic": "3.8.1-canary-6401",
+    "@docusaurus/core": "~3.9.0",
+    "@docusaurus/plugin-client-redirects": "~3.9.0",
+    "@docusaurus/preset-classic": "~3.9.0",
     "clsx": "^1.1.1",
     "plotly.js": "^2.8.1",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
     "react-plotly.js": "^2.5.1",
     "rehype-katex": "7",
-    "remark-math": "6"
+    "remark-math": "6",
+    "webpack": "5.104.1"
+  },
+  "resolutions": {
+    "webpack": "5.104.1"
   },
   "engines": {
     "node": ">=18.0"

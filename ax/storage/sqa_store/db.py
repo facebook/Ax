@@ -10,12 +10,11 @@ from __future__ import annotations
 
 from collections.abc import Callable, Generator
 from contextlib import contextmanager
-from typing import Any, TypeVar
+from typing import Any, TYPE_CHECKING, TypeVar
 
 from sqlalchemy import create_engine
 from sqlalchemy.engine.base import Engine
-from sqlalchemy.ext.declarative import declarative_base
-from sqlalchemy.orm import scoped_session, Session, sessionmaker
+from sqlalchemy.orm import declarative_base, scoped_session, Session, sessionmaker
 
 
 # some constants for database fields
@@ -33,7 +32,7 @@ MEDIUMTEXT_BYTES: int = 2**24 - 1
 LONGTEXT_BYTES: int = 2**32 - 1
 
 # global database variables
-SESSION_FACTORY: Session | None = None
+SESSION_FACTORY: scoped_session | None = None
 
 # set this to false to prevent SQLAlchemy for automatically expiring objects
 # on commit, which essentially makes them unusable outside of a session
@@ -41,6 +40,22 @@ SESSION_FACTORY: Session | None = None
 EXPIRE_ON_COMMIT = False
 
 T = TypeVar("T")
+
+
+def _bound_engine(session_factory: scoped_session) -> Engine:
+    """Return the ``Engine`` bound to ``session_factory``, raising if not bound.
+
+    SA 2.0 types ``scoped_session.bind`` as ``Connection | Engine | None``. In
+    this module we always bind a freshly-created ``Engine`` via ``sessionmaker``,
+    so the runtime value is always an ``Engine``. This narrows the type for both
+    pyre and runtime safety.
+    """
+    bind = session_factory.bind
+    if not isinstance(bind, Engine):
+        raise ValueError(
+            f"SESSION_FACTORY must be bound to an Engine, got {type(bind).__name__}."
+        )
+    return bind
 
 
 class SQABase:
@@ -51,7 +66,19 @@ class SQABase:
     pass
 
 
-Base = declarative_base(cls=SQABase)
+if TYPE_CHECKING:
+
+    class Base(SQABase):
+        metadata: Any = ...
+        __tablename__: str = ...
+        __table__: Any = ...
+        __table_args__: Any = ...
+
+        def __init__(self, **kwargs: Any) -> None: ...
+        def __init_subclass__(cls, **kwargs: Any) -> None: ...
+
+else:
+    Base = declarative_base(cls=SQABase)
 
 
 def create_mysql_engine_from_creator(
@@ -153,7 +180,7 @@ def init_engine_and_session_factory(
 
     if SESSION_FACTORY is not None:
         if force_init:
-            SESSION_FACTORY.bind.dispose()
+            _bound_engine(SESSION_FACTORY).dispose()
         else:
             return
     if url is not None:
@@ -193,7 +220,7 @@ def init_test_engine_and_session_factory(
 
     if SESSION_FACTORY is not None:
         if force_init:
-            SESSION_FACTORY.bind.dispose()
+            _bound_engine(SESSION_FACTORY).dispose()
         else:
             return
     engine = create_test_engine(path=tier_or_path, echo=echo)
@@ -235,7 +262,6 @@ def get_session() -> Session:
     if SESSION_FACTORY is None:
         init_engine_and_session_factory()
     assert SESSION_FACTORY is not None
-    # pyre-fixme[29]: `Session` is not a function.
     return SESSION_FACTORY()
 
 
@@ -252,7 +278,7 @@ def get_engine() -> Engine:
     global SESSION_FACTORY
     if SESSION_FACTORY is None:
         raise ValueError("Engine must be initialized first.")
-    return SESSION_FACTORY.bind
+    return _bound_engine(SESSION_FACTORY)
 
 
 @contextmanager
@@ -320,5 +346,5 @@ def session_context(
     finally:
         # Restore the old session factory
         session_factory.close()
-        session_factory.bind.dispose()
+        _bound_engine(session_factory).dispose()
         SESSION_FACTORY = old_session

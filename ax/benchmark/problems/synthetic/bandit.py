@@ -47,7 +47,7 @@ def get_bandit_problem(num_choices: int = 30, num_trials: int = 3) -> BenchmarkP
     )
     search_space = SearchSpace(parameters=[parameter])
     test_function = IdentityTestFunction()
-    optimization_config = get_soo_opt_config(
+    optimization_config, opt_config_metrics = get_soo_opt_config(
         outcome_names=test_function.outcome_names, observe_noise_sd=True
     )
     baselines = {
@@ -74,4 +74,5 @@ def get_bandit_problem(num_choices: int = 30, num_trials: int = 3) -> BenchmarkP
         report_inference_value_as_trace=True,
         noise=GaussianNoise(noise_std=1.0),
         status_quo_params={"x0": num_choices // 2},
+        opt_config_metrics=opt_config_metrics,
     )

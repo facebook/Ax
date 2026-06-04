@@ -8,10 +8,11 @@
 
 import warnings
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 from ax.adapter.transforms.base import Transform
 from ax.core import Experiment, ObservationFeatures
+from ax.core.analysis_card import AnalysisCard, AnalysisCardGroup
 from ax.core.arm import Arm
 from ax.core.auxiliary import AuxiliaryExperiment
 from ax.core.batch_trial import BatchTrial
@@ -25,7 +26,7 @@ from ax.core.optimization_config import (
     OptimizationConfig,
     PreferenceOptimizationConfig,
 )
-from ax.core.outcome_constraint import OutcomeConstraint
+from ax.core.outcome_constraint import OutcomeConstraint, ScalarizedOutcomeConstraint
 from ax.core.parameter import (
     ChoiceParameter,
     DerivedParameter,
@@ -74,19 +75,52 @@ from ax.utils.testing.backend_simulator import (
 from botorch.models.transforms.input import ChainedInputTransform, InputTransform
 from botorch.sampling.base import MCSampler
 from botorch.utils.types import _DefaultType
+from pyre_extensions import assert_is_instance
 from torch import Tensor
+
+
+def analysis_card_to_dict(card: AnalysisCard) -> dict[str, Any]:
+    """Convert Ax analysis card to a dictionary."""
+    return {
+        "__type": card.__class__.__name__,
+        "name": card.name,
+        "title": card.title,
+        "subtitle": card.subtitle,
+        "df": card.df,
+        "blob": card.blob,
+        "timestamp": card._timestamp,
+    }
+
+
+def analysis_card_group_to_dict(group: AnalysisCardGroup) -> dict[str, Any]:
+    """Convert Ax analysis card group to a dictionary."""
+    return {
+        "__type": "AnalysisCardGroup",
+        "name": group.name,
+        "title": group.title,
+        "subtitle": group.subtitle,
+        "children": group.children,
+        "timestamp": group._timestamp,
+    }
 
 
 def experiment_to_dict(experiment: Experiment) -> dict[str, Any]:
     """Convert Ax experiment to a dictionary."""
+    opt_config = experiment.optimization_config
     return {
         "__type": experiment.__class__.__name__,
         "name": experiment._name,
         "description": experiment.description,
         "experiment_type": experiment.experiment_type,
         "search_space": experiment.search_space,
-        "optimization_config": experiment.optimization_config,
-        "tracking_metrics": list(experiment._tracking_metrics.values()),
+        "optimization_config": (
+            _build_opt_config_dict(
+                opt_config=opt_config, experiment_metrics=experiment._metrics
+            )
+            if opt_config is not None
+            else None
+        ),
+        "tracking_metrics": list(experiment.metrics.values()),
         "runner": experiment.runner,
         "status_quo": experiment.status_quo,
         "time_created": experiment.time_created,
@@ -224,12 +258,17 @@ def fixed_parameter_to_dict(parameter: FixedParameter) -> dict[str, Any]:
 def parameter_constraint_to_dict(
     parameter_constraint: ParameterConstraint,
 ) -> dict[str, Any]:
-    """Convert Ax sum parameter constraint to a dictionary."""
+    """Convert Ax parameter constraint to a dictionary."""
     expr = " + ".join(
         f"{coeff} * {param}"
         for param, coeff in parameter_constraint.constraint_dict.items()
     )
 
+    if parameter_constraint.is_equality:
+        return {
+            "__type": parameter_constraint.__class__.__name__,
+            "equality": f"{expr} == {parameter_constraint.bound}",
+        }
     return {
         "__type": parameter_constraint.__class__.__name__,
         "inequality": f"{expr} <= {parameter_constraint.bound}",
@@ -263,36 +302,80 @@ def metric_to_dict(metric: Metric) -> dict[str, Any]:
 
 def objective_to_dict(objective: Objective) -> dict[str, Any]:
     """Convert Ax objective to a dictionary."""
+    # Plain Objective: serialize using expression string.
+    if type(objective) is Objective:
+        return {"__type": "Objective", "expression": objective.expression}
+    metric_name = objective.metric_names[0]
+    minimize = objective.minimize
     return {
         "__type": objective.__class__.__name__,
-        "metric": objective.metric,
-        "minimize": objective.minimize,
+        "metric": Metric(name=metric_name, lower_is_better=minimize),
+        "minimize": minimize,
     }
 
 
 def multi_objective_to_dict(objective: MultiObjective) -> dict[str, Any]:
-    """Convert Ax objective to a dictionary."""
+    """Convert Ax multi-objective to a dictionary."""
+    sub_objectives = []
+    for name, weight in objective.metric_weights:
+        minimize = weight < 0
+        sub_objectives.append(
+            Objective(
+                metric=Metric(name=name, lower_is_better=minimize),
+                minimize=minimize,
+            )
+        )
     return {
         "__type": objective.__class__.__name__,
-        "objectives": objective.objectives,
+        "objectives": sub_objectives,
     }
 
 
 def scalarized_objective_to_dict(objective: ScalarizedObjective) -> dict[str, Any]:
-    """Convert Ax objective to a dictionary."""
+    """Convert Ax scalarized objective to a dictionary."""
+    metric_weights = objective.metric_weights
+    # Infer minimize from effective weights: if all weights are <= 0 (with at
+    # least one < 0), the objective was constructed with minimize=True, which
+    # negates all raw weights.
+    minimize = all(w <= 0 for _, w in metric_weights) and any(
+        w < 0 for _, w in metric_weights
+    )
+    metrics = []
+    weights = []
+    for name, w in metric_weights:
+        metrics.append(Metric(name=name))
+        # metric_weights returns effective weights (sign-adjusted for minimize).
+        # JSON format expects raw weights + separate minimize flag.
+        weights.append(w if not minimize else -w)
     return {
         "__type": objective.__class__.__name__,
-        "metrics": objective.metrics,
-        "weights": objective.weights,
-        "minimize": objective.minimize,
+        "metrics": metrics,
+        "weights": weights,
+        "minimize": minimize,
     }
 
 
 def outcome_constraint_to_dict(outcome_constraint: OutcomeConstraint) -> dict[str, Any]:
     """Convert Ax outcome constraint to a dictionary."""
+    metric_name = outcome_constraint.metric_names[0]
     return {
         "__type": outcome_constraint.__class__.__name__,
-        "metric": outcome_constraint.metric,
+        "metric": Metric(name=metric_name),
+        "op": outcome_constraint.op,
+        "bound": outcome_constraint.bound,
+        "relative": outcome_constraint.relative,
+    }
+
+
+def scalarized_outcome_constraint_to_dict(
+    outcome_constraint: ScalarizedOutcomeConstraint,
+) -> dict[str, Any]:
+    """Convert Ax scalarized outcome constraint to a dictionary."""
+    metrics = [Metric(name=name) for name, _ in outcome_constraint.metric_weights]
+    return {
+        "__type": outcome_constraint.__class__.__name__,
+        "metrics": metrics,
+        "weights": outcome_constraint.weights,
         "op": outcome_constraint.op,
         "bound": outcome_constraint.bound,
         "relative": outcome_constraint.relative,
@@ -397,10 +480,13 @@ def transform_type_to_dict(transform_type: type[Transform]) -> dict[str, Any]:
 
 
 def generation_step_to_dict(generation_step: GenerationStep) -> dict[str, Any]:
-    """Converts Ax generation step to a dictionary."""
-    # pyre-fixme[6]: Currently, Pyre doesn't recognize that `Generation
-    #  Step.__new__` actually returns a `GenerationNode`.
-    return generation_node_to_dict(generation_node=generation_step)
+    """Converts Ax generation step to a dictionary.
+
+    Note: ``GenerationStep.__new__`` actually returns a ``GenerationNode``.
+    """
+    return generation_node_to_dict(
+        generation_node=cast(GenerationNode, generation_step)
+    )
 
 
 def generation_node_to_dict(generation_node: GenerationNode) -> dict[str, Any]:
@@ -582,14 +668,14 @@ def botorch_input_transform_to_init_args(
     if isinstance(input_transform, ChainedInputTransform):
         return {k: botorch_component_to_dict(v) for k, v in input_transform.items()}
     else:
-        try:
-            # pyre-fixme[29]: `Union[Tensor, Module]` is not a function.
-            return input_transform.get_init_args()
-        except AttributeError:
+        if not hasattr(input_transform, "get_init_args"):
             raise JSONEncodeError(
                 f"{input_transform.__class__.__name__} does not define `get_init_args` "
                 "method. Please implement it to enable storage."
             )
+        # pyre-fixme[29]: `Union[Tensor, Module]` is not callable; hasattr guards
+        #  this but pyre can't narrow the Union type.
+        return assert_is_instance(input_transform, InputTransform).get_init_args()
 
 
 def percentile_early_stopping_strategy_to_dict(
@@ -682,4 +768,117 @@ def backend_simulator_to_dict(
         "failed": backend_simulator._failed,
         "completed": backend_simulator._completed,
         "verbose_logging": backend_simulator._verbose_logging,
+    }
+
+
+# ---------------------------------------------------------------------------
+# Private helpers for experiment_to_dict
+# ---------------------------------------------------------------------------
+
+
+def _build_opt_config_dict(
+    opt_config: OptimizationConfig,
+    experiment_metrics: dict[str, Metric],
+) -> dict[str, Any]:
+    """Build optimization config dict with real metric objects from experiment.
+
+    This bypasses the encoder registry dispatch so that real Metric objects
+    (e.g. ``BraninMetric``) are preserved as leaf values. ``object_to_json``
+    will then recursively encode them via ``metric_to_dict``, capturing the
+    full metric type.
+    """
+    objective_dict = _build_objective_dict(
+        objective=opt_config.objective, experiment_metrics=experiment_metrics
+    )
+    constraint_dicts = [
+        _build_constraint_dict(constraint=c, experiment_metrics=experiment_metrics)
+        for c in opt_config.outcome_constraints
+    ]
+    result: dict[str, Any] = {
+        "__type": opt_config.__class__.__name__,
+        "objective": objective_dict,
+        "outcome_constraints": constraint_dicts,
+        "pruning_target_parameterization": opt_config.pruning_target_parameterization,
+    }
+    if isinstance(opt_config, MultiObjectiveOptimizationConfig):
+        result["objective_thresholds"] = [
+            _build_constraint_dict(constraint=t, experiment_metrics=experiment_metrics)
+            for t in opt_config.objective_thresholds
+        ]
+    if isinstance(opt_config, PreferenceOptimizationConfig):
+        result[PREFERENCE_PROFILE_NAME] = opt_config.preference_profile_name
+        result[EXPECT_RELATIVIZED_OUTCOMES] = opt_config.expect_relativized_outcomes
+    return result
+
+
+def _build_objective_dict(
+    objective: Objective,
+    experiment_metrics: dict[str, Metric],
+) -> dict[str, Any]:
+    """Build objective dict with real metric objects from experiment."""
+    # Plain Objective (not a deprecated subclass like ScalarizedObjective or
+    # MultiObjective): serialize using the expression string directly.
+    if type(objective) is Objective:
+        return {"__type": "Objective", "expression": objective.expression}
+    if objective.is_multi_objective:
+        sub_objectives = []
+        for name, weight in objective.metric_weights:
+            metric = experiment_metrics.get(name, Metric(name=name))
+            minimize = weight < 0
+            sub_objectives.append(
+                {
+                    "__type": "Objective",
+                    "metric": metric,
+                    "minimize": minimize,
+                }
+            )
+        return {
+            "__type": objective.__class__.__name__,
+            "objectives": sub_objectives,
+        }
+    elif objective.is_scalarized_objective:
+        metric_weights = objective.metric_weights
+        # Infer minimize from effective weights: if all weights are <= 0 (with
+        # at least one < 0), the objective was constructed with minimize=True.
+        minimize = all(w <= 0 for _, w in metric_weights) and any(
+            w < 0 for _, w in metric_weights
+        )
+        metrics = []
+        weights = []
+        for name, w in metric_weights:
+            metric = experiment_metrics.get(name, Metric(name=name))
+            metrics.append(metric)
+            # metric_weights returns effective weights (sign-adjusted for
+            # minimize). JSON format expects raw weights + separate minimize
+            # flag, so undo the sign adjustment.
+            weights.append(w if not minimize else -w)
+        return {
+            "__type": objective.__class__.__name__,
+            "metrics": metrics,
+            "weights": weights,
+            "minimize": minimize,
+        }
+    else:
+        metric_name = objective.metric_names[0]
+        metric = experiment_metrics.get(metric_name, Metric(name=metric_name))
+        return {
+            "__type": objective.__class__.__name__,
+            "metric": metric,
+            "minimize": objective.minimize,
+        }
+
+
+def _build_constraint_dict(
+    constraint: OutcomeConstraint,
+    experiment_metrics: dict[str, Metric],
+) -> dict[str, Any]:
+    """Build constraint dict with real metric objects from experiment."""
+    metric_name = constraint.metric_names[0]
+    metric = experiment_metrics.get(metric_name, Metric(name=metric_name))
+    return {
+        "__type": constraint.__class__.__name__,
+        "metric": metric,
+        "op": constraint.op,
+        "bound": constraint.bound,
+        "relative": constraint.relative,
     }

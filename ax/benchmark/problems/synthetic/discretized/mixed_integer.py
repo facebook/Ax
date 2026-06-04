@@ -84,7 +84,7 @@ def _get_problem_from_common_inputs(
             for i in range(dim)
         ]
     )
-    optimization_config = get_soo_opt_config(
+    optimization_config, opt_config_metrics = get_soo_opt_config(
         outcome_names=[metric_name],
         lower_is_better=lower_is_better,
         observe_noise_sd=observe_noise_sd,
@@ -107,6 +107,7 @@ def _get_problem_from_common_inputs(
         num_trials=num_trials,
         optimal_value=optimal_value,
         baseline_value=baseline_value,
+        opt_config_metrics=opt_config_metrics,
     )
 
 

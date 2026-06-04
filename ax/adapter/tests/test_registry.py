@@ -177,7 +177,6 @@ class ModelRegistryTest(TestCase):
                     "deduplicate": True,
                     "init_position": 0,
                     "scramble": True,
-                    "generated_points": None,
                     "fallback_to_sample_polytope": False,
                     "polytope_sampler_kwargs": None,
                 },

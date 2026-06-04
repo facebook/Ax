@@ -13,6 +13,7 @@ from typing import Any
 import torch
 from ax.adapter.registry import GeneratorRegistryBase, Generators
 from ax.core.experiment import Experiment
+from ax.core.experiment_status import ExperimentStatus
 from ax.core.optimization_config import OptimizationConfig
 from ax.core.parameter import ChoiceParameter, ParameterType, RangeParameter
 from ax.core.search_space import SearchSpace
@@ -66,6 +67,7 @@ def _make_sobol_step(
         generator_kwargs={"deduplicate": True, "seed": seed},
         use_all_trials_in_exp=True,
         should_deduplicate=should_deduplicate,
+        suggested_experiment_status=ExperimentStatus.INITIALIZATION,
     )
 
 
@@ -133,6 +135,7 @@ def _make_botorch_step(
         max_parallelism=max_concurrency,
         generator_kwargs=generator_kwargs,
         should_deduplicate=should_deduplicate,
+        suggested_experiment_status=ExperimentStatus.OPTIMIZATION,
     )
 
 
@@ -186,9 +189,7 @@ def _suggest_gp_model(
                 all_range_parameters_are_discrete = False
             else:
                 num_param_discrete_values = parameter.cardinality()
-                # pyre-fixme[58]: `*` is not supported for operand types `int` and
-                #  `Union[float, int]`.
-                num_possible_points *= num_param_discrete_values
+                num_possible_points *= int(num_param_discrete_values)
 
         if should_enumerate_param:
             num_enumerated_combinations *= none_throws(num_param_discrete_values)
@@ -540,7 +541,7 @@ def choose_generation_strategy_legacy(
         )
     else:  # `force_random_search` is True or we could not suggest BO model
         gs = GenerationStrategy(
-            steps=[
+            nodes=[
                 _make_sobol_step(
                     seed=random_seed,
                     should_deduplicate=should_deduplicate,

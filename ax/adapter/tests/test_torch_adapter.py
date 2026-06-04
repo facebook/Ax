@@ -14,10 +14,12 @@ from unittest import mock
 from unittest.mock import patch
 
 import numpy as np
+import pandas as pd
 import torch
 from ax.adapter.adapter_utils import _binary_pref_to_comp_pair, _consolidate_comparisons
 from ax.adapter.base import Adapter
 from ax.adapter.cross_validation import cross_validate
+from ax.adapter.data_utils import ExperimentData
 from ax.adapter.registry import Cont_X_trans, MBM_X_trans, Y_trans
 from ax.adapter.torch import TorchAdapter
 from ax.adapter.transforms.one_hot import OneHot
@@ -266,7 +268,9 @@ class TorchAdapterTest(TestCase):
         self.assertEqual(gen_opt_config.model_gen_options, {"option": "yes"})
         self.assertIs(gen_opt_config.rounding_func, torch.round)
         self.assertFalse(gen_opt_config.is_moo)
-        self.assertEqual(gen_opt_config.opt_config_metrics, opt_config.metrics)
+        self.assertEqual(
+            set(gen_opt_config.opt_config_metrics.keys()), opt_config.metric_names
+        )
         self.assertEqual(gen_args["search_space_digest"].target_values, {})
         self.assertEqual(len(gen_run.arms), 1)
         self.assertEqual(gen_run.arms[0].parameters, {"x1": 1.0, "x2": 2.0, "x3": 3.0})
@@ -458,8 +462,10 @@ class TorchAdapterTest(TestCase):
         self.assertEqual(model_predictions[1], {"m": {"m": cov}})
 
         # test optimization config validation - raise error when
-        # ScalarizedOutcomeConstraint contains a metric that is not in the outcomes
-        with self.assertRaisesRegex(ValueError, "as a relative constraint."):
+        # ScalarizedOutcomeConstraint contains a metric that is not in the outcomes.
+        # With relative=True (default), the constraint expression contains
+        # "baseline" and the validation catches it as a relative constraint.
+        with self.assertRaisesRegex(ValueError, "relative constraint"):
             adapter.gen(
                 n=1,
                 optimization_config=OptimizationConfig(
@@ -632,7 +638,7 @@ class TorchAdapterTest(TestCase):
                 ordinal_features=[2],
                 discrete_choices={2: list(range(0, 11))},
                 task_features=[2] if use_task else [],
-                target_values={2: 0} if use_task else {},  # pyre-ignore
+                target_values={2: 0.0} if use_task else {},
             )
             converted_datasets, ordered_outcomes, _ = adapter._convert_experiment_data(
                 experiment_data=experiment_data,
@@ -1200,7 +1206,8 @@ class TorchAdapterTest(TestCase):
                 ),
                 optimization_config=OptimizationConfig(
                     Objective(
-                        Metric(Keys.PAIRWISE_PREFERENCE_QUERY.value), minimize=False
+                        metric=Metric(Keys.PAIRWISE_PREFERENCE_QUERY.value),
+                        minimize=False,
                     )
                 ),
                 fit_tracking_metrics=False,
@@ -1351,6 +1358,50 @@ class TorchAdapterTest(TestCase):
         torch.testing.assert_close(
             torch_opt_config.pruning_target_point, expected_target
         )
+
+    def test_get_transformed_gen_args_disabled_parameters(self) -> None:
+        experiment = get_branin_experiment(with_completed_trial=True)
+        adapter = TorchAdapter(
+            generator=TorchGenerator(),
+            experiment=experiment,
+            transforms=Cont_X_trans,
+        )
+
+        with self.subTest("no_disabled_params"):
+            # No disabled parameters: fixed_features should be empty
+            # ObservationFeatures (not None).
+            base_gen_args = adapter._get_transformed_gen_args(
+                search_space=experiment.search_space,
+                optimization_config=none_throws(experiment.optimization_config),
+                pending_observations={},
+            )
+            self.assertEqual(base_gen_args.fixed_features.parameters, {})
+
+        with self.subTest("disabled_param_appears_in_fixed_features"):
+            # Disable x1 and verify it appears in fixed_features.
+            experiment.search_space.parameters["x1"].disable(default_value=1.5)
+            base_gen_args = adapter._get_transformed_gen_args(
+                search_space=experiment.search_space,
+                optimization_config=none_throws(experiment.optimization_config),
+                pending_observations={},
+            )
+            # Value is unit-scaled by transforms, so just check presence.
+            self.assertIn("x1", base_gen_args.fixed_features.parameters)
+
+        with self.subTest("caller_fixed_features_take_precedence"):
+            # Caller-provided fixed_features should take precedence over
+            # the disabled parameter default value.
+            caller_ff = ObservationFeatures(parameters={"x1": 0.0, "x2": 5.0})
+            base_gen_args = adapter._get_transformed_gen_args(
+                search_space=experiment.search_space,
+                optimization_config=none_throws(experiment.optimization_config),
+                pending_observations={},
+                fixed_features=caller_ff,
+            )
+            # Values are unit-scaled by transforms; check presence and that
+            # caller's x1 override (0.0) differs from disabled default (1.5).
+            self.assertIn("x1", base_gen_args.fixed_features.parameters)
+            self.assertIn("x2", base_gen_args.fixed_features.parameters)
 
     @mock_botorch_optimize
     def test_moo_with_derived_parameter(self) -> None:
@@ -1766,3 +1817,104 @@ class AdapterWithPLBOTest(TestCase):
             "Preference optimization requires a BoTorchGenerator",
         ):
             adapter.gen(n=2, optimization_config=self.pref_opt_config)
+
+
+class TestTransformDataPairwiseProtection(TestCase):
+    """Test that _transform_data preserves raw pairwise preference labels."""
+
+    def setUp(self) -> None:
+        super().setUp()
+        self.experiment = get_branin_experiment(with_status_quo=True)
+        # Build ExperimentData with both regular metric and pairwise columns.
+        index = pd.MultiIndex.from_tuples(
+            [(0, "0_0"), (0, "0_1"), (1, "1_0"), (1, "1_1")],
+            names=["trial_index", "arm_name"],
+        )
+        pairwise_key = Keys.PAIRWISE_PREFERENCE_QUERY.value
+        columns = pd.MultiIndex.from_tuples(
+            [
+                ("mean", "branin"),
+                ("sem", "branin"),
+                ("mean", pairwise_key),
+                ("sem", pairwise_key),
+            ]
+        )
+        obs_data = pd.DataFrame(
+            [
+                [10.0, 1.0, float("nan"), float("nan")],
+                [12.0, 1.0, 0.0, 0.0],
+                [8.0, 1.0, float("nan"), float("nan")],
+                [6.0, 1.0, 1.0, 0.0],
+            ],
+            index=index,
+            columns=columns,
+        )
+        arm_data = pd.DataFrame(
+            {"x1": [0.0, 1.0, 2.0, 3.0], "x2": [0.0, 1.0, 2.0, 3.0]},
+            index=index,
+        )
+        self.experiment_data = ExperimentData(
+            arm_data=arm_data, observation_data=obs_data
+        )
+
+    def test_pairwise_labels_preserved_through_standardize_y(self) -> None:
+        """Pairwise preference labels (0/1) must not be modified by
+        Y-transforms like StandardizeY."""
+        adapter = TorchAdapter(
+            experiment=self.experiment,
+            generator=TorchGenerator(),
+            fit_on_init=False,
+        )
+        transformed_data, _ = adapter._transform_data(
+            experiment_data=self.experiment_data,
+            search_space=self.experiment.search_space,
+            transforms=[StandardizeY],
+            transform_configs={},
+            assign_transforms=False,
+        )
+        pairwise_key = Keys.PAIRWISE_PREFERENCE_QUERY.value
+        obs = transformed_data.observation_data
+
+        # Pairwise columns should exist and be unchanged.
+        self.assertIn(("mean", pairwise_key), obs.columns)
+        original = self.experiment_data.observation_data[("mean", pairwise_key)]
+        result = obs[("mean", pairwise_key)]
+        # Compare values including NaN positions.
+        pd.testing.assert_series_equal(
+            original.fillna(-999), result.fillna(-999), check_names=False
+        )
+
+        # Regular metric should be transformed (standardized).
+        branin_mean = obs[("mean", "branin")]
+        self.assertAlmostEqual(branin_mean.mean(), 0.0, places=5)
+        # Verify branin values actually changed (not all equal to original).
+        original_branin = self.experiment_data.observation_data[("mean", "branin")]
+        self.assertFalse(branin_mean.equals(original_branin))
+
+    def test_no_pairwise_data_passes_through(self) -> None:
+        """When no pairwise data is present, _transform_data works normally."""
+        pairwise_key = Keys.PAIRWISE_PREFERENCE_QUERY.value
+        obs_no_pairwise = self.experiment_data.observation_data.drop(
+            columns=[("mean", pairwise_key), ("sem", pairwise_key)]
+        )
+        experiment_data = ExperimentData(
+            arm_data=self.experiment_data.arm_data,
+            observation_data=obs_no_pairwise,
+        )
+        adapter = TorchAdapter(
+            experiment=self.experiment,
+            generator=TorchGenerator(),
+            fit_on_init=False,
+        )
+        transformed_data, _ = adapter._transform_data(
+            experiment_data=experiment_data,
+            search_space=self.experiment.search_space,
+            transforms=[StandardizeY],
+            transform_configs={},
+            assign_transforms=False,
+        )
+        # Should still have branin, no pairwise.
+        self.assertIn(("mean", "branin"), transformed_data.observation_data.columns)
+        self.assertNotIn(
+            ("mean", pairwise_key), transformed_data.observation_data.columns
+        )

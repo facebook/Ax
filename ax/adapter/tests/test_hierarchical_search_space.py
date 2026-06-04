@@ -136,14 +136,14 @@ class TestHierarchicalSearchSpace(TestCase):
             The experiment with the generated candidates. This can be used to chain
             tests for other functionality that requires data.
         """
+        metric = GenericNoisyFunctionMetric(name="random", f=lambda _: random())
         experiment = Experiment(
             name="test_experiment",
             search_space=hss,
+            tracking_metrics=[metric],
             optimization_config=OptimizationConfig(
                 objective=Objective(
-                    metric=GenericNoisyFunctionMetric(
-                        name="random", f=lambda _: random()
-                    ),
+                    metric=metric,
                     minimize=True,
                 )
             ),

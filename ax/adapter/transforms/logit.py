@@ -66,6 +66,10 @@ class Logit(Transform):
     def transform_search_space(self, search_space: SearchSpace) -> SearchSpace:
         for p_name, p in search_space.parameters.items():
             if p_name in self.transform_parameters and isinstance(p, RangeParameter):
+                # Don't round in logit space; digits will be re-applied in
+                # the original space by the Cast transform during untransform.
+                if p.digits is not None:
+                    p.set_digits(digits=None)
                 p.set_logit_scale(False).update_range(
                     lower=logit(p.lower).item(), upper=logit(p.upper).item()
                 )

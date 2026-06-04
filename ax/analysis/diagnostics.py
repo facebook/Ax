@@ -11,11 +11,13 @@ from ax.adapter.base import Adapter
 from ax.analysis.analysis import Analysis
 from ax.analysis.graphviz.generation_strategy_graph import GenerationStrategyGraph
 from ax.analysis.plotly.cross_validation import CrossValidationPlot
-from ax.analysis.utils import validate_experiment
+from ax.analysis.utils import extract_relevant_adapter, validate_experiment
 from ax.core.analysis_card import AnalysisCardGroup
 from ax.core.experiment import Experiment
 from ax.core.utils import is_bandit_experiment
+from ax.exceptions.core import UserInputError
 from ax.generation_strategy.generation_strategy import GenerationStrategy
+from ax.utils.common.constants import is_preference_metric
 from pyre_extensions import none_throws, override
 
 DIAGNOSTICS_CARDGROUP_TITLE = "Diagnostic Analysis"
@@ -35,14 +37,23 @@ class DiagnosticAnalysis(Analysis):
     of leave-one-out cross validation.
     """
 
-    def __init__(self, include_tracking_metrics: bool = False) -> None:
+    def __init__(
+        self,
+        include_tracking_metrics: bool = False,
+        test_trial_index: int | None = None,
+    ) -> None:
         """Initialize the DiagnosticAnalysis.
 
         Args:
             include_tracking_metrics: Whether to include tracking metrics or just use
                 the optimization config metrics.
+            test_trial_index: If provided, limits cross validation to only evaluate
+                predictions for observations from this trial. Other trials'
+                observations will still be used for training but will not
+                appear as test points.
         """
         self.include_tracking_metrics = include_tracking_metrics
+        self.test_trial_index = test_trial_index
 
     @override
     def validate_applicable_state(
@@ -70,21 +81,42 @@ class DiagnosticAnalysis(Analysis):
             metric_names = list(experiment.metrics.keys())
         else:
             # Extract all metric names from the OptimizationConfig.
-            metric_names = [*none_throws(experiment.optimization_config).metrics.keys()]
+            metric_names = [*none_throws(experiment.optimization_config).metric_names]
+
+        # Preference metrics (e.g., pairwise_pref_query) use comparison-pair data
+        # and latent utility models. Standard regression CV (predicted vs. observed
+        # scatter, R²) is meaningless for them — observed values are binary 0/1
+        # while predictions are latent utilities on an incommensurate scale.
+        metric_names = [m for m in metric_names if not is_preference_metric(m)]
 
         is_bandit = generation_strategy and is_bandit_experiment(
             generation_strategy_name=generation_strategy.name
         )
+        try:
+            relevant_adapter = extract_relevant_adapter(
+                experiment=experiment,
+                generation_strategy=generation_strategy,
+                adapter=adapter,
+            )
+            adapter_metric_names = [
+                relevant_adapter._experiment.signature_to_metric[signature].name
+                for signature in relevant_adapter._metric_signatures
+            ]
+            metric_names = [m for m in metric_names if m in adapter_metric_names]
+        except UserInputError:
+            pass
 
         cross_validation_plots = (
             [
-                CrossValidationPlot(metric_names=metric_names).compute_or_error_card(
+                CrossValidationPlot(
+                    metric_names=metric_names, test_trial_index=self.test_trial_index
+                ).compute_or_error_card(
                     experiment=experiment,
                     generation_strategy=generation_strategy,
                     adapter=adapter,
                 )
             ]
-            if not is_bandit
+            if not is_bandit and len(metric_names) > 0
             else []
         )
 

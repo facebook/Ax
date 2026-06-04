@@ -95,7 +95,9 @@ class TestModelFitStats(TestCase):
             "choice if observations are standardize, but may not be otherwise."
         )
         with self.assertLogs(module_name, level="WARNING") as logger:
-            ec = entropy_of_observations(y_obs=10 * yc, y_pred=ones, se_pred=ones)
+            ec = entropy_of_observations(
+                y_obs=np.asarray(10 * yc), y_pred=ones, se_pred=ones
+            )
             self.assertEqual(len(logger.output), 1)
             self.assertEqual(logger.output[0], expected_warning)
 

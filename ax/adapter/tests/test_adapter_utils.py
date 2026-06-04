@@ -8,11 +8,15 @@
 
 
 import numpy as np
+import pandas as pd
 import torch
 from ax.adapter.adapter_utils import (
     _get_adapter_training_data,
+    _get_fresh_pairwise_trial_indices,
     arm_to_np_array,
     can_map_to_binary,
+    extract_equality_constraints,
+    extract_inequality_constraints,
     extract_objective_weight_matrix,
     extract_search_space_digest,
     feasible_hypervolume,
@@ -25,15 +29,21 @@ from ax.adapter.registry import Cont_X_trans, Y_trans
 from ax.adapter.torch import TorchAdapter
 from ax.adapter.transforms.choice_encode import ChoiceToNumericChoice
 from ax.core.arm import Arm
+from ax.core.data import Data
+from ax.core.derived_metric import DerivedMetric
+from ax.core.experiment import Experiment
 from ax.core.metric import Metric
 from ax.core.objective import MultiObjective, Objective, ScalarizedObjective
 from ax.core.optimization_config import MultiObjectiveOptimizationConfig
 from ax.core.outcome_constraint import ObjectiveThreshold, OutcomeConstraint
 from ax.core.parameter import ChoiceParameter, ParameterType, RangeParameter
+from ax.core.parameter_constraint import ParameterConstraint
 from ax.core.search_space import SearchSpace
 from ax.core.types import ComparisonOp
 from ax.exceptions.core import UserInputError
 from ax.generators.torch.botorch_modular.generator import BoTorchGenerator
+from ax.utils.common.constants import Keys
+from ax.utils.common.hash_utils import compute_lilo_input_hash
 from ax.utils.common.testutils import TestCase
 from ax.utils.testing.core_stubs import (
     get_experiment_with_observations,
@@ -54,7 +64,7 @@ class TestAdapterUtils(TestCase):
             ),
             outcome_constraints=[
                 OutcomeConstraint(
-                    mc,
+                    metric=mc,
                     op=ComparisonOp.GEQ,
                     bound=0,
                     relative=False,
@@ -370,6 +380,7 @@ class TestAdapterUtils(TestCase):
             _,
             _,
             target_p,
+            _,
         ) = validate_and_apply_final_transform(
             objective_weights=objective_weights,
             outcome_constraints=outcome_constraints,
@@ -405,6 +416,7 @@ class TestAdapterUtils(TestCase):
             _,
             _,
             target_p,
+            _,
         ) = validate_and_apply_final_transform(
             objective_weights=objective_weights,
             outcome_constraints=outcome_constraints,
@@ -533,17 +545,26 @@ class TestAdapterUtils(TestCase):
 
         # Single Objective: one row, nonzero only in matching column.
         obj = Objective(metric=m1, minimize=False)
-        result = extract_objective_weight_matrix(obj, outcomes)
+        result = extract_objective_weight_matrix(
+            objective=obj,
+            outcomes=outcomes,
+        )
         np.testing.assert_array_equal(result, [[1.0, 0.0, 0.0]])
 
         # Minimization flips the sign.
         obj_min = Objective(metric=m2, minimize=True)
-        result = extract_objective_weight_matrix(obj_min, outcomes)
+        result = extract_objective_weight_matrix(
+            objective=obj_min,
+            outcomes=outcomes,
+        )
         np.testing.assert_array_equal(result, [[0.0, -1.0, 0.0]])
 
         # ScalarizedObjective: single row with multiple nonzero entries.
         scal = ScalarizedObjective(metrics=[m1, m3], weights=[0.3, 0.7], minimize=False)
-        result = extract_objective_weight_matrix(scal, outcomes)
+        result = extract_objective_weight_matrix(
+            objective=scal,
+            outcomes=outcomes,
+        )
         np.testing.assert_array_almost_equal(result, [[0.3, 0.0, 0.7]])
 
         # MultiObjective: one row per sub-objective.
@@ -553,5 +574,173 @@ class TestAdapterUtils(TestCase):
                 Objective(metric=m3, minimize=True),
             ]
         )
-        result = extract_objective_weight_matrix(multi, outcomes)
+        result = extract_objective_weight_matrix(
+            objective=multi,
+            outcomes=outcomes,
+        )
         np.testing.assert_array_equal(result, [[1.0, 0.0, 0.0], [0.0, 0.0, -1.0]])
+
+    def test_get_fresh_pairwise_trial_indices(self) -> None:
+        """Verify _get_fresh_pairwise_trial_indices hash-based filtering."""
+        search_space = get_search_space_for_range_values()
+        exp = Experiment(name="test", search_space=search_space)
+
+        # Register a DerivedMetric with pairwise name so the function can
+        # look up input_metric_names.
+        pairwise_metric = DerivedMetric(
+            name=Keys.PAIRWISE_PREFERENCE_QUERY.value,
+            input_metric_names=["latency"],
+        )
+        exp.add_tracking_metric(pairwise_metric)
+
+        # Helper to create trial data.
+        def _attach(
+            trial_index: int, arms: dict[str, float], exp: Experiment = exp
+        ) -> None:
+            rows = [
+                {
+                    "trial_index": trial_index,
+                    "arm_name": name,
+                    "metric_name": "latency",
+                    "metric_signature": "latency",
+                    "mean": val,
+                    "sem": 0.1,
+                }
+                for name, val in arms.items()
+            ]
+            exp.attach_data(Data(df=pd.DataFrame(rows)))
+
+        # Create two trials with data.
+        for i in range(2):
+            trial = exp.new_batch_trial()
+            trial.add_arm(Arm(name=f"{i}_0", parameters={"x": float(i)}))
+            trial.mark_running(no_runner_required=True)
+            trial.mark_completed()
+            _attach(i, {f"{i}_0": float(i + 1)})
+
+        with self.subTest("no_hashes_returns_none"):
+            # No trials have LILO_INPUT_HASH -- not a LILO experiment.
+            result = _get_fresh_pairwise_trial_indices(exp)
+            self.assertIsNone(result)
+
+        # Stamp trial 0 with the current hash.
+        current_hash = compute_lilo_input_hash(exp, ["latency"])
+        exp.trials[0]._properties[Keys.LILO_INPUT_HASH] = current_hash
+
+        with self.subTest("fresh_hash_included"):
+            result = _get_fresh_pairwise_trial_indices(exp)
+            assert result is not None
+            self.assertIn(0, result)
+            # Trial 1 has no hash -- always included.
+            self.assertIn(1, result)
+
+        # Stamp trial 1 with a stale hash.
+        exp.trials[1]._properties[Keys.LILO_INPUT_HASH] = "stale_hash_value"
+
+        with self.subTest("stale_hash_excluded"):
+            result = _get_fresh_pairwise_trial_indices(exp)
+            assert result is not None
+            self.assertIn(0, result)
+            self.assertNotIn(1, result)
+
+        with self.subTest("all_stale"):
+            # Make both hashes stale by adding new data.
+            trial2 = exp.new_batch_trial()
+            trial2.add_arm(Arm(name="2_0", parameters={"x": 10.0}))
+            trial2.mark_running(no_runner_required=True)
+            trial2.mark_completed()
+            _attach(2, {"2_0": 999.0})
+            # Now both trial 0 and trial 1 have stale hashes.
+            result = _get_fresh_pairwise_trial_indices(exp)
+            assert result is not None
+            # Trial 0 and 1 are stale, trial 2 has no hash -- included.
+            self.assertNotIn(0, result)
+            self.assertNotIn(1, result)
+            self.assertIn(2, result)
+
+    def test_extract_inequality_constraints(self) -> None:
+        param_names = ["x", "y"]
+        ineq = ParameterConstraint(inequality="x + y <= 1")
+        eq = ParameterConstraint(equality="x + y == 1")
+
+        # Only inequality constraints are extracted
+        result = extract_inequality_constraints([ineq, eq], param_names)
+        self.assertIsNotNone(result)
+        assert result is not None
+        A, b = result
+        self.assertEqual(A.shape, (1, 2))
+        self.assertEqual(b.shape, (1, 1))
+        np.testing.assert_array_equal(A[0], [1.0, 1.0])
+        np.testing.assert_array_equal(b[0], [1.0])
+
+        # Returns None when no inequality constraints
+        result = extract_inequality_constraints([eq], param_names)
+        self.assertIsNone(result)
+
+        # Returns None for empty list
+        result = extract_inequality_constraints([], param_names)
+        self.assertIsNone(result)
+
+    def test_extract_equality_constraints(self) -> None:
+        param_names = ["x", "y"]
+        ineq = ParameterConstraint(inequality="x + y <= 1")
+        eq = ParameterConstraint(equality="x + y == 1")
+
+        # Only equality constraints are extracted
+        result = extract_equality_constraints([ineq, eq], param_names)
+        self.assertIsNotNone(result)
+        assert result is not None
+        A, b = result
+        self.assertEqual(A.shape, (1, 2))
+        self.assertEqual(b.shape, (1, 1))
+        np.testing.assert_array_equal(A[0], [1.0, 1.0])
+        np.testing.assert_array_equal(b[0], [1.0])
+
+        # Returns None when no equality constraints
+        result = extract_equality_constraints([ineq], param_names)
+        self.assertIsNone(result)
+
+    def test_extract_constraints_mixed(self) -> None:
+        """Both functions correctly partition a mixed list."""
+        param_names = ["x", "y"]
+        ineq1 = ParameterConstraint(inequality="x <= 0.5")
+        ineq2 = ParameterConstraint(inequality="y <= 0.8")
+        eq1 = ParameterConstraint(equality="x + y == 1")
+
+        ineq_result = extract_inequality_constraints([ineq1, eq1, ineq2], param_names)
+        eq_result = extract_equality_constraints([ineq1, eq1, ineq2], param_names)
+
+        assert ineq_result is not None
+        assert eq_result is not None
+        self.assertEqual(ineq_result[0].shape, (2, 2))  # 2 inequalities
+        self.assertEqual(eq_result[0].shape, (1, 2))  # 1 equality
+
+    def test_validate_and_apply_final_transform_equality_constraints(self) -> None:
+        """equality_constraints are converted to tensors."""
+        objective_weights = np.array([1.0, 0.0])
+        A_eq = np.array([[1.0, 1.0]])
+        b_eq = np.array([[1.0]])
+
+        _, _, _, _, _, _, eq_c = validate_and_apply_final_transform(
+            objective_weights=objective_weights,
+            outcome_constraints=None,
+            linear_constraints=None,
+            pending_observations=None,
+            equality_constraints=(A_eq, b_eq),
+        )
+        self.assertIsNotNone(eq_c)
+        assert eq_c is not None
+        self.assertTrue(torch.equal(eq_c[0], torch.tensor(A_eq)))
+        self.assertTrue(torch.equal(eq_c[1], torch.tensor(b_eq)))
+
+    def test_validate_and_apply_final_transform_no_equality_constraints(self) -> None:
+        """equality_constraints defaults to None."""
+        objective_weights = np.array([1.0])
+
+        _, _, _, _, _, _, eq_c = validate_and_apply_final_transform(
+            objective_weights=objective_weights,
+            outcome_constraints=None,
+            linear_constraints=None,
+            pending_observations=None,
+        )
+        self.assertIsNone(eq_c)

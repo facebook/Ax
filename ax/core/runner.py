@@ -10,9 +10,11 @@ from __future__ import annotations
 
 from abc import ABC, abstractmethod
 from collections.abc import Iterable
-from typing import Any, Self, TYPE_CHECKING
+from dataclasses import dataclass, fields
+from typing import Any, ClassVar, Self, TYPE_CHECKING
 
 from ax.utils.common.base import Base
+from ax.utils.common.sentinel import Unset
 from ax.utils.common.serialization import SerializationMixin
 
 
@@ -21,8 +23,26 @@ if TYPE_CHECKING:
     from ax import core  # noqa F401
 
 
+class RunnerConfig:
+    @dataclass(frozen=True)
+    class SearchSpaceUpdateArguments:
+        """Base arguments for search space updates. Override in RunnerConfig
+        subclasses to add runner-specific fields."""
+
+        pass
+
+    @dataclass(frozen=True)
+    class RunnerUpdateArguments:
+        """Base arguments for general runner updates. Override in RunnerConfig
+        subclasses to add runner-specific fields."""
+
+        pass
+
+
 class Runner(Base, SerializationMixin, ABC):
     """Abstract base class for custom runner classes"""
+
+    config_type: ClassVar[type[RunnerConfig]] = RunnerConfig
 
     @property
     def staging_required(self) -> bool:
@@ -144,6 +164,120 @@ class Runner(Base, SerializationMixin, ABC):
         raise NotImplementedError(
             f"{self.__class__.__name__} does not implement a `stop` method."
         )
+
+    def on_search_space_update(
+        self,
+        search_space: core.search_space.SearchSpace,
+        arguments: RunnerConfig.SearchSpaceUpdateArguments | None = None,
+    ) -> None:
+        """Called after the experiment's search space has been updated.
+
+        Validates the proposed runner-side changes, then applies them.
+        Subclasses should override ``_validate_on_search_space_update``
+        to add validation logic.
+
+        Args:
+            search_space: The updated search space.
+            arguments: Optional typed arguments carrying runner-specific
+                data. Subclasses should define a ``RunnerConfig`` subclass
+                with a nested ``SearchSpaceUpdateArguments`` dataclass to
+                declare supported fields.
+        """
+        if arguments is not None:
+            UpdateArgsClass = type(self).config_type.SearchSpaceUpdateArguments
+            if not isinstance(arguments, UpdateArgsClass):
+                raise TypeError(
+                    f"Expected {UpdateArgsClass.__name__}, "
+                    f"got {type(arguments).__name__}."
+                )
+        self._validate_on_search_space_update(search_space, arguments)
+        if arguments is not None:
+            self._set_attributes(arguments)
+
+    def _validate_on_search_space_update(
+        self,
+        search_space: core.search_space.SearchSpace,
+        arguments: RunnerConfig.SearchSpaceUpdateArguments | None = None,
+    ) -> None:
+        """Override in subclasses to reject invalid search space updates
+        before the runner's state is modified. The runner's attributes still
+        hold their old values at this point; use the ``arguments`` to determine
+        the proposed new state.
+
+        Args:
+            search_space: The already-updated search space.
+            arguments: The proposed runner-side changes, if any.
+        """
+        pass
+
+    def update(
+        self,
+        arguments: RunnerConfig.RunnerUpdateArguments,
+        search_space: core.search_space.SearchSpace | None = None,
+    ) -> None:
+        """Update runner attributes at runtime.
+
+        Validates that ``arguments`` is the correct type for this runner's
+        ``config_type``, runs ``_validate_update`` to check that the
+        update is permissible, then applies non-``_UNSET`` fields to the
+        runner's instance attributes.
+
+        Fields in ``arguments`` use ``_UNSET`` as their default to distinguish
+        "not provided" from an explicit ``None``. Only fields whose value is
+        not ``_UNSET`` are applied. The target attribute name defaults to the
+        field name but can be overridden via
+        ``metadata={"attr": "actual_attr_name"}`` in the dataclass field
+        definition.
+
+        Args:
+            arguments: Typed arguments declaring which runner attributes
+                to update.
+            search_space: The experiment's current search space, if available.
+                Forwarded to ``_validate_update`` for cross-validation.
+        """
+        expected_type = type(self).config_type.RunnerUpdateArguments
+        if not isinstance(arguments, expected_type):
+            raise TypeError(
+                f"{type(self).__name__} expects "
+                f"{expected_type.__qualname__}, "
+                f"got {type(arguments).__name__}"
+            )
+        self._validate_update(arguments, search_space=search_space)
+        self._set_attributes(arguments)
+
+    def _validate_update(
+        self,
+        arguments: RunnerConfig.RunnerUpdateArguments,
+        search_space: core.search_space.SearchSpace | None = None,
+    ) -> None:
+        """Override in subclasses to reject invalid updates before the runner's
+        state is modified. The runner's attributes still hold their old values
+        at this point; use the ``arguments`` to determine the proposed new
+        state.
+
+        Args:
+            arguments: The proposed changes.
+            search_space: The experiment's current search space.
+        """
+        pass
+
+    def _set_attributes(
+        self,
+        arguments: (
+            RunnerConfig.RunnerUpdateArguments | RunnerConfig.SearchSpaceUpdateArguments
+        ),
+    ) -> None:
+        """Apply dataclass field values to self, skipping UNSET fields.
+
+        Shared by ``update`` and ``on_search_space_update`` to ensure both
+        follow the same validate-then-mutate pattern.
+        """
+        for field in fields(arguments):
+            value = getattr(arguments, field.name)
+            if isinstance(value, Unset):
+                continue
+            attr_name = field.metadata.get("attr", field.name)
+            setattr(self, attr_name, value)
 
     def clone(self) -> Self:
         """Create a copy of this Runner."""

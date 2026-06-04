@@ -302,8 +302,10 @@ class Cast(Transform):
             columns=list(self.search_space.parameters) + ["metadata"], fill_value=None
         )
         # Cast columns to the correct datatype & round RangeParameters, if applicable.
-        type_map = PARAMETER_PYTHON_TYPE_MAP.copy()
-        # pyre-ignore [6]: Writing str to type map that is typed with Types.
+        # Build a new dict since we override INT with "Int64" (pandas nullable int).
+        type_map: dict[
+            ParameterType, type[int] | type[float] | type[str] | type[bool] | str
+        ] = {**PARAMETER_PYTHON_TYPE_MAP}
         # Basic int errors out with NaNs, which are added for missing columns above.
         # This happens with heterogeneous SS BOTL, where transforms work on joint space.
         type_map[ParameterType.INT] = "Int64"

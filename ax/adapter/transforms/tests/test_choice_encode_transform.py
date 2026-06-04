@@ -247,8 +247,9 @@ class ChoiceToNumericChoiceTransformTest(TestCase):
         # x0 should be untouched because it's a fixed parameter.
         self.assertIsInstance(hss.parameters["x0"], FixedParameter)
         self.assertEqual(hss.parameters["x0"].parameter_type, ParameterType.BOOL)
-        # pyre-ignore[16] # Pyre doesn't understand fixed parameters have `.value`
-        self.assertEqual(hss.parameters["x0"].value, True)
+        self.assertEqual(
+            assert_is_instance(hss.parameters["x0"], FixedParameter).value, True
+        )
         self.assertEqual(hss.parameters["x0"].dependents, {True: ["x1", "x2"]})
 
         self.assertFalse(hss.parameters["x1"].is_hierarchical)

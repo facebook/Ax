@@ -18,10 +18,8 @@ class BaseNullableEnum(types.TypeDecorator):
 
     def __init__(self, enum: Any, *arg: list[Any], **kw: dict[Any, Any]) -> None:
         types.TypeDecorator.__init__(self, *arg, **kw)
-        # pyre-fixme[4]: Attribute must be annotated.
-        self._member_map = enum._member_map_
-        # pyre-fixme[4]: Attribute must be annotated.
-        self._value2member_map = enum._value2member_map_
+        self._member_map: dict[str, Any] = enum._member_map_
+        self._value2member_map: dict[Any, Any] = enum._value2member_map_
 
     def process_bind_param(self, value: Any, dialect: Any) -> Any:
         if value is None:
@@ -52,9 +50,7 @@ class BaseNullableEnum(types.TypeDecorator):
 
 
 class IntEnum(BaseNullableEnum):
-    # pyre-fixme[8]: Attribute has type `SmallInteger`; used as
-    #  `Type[sqlalchemy.sql.sqltypes.SmallInteger]`.
-    impl: types.SmallInteger = types.SmallInteger
+    impl = types.SmallInteger
 
 
 class StringEnum(BaseNullableEnum):

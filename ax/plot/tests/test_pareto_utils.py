@@ -10,6 +10,7 @@
 import numpy as np
 from ax.adapter.registry import Generators
 from ax.core.data import Data
+from ax.core.metric import Metric
 from ax.core.objective import MultiObjective, Objective
 from ax.core.optimization_config import MultiObjectiveOptimizationConfig
 from ax.core.outcome_constraint import ObjectiveThreshold
@@ -76,7 +77,7 @@ class ParetoUtilsTest(TestCase):
         rels = [True, True, False]
         objective_thresholds = [
             ObjectiveThreshold(
-                metric=objective.metric,
+                metric=Metric(name=objective.metric_names[0]),
                 bound=bounds[i],
                 relative=rels[i],
                 op=ComparisonOp.LEQ,
@@ -86,7 +87,23 @@ class ParetoUtilsTest(TestCase):
         objective = MultiObjective(objectives=objectives)
         optimization_config = MultiObjectiveOptimizationConfig(
             objective=objective,
+            # pyre-ignore[6]: ObjectiveThreshold is a subclass of OutcomeConstraint;
+            # list invariance prevents direct assignment.
             objective_thresholds=objective_thresholds,
+        )
+
+        experiment.add_metric(
+            metric=BraninMetric(
+                name="m1", param_names=["x1", "x2"], lower_is_better=True
+            )
+        )
+        experiment.add_metric(
+            NegativeBraninMetric(
+                name="m2", param_names=["x1", "x2"], lower_is_better=True
+            )
+        )
+        experiment.add_metric(
+            BraninMetric(name="m3", param_names=["x1", "x2"], lower_is_better=True)
         )
         experiment.optimization_config = optimization_config
         experiment.trials[0].run()

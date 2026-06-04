@@ -15,12 +15,16 @@ import numpy as np
 from ax.adapter.data_utils import ExperimentData
 from ax.adapter.transforms.base import Transform
 from ax.adapter.transforms.utils import match_ci_width
-from ax.core.objective import ScalarizedObjective
 from ax.core.observation import ObservationData, ObservationFeatures
-from ax.core.optimization_config import OptimizationConfig
-from ax.core.outcome_constraint import OutcomeConstraint, ScalarizedOutcomeConstraint
+from ax.core.optimization_config import (
+    MultiObjectiveOptimizationConfig,
+    OptimizationConfig,
+)
+from ax.core.outcome_constraint import OutcomeConstraint
 from ax.core.search_space import SearchSpace
+from ax.core.types import ComparisonOp
 from ax.generators.types import TConfig
+from ax.utils.common.sympy import build_constraint_expression_str
 from ax.utils.common.typeutils import assert_is_instance_list
 from pyre_extensions import assert_is_instance, none_throws
 from sklearn.preprocessing import PowerTransformer
@@ -79,8 +83,10 @@ class PowerTransformY(Transform):
             adapter=adapter,
             config=config,
         )
-        # pyre-fixme[9]: Can't annotate config["metrics"] properly.
-        metric_signatures: list[str] | None = self.config.get("metrics", None)
+        raw_metrics = self.config.get("metrics", None)
+        metric_signatures: list[str] | None = (
+            assert_is_instance(raw_metrics, list) if raw_metrics is not None else None
+        )
         self.clip_mean: bool = assert_is_instance(
             self.config.get("clip_mean", True), bool
         )
@@ -150,13 +156,9 @@ class PowerTransformY(Transform):
         adapter: adapter_module.base.Adapter | None = None,
         fixed_features: ObservationFeatures | None = None,
     ) -> OptimizationConfig:
-        if isinstance(optimization_config.objective, ScalarizedObjective):
-            objective_metric_signatures = [
-                metric.signature for metric in optimization_config.objective.metrics
-            ]
-            intersection = set(objective_metric_signatures) & set(
-                self.metric_signatures
-            )
+        if optimization_config.objective.is_scalarized_objective:
+            objective_metric_sigs = optimization_config.objective.metric_signatures
+            intersection = set(objective_metric_sigs) & set(self.metric_signatures)
             if intersection:
                 raise NotImplementedError(
                     "PowerTransformY cannot be used for metric(s) "
@@ -165,26 +167,93 @@ class PowerTransformY(Transform):
                     "preserve the linear scalarization of the objective."
                 )
 
-        for c in optimization_config.all_constraints:
-            if isinstance(c, ScalarizedOutcomeConstraint):
-                c_metric_signatures = [metric.signature for metric in c.metrics]
-                intersection = set(c_metric_signatures) & set(self.metric_signatures)
+        new_outcome_constraints = []
+        for c in optimization_config.outcome_constraints:
+            if len(c.metric_names) > 1:
+                c_sigs = c.metric_signatures
+                intersection = set(c_sigs) & set(self.metric_signatures)
                 if intersection:
                     raise NotImplementedError(
                         "PowerTransformY cannot be used for metric(s) "
                         f"{intersection} that are part of a "
                         "ScalarizedOutcomeConstraint."
                     )
-            elif c.metric.signature in self.metric_signatures:
-                if c.relative:
-                    raise ValueError(
-                        "PowerTransformY cannot be applied to metric "
-                        f"{c.metric.signature} since it is subject to "
-                        "a relative constraint."
-                    )
+                new_outcome_constraints.append(c)
+            else:
+                c_sig = c.metric_signatures[0]
+                if c_sig in self.metric_signatures:
+                    if c.relative:
+                        raise ValueError(
+                            "PowerTransformY cannot be applied to metric "
+                            f"{c_sig} since it is subject to "
+                            "a relative constraint."
+                        )
+                    else:
+                        transform = self.power_transforms[c_sig].transform
+                        new_bound = transform(np.array(c.bound, ndmin=2)).item()
+                        new_expr = build_constraint_expression_str(
+                            metric_weights=c.metric_weights,
+                            op=">=" if c.op == ComparisonOp.GEQ else "<=",
+                            bound=new_bound,
+                            relative=c.relative,
+                        )
+                        new_outcome_constraints.append(
+                            OutcomeConstraint(
+                                expression=new_expr,
+                                metric_name_to_signature=c.metric_name_to_signature,
+                            )
+                        )
                 else:
-                    transform = self.power_transforms[c.metric.signature].transform
-                    c.bound = transform(np.array(c.bound, ndmin=2)).item()
+                    new_outcome_constraints.append(c)
+        optimization_config.outcome_constraints = new_outcome_constraints
+
+        if isinstance(optimization_config, MultiObjectiveOptimizationConfig):
+            new_thresholds = []
+            for c in optimization_config.objective_thresholds:
+                if len(c.metric_names) > 1:
+                    c_sigs = c.metric_signatures
+                    intersection = set(c_sigs) & set(self.metric_signatures)
+                    if intersection:
+                        raise NotImplementedError(
+                            "PowerTransformY cannot be used for metric(s) "
+                            f"{intersection} that are part of a "
+                            "ScalarizedOutcomeConstraint."
+                        )
+                    new_thresholds.append(c)
+                else:
+                    c_sig = c.metric_signatures[0]
+                    if c_sig in self.metric_signatures:
+                        if c.relative:
+                            raise ValueError(
+                                "PowerTransformY cannot be applied to metric "
+                                f"{c_sig} since it is subject to "
+                                "a relative constraint."
+                            )
+                        else:
+                            transform = self.power_transforms[c_sig].transform
+                            new_bound = transform(np.array(c.bound, ndmin=2)).item()
+                            metric_name_weights = [
+                                (name, w)
+                                for name, (_, w) in zip(
+                                    c.metric_names, c.metric_weights
+                                )
+                            ]
+                            new_expr = build_constraint_expression_str(
+                                metric_weights=metric_name_weights,
+                                op=">=" if c.op == ComparisonOp.GEQ else "<=",
+                                bound=new_bound,
+                                relative=c.relative,
+                            )
+                            new_thresholds.append(
+                                OutcomeConstraint(
+                                    expression=new_expr,
+                                    metric_name_to_signature=c.metric_name_to_signature,
+                                )
+                            )
+                    else:
+                        new_thresholds.append(c)
+            optimization_config.objective_thresholds = new_thresholds
+
         return optimization_config
 
     def untransform_outcome_constraints(
@@ -192,18 +261,33 @@ class PowerTransformY(Transform):
         outcome_constraints: list[OutcomeConstraint],
         fixed_features: ObservationFeatures | None = None,
     ) -> list[OutcomeConstraint]:
+        result = []
         for c in outcome_constraints:
-            if isinstance(c, ScalarizedOutcomeConstraint):
+            if len(c.metric_names) > 1:
                 raise ValueError("ScalarizedOutcomeConstraint not supported here")
-            elif c.metric.signature in self.metric_signatures:
-                if c.relative:
-                    raise ValueError("Relative constraints not supported here.")
+            else:
+                c_sig = c.metric_signatures[0]
+                if c_sig in self.metric_signatures:
+                    if c.relative:
+                        raise ValueError("Relative constraints not supported here.")
+                    else:
+                        transform = self.power_transforms[c_sig].inverse_transform
+                        new_bound = transform(np.array(c.bound, ndmin=2)).item()
+                        new_expr = build_constraint_expression_str(
+                            metric_weights=c.metric_weights,
+                            op=">=" if c.op == ComparisonOp.GEQ else "<=",
+                            bound=new_bound,
+                            relative=c.relative,
+                        )
+                        result.append(
+                            OutcomeConstraint(
+                                expression=new_expr,
+                                metric_name_to_signature=c.metric_name_to_signature,
+                            )
+                        )
                 else:
-                    transform = self.power_transforms[
-                        c.metric.signature
-                    ].inverse_transform
-                    c.bound = transform(np.array(c.bound, ndmin=2)).item()
-        return outcome_constraints
+                    result.append(c)
+        return result
 
     def transform_experiment_data(
         self, experiment_data: ExperimentData
@@ -264,8 +348,10 @@ def _compute_inverse_bounds(
     inv_bounds = defaultdict()
     for k, pt in power_transforms.items():
         bounds = [-np.inf, np.inf]
-        mu, sigma = pt._scaler.mean_.item(), pt._scaler.scale_.item()  # pyre-ignore
-        lambda_ = pt.lambdas_.item()  # pyre-ignore
+        # pyre-ignore[16]: sklearn's PowerTransformer lacks type stubs for
+        # _scaler (internal attr) and lambdas_ (set during fit).
+        mu, sigma = pt._scaler.mean_.item(), pt._scaler.scale_.item()
+        lambda_ = pt.lambdas_.item()  # pyre-ignore[16]
         if lambda_ < -1 * tol:
             bounds[1] = (-1.0 / lambda_ - mu) / sigma
         elif lambda_ > 2.0 + tol:

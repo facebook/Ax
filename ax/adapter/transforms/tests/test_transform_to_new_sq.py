@@ -6,6 +6,8 @@
 # pyre-strict
 
 
+import logging
+import unittest
 from copy import deepcopy
 from unittest import mock
 
@@ -53,12 +55,21 @@ class TransformToNewSQTest(RelativizeDataTest):
         )
     ]
 
-    # these tests are defined by RelativizeDataTest, but it is irrelevant
-    # for TransformToNewSQ, so we don't need to run it here.
+    @unittest.skip("Irrelevant for TransformToNewSQ")
     def test_bad_relativize(self) -> None:
         pass
 
+    @unittest.skip("Irrelevant for TransformToNewSQ")
     def test_transform_status_quos_always_zero(self) -> None:
+        pass
+
+    @unittest.skip(
+        "TransformToNewSQ gracefully handles missing SQ data "
+        "(returns data unchanged) rather than raising ValueError"
+    )
+    def test_relativize_transform_requires_a_adapter_to_have_status_quo_data(
+        self,
+    ) -> None:
         pass
 
 
@@ -260,3 +271,212 @@ class TransformToNewSQSpecificTest(TestCase):
                     sems, transformed_data.observation_data.loc[t_idx]["sem", "branin"]
                 )
             )
+
+    def test_transform_experiment_data_retains_sq_less_trials(self) -> None:
+        """Data from trials without SQ (e.g., LILO labeling trials) should be
+        retained untransformed rather than dropped.
+
+        Previously, transform_experiment_data dropped all rows from trials
+        without SQ data, causing downstream components to crash on empty
+        tensors when only those trials had certain metrics.
+        """
+        sobol = get_sobol(search_space=self.exp.search_space)
+        for sq_val in (2.0, 3.0):
+            t = self.exp.new_batch_trial(
+                generator_run=sobol.gen(2), should_add_status_quo_arm=True
+            ).mark_completed(unsafe=True)
+            data = get_branin_data_batch(batch=t)
+            data.df.loc[(data.df["arm_name"] == "status_quo"), "mean"] = sq_val
+            self.exp.attach_data(data=data)
+        self._refresh_adapter()
+
+        experiment_data = extract_experiment_data(
+            experiment=self.exp, data_loader_config=DataLoaderConfig()
+        )
+
+        tf = TransformToNewSQ(
+            search_space=None,
+            adapter=self.adapter,
+            config={"target_trial_index": 2},
+        )
+
+        # Simulate a SQ-less trial (e.g., LILO labeling) by removing trial 1's
+        # SQ data from the transform's dict.
+        del tf.status_quo_data_by_trial[1]
+
+        transformed_data = tf.transform_experiment_data(
+            experiment_data=deepcopy(experiment_data)
+        )
+
+        # Trial 1's data should still be present and untransformed,
+        # including its SQ arm (since the trial was not relativized).
+        orig_trial_1 = experiment_data.observation_data.loc[1]
+        transformed_trial_1 = transformed_data.observation_data.loc[1]
+        assert_frame_equal(orig_trial_1, transformed_trial_1)
+
+        # Trial 0's data should still be transformed (it has SQ data).
+        sq_data_0 = self.adapter.status_quo_data_by_trial[0]
+        sq_data_target = self.adapter.status_quo_data_by_trial[2]
+        orig_trial_0 = experiment_data.observation_data.loc[0]
+        orig_trial_0_non_sq = orig_trial_0[
+            orig_trial_0.index.get_level_values("arm_name")
+            != self.adapter.status_quo_name
+        ]
+        means_rel, sems_rel = relativize(
+            means_t=orig_trial_0_non_sq["mean", "branin"],
+            sems_t=orig_trial_0_non_sq["sem", "branin"],
+            mean_c=sq_data_0.means[0],
+            sem_c=sq_data_0.covariance[0, 0] ** 0.5,
+            as_percent=False,
+            control_as_constant=tf.control_as_constant,
+        )
+        target_mean = sq_data_target.means[0]
+        abs_target_mean = np.abs(target_mean)
+        expected_means = means_rel * abs_target_mean + target_mean
+        expected_sems = sems_rel * abs_target_mean
+        self.assertTrue(
+            np.allclose(
+                expected_means,
+                transformed_data.observation_data.loc[0]["mean", "branin"],
+            )
+        )
+        self.assertTrue(
+            np.allclose(
+                expected_sems,
+                transformed_data.observation_data.loc[0]["sem", "branin"],
+            )
+        )
+
+    def test_non_relativizable_trial_preserved(self) -> None:
+        """Non-relativizable trials (e.g., LILO labeling) are excluded from
+        transformation and their SQ arms are preserved.
+
+        In the real pipeline, TorchAdapter._transform_data pops the pairwise
+        preference column before transforms run, so TransformToNewSQ only sees
+        base metrics.  Non-relativizable trial rows will have NaN for base
+        metrics; the transform must not crash on them and must keep all arms
+        (PairwiseGP needs both arms in each pairwise comparison).
+        """
+        sobol = get_sobol(search_space=self.exp.search_space)
+        # Create trials 1 and 2 (trial 0 exists from setUp).
+        for sq_val in (2.0, 3.0):
+            t = self.exp.new_batch_trial(
+                generator_run=sobol.gen(2), should_add_status_quo_arm=True
+            ).mark_completed(unsafe=True)
+            data = get_branin_data_batch(batch=t)
+            data.df.loc[(data.df["arm_name"] == "status_quo"), "mean"] = sq_val
+            self.exp.attach_data(data=data)
+        self._refresh_adapter()
+
+        experiment_data = extract_experiment_data(
+            experiment=self.exp, data_loader_config=DataLoaderConfig()
+        )
+
+        tf = TransformToNewSQ(
+            search_space=None,
+            adapter=self.adapter,
+            config={"target_trial_index": 2},
+        )
+
+        # Mark trial 1 as non-relativizable (simulating a LILO labeling trial)
+        # and remove its SQ data (LILO trials don't have base-metric SQ data).
+        tf._non_relativizable_trial_indices = {1}
+        del tf.status_quo_data_by_trial[1]
+
+        transformed = tf.transform_experiment_data(
+            experiment_data=deepcopy(experiment_data)
+        )
+
+        # Trial 1's data should be present and untransformed.
+        orig_trial_1 = experiment_data.observation_data.loc[1]
+        transformed_trial_1 = transformed.observation_data.loc[1]
+        assert_frame_equal(orig_trial_1, transformed_trial_1)
+
+        # Both arms (including SQ) must be preserved.
+        arms = transformed_trial_1.index.get_level_values("arm_name").tolist()
+        self.assertIn("status_quo", arms)
+
+        # Trial 0 should still be transformed normally.
+        sq_data_0 = self.adapter.status_quo_data_by_trial[0]
+        sq_data_target = self.adapter.status_quo_data_by_trial[2]
+        orig_trial_0 = experiment_data.observation_data.loc[0]
+        orig_trial_0_non_sq = orig_trial_0[
+            orig_trial_0.index.get_level_values("arm_name")
+            != self.adapter.status_quo_name
+        ]
+        means_rel, sems_rel = relativize(
+            means_t=orig_trial_0_non_sq["mean", "branin"],
+            sems_t=orig_trial_0_non_sq["sem", "branin"],
+            mean_c=sq_data_0.means[0],
+            sem_c=sq_data_0.covariance[0, 0] ** 0.5,
+            as_percent=False,
+            control_as_constant=tf.control_as_constant,
+        )
+        target_mean = sq_data_target.means[0]
+        abs_target_mean = np.abs(target_mean)
+        expected_means = means_rel * abs_target_mean + target_mean
+        expected_sems = sems_rel * abs_target_mean
+        self.assertTrue(
+            np.allclose(
+                expected_means,
+                transformed.observation_data.loc[0]["mean", "branin"],
+            )
+        )
+        self.assertTrue(
+            np.allclose(
+                expected_sems,
+                transformed.observation_data.loc[0]["sem", "branin"],
+            )
+        )
+
+    def test_zero_sq_metric_skipped_with_warning(self) -> None:
+        """Metrics whose status quo mean is near-zero (e.g.,
+        ExpressionDerivedMetric that is already relativized) should be
+        skipped with a warning rather than crashing on division by zero.
+        """
+        sobol = get_sobol(search_space=self.exp.search_space)
+        for sq_val in (2.0, 3.0):
+            t = self.exp.new_batch_trial(
+                generator_run=sobol.gen(2), should_add_status_quo_arm=True
+            ).mark_completed(unsafe=True)
+            data = get_branin_data_batch(batch=t)
+            data.df.loc[(data.df["arm_name"] == "status_quo"), "mean"] = sq_val
+            self.exp.attach_data(data=data)
+        self._refresh_adapter()
+
+        experiment_data = extract_experiment_data(
+            experiment=self.exp, data_loader_config=DataLoaderConfig()
+        )
+
+        tf = TransformToNewSQ(
+            search_space=None,
+            adapter=self.adapter,
+            config={"target_trial_index": 2},
+        )
+
+        # Set the target trial's SQ mean to zero, simulating an
+        # ExpressionDerivedMetric whose SQ is naturally zero.
+        tf.status_quo_data_by_trial[2].means[0] = 0.0
+
+        with self.assertLogs(
+            "ax.adapter.transforms.transform_to_new_sq", level=logging.WARNING
+        ) as cm:
+            transformed_data = tf.transform_experiment_data(
+                experiment_data=deepcopy(experiment_data)
+            )
+
+        # Verify a warning was emitted for the skipped metric.
+        self.assertTrue(
+            any("near-zero" in msg for msg in cm.output),
+            f"Expected a near-zero warning, got: {cm.output}",
+        )
+
+        # Data for all non-target trials should be unchanged (no transform
+        # was applied for the metric with zero SQ).
+        for t_idx in (0, 1):
+            orig = experiment_data.observation_data.loc[t_idx]
+            orig_non_sq = orig[
+                orig.index.get_level_values("arm_name") != self.adapter.status_quo_name
+            ]
+            tf_data = transformed_data.observation_data.loc[t_idx]
+            assert_frame_equal(orig_non_sq, tf_data)

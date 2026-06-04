@@ -51,7 +51,9 @@ def mock_botorch_optimize_context_manager(
     def minimal_fit_fully_bayesian(*args: Any, **kwargs: Any) -> None:
         fit_fully_bayesian_model_nuts(*args, **_get_minimal_mcmc_kwargs(**kwargs))
 
-    def minimal_mixed_optimizer(*args: Any, **kwargs: Any) -> tuple[Tensor, Tensor]:
+    def minimal_mixed_optimizer(
+        *args: Any, **kwargs: Any
+    ) -> tuple[Tensor, Tensor | None]:
         # BoTorch's `mock_optimize_context_manager` also has some mocks for this,
         # but the full set of mocks applied here cannot be covered by that.
         kwargs["raw_samples"] = 2
@@ -126,8 +128,7 @@ def mock_botorch_optimize(f: Callable) -> Callable:
     """Wraps `f` in `mock_botorch_optimize_context_manager` for use as a decorator."""
 
     @wraps(f)
-    # pyre-fixme[3]: Return type must be annotated.
-    def inner(*args: Any, **kwargs: Any):
+    def inner(*args: Any, **kwargs: Any) -> Any:
         with mock_botorch_optimize_context_manager():
             return f(*args, **kwargs)
 
@@ -141,7 +142,8 @@ def skip_fit_gpytorch_mll_context_manager() -> Generator[None, None, None]:
     This should only be used to speed up slow tests.
     """
     with mock.patch(
-        "botorch.fit.FitGPyTorchMLL", side_effect=lambda *args, **kwargs: args[0]
+        "ax.generators.torch.botorch_modular.utils.fit_gpytorch_mll",
+        side_effect=lambda mll, **kwargs: mll.eval(),
     ) as mock_fit:
         yield
     if mock_fit.call_count < 1:
@@ -155,8 +157,7 @@ def skip_fit_gpytorch_mll(f: Callable) -> Callable:
     """Wraps f in the skip_fit_gpytorch_mll_context_manager for use as a decorator."""
 
     @wraps(f)
-    # pyre-fixme[3]: Return type must be annotated.
-    def inner(*args: Any, **kwargs: Any):
+    def inner(*args: Any, **kwargs: Any) -> Any:
         with skip_fit_gpytorch_mll_context_manager():
             return f(*args, **kwargs)
 

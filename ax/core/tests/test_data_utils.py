@@ -11,13 +11,13 @@ from math import nan
 from unittest import mock
 
 import numpy as np
-from ax.adapter.data_utils import (
+from ax.adapter.registry import Generators
+from ax.core.data import Data, MAP_KEY
+from ax.core.data_utils import (
     _use_object_dtype_for_strings,
     DataLoaderConfig,
     extract_experiment_data,
 )
-from ax.adapter.registry import Generators
-from ax.core.data import Data, MAP_KEY
 from ax.core.observation import Observation, ObservationData, ObservationFeatures
 from ax.core.trial_status import STATUSES_EXPECTING_DATA, TrialStatus
 from ax.exceptions.core import UnsupportedError
@@ -279,6 +279,12 @@ class TestDataUtils(TestCase):
         metrics = set(experiment_data.metric_signatures)
         self.assertEqual(metrics, {"branin"})
         self.assertEqual(len(experiment_data.observation_data), 2)
+        # Since all map metric rows were filtered out, the step index level
+        # (which would be all NaN) should be dropped, leaving a 2-level index.
+        self.assertEqual(
+            experiment_data.observation_data.index.names,
+            ["trial_index", "arm_name"],
+        )
         # Complete a trial to include map metrics.
         exp.trials[0].complete()
         experiment_data = extract_experiment_data(

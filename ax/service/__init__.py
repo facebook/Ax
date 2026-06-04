@@ -5,8 +5,3 @@
 # LICENSE file in the root directory of this source tree.
 
 # pyre-strict
-
-from ax.service.managed_loop import OptimizationLoop, optimize
-
-
-__all__ = ["OptimizationLoop", "optimize"]

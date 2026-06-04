@@ -12,9 +12,9 @@ import inspect
 from collections import OrderedDict
 from collections.abc import Mapping, Sequence
 from copy import deepcopy
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from logging import Logger
-from typing import Any
+from typing import Any, cast
 
 import numpy as np
 import torch
@@ -42,6 +42,7 @@ from ax.generators.torch.botorch_modular.utils import (
     use_model_list,
 )
 from ax.generators.torch.utils import (
+    _to_equality_constraints,
     _to_inequality_constraints,
     pick_best_out_of_sample_point_acqf_class,
     predict_from_model,
@@ -50,12 +51,8 @@ from ax.generators.torch_base import TorchOptConfig
 from ax.generators.types import TConfig
 from ax.generators.utils import best_in_sample_point
 from ax.utils.common.base import Base
-from ax.utils.common.constants import Keys
 from ax.utils.common.logger import get_logger
-from ax.utils.common.typeutils import (
-    _argparse_type_encoder,
-    assert_is_instance_optional,
-)
+from ax.utils.common.typeutils import _argparse_type_encoder
 from ax.utils.stats.model_fit_stats import (
     DIAGNOSTIC_FN_DIRECTIONS,
     DIAGNOSTIC_FNS,
@@ -70,6 +67,7 @@ from botorch.models.multitask import MultiTaskGP
 from botorch.models.transforms.input import (
     ChainedInputTransform,
     InputTransform,
+    LearnedFeatureImputation,
     Normalize,
 )
 from botorch.models.transforms.outcome import ChainedOutcomeTransform, OutcomeTransform
@@ -218,7 +216,7 @@ def _construct_specified_input_transforms(
     ]
 
     return [
-        # pyre-fixme[45]: Cannot instantiate abstract class `InputTransform`.
+        # pyre-ignore[45]: Concrete subclasses are passed at runtime.
         transform_class(**single_input_transform_kwargs)
         for transform_class, single_input_transform_kwargs in zip(
             input_transform_classes, input_transform_kwargs
@@ -288,7 +286,7 @@ def _make_botorch_outcome_transform(
     ]
 
     outcome_transforms = [
-        # pyre-fixme[45]: Cannot instantiate abstract class `OutcomeTransform`.
+        # pyre-ignore[45]: Concrete subclasses are passed at runtime.
         transform_class(**single_outcome_transform_kwargs)
         for transform_class, single_outcome_transform_kwargs in zip(
             outcome_transform_classes, outcome_transform_kwargs
@@ -337,12 +335,12 @@ def _construct_submodules(
             botorch_model_class=botorch_model_class,
             **deepcopy(model_config.covar_module_options),
         )
-        # pyre-ignore [45]: Cannot instantiate abstract class `Kernel`.
+        # pyre-ignore[45]: Concrete subclasses are passed at runtime.
         submodules["covar_module"] = covar_class(**covar_module_kwargs)
 
     if (likelihood_class := model_config.likelihood_class) is not None:
         _error_if_arg_not_supported("likelihood")
-        # pyre-ignore [45]: Cannot instantiate abstract class `Likelihood`.
+        # pyre-ignore[45]: Concrete subclasses are passed at runtime.
         submodules["likelihood"] = likelihood_class(
             **deepcopy(model_config.likelihood_options)
         )
@@ -566,7 +564,7 @@ class Surrogate(Base):
             search_space_digest=search_space_digest,
             surrogate=self,
         )
-        # pyre-ignore [45]
+        # pyre-ignore[45]: Concrete subclasses are passed at runtime.
         model = botorch_model_class(**formatted_model_inputs)
         if state_dict is not None and (not refit or self.warm_start_refit):
             model.load_state_dict(state_dict)
@@ -741,11 +739,15 @@ class Surrogate(Base):
                     candidate_metadata=candidate_metadata,
                 )
 
-            # Only update the outcome names and models if the dataset input matches
-            # the feature names from the search space digest. Otherwise we only
-            # keep the model within self._submodels as it may be models fitted on
-            # auxiliary data such as the preference model for BOPE
-            if set(dataset.feature_names) == feature_names_set:
+            # Only update the outcome names and models if the dataset input
+            # matches the feature names from the SSD. In heterogeneous TL,
+            # _expand_ssd_to_joint_space adds source-only features to the SSD,
+            # so the target MultiTaskDataset's feature_names will be a strict
+            # subset -- the missing names are source-only params.
+            if set(dataset.feature_names) == feature_names_set or (
+                isinstance(dataset, MultiTaskDataset)
+                and set(dataset.feature_names).issubset(feature_names_set)
+            ):
                 models.append(model)
                 outcome_names.extend(dataset.outcome_names)
 
@@ -827,7 +829,7 @@ class Surrogate(Base):
                     state_dict=None,
                     refit=True,
                 )
-                state_dict = model.state_dict()
+                state_dict = cast(OrderedDict[str, Tensor], model.state_dict())
                 # perform LOOCV
                 if self.surrogate_spec.eval_criterion in (AIC, BIC, MLL):
                     eval_metric = compute_in_sample_model_fit_metric(
@@ -839,9 +841,6 @@ class Surrogate(Base):
                         dataset=dataset,
                         search_space_digest=search_space_digest,
                         model_config=model_config,
-                        # pyre-fixme [6]: In call `Surrogate.cross_validate`, for
-                        # argument  `state_dict`, expected `Optional[OrderedDict[str,
-                        # Tensor]]` but got `Dict[str, typing.Any]`.
                         state_dict=state_dict,
                     )
             except ModelFittingError as e:
@@ -899,7 +898,12 @@ class Surrogate(Base):
             indices_or_sections=num_folds,
         )
         cv_folds = (
-            get_cv_fold(dataset=dataset, X=X, Y=Y, idcs=idcs)  # pyre-ignore[6]
+            get_cv_fold(
+                dataset=dataset,
+                X=X,
+                Y=Y,
+                idcs=torch.as_tensor(idcs, device=X.device),
+            )
             for idcs in test_folds
         )
 
@@ -1021,7 +1025,6 @@ class Surrogate(Base):
         self,
         search_space_digest: SearchSpaceDigest,
         torch_opt_config: TorchOptConfig,
-        options: TConfig | None = None,
     ) -> tuple[Tensor, Tensor]:
         """Finds the best predicted point and the corresponding value of the
         appropriate best point acquisition function.
@@ -1030,9 +1033,6 @@ class Surrogate(Base):
             search_space_digest: A `SearchSpaceDigest`.
             torch_opt_config: A `TorchOptConfig`; none-None `fixed_features` is
                 not supported.
-            options: Optional. If present, `seed_inner` (default None) and `qmc`
-                (default True) will be parsed from `options`; any other keys
-                will be ignored.
 
         Returns:
             A two-tuple (`candidate`, `acqf_value`), where `candidate` is a 1d
@@ -1046,18 +1046,8 @@ class Surrogate(Base):
             # TODO (ref: https://fburl.com/diff/uneqb3n9)
             raise NotImplementedError("Fixed features not yet supported.")
 
-        options = options or {}
-        botorch_acqf_class, botorch_acqf_options = (
-            pick_best_out_of_sample_point_acqf_class(
-                outcome_constraints=torch_opt_config.outcome_constraints,
-                seed_inner=assert_is_instance_optional(
-                    options.get(Keys.SEED_INNER, None), int
-                ),
-                qmc=assert_is_instance(
-                    options.get(Keys.QMC, True),
-                    bool,
-                ),
-            )
+        botorch_acqf_class = pick_best_out_of_sample_point_acqf_class(
+            outcome_constraints=torch_opt_config.outcome_constraints,
         )
 
         # Avoiding circular import between `Surrogate` and `Acquisition`.
@@ -1068,13 +1058,15 @@ class Surrogate(Base):
             botorch_acqf_class=botorch_acqf_class,
             search_space_digest=search_space_digest,
             torch_opt_config=torch_opt_config,
-            botorch_acqf_options=botorch_acqf_options,
         )
         candidates, acqf_value, _ = acqf.optimize(
             n=1,
             search_space_digest=search_space_digest,
             inequality_constraints=_to_inequality_constraints(
                 linear_constraints=torch_opt_config.linear_constraints
+            ),
+            equality_constraints=_to_equality_constraints(
+                equality_constraints=torch_opt_config.equality_constraints
             ),
             fixed_features=torch_opt_config.fixed_features,
         )
@@ -1262,6 +1254,22 @@ def _submodel_input_constructor_mtgp(
 ) -> dict[str, Any]:
     if len(dataset.outcome_names) > 1:
         raise NotImplementedError("Multi-output Multi-task GPs are not yet supported.")
+    # If LearnedFeatureImputation is in the model config, tell construct_inputs
+    # to map heterogeneous per-task features to the full joint feature space.
+    # This must happen before the base call so construct_inputs can handle
+    # heterogeneous MultiTaskDatasets without raising.
+    uses_lfi = isinstance(model_config.input_transform_classes, list) and any(
+        issubclass(cls, LearnedFeatureImputation)
+        for cls in model_config.input_transform_classes
+    )
+    if uses_lfi and "map_heterogeneous_to_full" not in model_config.model_options:
+        model_config = replace(
+            model_config,
+            model_options={
+                **model_config.model_options,
+                "map_heterogeneous_to_full": True,
+            },
+        )
     formatted_model_inputs = _submodel_input_constructor_base(
         botorch_model_class=botorch_model_class,
         model_config=model_config,
@@ -1275,9 +1283,12 @@ def _submodel_input_constructor_mtgp(
     # specify output tasks so that model.num_outputs = 1
     # since the model only models a single outcome
     if formatted_model_inputs.get("output_tasks") is None:
-        # SSD doesn't use -1, so we need to normalize here
+        # SSD doesn't use -1, so we need to normalize here. Use the SSD's bound
+        # length since target_values is keyed by SSD column index — for
+        # heterogeneous MultiTaskDatasets this differs from the per-task
+        # dataset's feature_names length.
         task_feature = none_throws(
-            normalize_indices(indices=[task_feature], d=len(dataset.feature_names))
+            normalize_indices(indices=[task_feature], d=len(search_space_digest.bounds))
         )[0]
         if (search_space_digest.target_values is not None) and (
             target_value := search_space_digest.target_values.get(task_feature)

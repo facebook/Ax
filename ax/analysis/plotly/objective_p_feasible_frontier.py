@@ -26,8 +26,8 @@ from ax.analysis.utils import (
 from ax.core.arm import Arm
 from ax.core.experiment import Experiment
 from ax.core.optimization_config import MultiObjectiveOptimizationConfig
-from ax.core.outcome_constraint import ScalarizedOutcomeConstraint
 from ax.core.trial_status import TrialStatus
+from ax.exceptions.core import UnsupportedError
 from ax.generation_strategy.generation_strategy import GenerationStrategy
 from ax.generators.torch.botorch_modular.generator import BoTorchGenerator
 from ax.generators.torch.botorch_modular.multi_acquisition import MultiAcquisition
@@ -128,10 +128,16 @@ class ObjectivePFeasibleFrontierPlot(Analysis):
         experiment = none_throws(experiment)
 
         if experiment.optimization_config is None:
-            return "Optimization_config must be set to compute frontier."
+            return (
+                "The experiment must have an OptimizationConfig set in "
+                "order to compute the objective vs. P(feasible) frontier."
+            )
 
         if isinstance(experiment.optimization_config, MultiObjectiveOptimizationConfig):
             return "Multi-objective optimization is not supported."
+
+        if experiment.optimization_config.objective.is_scalarized_objective:
+            return "Scalarized objectives are not supported."
 
         if len(experiment.optimization_config.outcome_constraints) == 0:
             return (
@@ -140,7 +146,7 @@ class ObjectivePFeasibleFrontierPlot(Analysis):
             )
 
         if any(
-            isinstance(oc, ScalarizedOutcomeConstraint)
+            len(oc.metric_names) > 1
             for oc in experiment.optimization_config.outcome_constraints
         ):
             return "Scalarized outcome constraints are not supported yet."
@@ -155,10 +161,11 @@ class ObjectivePFeasibleFrontierPlot(Analysis):
             relevant_adapter.generator, BoTorchGenerator
         ):
             return (
-                "The Objective vs P(feasible) plot cannot be computed using the"
-                f" current Adapter ({relevant_adapter}) and generator"
-                f" ({relevant_adapter.generator}). Only TorchAdapters using"
-                " BoTorchGenerators are supported."
+                "This plot requires a TorchAdapter using a BoTorchGenerator. "
+                f"The current adapter is a {type(relevant_adapter).__name__} with "
+                f"a {type(relevant_adapter.generator).__name__} generator. "
+                "This error will resolve once the optimization progresses "
+                "to a Bayesian modeling stage."
             )
 
     @override
@@ -211,7 +218,7 @@ class ObjectivePFeasibleFrontierPlot(Analysis):
 
         df = prepare_arm_data(
             experiment=experiment,
-            metric_names=[*optimization_config.metrics.keys()],
+            metric_names=[*optimization_config.metric_names],
             adapter=relevant_adapter,
             use_model_predictions=True,
             relativize=self.relativize,
@@ -220,7 +227,14 @@ class ObjectivePFeasibleFrontierPlot(Analysis):
             trial_statuses=self.trial_statuses,
         )
 
-        objective_name = optimization_config.objective.metric.name
+        objective = optimization_config.objective
+        if objective.is_scalarized_objective:
+            raise UnsupportedError(
+                "ObjectivePFeasibleFrontierPlot is not supported for "
+                "scalarized objectives. The objective is a combination of "
+                "metrics, not a single metric."
+            )
+        objective_name = objective.metric_names[0]
 
         fig = _prepare_figure_scatter(
             df=df,
@@ -230,7 +244,7 @@ class ObjectivePFeasibleFrontierPlot(Analysis):
             y_metric_label="% Chance of Satisfying the Constraints",
             is_relative=self.relativize,
             show_pareto_frontier=False,
-            x_lower_is_better=optimization_config.objective.minimize,
+            x_lower_is_better=objective.minimize,
             y_lower_is_better=False,
         )
 

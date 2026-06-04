@@ -95,16 +95,8 @@ class FillMissingParameters(Transform):
         # to ensure correctness, since they are deterministic functions of
         # other parameters.
         if self._derived_parameters:
-            tunable_cols = [
-                c
-                for c in arm_data.columns
-                if c != "metadata" and c not in self._derived_parameters
-            ]
             for p_name, p in self._derived_parameters.items():
-                arm_data[p_name] = arm_data.apply(
-                    lambda row, p=p: p.compute({col: row[col] for col in tunable_cols}),
-                    axis=1,
-                )
+                arm_data[p_name] = p.compute_array(arm_data)
         return ExperimentData(
             arm_data=arm_data,
             observation_data=experiment_data.observation_data,

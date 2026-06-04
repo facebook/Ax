@@ -61,6 +61,62 @@ class RandomGeneratorTest(TestCase):
         self.assertEqual(C_comparison.any(), True)
         self.assertEqual(self.random_model._convert_equality_constraints(d, None), None)
 
+    def test_CombineEqualityConstraints(self) -> None:
+        d = 4
+        # Both None: returns None.
+        self.assertIsNone(
+            self.random_model._combine_equality_constraints(
+                d=d, fixed_features=None, equality_constraints=None
+            )
+        )
+
+        # Only fixed_features: returns the fixed-feature constraints.
+        fixed_features = {1: 0.5, 3: 0.7}
+        C, c = none_throws(
+            self.random_model._combine_equality_constraints(
+                d=d, fixed_features=fixed_features, equality_constraints=None
+            )
+        )
+        self.assertEqual(C.shape, (2, d))
+        self.assertEqual(c.shape, (2,))
+        self.assertEqual(C[0, 1].item(), 1.0)
+        self.assertEqual(C[1, 3].item(), 1.0)
+        self.assertAlmostEqual(c[0].item(), 0.5)
+        self.assertAlmostEqual(c[1].item(), 0.7)
+
+        # Only equality_constraints: returns the parameter constraints.
+        A_np = np.array([[1.0, 1.0, 0.0, 0.0]])
+        b_np = np.array([[2.0]])
+        C, c = none_throws(
+            self.random_model._combine_equality_constraints(
+                d=d,
+                fixed_features=None,
+                equality_constraints=(A_np, b_np),
+            )
+        )
+        self.assertEqual(C.shape, (1, d))
+        self.assertEqual(c.shape, (1,))
+        self.assertTrue(torch.equal(C, torch.tensor([[1.0, 1.0, 0.0, 0.0]])))
+        self.assertAlmostEqual(c[0].item(), 2.0)
+
+        # Both present: concatenates fixed-feature and parameter constraints.
+        C, c = none_throws(
+            self.random_model._combine_equality_constraints(
+                d=d,
+                fixed_features=fixed_features,
+                equality_constraints=(A_np, b_np),
+            )
+        )
+        # 2 from fixed_features + 1 from equality_constraints = 3 rows.
+        self.assertEqual(C.shape, (3, d))
+        self.assertEqual(c.shape, (3,))
+        # First two rows are from fixed_features (sorted by key: 1, 3).
+        self.assertEqual(C[0, 1].item(), 1.0)
+        self.assertEqual(C[1, 3].item(), 1.0)
+        # Third row is from the parameter equality constraint.
+        self.assertTrue(torch.equal(C[2], torch.tensor([1.0, 1.0, 0.0, 0.0])))
+        self.assertAlmostEqual(c[2].item(), 2.0)
+
     def test_ConvertInequalityConstraints(self) -> None:
         A = np.array([[1, 2], [3, 4]])
         b = np.array([[5], [6]])

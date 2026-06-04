@@ -8,17 +8,17 @@
 
 import math
 
+from ax.core.types import TParamValue
 from ax.metrics.noisy_function import GenericNoisyFunctionMetric
 from ax.utils.common.testutils import TestCase
 from ax.utils.testing.core_stubs import get_trial
+from pyre_extensions import none_throws
 
 
 class GenericNoisyFunctionMetricTest(TestCase):
     def test_GenericNoisyFunctionMetric(self) -> None:
-        # pyre-fixme[3]: Return type must be annotated.
-        # pyre-fixme[2]: Parameter must be annotated.
-        def f(params):
-            return params["x"] + 1.0
+        def f(params: dict[str, TParamValue]) -> float:
+            return float(params["x"]) + 1.0
 
         # noiseless
         metric = GenericNoisyFunctionMetric(
@@ -29,8 +29,10 @@ class GenericNoisyFunctionMetricTest(TestCase):
         df = metric.fetch_trial_data(trial).unwrap().df
         self.assertEqual(df["arm_name"].tolist(), ["0_0"])
         self.assertEqual(df["metric_name"].tolist(), ["test_metric"])
-        # pyre-fixme[16]: Optional type has no attribute `parameters`.
-        self.assertEqual(df["mean"].tolist(), [trial.arm.parameters["x"] + 1.0])
+        self.assertEqual(
+            df["mean"].tolist(),
+            [float(none_throws(trial.arm).parameters["x"]) + 1.0],
+        )
         self.assertEqual(df["sem"].tolist(), [0.0])
 
         # noisy
@@ -43,12 +45,16 @@ class GenericNoisyFunctionMetricTest(TestCase):
         df = metric.fetch_trial_data(trial).unwrap().df
         self.assertEqual(df["arm_name"].tolist(), ["0_0"])
         self.assertEqual(df["metric_name"].tolist(), ["test_metric"])
-        self.assertNotEqual(df["mean"].tolist(), [trial.arm.parameters["x"] + 1.0])
+        self.assertNotEqual(
+            df["mean"].tolist(),
+            [float(none_throws(trial.arm).parameters["x"]) + 1.0],
+        )
         self.assertEqual(df["sem"].tolist(), [1.0])
         df = metric.fetch_trial_data(trial, noisy=False).unwrap().df
         self.assertEqual(df["arm_name"].tolist(), ["0_0"])
         self.assertEqual(df["metric_name"].tolist(), ["test_metric"])
-        self.assertEqual(df["mean"].tolist(), [trial.arm.parameters["x"] + 1.0])
+        arm = none_throws(trial.arm)
+        self.assertEqual(df["mean"].tolist(), [float(arm.parameters["x"]) + 1.0])
         self.assertEqual(df["sem"].tolist(), [0.0])
 
         # unknown noise level
@@ -61,6 +67,7 @@ class GenericNoisyFunctionMetricTest(TestCase):
         df = metric.fetch_trial_data(trial).unwrap().df
         self.assertEqual(df["arm_name"].tolist(), ["0_0"])
         self.assertEqual(df["metric_name"].tolist(), ["test_metric"])
-        self.assertEqual(df["mean"].tolist(), [trial.arm.parameters["x"] + 1.0])
-        self.assertEqual(df["mean"].tolist(), [trial.arm.parameters["x"] + 1.0])
+        arm = none_throws(trial.arm)
+        self.assertEqual(df["mean"].tolist(), [float(arm.parameters["x"]) + 1.0])
+        self.assertEqual(df["mean"].tolist(), [float(arm.parameters["x"]) + 1.0])
         self.assertTrue(math.isnan(df["sem"].tolist()[0]))

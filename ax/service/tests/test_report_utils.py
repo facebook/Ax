@@ -9,7 +9,9 @@
 import itertools
 import logging
 from collections import namedtuple
+from collections.abc import Callable
 from logging import DEBUG, INFO, WARN
+from typing import Any
 from unittest import mock
 from unittest.mock import patch
 
@@ -18,9 +20,13 @@ from ax.adapter.registry import Generators
 from ax.core.arm import Arm
 from ax.core.metric import Metric
 from ax.core.objective import MultiObjective, Objective
-from ax.core.optimization_config import MultiObjectiveOptimizationConfig
+from ax.core.optimization_config import (
+    MultiObjectiveOptimizationConfig,
+    OptimizationConfig,
+)
 from ax.core.outcome_constraint import ObjectiveThreshold
 from ax.core.types import ComparisonOp
+from ax.exceptions.core import UnsupportedError
 from ax.generation_strategy.generation_node import GenerationStep
 from ax.generation_strategy.generation_strategy import GenerationStrategy
 from ax.orchestration.orchestrator import Orchestrator
@@ -47,6 +53,7 @@ from ax.utils.testing.core_stubs import (
     get_branin_experiment,
     get_branin_experiment_with_multi_objective,
     get_branin_experiment_with_timestamp_map_metric,
+    get_branin_metric,
     get_experiment_with_observations,
     get_high_dimensional_branin_experiment,
     get_multi_type_experiment,
@@ -265,8 +272,7 @@ class ReportUtilsTest(TestCase):
         with patch.object(Experiment, "lookup_data", lambda self: mock_results):
             df = exp_to_df(exp=exp)
         # all but two rows should have a metric value of NaN
-        # pyre-fixme[16]: `bool` has no attribute `sum`.
-        self.assertEqual(pd.isna(df[OBJECTIVE_NAME]).sum(), len(df.index) - 2)
+        self.assertEqual(df[OBJECTIVE_NAME].isna().sum(), len(df.index) - 2)
 
         # an experiment with more results than arms raises an error
         with (
@@ -369,16 +375,16 @@ class ReportUtilsTest(TestCase):
                 self.assertTrue(all(isinstance(plot, go.Figure) for plot in plots))
 
         # Raise an exception in one plot and make sure we generate the others
-        for plot_function, num_expected_plots in [
-            [_get_curve_plot_dropdown, 8],  # Not used
-            [_get_objective_trace_plot, 6],
-            [_objective_vs_true_objective_scatter, 7],
-            [_get_objective_v_param_plots, 6],
-            [_get_cross_validation_plots, 7],
-            [plot_feature_importance_by_feature_plotly, 6],
-        ]:
+        plot_test_cases: list[tuple[Callable[..., Any], int]] = [
+            (_get_curve_plot_dropdown, 8),  # Not used
+            (_get_objective_trace_plot, 6),
+            (_objective_vs_true_objective_scatter, 7),
+            (_get_objective_v_param_plots, 6),
+            (_get_cross_validation_plots, 7),
+            (plot_feature_importance_by_feature_plotly, 6),
+        ]
+        for plot_function, num_expected_plots in plot_test_cases:
             with mock.patch(
-                # pyre-ignore
                 f"ax.service.utils.report_utils.{plot_function.__name__}",
                 side_effect=Exception(),
             ):
@@ -394,8 +400,16 @@ class ReportUtilsTest(TestCase):
     @mock_botorch_optimize
     def test_get_standard_plots_moo(self) -> None:
         exp = get_branin_experiment_with_multi_objective(with_batch=True)
-        exp.optimization_config.objective.objectives[0].minimize = False
-        exp.optimization_config.objective.objectives[1].minimize = True
+        # Flip the minimize direction for the multi-objective:
+        # first objective to maximize, second to minimize
+        opt_config = none_throws(exp.optimization_config)
+        obj = opt_config.objective
+        names = obj.metric_names
+        mapping = dict(obj._metric_name_to_signature)
+        opt_config._objective = Objective(
+            expression=f"{names[0]}, -{names[1]}",
+            metric_name_to_signature=mapping,
+        )
         assert_is_instance(
             exp.optimization_config, MultiObjectiveOptimizationConfig
         )._objective_thresholds = [
@@ -435,29 +449,36 @@ class ReportUtilsTest(TestCase):
         self, trial_is_complete: bool
     ) -> None:
         exp = get_branin_experiment_with_multi_objective(with_batch=True)
-        first_obj = assert_is_instance(
-            none_throws(exp.optimization_config).objective, MultiObjective
-        ).objectives[0]
-        first_obj.minimize = False
-        first_obj.metric.lower_is_better = False
+        obj = none_throws(exp.optimization_config).objective
+        # Flip the first objective to maximize (positive weight = maximize)
+        names = obj.metric_names
+        # Create a new Objective rather than mutating _expression_str to
+        # avoid stale _parsed cached_property.
+        none_throws(exp.optimization_config)._objective = Objective(
+            expression=f"{names[0]}, -{names[1]}",
+            metric_name_to_signature={n: n for n in names},
+        )
+        exp.get_metric(names[0]).lower_is_better = False
         assert_is_instance(
             exp.optimization_config, MultiObjectiveOptimizationConfig
         )._objective_thresholds = [
             ObjectiveThreshold(
-                metric=exp.metrics["branin_a"], op=ComparisonOp.GEQ, bound=-100.0
+                metric=exp.metrics["branin_a"],
+                op=ComparisonOp.GEQ,
+                bound=-100.0,
+                relative=False,
             ),
             ObjectiveThreshold(
-                metric=exp.metrics["branin_b"], op=ComparisonOp.LEQ, bound=100.0
+                metric=exp.metrics["branin_b"],
+                op=ComparisonOp.LEQ,
+                bound=100.0,
+                relative=False,
             ),
         ]
         exp.trials[0].run()
         if trial_is_complete:
             exp.trials[0].mark_completed()
 
-        for ot in assert_is_instance(
-            exp.optimization_config, MultiObjectiveOptimizationConfig
-        )._objective_thresholds:
-            ot.relative = False
         plots = get_standard_plots(
             experiment=exp,
             model=Generators.BOTORCH_MODULAR(experiment=exp, data=exp.fetch_data()),
@@ -474,8 +495,14 @@ class ReportUtilsTest(TestCase):
     @mock_botorch_optimize
     def test_get_standard_plots_moo_no_objective_thresholds(self) -> None:
         exp = get_branin_experiment_with_multi_objective(with_batch=True)
-        exp.optimization_config.objective.objectives[0].minimize = False
-        exp.optimization_config.objective.objectives[1].minimize = True
+        # Flip the minimize direction for the multi-objective:
+        # first objective to maximize, second to minimize
+        obj = none_throws(exp.optimization_config).objective
+        names = obj.metric_names
+        none_throws(exp.optimization_config)._objective = Objective(
+            expression=f"{names[0]}, -{names[1]}",
+            metric_name_to_signature={n: n for n in names},
+        )
         exp.trials[0].run()
         plots = get_standard_plots(
             experiment=exp,
@@ -591,7 +618,7 @@ class ReportUtilsTest(TestCase):
         # Create Orchestrator and run a few trials.
         exp = get_branin_experiment()
         gs = GenerationStrategy(
-            steps=[
+            nodes=[
                 GenerationStep(
                     generator=Generators.SOBOL,
                     num_trials=3,
@@ -640,7 +667,6 @@ class ReportUtilsTest(TestCase):
         self.assertIsNone(msg)
 
         # Test with no optimization config.
-        exp._tracking_metrics = exp.metrics
         exp._optimization_config = None
         msg = warn_if_unpredictable_metrics(
             experiment=exp,
@@ -699,12 +725,18 @@ class ReportUtilsTest(TestCase):
         exp.fetch_data()
         arm_names = list(exp.arms_by_name.keys())
 
-        # Use a different metric name in optimization config that doesn't exist in data
-        exp._optimization_config.objective._metric = Metric(name="nonexistent_metric")
+        # Use a different metric name in optimization config that doesn't
+        # exist in data.
+        opt_config = OptimizationConfig(
+            objective=Objective(
+                expression="nonexistent_metric",
+                metric_name_to_signature={"nonexistent_metric": "nonexistent_metric"},
+            ),
+        )
 
         result = maybe_extract_baseline_comparison_values(
             experiment=exp,
-            optimization_config=exp.optimization_config,
+            optimization_config=opt_config,
             comparison_arm_names=[arm_names[1]],
             baseline_arm_name=arm_names[0],
         )
@@ -717,14 +749,59 @@ class ReportUtilsTest(TestCase):
         exp.fetch_data()
         arm_names = list(exp.arms_by_name.keys())
 
-        # Replace one objective metric with a nonexistent one
+        # Replace one objective metric with a nonexistent one.
         moo = none_throws(exp.optimization_config).objective
-        moo.objectives[0]._metric = Metric(name="nonexistent_metric")
+        names = list(moo.metric_names)
+        mapping = dict(moo._metric_name_to_signature)
+        mapping["nonexistent_metric"] = "nonexistent_metric"
+        opt_config = MultiObjectiveOptimizationConfig(
+            objective=Objective(
+                expression=f"-nonexistent_metric, -{names[1]}",
+                metric_name_to_signature=mapping,
+            ),
+        )
 
         result = maybe_extract_baseline_comparison_values(
             experiment=exp,
-            optimization_config=exp.optimization_config,
+            optimization_config=opt_config,
             comparison_arm_names=[arm_names[1]],
             baseline_arm_name=arm_names[0],
         )
         self.assertIsNone(result)
+
+    def test_get_objective_trace_plot_scalarized(self) -> None:
+        """_get_objective_trace_plot raises UnsupportedError for scalarized."""
+        exp = get_branin_experiment(with_completed_trial=True)
+        exp.add_tracking_metric(get_branin_metric(name="branin2"))
+        exp._optimization_config = OptimizationConfig(
+            objective=Objective(
+                expression="2*branin + -1*branin2",
+                metric_name_to_signature={"branin": "branin", "branin2": "branin2"},
+            ),
+        )
+        with self.assertRaisesRegex(UnsupportedError, "not supported for scalarized"):
+            _get_objective_trace_plot(experiment=exp)
+
+    def test_maybe_extract_baseline_comparison_values_scalarized(self) -> None:
+        """maybe_extract_baseline_comparison_values raises UnsupportedError
+        for scalarized."""
+        exp = get_branin_experiment_with_multi_objective(with_batch=True)
+        exp.trials[0].run()
+        exp.fetch_data()
+        arm_names = list(exp.arms_by_name.keys())
+        exp._optimization_config = OptimizationConfig(
+            objective=Objective(
+                expression="2*branin_a + -1*branin_b",
+                metric_name_to_signature={
+                    "branin_a": "branin_a",
+                    "branin_b": "branin_b",
+                },
+            ),
+        )
+        with self.assertRaisesRegex(UnsupportedError, "not supported for scalarized"):
+            maybe_extract_baseline_comparison_values(
+                experiment=exp,
+                optimization_config=exp.optimization_config,
+                comparison_arm_names=[arm_names[1]],
+                baseline_arm_name=arm_names[0],
+            )

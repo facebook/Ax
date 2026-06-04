@@ -18,8 +18,7 @@ class TestCIFAR10Surrogate(TestCase):
         objective = benchmark.optimization_config.objective
 
         self.assertFalse(objective.minimize)
-        self.assertFalse(objective.metric.lower_is_better)
-        self.assertEqual(objective.metric.name, "CIFAR10 Test Accuracy")
+        self.assertEqual(objective.metric_names, ["CIFAR10 Test Accuracy"])
 
     def test_cifar10_surrogate(self) -> None:
         cases = [

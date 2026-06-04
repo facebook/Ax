@@ -38,15 +38,12 @@ STATUS_QUO_GENERATION_METHOD_STR = "Status Quo"
 MAX_ABANDONED_REASON_LENGTH = 1000
 
 
-def immutable_once_run(func: Callable) -> Callable:
+def immutable_once_run(func: Callable[..., Any]) -> Callable[..., Any]:
     """Decorator for methods that should throw Error when
     trial is running or has ever run and immutable.
     """
 
-    # no type annotation for now; breaks sphinx-autodoc-typehints
-    # pyre-fixme[3]: Return type must be annotated.
-    # pyre-fixme[2]: Parameter must be annotated.
-    def _immutable_once_run(self, *args, **kwargs):
+    def _immutable_once_run(self: Any, *args: Any, **kwargs: Any) -> Any:
         if self._status != TrialStatus.CANDIDATE:
             raise TrialMutationError(
                 "Cannot modify a trial that is running or has ever run. "
@@ -200,6 +197,16 @@ class BaseTrial(ABC, SortableBase):
         """The status of the trial in the experimentation lifecycle."""
         self._mark_stale_if_past_TTL()
         return none_throws(self._status)
+
+    @property
+    def expecting_data(self) -> bool:
+        """Whether this trial expects data via the standard data-fetch pipeline.
+
+        Returns ``False`` for LILO labeling trials because their pairwise
+        preference data is fetched inline during the labeling loop and is
+        never refetched through the normal orchestration path.
+        """
+        return self.status.expecting_data and self.trial_type != Keys.LILO_LABELING
 
     @status.setter
     def status(self, status: TrialStatus) -> None:
@@ -531,11 +538,15 @@ class BaseTrial(ABC, SortableBase):
     def mark_staged(self, unsafe: bool = False) -> Self:
         """Mark the trial as being staged for running.
 
+        No-op if the trial is already staged.
+
         Args:
             unsafe: Ignore sanity checks on state transitions.
         Returns:
             The trial instance.
         """
+        if self._status == TrialStatus.STAGED:
+            return self
         if not unsafe and self._status != TrialStatus.CANDIDATE:
             raise TrialMutationError(
                 f"Can only stage a candidate trial.  This trial is {self._status}"
@@ -545,18 +556,29 @@ class BaseTrial(ABC, SortableBase):
         return self
 
     def mark_running(
-        self, no_runner_required: bool = False, unsafe: bool = False
+        self,
+        no_runner_required: bool = False,
+        unsafe: bool = False,
+        started_time: datetime | None = None,
     ) -> Self:
         """Mark trial has started running.
+
+        No-op if the trial is already running.
 
         Args:
             no_runner_required: Whether to skip the check for presence of a
                 ``Runner`` on the experiment.
             unsafe: Ignore sanity checks on state transitions.
+            started_time: When the trial actually started running. Defaults
+                to ``datetime.now()`` if not provided. Useful for runners
+                that confirm deployment asynchronously and know the real
+                start time.
 
         Returns:
             The trial instance.
         """
+        if self._status == TrialStatus.RUNNING:
+            return self
         if self.runner is None and not no_runner_required:
             raise ValueError("Cannot mark trial running without setting runner.")
 
@@ -571,13 +593,17 @@ class BaseTrial(ABC, SortableBase):
                 f"Can only mark this trial as running when {prev_step_str}."
             )
         self._status = TrialStatus.RUNNING
-        self._time_run_started = datetime.now()
+        self._time_run_started = (
+            started_time if started_time is not None else datetime.now()
+        )
         return self
 
     def mark_completed(
         self, unsafe: bool = False, time_completed: str | None = None
     ) -> Self:
         """Mark trial as completed.
+
+        No-op if the trial is already completed.
 
         Args:
             unsafe: Ignore sanity checks on state transitions.
@@ -588,6 +614,8 @@ class BaseTrial(ABC, SortableBase):
         Returns:
             The trial instance.
         """
+        if self._status == TrialStatus.COMPLETED:
+            return self
         if not unsafe and self._status != TrialStatus.RUNNING:
             raise TrialMutationError(
                 "Can only complete trial that is currently running."
@@ -603,6 +631,8 @@ class BaseTrial(ABC, SortableBase):
     def mark_abandoned(self, reason: str | None = None, unsafe: bool = False) -> Self:
         """Mark trial as abandoned.
 
+        No-op if the trial is already abandoned.
+
         NOTE: Arms in abandoned trials are considered to be 'pending points'
         in experiment after their abandonment to avoid Ax models suggesting
         the same arm again as a new candidate. Arms in abandoned trials are
@@ -616,6 +646,8 @@ class BaseTrial(ABC, SortableBase):
         Returns:
             The trial instance.
         """
+        if self._status == TrialStatus.ABANDONED:
+            return self
         if not unsafe and none_throws(self._status).is_terminal:
             raise ValueError("Cannot abandon a trial in a terminal state.")
 
@@ -629,11 +661,15 @@ class BaseTrial(ABC, SortableBase):
     def mark_failed(self, reason: str | None = None, unsafe: bool = False) -> Self:
         """Mark trial as failed.
 
+        No-op if the trial is already failed.
+
         Args:
             unsafe: Ignore sanity checks on state transitions.
         Returns:
             The trial instance.
         """
+        if self._status == TrialStatus.FAILED:
+            return self
         if not unsafe and self._status != TrialStatus.RUNNING:
             raise TrialMutationError(
                 "Can only mark failed a trial that is currently running."
@@ -649,12 +685,16 @@ class BaseTrial(ABC, SortableBase):
     ) -> Self:
         """Mark trial as early stopped.
 
+        No-op if the trial is already early stopped.
+
         Args:
             reason: The reason the trial was early stopped.
             unsafe: Ignore sanity checks on state transitions.
         Returns:
             The trial instance.
         """
+        if self._status == TrialStatus.EARLY_STOPPED:
+            return self
         if not unsafe:
             if self._status != TrialStatus.RUNNING:
                 raise TrialMutationError(
@@ -675,11 +715,15 @@ class BaseTrial(ABC, SortableBase):
     def mark_stale(self, unsafe: bool = False) -> Self:
         """Mark trial as stale.
 
+        No-op if the trial is already stale.
+
         Args:
             unsafe: Ignore sanity checks on state transitions.
         Returns:
             The trial instance.
         """
+        if self._status == TrialStatus.STALE:
+            return self
         if not unsafe and self._status != TrialStatus.CANDIDATE:
             raise TrialMutationError(
                 message=(
@@ -696,6 +740,9 @@ class BaseTrial(ABC, SortableBase):
     def mark_as(self, status: TrialStatus, unsafe: bool = False, **kwargs: Any) -> Self:
         """Mark trial with a new TrialStatus.
 
+        If the trial is already in the given status, this is a no-op -- the
+        trial is returned unchanged and timestamps are not overwritten.
+
         Args:
             status: The new status of the trial.
             unsafe: Ignore sanity checks on state transitions.
@@ -705,11 +752,18 @@ class BaseTrial(ABC, SortableBase):
         Returns:
             The trial instance.
         """
+        if self._status == status:
+            return self
         if status == TrialStatus.STAGED:
             self.mark_staged(unsafe=unsafe)
         elif status == TrialStatus.RUNNING:
             no_runner_required = kwargs.get("no_runner_required", False)
-            self.mark_running(no_runner_required=no_runner_required, unsafe=unsafe)
+            started_time = kwargs.get("started_time")
+            self.mark_running(
+                no_runner_required=no_runner_required,
+                unsafe=unsafe,
+                started_time=started_time,
+            )
         elif status == TrialStatus.ABANDONED:
             self.mark_abandoned(reason=kwargs.get("reason"), unsafe=unsafe)
         elif status == TrialStatus.FAILED:

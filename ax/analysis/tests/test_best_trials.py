@@ -162,7 +162,7 @@ class TestBestTrials(TestCase):
                 experiment=self.experiment, generation_strategy=None
             )
             self.assertIsNotNone(error)
-            self.assertIn("requires a `GenerationStrategy`", error)
+            self.assertIn("requires a GenerationStrategy", error)
 
     def test_trial_status_filter(self) -> None:
         """Test that trial_statuses parameter filters correctly."""

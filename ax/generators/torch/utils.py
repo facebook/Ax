@@ -9,13 +9,11 @@
 import logging
 from collections.abc import Callable, Sequence
 from dataclasses import dataclass
-from typing import Any, cast
 
 import numpy.typing as npt
 import torch
 from ax.exceptions.core import UnsupportedError
 from ax.generators.utils import filter_constraints_and_fixed_features, get_observed
-from ax.utils.common.constants import Keys
 from botorch.acquisition.acquisition import AcquisitionFunction
 from botorch.acquisition.analytic import PosteriorMean
 from botorch.acquisition.logei import qLogProbabilityOfFeasibility
@@ -41,11 +39,11 @@ from botorch.acquisition.utils import get_infeasible_cost
 from botorch.models.model import Model, ModelList
 from botorch.posteriors.ensemble import EnsemblePosterior
 from botorch.posteriors.fully_bayesian import GaussianMixturePosterior
-from botorch.sampling.normal import IIDNormalSampler, SobolQMCNormalSampler
 from botorch.utils.constraints import get_outcome_constraint_transforms
 from botorch.utils.datasets import SupervisedDataset
 from botorch.utils.objective import get_objective_weights_transform
 from botorch.utils.transforms import is_ensemble
+from pyre_extensions import none_throws
 from torch import Tensor
 from torch.nn import ModuleList  # @manual
 
@@ -88,7 +86,6 @@ class SubsetModelData:
     model: Model
     objective_weights: Tensor
     outcome_constraints: tuple[Tensor, Tensor] | None
-    objective_thresholds: Tensor | None
     indices: Tensor
 
 
@@ -218,7 +215,6 @@ def subset_model(
     model: Model,
     objective_weights: Tensor,
     outcome_constraints: tuple[Tensor, Tensor] | None = None,
-    objective_thresholds: Tensor | None = None,
 ) -> SubsetModelData:
     """Subset a botorch model to the outputs used in the optimization.
 
@@ -228,17 +224,15 @@ def subset_model(
             input arguments.
         objective_weights: A ``(n_objectives, n_outcomes)`` tensor of objective
             weights.
-        objective_thresholds: A ``m``-dim tensor of objective thresholds. There
-            is one for each modeled metric.
         outcome_constraints: A tuple of (A, b). For k outcome constraints
             and m outputs at f(x), A is (k x m) and b is (k x 1) such that
             A f(x) <= b. (Not used by single task models)
 
     Returns:
         A SubsetModelData dataclass containing the model, objective_weights,
-        outcome_constraints, objective thresholds, all subset to only those
-        outputs that appear in either the objective weights or the outcome
-        constraints, along with the indices of the outputs.
+        outcome_constraints, all subset to only those outputs that appear in
+        either the objective weights or the outcome constraints, along with
+        the indices of the outputs.
     """
     nonzero = (objective_weights != 0).any(dim=0)
     if outcome_constraints is not None:
@@ -256,7 +250,6 @@ def subset_model(
             model=model,
             objective_weights=objective_weights,
             outcome_constraints=outcome_constraints,
-            objective_thresholds=objective_thresholds,
             indices=torch.arange(
                 num_outcomes,
                 device=objective_weights.device,
@@ -273,8 +266,6 @@ def subset_model(
         if outcome_constraints is not None:
             A, b = outcome_constraints
             outcome_constraints = A[:, nonzero], b
-        if objective_thresholds is not None:
-            objective_thresholds = objective_thresholds[nonzero]
     except NotImplementedError:
         idcs_t = torch.arange(
             model.num_outputs,
@@ -284,26 +275,46 @@ def subset_model(
         model=model,
         objective_weights=objective_weights,
         outcome_constraints=outcome_constraints,
-        objective_thresholds=objective_thresholds,
         indices=idcs_t,
     )
+
+
+def _to_botorch_constraints(
+    constraints: tuple[Tensor, Tensor] | None,
+    negate: bool,
+) -> list[tuple[Tensor, Tensor, float]] | None:
+    """Convert (A, b) constraint tensors to BoTorch's (indices, coeffs, rhs) format.
+
+    Args:
+        constraints: A tuple (A, b) where A is ``k x d`` and b is ``k x 1``.
+        negate: If True, negate coefficients and rhs. Used for inequality
+            constraints where Ax uses ``Ax <= b`` but BoTorch uses
+            ``sum(coeffs * X) >= rhs``.
+    """
+    if constraints is None:
+        return None
+    A, b = constraints
+    result = []
+    k, d = A.shape
+    sign = -1.0 if negate else 1.0
+    for i in range(k):
+        indices = torch.atleast_1d(A[i, :].nonzero(as_tuple=False).squeeze())
+        coefficients = torch.atleast_1d(sign * A[i, indices])
+        rhs = sign * b[i, 0].item()
+        result.append((indices, coefficients, rhs))
+    return result
 
 
 def _to_inequality_constraints(
     linear_constraints: tuple[Tensor, Tensor] | None = None,
 ) -> list[tuple[Tensor, Tensor, float]] | None:
-    if linear_constraints is not None:
-        A, b = linear_constraints
-        inequality_constraints = []
-        k, d = A.shape
-        for i in range(k):
-            indices = torch.atleast_1d(A[i, :].nonzero(as_tuple=False).squeeze())
-            coefficients = torch.atleast_1d(-A[i, indices])
-            rhs = -b[i, 0].item()
-            inequality_constraints.append((indices, coefficients, rhs))
-    else:
-        inequality_constraints = None
-    return inequality_constraints
+    return _to_botorch_constraints(linear_constraints, negate=True)
+
+
+def _to_equality_constraints(
+    equality_constraints: tuple[Tensor, Tensor] | None = None,
+) -> list[tuple[Tensor, Tensor, float]] | None:
+    return _to_botorch_constraints(equality_constraints, negate=False)
 
 
 def tensor_callable_to_array_callable(
@@ -413,23 +424,10 @@ def get_botorch_objective_and_transform(
 
 def pick_best_out_of_sample_point_acqf_class(
     outcome_constraints: tuple[Tensor, Tensor] | None = None,
-    mc_samples: int = 512,
-    qmc: bool = True,
-    seed_inner: int | None = None,
-) -> tuple[type[AcquisitionFunction], dict[str, Any]]:
+) -> type[AcquisitionFunction]:
     if outcome_constraints is None:
-        acqf_class = PosteriorMean
-        acqf_options = {}
-    else:
-        acqf_class = qSimpleRegret
-        sampler_class = SobolQMCNormalSampler if qmc else IIDNormalSampler
-        acqf_options = {
-            Keys.SAMPLER.value: sampler_class(
-                sample_shape=torch.Size([mc_samples]), seed=seed_inner
-            )
-        }
-
-    return cast(type[AcquisitionFunction], acqf_class), acqf_options
+        return PosteriorMean
+    return qSimpleRegret
 
 
 def predict_from_model(
@@ -477,6 +475,13 @@ def predict_from_model(
                         "Predicting from a model requires the posterior to implement"
                         f"`mean` and `variance` properties. Original error message: {e}"
                     )
+                # PosteriorList may introduce extra batch dimensions from
+                # broadcasting (e.g., PairwiseGP + SAAS ensemble in a
+                # ModelList). Average over leading batch dims to get the
+                # expected (n, o) shape per chunk before concatenation.
+                if mean.ndim > 2:
+                    mean = mean.reshape(-1, *mean.shape[-2:]).mean(dim=0)
+                    var = var.reshape(-1, *var.shape[-2:]).mean(dim=0)
             means.append(mean)
             variances.append(var)
         mean = torch.cat(means, dim=0)
@@ -551,8 +556,8 @@ def get_feature_importances_from_botorch_model(
         if is_ensemble(m):  # Take the median over the model batch dimension
             ls = torch.quantile(ls, q=0.5, dim=0, keepdim=True)
         lengthscales.append(ls)
-    lengthscales = torch.cat(lengthscales, dim=0)
-    feature_importances = (1 / lengthscales).detach().cpu()  # pyre-ignore
+    lengthscales_t: Tensor = torch.cat(lengthscales, dim=0)
+    feature_importances = torch.reciprocal(lengthscales_t).detach().cpu()
     # Make sure the sum of feature importances is 1.0 for each metric
     feature_importances /= feature_importances.sum(dim=-1, keepdim=True)
     return feature_importances.numpy()
@@ -567,9 +572,7 @@ def get_rounding_func(
     # make sure rounding_func is properly applied to q- and t-batches
     def botorch_rounding_func(X: Tensor) -> Tensor:
         batch_shape, d = X.shape[:-1], X.shape[-1]
-        X_round = torch.stack(
-            [rounding_func(x) for x in X.view(-1, d)]  # pyre-ignore: [16]
-        )
+        X_round = torch.stack([none_throws(rounding_func)(x) for x in X.view(-1, d)])
         return X_round.view(*batch_shape, d)
 
     return botorch_rounding_func

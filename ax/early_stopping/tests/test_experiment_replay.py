@@ -25,13 +25,17 @@ class TestEstimateHypotheticalEss(TestCase):
         super().setUp()
         # Experiment with MapMetric for tests that need a valid default ESS.
         self.exp = get_branin_experiment_with_timestamp_map_metric()
-        self.metric = none_throws(self.exp.optimization_config).objective.metric
+        metric_name = none_throws(self.exp.optimization_config).objective.metric_names[
+            0
+        ]
+        self.metric = self.exp.get_metric(metric_name)
 
     def test_estimate_hypothetical_ess_no_default_strategy(self) -> None:
         """Test that UnsupportedError is raised when no default ESS is available."""
         # Non-MapMetric experiment has no default ESS.
         exp = get_branin_experiment(has_optimization_config=True)
-        metric = none_throws(exp.optimization_config).objective.metric
+        metric_name = none_throws(exp.optimization_config).objective.metric_names[0]
+        metric = exp.get_metric(metric_name)
 
         with self.assertRaises(UnsupportedError) as e:
             estimate_hypothetical_early_stopping_savings(

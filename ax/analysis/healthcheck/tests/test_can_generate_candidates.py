@@ -38,7 +38,7 @@ class TestCanGenerateCandidates(TestCase):
         )
         self.assertEqual(card.get_status(), HealthcheckStatus.PASS)
         self.assertDictEqual(
-            card.get_aditional_attrs(),
+            card.get_additional_attrs(),
             {
                 "status": HealthcheckStatus.PASS,
                 "reason": "No problems found.",
@@ -57,10 +57,10 @@ class TestCanGenerateCandidates(TestCase):
             reason="The data is borked.",
             days_till_fail=2,
         ).compute(experiment=experiment, generation_strategy=None)
-        # THEN it is a WARNING
-        self.assertEqual(card.get_status(), HealthcheckStatus.WARNING)
+        # THEN it is INFO
+        self.assertEqual(card.get_status(), HealthcheckStatus.INFO)
         self.assertEqual(card.name, "CanGenerateCandidatesAnalysis")
-        self.assertEqual(card.title, "Ax Candidate Generation Warning")
+        self.assertEqual(card.title, "Ax Candidate Generation Info")
         self.assertEqual(
             card.subtitle,
             (
@@ -71,11 +71,11 @@ class TestCanGenerateCandidates(TestCase):
                 "LAST TRIAL RUN: 1 day(s) ago"
             ),
         )
-        self.assertEqual(card.get_status(), HealthcheckStatus.WARNING)
+        self.assertEqual(card.get_status(), HealthcheckStatus.INFO)
         self.assertDictEqual(
-            card.get_aditional_attrs(),
+            card.get_additional_attrs(),
             {
-                "status": HealthcheckStatus.WARNING,
+                "status": HealthcheckStatus.INFO,
                 "reason": "The data is borked.",
             },
         )
@@ -101,11 +101,12 @@ class TestCanGenerateCandidates(TestCase):
                 "The candidate generation health check notifies users if key "
                 "criteria for candidate generation are missing. "
                 f"{CanGenerateCandidatesAnalysis.REASON_PREFIX}The data is gone."
+                f"{CanGenerateCandidatesAnalysis.NO_TRIALS_REMEDIATION}"
             ),
         )
         self.assertEqual(card.get_status(), HealthcheckStatus.FAIL)
         self.assertDictEqual(
-            card.get_aditional_attrs(),
+            card.get_additional_attrs(),
             {
                 "status": HealthcheckStatus.FAIL,
                 "reason": "The data is gone.",
@@ -135,13 +136,14 @@ class TestCanGenerateCandidates(TestCase):
                 "The candidate generation health check notifies users if key "
                 "criteria for candidate generation are missing. "
                 f"{CanGenerateCandidatesAnalysis.REASON_PREFIX}"
-                "The data is old.\n\n"
-                "LAST TRIAL RUN: 3 day(s) ago"
+                "The data is old."
+                f"{CanGenerateCandidatesAnalysis.STALE_TRIALS_REMEDIATION}"
+                "\n\nLAST TRIAL RUN: 3 day(s) ago"
             ),
         )
         self.assertEqual(card.get_status(), HealthcheckStatus.FAIL)
         self.assertDictEqual(
-            card.get_aditional_attrs(),
+            card.get_additional_attrs(),
             {
                 "status": HealthcheckStatus.FAIL,
                 "reason": "The data is old.",

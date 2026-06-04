@@ -41,13 +41,18 @@ class TorchOptConfig:
         outcome_constraints: A tuple of (A, b). For k outcome constraints
             and m outputs at f(x), A is (k x m) and b is (k x 1) such that
             A f(x) <= b.
-        objective_thresholds:  A tensor containing thresholds forming a
-            reference point from which to calculate pareto frontier hypervolume.
-            Points that do not dominate the objective_thresholds contribute
-            nothing to hypervolume.
+        objective_thresholds: A ``(n_objectives,)`` tensor of maximization-aligned
+            objective thresholds forming a reference point from which to calculate
+            Pareto frontier hypervolume. Points that do not dominate the
+            objective_thresholds contribute nothing to hypervolume. NaN entries
+            indicate thresholds that need to be inferred. ``None`` for single-
+            objective optimization.
         linear_constraints: A tuple of (A, b). For k linear constraints on
             d-dimensional x, A is (k x d) and b is (k x 1) such that
             A x <= b for feasible x.
+        equality_constraints: A tuple of (A, b). For k equality constraints on
+            d-dimensional x, A is (k x d) and b is (k x 1) such that
+            A x = b for feasible x.
         fixed_features: A map {feature_index: value} for features that
             should be fixed to a particular value during generation.
         pending_observations:  A list of m (k_i x d) feature tensors X
@@ -89,6 +94,7 @@ class TorchOptConfig:
     outcome_constraints: tuple[Tensor, Tensor] | None = None
     objective_thresholds: Tensor | None = None
     linear_constraints: tuple[Tensor, Tensor] | None = None
+    equality_constraints: tuple[Tensor, Tensor] | None = None
     fixed_features: dict[int, float] | None = None
     pending_observations: list[Tensor] | None = None
     model_gen_options: TConfig = field(default_factory=dict)

@@ -110,13 +110,32 @@ class TestOfNoEffectAnalysis(Analysis):
 
         if len(objectives_without_effects) > 0:
             status = HealthcheckStatus.WARNING
-            formatted_metrics = "<br>".join(objectives_without_effects)
+            formatted_metrics = "\n".join(objectives_without_effects)
             subtitle = (
                 "The test of no effect checks to see whether the objective "
                 "metrics of an experiment have had any detectable effects. Based "
                 "on the experiment data thus far, no effects have been detected at a "
                 f"{(1.0 - self.no_effect_alpha) * 100:.0f}% confidence level for "
-                f"the following metrics: <br><br> {formatted_metrics}"
+                f"the following metrics: \n\n{formatted_metrics}"
+                "\n\n**Suggested next steps:**\n"
+                "- Verify that the parameters being tuned actually "
+                "influence these metrics.\n"
+                "- Check whether the arm configurations are too similar. "
+                "This test compares metric values across arms, so if all "
+                "arms have similar parameter values, no effect will be "
+                "detected.\n"
+                "- Check that the metric is correctly implemented and not "
+                "returning constant values.\n"
+                "- Check whether the metrics have a low signal-to-noise "
+                "ratio. High measurement noise relative to the effect "
+                "size can make it difficult to detect real effects.\n"
+                "- Consider whether the experiment is underpowered. "
+                "Increasing the number of segments per arm can reduce "
+                "measurement uncertainty and improve the power of the "
+                "statistical test.\n"
+                "- Run additional trials to explore more of the search "
+                "space, which may reveal effects not seen with current "
+                "arm configurations."
             )
             title_status = "Warning"
 

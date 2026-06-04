@@ -26,6 +26,7 @@ from ax.core.runner import Runner
 from ax.exceptions.core import TrialMutationError, UnsupportedError, UserInputError
 from ax.metrics.branin import BraninMetric
 from ax.runners.synthetic import SyntheticRunner
+from ax.utils.common.constants import Keys
 from ax.utils.common.result import Ok
 from ax.utils.common.testutils import TestCase
 from ax.utils.testing.core_stubs import (
@@ -41,11 +42,11 @@ TEST_DATA = Data(
         [
             {
                 "arm_name": "0_0",
-                "metric_name": get_objective().metric.name,
+                "metric_name": get_objective().metric_names[0],
                 "mean": 1.0,
                 "sem": 2.0,
                 "trial_index": 0,
-                "metric_signature": get_objective().metric.signature,
+                "metric_signature": get_objective().metric_names[0],
             }
         ]
     )
@@ -114,13 +115,12 @@ class TrialTest(TestCase):
 
     def test_adding_new_trials(self) -> None:
         new_arm = get_arms()[1]
-        cand_metadata = {new_arm.signature: {"a": "b"}}
+        cand_metadata: dict[str, dict[str, str] | None] = {
+            new_arm.signature: {"a": "b"}
+        }
         new_trial = self.experiment.new_trial(
             generator_run=GeneratorRun(
                 arms=[new_arm],
-                # pyre-fixme[6]: For 2nd param expected `Optional[Dict[str,
-                #  Optional[Dict[str, typing.Any]]]]` but got `Dict[str, Dict[str,
-                #  str]]`.
                 candidate_metadata_by_arm_signature=cand_metadata,
             )
         )
@@ -272,8 +272,22 @@ class TrialTest(TestCase):
                     TrialStatus.COMPLETED,
                 ]:
                     self.assertTrue(self.trial.status.expecting_data)
+                    # trial.expecting_data follows status for normal trials.
+                    self.assertTrue(self.trial.expecting_data)
                 else:
                     self.assertFalse(self.trial.status.expecting_data)
+                    self.assertFalse(self.trial.expecting_data)
+
+    def test_expecting_data_excludes_lilo(self) -> None:
+        """LILO labeling trials never expect data via the standard pipeline."""
+        self.trial._trial_type = Keys.LILO_LABELING
+        self.trial.mark_running(no_runner_required=True)
+        self.assertTrue(self.trial.status.expecting_data)
+        self.assertFalse(self.trial.expecting_data)
+
+        self.trial.mark_completed()
+        self.assertTrue(self.trial.status.expecting_data)
+        self.assertFalse(self.trial.expecting_data)
 
     def test_stop(self) -> None:
         # test bad old status
@@ -313,24 +327,22 @@ class TrialTest(TestCase):
         f"{BaseTrial.__module__}.{BaseTrial.__name__}.lookup_data",
         return_value=TEST_DATA,
     )
-    # pyre-fixme[3]: Return type must be annotated.
-    def test_objective_mean(self, _mock):
+    def test_objective_mean(self, _mock: Mock) -> None:
         self.assertEqual(self.trial.objective_mean, 1.0)
 
     @patch(
         f"{BaseTrial.__module__}.{BaseTrial.__name__}.lookup_data", return_value=Data()
     )
-    # pyre-fixme[3]: Return type must be annotated.
-    def test_objective_mean_empty_df(self, _mock):
+    def test_objective_mean_empty_df(self, _mock: Mock) -> None:
         with self.assertRaisesRegex(ValueError, "not yet in data for trial."):
             self.assertIsNone(self.trial.objective_mean)
 
     @patch(
         f"{BaseTrial.__module__}.{BaseTrial.__name__}.fetch_data_results",
-        return_value={get_objective().metric.signature: Ok(TEST_DATA)},
+        return_value={get_objective().metric_names[0]: Ok(TEST_DATA)},
     )
     def test_fetch_data_result(self, mock: Mock) -> None:
-        metric_name = get_objective().metric.name
+        metric_name = get_objective().metric_names[0]
         results = self.experiment.trials[0].fetch_data_results()
 
         self.assertTrue(results[metric_name].is_ok())
@@ -487,6 +499,18 @@ class TrialTest(TestCase):
             test_trial._time_staged = self.trial._time_staged
             test_trial._time_run_started = self.trial._time_run_started
             self.assertEqual(self.trial, test_trial)
+
+    def test_mark_running_custom_started_time(self) -> None:
+        custom_time = datetime(2026, 5, 30, 4, 54, 38)
+        self.trial.mark_running(no_runner_required=True, started_time=custom_time)
+        self.assertEqual(self.trial.status, TrialStatus.RUNNING)
+        self.assertEqual(self.trial.time_run_started, custom_time)
+
+    def test_mark_running_default_started_time(self) -> None:
+        self.trial.mark_running(no_runner_required=True)
+        self.assertEqual(self.trial.status, TrialStatus.RUNNING)
+        self.assertIsNotNone(self.trial.time_run_started)
+        self.assertIsInstance(self.trial.time_run_started, datetime)
 
     def test_mark_complete_custom_date(self) -> None:
         self.trial.mark_running(no_runner_required=True)

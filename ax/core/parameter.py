@@ -55,14 +55,10 @@ REPR_FLAGS_IF_TRUE_ONLY = [
 
 
 class ParameterType(Enum):
-    # pyre-fixme[35]: Target cannot be annotated.
-    BOOL: int = 0
-    # pyre-fixme[35]: Target cannot be annotated.
-    INT: int = 1
-    # pyre-fixme[35]: Target cannot be annotated.
-    FLOAT: int = 2
-    # pyre-fixme[35]: Target cannot be annotated.
-    STRING: int = 3
+    BOOL = 0
+    INT = 1
+    FLOAT = 2
+    STRING = 3
 
     @property
     def is_numeric(self) -> bool:
@@ -71,10 +67,7 @@ class ParameterType(Enum):
 
 TParameterType = Union[type[int], type[float], type[str], type[bool]]
 
-# pyre: PARAMETER_PYTHON_TYPE_MAP is declared to have type
-# pyre: `Dict[ParameterType, Union[Type[bool], Type[float], Type[int],
-# pyre: Type[str]]]` but is used as type `Dict[ParameterType,
-# pyre-fixme[9]: Type[Union[float, str]]]`.
+# pyre-fixme[9]: Pyre collapses individual type[] values into Type[Union[...]].
 PARAMETER_PYTHON_TYPE_MAP: dict[ParameterType, TParameterType] = {
     ParameterType.INT: int,
     ParameterType.FLOAT: float,
@@ -87,9 +80,7 @@ SUPPORTED_PARAMETER_TYPES: tuple[
 ] = tuple(PARAMETER_PYTHON_TYPE_MAP.values())
 
 
-# pyre-fixme[24]: Generic type `type` expects 1 type parameter, use `typing.Type` to
-#  avoid runtime subscripting errors.
-def _get_parameter_type(python_type: type) -> ParameterType:
+def _get_parameter_type(python_type: type[Any]) -> ParameterType:
     """Given a Python type, retrieve corresponding Ax ``ParameterType``."""
     for param_type, py_type in PARAMETER_PYTHON_TYPE_MAP.items():
         if py_type == python_type:
@@ -165,7 +156,13 @@ class Parameter(SortableBase, metaclass=ABCMeta):
         """Check whether parameters are compatible.
 
         Two parameters are compatible if they have the same parameter type and
-        domain type. Additional checks are performed based on the domain type.
+        compatible domain types. Any pair of parameters that can be merged is also
+        considered compatible. In particular:
+
+        - Two RangeParameters are always compatible (bounds may differ).
+        - A RangeParameter and a FixedParameter are compatible.
+        - Two ChoiceParameters are always compatible (values may differ).
+        - Two FixedParameters are always compatible (values may differ).
 
         Args:
             other: Another Ax parameter object to compare against.
@@ -236,9 +233,8 @@ class Parameter(SortableBase, metaclass=ABCMeta):
             "Only fixed and choice hierarchical parameters are currently supported."
         )
 
-    # pyre-fixme[7]: Expected `Parameter` but got implicit return value of `None`.
-    def clone(self) -> Self:
-        pass
+    @abstractmethod
+    def clone(self) -> Self: ...
 
     def disable(self, default_value: TParamValue) -> None:
         """
@@ -541,9 +537,7 @@ class RangeParameter(Parameter):
         # Re-scale min and max to new digits definition
         cast_lower = self.cast(self._lower)
         cast_upper = self.cast(self._upper)
-        # `<=` is not supported for operand types `Union[float, int]` and `int`.
-        # pyre-ignore [58]
-        if cast_lower >= cast_upper:
+        if float(cast_lower) >= float(cast_upper):
             raise UserInputError(
                 f"Lower bound {cast_lower} is >= upper bound {cast_upper}."
             )
@@ -681,10 +675,11 @@ class RangeParameter(Parameter):
     def _is_domain_compatible(self, other: Parameter) -> bool:
         """Check domain-specific compatibility for RangeParameter.
 
-        Two RangeParameters are compatible if they are both RangeParameters.
-        The bounds do not need to overlap.
+        A RangeParameter is compatible with another RangeParameter (bounds may
+        differ) or with a FixedParameter (to support merging a fixed value
+        into a range).
         """
-        return isinstance(other, RangeParameter)
+        return isinstance(other, (RangeParameter, FixedParameter))
 
     @property
     def domain_repr(self) -> str:
@@ -1088,11 +1083,10 @@ class ChoiceParameter(Parameter):
     def _is_domain_compatible(self, other: Parameter) -> bool:
         """Check domain-specific compatibility for ChoiceParameter.
 
-        Two ChoiceParameters are compatible if they have the same set of values.
+        Two ChoiceParameters are always compatible (values may differ, since
+        they can be merged via union).
         """
-        if not isinstance(other, ChoiceParameter):
-            return False
-        return set(self.values) == set(other.values)
+        return isinstance(other, ChoiceParameter)
 
     @property
     def domain_repr(self) -> str:
@@ -1244,11 +1238,11 @@ class FixedParameter(Parameter):
     def _is_domain_compatible(self, other: Parameter) -> bool:
         """Check domain-specific compatibility for FixedParameter.
 
-        Two FixedParameters are compatible if they have the same value.
+        A FixedParameter is compatible with another FixedParameter (values may
+        differ) or with a RangeParameter (to support merging a fixed value
+        into a range).
         """
-        if not isinstance(other, FixedParameter):
-            return False
-        return self.value == other.value
+        return isinstance(other, (FixedParameter, RangeParameter))
 
     @property
     def domain_repr(self) -> str:
@@ -1304,13 +1298,7 @@ class DerivedParameter(Parameter):
     extendable to non-linear functions.
     """
 
-    # pyre-fixme [13]: Uninitialized attribute [13]: Attribute `_intercept` is
-    # declared in class `DerivedParameter` to have type `float` but is never
-    # initialized.
     _intercept: float
-    # pyre-fixme [13]: Uninitialized attribute [13]: Attribute
-    # `_parameter_names_to_weights` is declared in class `DerivedParameter` to#
-    # have type `typing.Dict[str, float]` but is never initialized.
     _parameter_names_to_weights: dict[str, float]
 
     def __init__(
@@ -1343,6 +1331,8 @@ class DerivedParameter(Parameter):
         self._parameter_type = parameter_type  # Set first so validation works
         self._is_fidelity = is_fidelity
         self._target_value = target_value
+        self._intercept = 0.0
+        self._parameter_names_to_weights = {}
 
         # Parse expression and validate type constraint (reuses set_expression_str)
         self.set_expression_str(expression_str)

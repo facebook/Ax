@@ -5,6 +5,7 @@
 
 # pyre-strict
 
+from collections.abc import Callable
 from typing import Any, final
 
 from ax.adapter.base import Adapter
@@ -23,7 +24,7 @@ from ax.analysis.healthcheck.healthcheck_analysis import HealthcheckAnalysisCard
 from ax.analysis.healthcheck.metric_fetching_errors import MetricFetchingErrorsAnalysis
 from ax.analysis.healthcheck.predictable_metrics import PredictableMetricsAnalysis
 from ax.analysis.healthcheck.search_space_analysis import SearchSpaceAnalysis
-from ax.analysis.healthcheck.should_generate_candidates import ShouldGenerateCandidates
+from ax.analysis.healthcheck.transfer_learning_analysis import TransferLearningAnalysis
 from ax.analysis.insights import InsightsAnalysis
 from ax.analysis.results import ResultsAnalysis
 from ax.analysis.trials import AllTrialsAnalysis
@@ -94,7 +95,6 @@ class OverviewAnalysis(Analysis):
                 * CanGenerateCandidatesAnalysis
                 * ConstraintsFeasibilityAnalysis
                 * SearchSpaceAnalysis
-                * ShouldGenerateCandidates
                 * ComplexityRatingAnalysis
                 * PredictableMetricsAnalysis
                 * BaselineImprovementAnalysis
@@ -109,21 +109,21 @@ class OverviewAnalysis(Analysis):
         can_generate: bool | None = None,
         can_generate_reason: str | None = None,
         can_generate_days_till_fail: int | None = None,
-        should_generate: bool | None = None,
-        should_generate_reason: str | None = None,
         options: OrchestratorOptions | None = None,
         tier_metadata: dict[str, Any] | None = None,
         model_fit_threshold: float | None = None,
+        sqa_config: Any = None,
+        create_diff_paste_callable: Callable[[str, str, str], str] | None = None,
     ) -> None:
         super().__init__()
         self.can_generate = can_generate
         self.can_generate_reason = can_generate_reason
         self.can_generate_days_till_fail = can_generate_days_till_fail
-        self.should_generate = should_generate
-        self.should_generate_reason = should_generate_reason
         self.options = options
         self.tier_metadata = tier_metadata
         self.model_fit_threshold = model_fit_threshold
+        self.sqa_config = sqa_config
+        self.create_diff_paste_callable = create_diff_paste_callable
 
     @override
     def validate_applicable_state(
@@ -196,7 +196,7 @@ class OverviewAnalysis(Analysis):
                         self.options.early_stopping_strategy if self.options else None
                     ),
                 )
-                if has_map_data and has_map_metrics
+                if has_map_data and has_map_metrics and not has_batch_trials
                 else None
             ),
             CanGenerateCandidatesAnalysis(
@@ -229,19 +229,13 @@ class OverviewAnalysis(Analysis):
             if not has_batch_trials
             else None,
             BaselineImprovementAnalysis() if not has_batch_trials else None,
+            TransferLearningAnalysis(
+                config=self.sqa_config,
+                create_diff_paste_callable=self.create_diff_paste_callable,
+            ),
             *[
                 SearchSpaceAnalysis(trial_index=trial.index)
                 for trial in candidate_trials
-            ],
-            *[
-                ShouldGenerateCandidates(
-                    should_generate=self.should_generate,
-                    reason=self.should_generate_reason,
-                    trial_index=trial.index,
-                )
-                for trial in candidate_trials
-                if self.should_generate is not None
-                and self.should_generate_reason is not None
             ],
         ]
 
@@ -255,10 +249,11 @@ class OverviewAnalysis(Analysis):
             if analyis is not None
         ]
 
-        non_passing_health_checks = [
+        user_facing_health_check_cards = [
             card
             for card in health_check_cards
-            if (isinstance(card, HealthcheckAnalysisCard) and not card.is_passing())
+            if isinstance(card, HealthcheckAnalysisCard)
+            and card.is_user_facing()
             or isinstance(card, ErrorAnalysisCard)
         ]
 
@@ -267,9 +262,9 @@ class OverviewAnalysis(Analysis):
                 name="HealthchecksAnalysis",
                 title=HEALTH_CHECK_CARDGROUP_TITLE,
                 subtitle=HEALTH_CHECK_CARDGROUP_SUBTITLE,
-                children=non_passing_health_checks,
+                children=user_facing_health_check_cards,
             )
-            if len(non_passing_health_checks) > 0
+            if len(user_facing_health_check_cards) > 0
             else None
         )
 

@@ -6,7 +6,6 @@
 
 # pyre-strict
 
-import re
 import time
 from collections.abc import Sequence
 from logging import INFO, Logger
@@ -16,11 +15,7 @@ from ax.core.base_trial import BaseTrial
 from ax.core.experiment import Experiment
 from ax.core.generator_run import GeneratorRun
 from ax.core.runner import Runner
-from ax.exceptions.core import (
-    IncompatibleDependencyVersion,
-    ObjectNotFoundError,
-    UnsupportedError,
-)
+from ax.exceptions.core import ObjectNotFoundError, UnsupportedError
 from ax.generation_strategy.generation_strategy import GenerationStrategy
 from ax.utils.common.executils import retry_on_exception
 from ax.utils.common.logger import _round_floats_for_logging, get_logger
@@ -37,18 +32,7 @@ try:  # We don't require SQLAlchemy by default.
     from sqlalchemy import __version__ as sqa_version
 
     # pyre-fixme[16]: Module `sqlalchemy` has no attribute `__version__`.
-    sqa_major_version = int(none_throws(re.match(r"^\d*", sqa_version))[0])
-    if sqa_major_version > 1:
-        msg = (
-            "Ax currently requires a sqlalchemy version below 2.0. This will be "
-            "addressed in a future release. Disabling SQL storage in Ax for now, if "
-            "you would like to use SQL storage please install Ax with mysql extras "
-            "via `pip install ax-platform[mysql]`."
-        )
-
-        logger.warning(msg)
-
-        raise IncompatibleDependencyVersion(msg)
+    logger.info(f"Ax SQL storage initialized with SQLAlchemy {sqa_version}")
 
     from ax.storage.sqa_store.db import init_engine_and_session_factory
     from ax.storage.sqa_store.decoder import Decoder
@@ -78,7 +62,7 @@ try:  # We don't require SQLAlchemy by default.
 
     # We retry on `OperationalError` if saving to DB.
     RETRY_EXCEPTION_TYPES = (OperationalError, StaleDataError)
-except (ModuleNotFoundError, IncompatibleDependencyVersion, TypeError):
+except (ModuleNotFoundError, TypeError):
     DBSettings = None
     TDBSettings = None
     Decoder = None
@@ -498,6 +482,7 @@ class WithDBSettingsBase:
     retries=3,
     default_return_on_suppression=False,
     exception_types=RETRY_EXCEPTION_TYPES,
+    initial_wait_seconds=5,
 )
 def _save_experiment_to_db_if_possible(
     experiment: Experiment,
@@ -521,6 +506,7 @@ def _save_experiment_to_db_if_possible(
     retries=3,
     default_return_on_suppression=False,
     exception_types=RETRY_EXCEPTION_TYPES,
+    initial_wait_seconds=5,
 )
 def _save_or_update_trials_in_db_if_possible(
     experiment: Experiment,
@@ -550,6 +536,7 @@ def _save_or_update_trials_in_db_if_possible(
     retries=3,
     default_return_on_suppression=False,
     exception_types=RETRY_EXCEPTION_TYPES,
+    initial_wait_seconds=5,
 )
 def _save_generation_strategy_to_db_if_possible(
     generation_strategy: GenerationStrategy,
@@ -573,6 +560,7 @@ def _save_generation_strategy_to_db_if_possible(
     retries=3,
     default_return_on_suppression=False,
     exception_types=RETRY_EXCEPTION_TYPES,
+    initial_wait_seconds=5,
 )
 def _update_generation_strategy_in_db_if_possible(
     generation_strategy: GenerationStrategy,
@@ -602,6 +590,7 @@ def _update_generation_strategy_in_db_if_possible(
     retries=3,
     default_return_on_suppression=False,
     exception_types=RETRY_EXCEPTION_TYPES,
+    initial_wait_seconds=5,
 )
 def _update_runner_on_experiment_in_db_if_possible(
     experiment: Experiment,
@@ -619,6 +608,7 @@ def _update_runner_on_experiment_in_db_if_possible(
     retries=3,
     default_return_on_suppression=False,
     exception_types=RETRY_EXCEPTION_TYPES,
+    initial_wait_seconds=5,
 )
 def _update_experiment_properties_in_db(
     experiment_with_updated_properties: Experiment,
@@ -635,6 +625,7 @@ def _update_experiment_properties_in_db(
     retries=3,
     default_return_on_suppression=False,
     exception_types=RETRY_EXCEPTION_TYPES,
+    initial_wait_seconds=5,
 )
 def _save_analysis_card_to_db(
     experiment: Experiment,

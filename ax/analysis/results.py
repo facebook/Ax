@@ -25,6 +25,7 @@ from ax.analysis.plotly.scatter import (
     ScatterPlot,
 )
 from ax.analysis.plotly.utility_progression import UtilityProgressionAnalysis
+from ax.analysis.plotly.utility_ranking import UtilityRankingPlot
 from ax.analysis.summary import Summary
 from ax.analysis.utils import extract_relevant_adapter, validate_experiment
 from ax.core.analysis_card import AnalysisCardGroup
@@ -38,6 +39,7 @@ from ax.core.trial_status import TrialStatus
 from ax.core.utils import is_bandit_experiment
 from ax.exceptions.core import UserInputError
 from ax.generation_strategy.generation_strategy import GenerationStrategy
+from ax.utils.common.constants import is_preference_metric
 from pyre_extensions import none_throws, override
 
 RESULTS_CARDGROUP_TITLE = "Results Analysis"
@@ -95,16 +97,27 @@ class ResultsAnalysis(Analysis):
         if (optimization_config := experiment.optimization_config) is not None:
             objective_names = optimization_config.objective.metric_names
             for oc in optimization_config.outcome_constraints:
-                if isinstance(oc, ScalarizedOutcomeConstraint):
-                    constraint_names.extend([m.name for m in oc.metrics])
-                else:
-                    constraint_names.append(oc.metric.name)
+                constraint_names.extend(oc.metric_names)
 
         relevant_adapter = extract_relevant_adapter(
             experiment=experiment,
             generation_strategy=generation_strategy,
             adapter=adapter,
         )
+
+        # Preference metrics (e.g., pairwise_pref_query backed by PairwiseGP) use
+        # comparison-pair data and latent utility models. They should be excluded
+        # from analyses that assume regression semantics (arm effects, scatter
+        # plots) but kept for condition checks (e.g., UtilityProgressionAnalysis).
+        regression_objective_names = [
+            n for n in objective_names if not is_preference_metric(n)
+        ]
+        regression_constraint_names = [
+            n for n in constraint_names if not is_preference_metric(n)
+        ]
+        preference_objective_names = [
+            n for n in objective_names if is_preference_metric(n)
+        ]
 
         # Check if there are BatchTrials present.
         has_batch_trials = any(
@@ -116,14 +129,43 @@ class ResultsAnalysis(Analysis):
         # Compute both observed and modeled effects for each objective and constraint.
         arm_effect_pair_group = (
             ArmEffectsPair(
-                metric_names=[*objective_names, *constraint_names],
+                metric_names=[
+                    *regression_objective_names,
+                    *regression_constraint_names,
+                ],
                 relativize=relativize,
             ).compute_or_error_card(
                 experiment=experiment,
                 generation_strategy=generation_strategy,
                 adapter=relevant_adapter,
             )
-            if len(objective_names) > 0
+            if len(regression_objective_names) > 0
+            else None
+        )
+
+        # For preference metrics, show a utility ranking bar chart instead of
+        # ArmEffectsPlot (binary 0/1 per-arm effects are meaningless).
+        utility_ranking_cards = [
+            UtilityRankingPlot(
+                metric_name=metric_name,
+            ).compute_or_error_card(
+                experiment=experiment,
+                generation_strategy=generation_strategy,
+                adapter=relevant_adapter,
+            )
+            for metric_name in preference_objective_names
+        ]
+        utility_ranking_group = (
+            AnalysisCardGroup(
+                name="Utility Ranking",
+                title="Preference Utility Ranking",
+                subtitle=(
+                    "Ranked model-predicted latent utility per arm for preference "
+                    "metrics. Arms are sorted from most preferred to least preferred."
+                ),
+                children=utility_ranking_cards,
+            )
+            if utility_ranking_cards
             else None
         )
 
@@ -145,10 +187,10 @@ class ResultsAnalysis(Analysis):
                         generation_strategy=generation_strategy,
                         adapter=relevant_adapter,
                     )
-                    for x, y in itertools.combinations(objective_names, 2)
+                    for x, y in itertools.combinations(regression_objective_names, 2)
                 ],
             )
-            if len(objective_names) > 1
+            if len(regression_objective_names) > 1
             else None
         )
 
@@ -170,11 +212,12 @@ class ResultsAnalysis(Analysis):
                         generation_strategy=generation_strategy,
                         adapter=relevant_adapter,
                     )
-                    for objective_name in objective_names
-                    for constraint_name in constraint_names
+                    for objective_name in regression_objective_names
+                    for constraint_name in regression_constraint_names
                 ],
             )
-            if len(objective_names) > 0 and len(constraint_names) > 0
+            if len(regression_objective_names) > 0
+            and len(regression_constraint_names) > 0
             else None
         )
 
@@ -284,6 +327,7 @@ class ResultsAnalysis(Analysis):
                 child
                 for child in (
                     arm_effect_pair_group,
+                    utility_ranking_group,
                     objective_scatter_group,
                     constraint_scatter_group,
                     bandit_rollout_card,

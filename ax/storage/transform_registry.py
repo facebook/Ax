@@ -7,6 +7,7 @@
 # pyre-strict
 
 
+from ax.adapter.transforms.add_execution_viability import AddExecutionViability
 from ax.adapter.transforms.base import Transform
 from ax.adapter.transforms.bilog_y import BilogY
 from ax.adapter.transforms.choice_encode import (
@@ -104,6 +105,7 @@ TRANSFORM_REGISTRY: set[type[Transform]] = {
     # LogIntToFloat, DEPRECATED
     MapKeyToFloat,
     BilogY,
+    AddExecutionViability,
 }
 
 REMOVED_TRANSFORMS: set[str] = {

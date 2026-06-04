@@ -14,6 +14,7 @@ import numpy as np
 import numpy.typing as npt
 from ax.core.search_space import SearchSpace
 from ax.core.types import TParameterization
+from pyre_extensions import assert_is_instance
 
 
 def randomized_round(x: float) -> int:
@@ -68,8 +69,6 @@ def randomized_round_parameters(
 ) -> TParameterization:
     rounded_parameters = copy(parameters)
     for p_name in transform_parameters:
-        # pyre: param is declared to have type `float` but is used as
-        # pyre-fixme[9]: type `Optional[typing.Union[bool, float, str]]`.
-        param: float = parameters.get(p_name)
+        param = assert_is_instance(parameters.get(p_name), float)
         rounded_parameters[p_name] = randomized_round(param)
     return rounded_parameters

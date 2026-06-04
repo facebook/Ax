@@ -8,7 +8,7 @@
 import json
 from collections.abc import Iterable, Sequence
 from logging import Logger
-from typing import Any, Literal, Self
+from typing import Any, cast, Literal, Self
 
 import numpy as np
 import pandas as pd
@@ -32,13 +32,14 @@ from ax.api.utils.structs import ExperimentStruct, GenerationStrategyDispatchStr
 from ax.core.analysis_card import AnalysisCardBase
 from ax.core.arm import Arm
 from ax.core.experiment import Experiment
+from ax.core.map_metric import MapMetric
 from ax.core.metric import Metric
-from ax.core.objective import MultiObjective, Objective, ScalarizedObjective
 from ax.core.observation import ObservationFeatures
 from ax.core.optimization_config import OptimizationConfig
 from ax.core.runner import Runner
 from ax.core.trial import Trial
 from ax.core.trial_status import TrialStatus  # Used as a return type
+from ax.core.types import TParameterization as CoreTParameterization
 from ax.early_stopping.strategies import (
     BaseEarlyStoppingStrategy,
     PercentileEarlyStoppingStrategy,
@@ -183,8 +184,7 @@ class Client(WithDBSettingsBase):
         pruning_target_arm: Arm | None = None
         if pruning_target_parameterization is not None:
             self._experiment.search_space.validate_membership(
-                # pyre-fixme[6]: Core Ax TParameterization is dict not Mapping
-                parameters=pruning_target_parameterization
+                parameters=cast(CoreTParameterization, pruning_target_parameterization)
             )
             pruning_target_arm = Arm(
                 parameters=pruning_target_parameterization, name="pruning_target"
@@ -199,6 +199,34 @@ class Client(WithDBSettingsBase):
         # provided
         if pruning_target_arm is not None:
             optimization_config.pruning_target_parameterization = pruning_target_arm
+
+        # Register any new metrics from the optimization config on the experiment
+        # before setting the optimization config, which validates that all
+        # referenced metrics exist on the experiment.
+        # Determine lower_is_better for objective metrics from weights.
+        obj = optimization_config.objective
+        objective_lower_is_better: dict[str, bool] = {}
+        # metric_weights returns (signature, weight) tuples; use metric_names
+        # to key by name since downstream lookups use metric names.
+        obj_names = obj.metric_names
+        obj_weights = [w for _, w in obj.metric_weights]
+        for name, weight in zip(obj_names, obj_weights):
+            objective_lower_is_better[name] = weight < 0
+
+        # Register objective metrics first (preserving expression order),
+        # then constraint metrics.
+        all_metric_names: list[str] = list(obj.metric_names)
+        for oc in optimization_config.all_constraints:
+            for name in oc.metric_names:
+                if name not in all_metric_names:
+                    all_metric_names.append(name)
+
+        for metric_name in all_metric_names:
+            if metric_name not in self._experiment.metrics:
+                lower_is_better = objective_lower_is_better.get(metric_name, None)
+                self._experiment.add_tracking_metric(
+                    MapMetric(name=metric_name, lower_is_better=lower_is_better)
+                )
 
         self._experiment.optimization_config = optimization_config
         self._set_metrics(metrics=list(old_metrics.values()))
@@ -442,9 +470,9 @@ class Client(WithDBSettingsBase):
                 experiment=self._experiment,
                 n=1,
                 fixed_features=(
-                    # pyre-fixme[6]: Type narrowing broken because core Ax
-                    # TParameterization is dict not Mapping
-                    ObservationFeatures(parameters=fixed_parameters)
+                    ObservationFeatures(
+                        parameters=cast(CoreTParameterization, fixed_parameters)
+                    )
                     if fixed_parameters is not None
                     else None
                 ),
@@ -483,9 +511,10 @@ class Client(WithDBSettingsBase):
             experiment=self._experiment, trials=trials
         )
 
-        # pyre-fixme[7]: Core Ax allows users to specify TParameterization values as
-        # None, but we do not allow this in the API.
-        return {trial.index: none_throws(trial.arm).parameters for trial in trials}
+        return {
+            trial.index: cast(TParameterization, none_throws(trial.arm).parameters)
+            for trial in trials
+        }
 
     def complete_trial(
         self,
@@ -512,7 +541,7 @@ class Client(WithDBSettingsBase):
         # Log metric availability for user visibility.
         if (optimization_config := self._experiment.optimization_config) is not None:
             trial_data = self._experiment.lookup_data(trial_indices=[trial_index])
-            missing_metrics = set(optimization_config.metrics.keys()) - {
+            missing_metrics = optimization_config.metric_names - {
                 *trial_data.metric_names
             }
 
@@ -538,12 +567,18 @@ class Client(WithDBSettingsBase):
         progression: int | None = None,
     ) -> None:
         """
-        Attach data without indicating the trial is complete. Missing metrics are,
+        Attach data without indicating the trial is complete. Missing metrics are
         allowed, and unexpected metric values will be added to the Experiment as
         tracking metrics.
 
         Saves to database on completion if ``storage_config`` is present.
         """
+
+        # Auto-register any metrics present in raw_data but not yet on the
+        # experiment as tracking metrics, matching the docstring contract.
+        extra_metrics = set(raw_data.keys()) - set(self._experiment.metrics.keys())
+        if extra_metrics:
+            self.configure_tracking_metrics(metric_names=list(extra_metrics))
 
         # If no progression is provided assume the data is not timeseries-like and
         # set step=NaN
@@ -573,9 +608,7 @@ class Client(WithDBSettingsBase):
             The index of the attached trial.
         """
         _, trial_index = self._experiment.attach_trial(
-            # pyre-fixme[6]: Type narrowing broken because core Ax TParameterization
-            # is dict not Mapping
-            parameterizations=[parameters],
+            parameterizations=[cast(CoreTParameterization, parameters)],
             arm_names=[arm_name] if arm_name else None,
         )
 
@@ -888,13 +921,14 @@ class Client(WithDBSettingsBase):
             )
         )
 
-        # pyre-fixme[7]: Core Ax allows users to specify TParameterization values as
-        # None but we do not allow this in the API.
-        return BestPointMixin._to_best_point_tuple(
-            experiment=self._experiment,
-            trial_index=trial_index,
-            parameterization=parameterization,
-            model_prediction=model_prediction,
+        return cast(
+            tuple[TParameterization, TOutcome, int, str],
+            BestPointMixin._to_best_point_tuple(
+                experiment=self._experiment,
+                trial_index=trial_index,
+                parameterization=parameterization,
+                model_prediction=model_prediction,
+            ),
         )
 
     def get_pareto_frontier(
@@ -945,14 +979,15 @@ class Client(WithDBSettingsBase):
             use_model_predictions=use_model_predictions,
         )
 
-        # pyre-fixme[7]: Core Ax allows users to specify TParameterization values as
-        # None but we do not allow this in the API.
         return [
-            BestPointMixin._to_best_point_tuple(
-                experiment=self._experiment,
-                trial_index=trial_index,
-                parameterization=parameterization,
-                model_prediction=model_prediction,
+            cast(
+                tuple[TParameterization, TOutcome, int, str],
+                BestPointMixin._to_best_point_tuple(
+                    experiment=self._experiment,
+                    trial_index=trial_index,
+                    parameterization=parameterization,
+                    model_prediction=model_prediction,
+                ),
             )
             for trial_index, (parameterization, model_prediction) in frontier.items()
         ]
@@ -978,9 +1013,9 @@ class Client(WithDBSettingsBase):
         try:
             mean, covariance = none_throws(self._generation_strategy.adapter).predict(
                 observation_features=[
-                    # pyre-fixme[6]: Core Ax allows users to specify TParameterization
-                    # values as None but we do not allow this in the API.
-                    ObservationFeatures(parameters=parameters)
+                    ObservationFeatures(
+                        parameters=cast(CoreTParameterization, parameters)
+                    )
                     for parameters in points
                 ]
             )
@@ -1219,52 +1254,14 @@ class Client(WithDBSettingsBase):
         handled in self._set_metrics).
         """
 
-        # Check the OptimizationConfig first
-        if (optimization_config := self._experiment.optimization_config) is not None:
-            # Check the objective
-            if isinstance(
-                multi_objective := optimization_config.objective, MultiObjective
-            ):
-                for i in range(len(multi_objective.objectives)):
-                    if metric.name == multi_objective.objectives[i].metric.name:
-                        multi_objective._objectives[i]._metric = metric
-                        return
-            elif isinstance(
-                scalarized_objective := optimization_config.objective,
-                ScalarizedObjective,
-            ):
-                for i in range(len(scalarized_objective.metrics)):
-                    if metric.name == scalarized_objective.metrics[i].name:
-                        scalarized_objective._metrics[i] = metric
-                        return
-            elif (
-                isinstance(optimization_config.objective, Objective)
-                and metric.name == optimization_config.objective.metric.name
-            ):
-                optimization_config.objective._metric = metric
-                return
-
-            # Check the outcome constraints
-            for i in range(len(optimization_config.outcome_constraints)):
-                if (
-                    metric.name
-                    == optimization_config.outcome_constraints[i].metric.name
-                ):
-                    optimization_config._outcome_constraints[i]._metric = metric
-                    return
-
-        # Check the tracking metrics
-        if metric.name in self._experiment._tracking_metrics.keys():
-            self._experiment._tracking_metrics[metric.name] = metric
-            return
-
-        # If an equivalently named Metric does not exist, add it as a tracking
-        # metric.
-        self._experiment.add_tracking_metric(metric=metric)
-        logger.warning(
-            f"Metric {metric} not found in optimization config, added as tracking "
-            "metric."
-        )
+        if metric.name in self._experiment.metrics:
+            self._experiment.update_metric(metric)
+        else:
+            self._experiment.add_tracking_metric(metric=metric)
+            logger.warning(
+                f"Metric {metric} not found on experiment, added as a new "
+                "tracking metric."
+            )
 
     # -------------------- Section 5.3: Storage utilies -------------------------------
     def _to_json_snapshot(self) -> dict[str, Any]:

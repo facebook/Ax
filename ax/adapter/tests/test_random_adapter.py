@@ -22,7 +22,9 @@ from ax.core.parameter_constraint import ParameterConstraint
 from ax.core.search_space import SearchSpace
 from ax.exceptions.core import SearchSpaceExhausted
 from ax.generators.random.base import RandomGenerator
+from ax.generators.random.in_sample import InSampleUniformGenerator
 from ax.generators.random.sobol import SobolGenerator
+from ax.generators.types import TConfig
 from ax.utils.common.testutils import TestCase
 from ax.utils.testing.core_stubs import (
     get_data,
@@ -45,7 +47,7 @@ class RandomAdapterTest(TestCase):
         ]
         self.search_space = SearchSpace(self.parameters, parameter_constraints)
         self.experiment = Experiment(search_space=self.search_space)
-        self.model_gen_options = {"option": "yes"}
+        self.model_gen_options: TConfig = {"option": "yes"}
 
     def test_fit(self) -> None:
         adapter = RandomAdapter(experiment=self.experiment, generator=RandomGenerator())
@@ -79,10 +81,6 @@ class RandomAdapterTest(TestCase):
                 pending_observations={},
                 fixed_features=ObservationFeatures({"z": 3.0}),
                 optimization_config=None,
-                # pyre-fixme[6]: For 6th param expected `Optional[Dict[str,
-                # Union[None, Dict[str, typing.Any], OptimizationConfig,
-                # AcquisitionFunction, float, int, str]]]` but got `Dict[str,
-                # str]`.
                 model_gen_options=self.model_gen_options,
             )
         gen_args = mock_gen.mock_calls[0][2]
@@ -111,6 +109,65 @@ class RandomAdapterTest(TestCase):
         self.assertEqual(obsf[1].parameters, {"x": 3.0, "y": 4.0, "z": 3.0})
         self.assertTrue(np.array_equal(gen_results.weights, np.array([1.0, 2.0])))
 
+    def test_gen_w_equality_constraints(self) -> None:
+        # Verify that equality constraints from the search space are extracted
+        # and passed through to the generator's gen() call.
+        x = RangeParameter("x", ParameterType.FLOAT, lower=0, upper=1)
+        y = RangeParameter("y", ParameterType.FLOAT, lower=0, upper=1)
+        z = RangeParameter("z", ParameterType.FLOAT, lower=0, upper=1)
+        parameter_constraints = [
+            ParameterConstraint(equality="x + y == 0.5"),
+        ]
+        search_space = SearchSpace([x, y, z], parameter_constraints)
+        experiment = Experiment(search_space=search_space)
+        adapter = RandomAdapter(experiment=experiment, generator=RandomGenerator())
+        with mock.patch.object(
+            adapter.generator,
+            "gen",
+            return_value=(
+                np.array([[0.2, 0.3, 0.4]]),
+                np.array([1.0]),
+            ),
+        ) as mock_gen:
+            adapter._gen(
+                n=1,
+                search_space=search_space,
+                pending_observations={},
+                fixed_features=ObservationFeatures({}),
+                optimization_config=None,
+                model_gen_options=self.model_gen_options,
+            )
+        gen_args = mock_gen.mock_calls[0][2]
+        eq_constraints = gen_args["equality_constraints"]
+        self.assertIsNotNone(eq_constraints)
+        A, b = eq_constraints
+        # x + y = 0.5 => A = [[1, 1, 0]], b = [[0.5]]
+        self.assertTrue(np.array_equal(A, np.array([[1.0, 1.0, 0.0]])))
+        self.assertTrue(np.array_equal(b, np.array([[0.5]])))
+
+    def test_gen_no_equality_constraints(self) -> None:
+        # Verify that equality_constraints is None when there are no equality
+        # constraints on the search space.
+        adapter = RandomAdapter(experiment=self.experiment, generator=RandomGenerator())
+        with mock.patch.object(
+            adapter.generator,
+            "gen",
+            return_value=(
+                np.array([[0.5, 1.5, 2.5]]),
+                np.array([1.0]),
+            ),
+        ) as mock_gen:
+            adapter._gen(
+                n=1,
+                search_space=self.search_space,
+                pending_observations={},
+                fixed_features=ObservationFeatures({}),
+                optimization_config=None,
+                model_gen_options=self.model_gen_options,
+            )
+        gen_args = mock_gen.mock_calls[0][2]
+        self.assertIsNone(gen_args["equality_constraints"])
+
     def test_gen_simple(self) -> None:
         # Test with no constraints, no fixed feature, no pending observations
         search_space = SearchSpace(self.parameters[:2])
@@ -129,10 +186,6 @@ class RandomAdapterTest(TestCase):
                 pending_observations={},
                 fixed_features=ObservationFeatures({}),
                 optimization_config=None,
-                # pyre-fixme[6]: For 6th param expected `Optional[Dict[str,
-                # Union[None, Dict[str, typing.Any], OptimizationConfig,
-                # AcquisitionFunction, float, int, str]]]` but got `Dict[str,
-                # str]`.
                 model_gen_options=self.model_gen_options,
             )
         gen_args = mock_gen.mock_calls[0][2]
@@ -303,6 +356,119 @@ class RandomAdapterTest(TestCase):
 
         generated_points_all_out = mock_gen.call_args.kwargs["generated_points"]
         self.assertIsNone(generated_points_all_out)
+
+    def test_in_sample_excludes_non_data_bearing_trial_arms(self) -> None:
+        """For InSampleUniformGenerator, generated_points should only contain
+        arms from trials with expecting_data status (COMPLETED, RUNNING,
+        EARLY_STOPPED). Arms from CANDIDATE, FAILED, and ABANDONED trials
+        must be excluded even though they exist on the experiment."""
+        search_space = SearchSpace(self.parameters[:2])
+        exp = Experiment(search_space=search_space)
+
+        # Trial 0: COMPLETED -- should be included.
+        exp.new_trial().add_arm(Arm(parameters={"x": 0.5, "y": 1.5})).mark_running(
+            no_runner_required=True
+        )
+        exp.trials[0].mark_completed()
+
+        # Trial 1: CANDIDATE -- should be excluded.
+        exp.new_trial().add_arm(Arm(parameters={"x": 0.8, "y": 1.8}))
+
+        # Trial 2: RUNNING -- should be included.
+        exp.new_trial().add_arm(Arm(parameters={"x": 0.3, "y": 1.3})).mark_running(
+            no_runner_required=True
+        )
+
+        # Trial 3: FAILED -- should be excluded.
+        exp.new_trial().add_arm(Arm(parameters={"x": 0.1, "y": 1.1})).mark_running(
+            no_runner_required=True
+        )
+        exp.trials[3].mark_failed()
+
+        # Trial 4: ABANDONED -- should be excluded.
+        exp.new_trial().add_arm(Arm(parameters={"x": 0.9, "y": 1.9})).mark_running(
+            no_runner_required=True
+        )
+        exp.trials[4].mark_abandoned()
+
+        generator = InSampleUniformGenerator(seed=0)
+        adapter = RandomAdapter(
+            experiment=exp,
+            generator=generator,
+            transforms=Cont_X_trans,
+        )
+
+        with mock.patch.object(
+            generator,
+            "gen",
+            wraps=generator.gen,
+        ) as mock_gen:
+            adapter.gen(n=2)
+
+        # generated_points should have exactly 2 points (COMPLETED + RUNNING).
+        # CANDIDATE, FAILED, and ABANDONED arms must be excluded.
+        generated_points = mock_gen.call_args.kwargs["generated_points"]
+        assert generated_points is not None
+        self.assertEqual(len(generated_points), 2)
+
+    def test_in_sample_failed_lilo_trial_does_not_poison_arm_pool(self) -> None:
+        """A FAILED LILO labeling trial shares arm signatures with COMPLETED
+        regular trials.  The in-sample pool must still include those arms —
+        the FAILED trial should not remove them from the selection pool.
+
+        Regression test for the arm-pool exhaustion bug where
+        ``arms_by_signature_for_deduplication`` blindly excluded signatures
+        that appeared in *any* FAILED trial, even if the same arm existed
+        in a non-FAILED trial.
+        """
+        search_space = SearchSpace(self.parameters[:2])
+        exp = Experiment(search_space=search_space)
+
+        # Trials 0 and 1: COMPLETED regular trials with 1 arm each.
+        arm_a = Arm(parameters={"x": 0.5, "y": 1.5})
+        arm_b = Arm(parameters={"x": 0.3, "y": 1.3})
+        t0 = exp.new_trial()
+        t0.add_arm(arm_a)
+        t0.mark_running(no_runner_required=True)
+        exp.trials[0].mark_completed()
+
+        t1 = exp.new_trial()
+        t1.add_arm(arm_b)
+        t1.mark_running(no_runner_required=True)
+        exp.trials[1].mark_completed()
+
+        # Trial 2: FAILED LILO labeling trial re-using the same arms.
+        # Simulates a LILO labeling trial that borrowed arm_a but whose
+        # LLM metric call failed.
+        t2 = exp.new_trial()
+        t2.add_arm(Arm(parameters={"x": 0.5, "y": 1.5}))  # same as arm_a
+        t2.mark_running(no_runner_required=True)
+        t2.mark_failed()
+
+        # Sanity: arms_by_signature_for_deduplication removes arm_a's sig.
+        dedup = exp.arms_by_signature_for_deduplication
+        self.assertNotIn(arm_a.signature, dedup)
+
+        # But InSampleUniformGenerator should still see both arms.
+        generator = InSampleUniformGenerator(seed=0)
+        adapter = RandomAdapter(
+            experiment=exp,
+            generator=generator,
+            transforms=Cont_X_trans,
+        )
+
+        with mock.patch.object(
+            generator,
+            "gen",
+            wraps=generator.gen,
+        ) as mock_gen:
+            adapter.gen(n=2)
+
+        # Both arms from COMPLETED trials must be in generated_points,
+        # despite arm_a's signature also appearing in a FAILED trial.
+        generated_points = mock_gen.call_args.kwargs["generated_points"]
+        assert generated_points is not None
+        self.assertEqual(len(generated_points), 2)
 
     def test_generation_with_all_fixed(self) -> None:
         # Make sure candidate generation succeeds and returns correct parameters

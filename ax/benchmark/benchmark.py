@@ -33,7 +33,7 @@ import numpy as np
 import numpy.typing as npt
 import pandas as pd
 from ax.benchmark.benchmark_method import BenchmarkMethod
-from ax.benchmark.benchmark_problem import BenchmarkProblem
+from ax.benchmark.benchmark_problem import _is_minimizing, BenchmarkProblem
 from ax.benchmark.benchmark_result import AggregatedBenchmarkResult, BenchmarkResult
 from ax.benchmark.benchmark_runner import BenchmarkRunner
 from ax.benchmark.benchmark_test_function import BenchmarkTestFunction
@@ -41,13 +41,14 @@ from ax.benchmark.methods.sobol import get_sobol_benchmark_method
 from ax.core.arm import Arm
 from ax.core.data import MAP_KEY
 from ax.core.experiment import Experiment
-from ax.core.objective import MultiObjective
+from ax.core.metric import Metric
 from ax.core.optimization_config import (
     MultiObjectiveOptimizationConfig,
     OptimizationConfig,
 )
 from ax.core.search_space import SearchSpace
 from ax.core.trial import BaseTrial, Trial
+from ax.core.trial_status import TrialStatus
 from ax.core.types import TParameterization, TParamValue
 from ax.core.utils import get_model_times
 from ax.early_stopping.strategies.base import BaseEarlyStoppingStrategy
@@ -119,7 +120,7 @@ def compute_score_trace(
         optimal_value: The best possible value of the objective; when the
             optimization_trace equals the optimal_value, the score is 100.
     """
-    return (
+    return np.asarray(
         100 * (optimization_trace - baseline_value) / (optimal_value - baseline_value)
     )
 
@@ -161,6 +162,7 @@ def get_benchmark_runner(
 def get_oracle_experiment_from_params(
     problem: BenchmarkProblem,
     dict_of_dict_of_params: Mapping[int, Mapping[str, Mapping[str, TParamValue]]],
+    trial_statuses: Mapping[int, TrialStatus] | None = None,
 ) -> Experiment:
     """
     Get a new experiment with the same search space and optimization config
@@ -174,6 +176,12 @@ def get_oracle_experiment_from_params(
             config for generating an experiment.
         dict_of_dict_of_params: Keys are trial indices, values are Mappings
             (e.g. dicts) that map arm names to parameterizations.
+        trial_statuses: Optional mapping from trial indices to their statuses.
+            If provided, trials in oracle experiments will be set to the
+            specified status.
+            This helps preserve the trial status from the original experiment,
+            especially if we want to take `ABANDONED` trials into account.
+            If not provided, trials will be set to completed.
 
     Example:
         >>> get_oracle_experiment_from_params(
@@ -191,6 +199,7 @@ def get_oracle_experiment_from_params(
     experiment = Experiment(
         search_space=problem.search_space,
         optimization_config=problem.optimization_config,
+        tracking_metrics=(problem.opt_config_metrics or []),
     )
 
     # The test function produces ground-truth values; noise is handled by
@@ -219,11 +228,33 @@ def get_oracle_experiment_from_params(
         trial = experiment.trials[trial_index]
         metadata = runner.run(trial=trial)
         trial.update_run_metadata(metadata=metadata)
-        trial.mark_completed()
+
+        # Determine the status for the trial in the oracle experiment.
+        # Mark ABANDONED and FAILED immediately (they don't require data).
+        # EARLY_STOPPED requires data, so mark as completed for now and
+        # defer the status change until after fetch_data().
+        if trial_statuses is not None:
+            status = trial_statuses[trial_index]
+        else:
+            status = TrialStatus.COMPLETED
+
+        if status == TrialStatus.ABANDONED:
+            trial.mark_abandoned()
+        elif status == TrialStatus.FAILED:
+            trial.mark_failed()
+        else:
+            trial.mark_completed()
 
     logger.setLevel(level=original_log_level)
 
     experiment.fetch_data()
+
+    # Apply EARLY_STOPPED status after data is available, since
+    # mark_early_stopped() requires data on the trial.
+    if trial_statuses is not None:
+        for trial_index, status in trial_statuses.items():
+            if status == TrialStatus.EARLY_STOPPED:
+                experiment.trials[trial_index].mark_early_stopped(unsafe=True)
     return experiment
 
 
@@ -234,6 +265,7 @@ def get_benchmark_orchestrator_options(
     early_stopping_strategy: BaseEarlyStoppingStrategy | None,
     include_status_quo: bool = False,
     logging_level: int = DEFAULT_LOG_LEVEL,
+    tolerated_trial_failure_rate: float = 0.5,
 ) -> OrchestratorOptions:
     """
     Get the ``OrchestratorOptions`` for the given ``BenchmarkMethod``.
@@ -248,6 +280,8 @@ def get_benchmark_orchestrator_options(
         early_stopping_strategy: The early stopping strategy to use (if any).
         include_status_quo: Whether to include the status quo in each trial.
         logging_level: The logging level to use for the Orchestrator.
+        tolerated_trial_failure_rate: Fraction of trials allowed to fail without
+            aborting the optimization. Expects value between 0 and 1. Default is 0.5.
 
     Returns:
         ``OrchestratorOptions``
@@ -269,6 +303,7 @@ def get_benchmark_orchestrator_options(
         early_stopping_strategy=early_stopping_strategy,
         status_quo_weight=1.0 if include_status_quo else 0.0,
         logging_level=logging_level,
+        tolerated_trial_failure_rate=tolerated_trial_failure_rate,
     )
 
 
@@ -285,9 +320,10 @@ def _get_oracle_value_of_params(
     dummy_experiment = get_oracle_experiment_from_params(
         problem=problem, dict_of_dict_of_params={0: {"0_0": params}}
     )
-    (inference_value,) = get_trace(
+    trace = get_trace(
         experiment=dummy_experiment, optimization_config=problem.optimization_config
     )
+    inference_value = next(iter(trace.values()))
     return inference_value
 
 
@@ -342,14 +378,15 @@ def get_inference_trace(
 
 def get_is_feasible_trace(
     experiment: Experiment, optimization_config: OptimizationConfig
-) -> list[float]:
+) -> list[bool]:
     """Get a trace of feasibility for the experiment.
 
     For batch trials we return True if any arm in a given batch is feasible.
+    Trials without data (e.g. abandoned or failed) default to False.
     """
     df = experiment.lookup_data().df.copy()  # Let's not modify the original df
     if len(df) == 0:
-        return []
+        return [False] * len(experiment.trials)
     # Derelativize the optimization config if needed.
     optimization_config = derelativize_opt_config(
         optimization_config=optimization_config,
@@ -358,7 +395,11 @@ def get_is_feasible_trace(
     # Compute feasibility and return feasibility per group
     df = _prepare_data_for_trace(df=df, optimization_config=optimization_config)
     trial_grouped = df.groupby("trial_index")["feasible"]
-    return trial_grouped.any().tolist()
+    feasibility_by_trial = trial_grouped.any().to_dict()
+    return [
+        feasibility_by_trial.get(trial_index, False)
+        for trial_index in sorted(experiment.trials.keys())
+    ]
 
 
 def get_best_parameters(
@@ -441,7 +482,7 @@ def get_benchmark_result_from_experiment_and_gs(
         )
     else:
         trial_completion_order = [{i} for i in range(len(experiment.trials))]
-        cost_trace = 1.0 + np.arange(len(experiment.trials), dtype=float)
+        cost_trace = np.arange(len(experiment.trials), dtype=float) + 1.0
 
     num_trials = list(accumulate(len(trials) for trials in trial_completion_order))
 
@@ -455,15 +496,42 @@ def get_benchmark_result_from_experiment_and_gs(
         for new_trial_index, trials in enumerate(trial_completion_order)
     }
 
-    actual_params_oracle_dummy_experiment = get_oracle_experiment_from_params(
-        problem=problem, dict_of_dict_of_params=dict_of_dict_of_params
-    )
-    oracle_trace = np.array(
-        get_trace(
-            experiment=actual_params_oracle_dummy_experiment,
-            optimization_config=problem.optimization_config,
+    # Create trial_statuses mapping to preserve trial status in oracle experiment.
+    # If all trials in a completion group share the same status, use that status;
+    # otherwise default to COMPLETED.
+    trial_statuses = {}
+    for new_trial_index, old_trial_indices in enumerate(trial_completion_order):
+        statuses = {experiment.trials[idx].status for idx in old_trial_indices}
+        trial_statuses[new_trial_index] = (
+            next(iter(statuses)) if len(statuses) == 1 else TrialStatus.COMPLETED
         )
+
+    actual_params_oracle_dummy_experiment = get_oracle_experiment_from_params(
+        problem=problem,
+        dict_of_dict_of_params=dict_of_dict_of_params,
+        trial_statuses=trial_statuses,
     )
+    oracle_trace_dict = get_trace(
+        experiment=actual_params_oracle_dummy_experiment,
+        optimization_config=problem.optimization_config,
+    )
+    # Expand trace dict to a positional array aligned with all trials,
+    # carry-forwarding the last best value for trials without data (e.g.,
+    # failed or abandoned trials preserved via trial_statuses).
+    maximize = (
+        isinstance(problem.optimization_config, MultiObjectiveOptimizationConfig)
+        or problem.optimization_config.objective.is_scalarized_objective
+        or not problem.optimization_config.objective.minimize
+    )
+    all_trial_indices = sorted(actual_params_oracle_dummy_experiment.trials.keys())
+    last_best = -float("inf") if maximize else float("inf")
+    oracle_trace_list: list[float] = []
+    for idx in all_trial_indices:
+        if idx in oracle_trace_dict:
+            last_best = oracle_trace_dict[idx]
+        oracle_trace_list.append(last_best)
+    oracle_trace = np.array(oracle_trace_list)
+
     is_feasible_trace = np.array(
         get_is_feasible_trace(
             experiment=actual_params_oracle_dummy_experiment,
@@ -543,6 +611,7 @@ def run_optimization_with_orchestrator(
     run_trials_in_batches: bool = False,
     timeout_hours: float | None = None,
     orchestrator_logging_level: int = DEFAULT_LOG_LEVEL,
+    tolerated_trial_failure_rate: float = 0.5,
 ) -> Experiment:
     """
     Optimize the ``problem`` using the ``method`` and ``Orchestrator``, seeding
@@ -579,6 +648,7 @@ def run_optimization_with_orchestrator(
         early_stopping_strategy=method.early_stopping_strategy,
         include_status_quo=sq_arm is not None,
         logging_level=orchestrator_logging_level,
+        tolerated_trial_failure_rate=tolerated_trial_failure_rate,
     )
     runner = get_benchmark_runner(
         problem=problem,
@@ -591,7 +661,8 @@ def run_optimization_with_orchestrator(
         optimization_config=problem.optimization_config,
         runner=runner,
         status_quo=sq_arm,
-        tracking_metrics=problem.tracking_metrics,
+        tracking_metrics=(problem.opt_config_metrics or [])
+        + (problem.tracking_metrics or []),
         auxiliary_experiments_by_purpose=problem.auxiliary_experiments_by_purpose,
     )
 
@@ -630,6 +701,7 @@ def benchmark_replication(
     timeout_hours: float = 4.0,
     orchestrator_logging_level: int = DEFAULT_LOG_LEVEL,
     strip_runner_before_saving: bool = True,
+    tolerated_trial_failure_rate: float = 0.5,
 ) -> BenchmarkResult:
     """
     Run one benchmarking replication (equivalent to one optimization loop).
@@ -667,6 +739,7 @@ def benchmark_replication(
         run_trials_in_batches=run_trials_in_batches,
         timeout_hours=timeout_hours,
         orchestrator_logging_level=orchestrator_logging_level,
+        tolerated_trial_failure_rate=tolerated_trial_failure_rate,
     )
 
     benchmark_result = get_benchmark_result_from_experiment_and_gs(
@@ -685,6 +758,7 @@ def compute_baseline_value_from_sobol(
     test_function: BenchmarkTestFunction,
     target_fidelity_and_task: Mapping[str, TParamValue] | None = None,
     n_repeats: int = 50,
+    opt_config_metrics: list[Metric] | None = None,
 ) -> float:
     """
     Compute the `baseline_value` that will be assigned to
@@ -711,8 +785,8 @@ def compute_baseline_value_from_sobol(
 
     # set up a dummy problem so we can use `benchmark_replication`
     # MOO problems are always higher-is-better because they use hypervolume
-    higher_is_better = isinstance(optimization_config.objective, MultiObjective) or (
-        not optimization_config.objective.minimize
+    higher_is_better = optimization_config.objective.is_multi_objective or (
+        not _is_minimizing(optimization_config.objective)
     )
     dummy_problem = BenchmarkProblem(
         name="dummy",
@@ -726,6 +800,7 @@ def compute_baseline_value_from_sobol(
         baseline_value=0.0,
         search_space=search_space,
         target_fidelity_and_task=target_fidelity_and_task,
+        opt_config_metrics=opt_config_metrics or [],
     )
 
     values = np.full(n_repeats, np.nan)
@@ -750,6 +825,7 @@ def benchmark_one_method_problem(
     run_trials_in_batches: bool = False,
     timeout_hours: float = 4.0,
     orchestrator_logging_level: int = DEFAULT_LOG_LEVEL,
+    tolerated_trial_failure_rate: float = 0.5,
 ) -> AggregatedBenchmarkResult:
     return AggregatedBenchmarkResult.from_benchmark_results(
         results=[
@@ -760,6 +836,7 @@ def benchmark_one_method_problem(
                 run_trials_in_batches=run_trials_in_batches,
                 timeout_hours=timeout_hours,
                 orchestrator_logging_level=orchestrator_logging_level,
+                tolerated_trial_failure_rate=tolerated_trial_failure_rate,
             )
             for seed in seeds
         ]
@@ -773,6 +850,7 @@ def benchmark_multiple_problems_methods(
     run_trials_in_batches: bool = False,
     timeout_hours: float = 4.0,
     orchestrator_logging_level: int = DEFAULT_LOG_LEVEL,
+    tolerated_trial_failure_rate: float = 0.5,
 ) -> list[AggregatedBenchmarkResult]:
     """
     For each `problem` and `method` in the Cartesian product of `problems` and
@@ -788,6 +866,7 @@ def benchmark_multiple_problems_methods(
             run_trials_in_batches=run_trials_in_batches,
             timeout_hours=timeout_hours,
             orchestrator_logging_level=orchestrator_logging_level,
+            tolerated_trial_failure_rate=tolerated_trial_failure_rate,
         )
         for p, m in product(problems, methods)
     ]

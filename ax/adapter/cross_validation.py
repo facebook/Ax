@@ -39,6 +39,8 @@ from ax.utils.stats.model_fit_stats import (
 from botorch.cross_validation import loo_cv
 from botorch.models.gpytorch import GPyTorchModel
 from botorch.posteriors.fully_bayesian import GaussianMixturePosterior
+from botorch.posteriors.gpytorch import GPyTorchPosterior
+from botorch.posteriors.transformed import TransformedPosterior
 from botorch.settings import validate_input_scaling
 from pyre_extensions import assert_is_instance, none_throws
 
@@ -242,10 +244,15 @@ def _efficient_loo_cross_validate(
         # Shape: n x 1 x m
         loo_means = posterior.mixture_mean.detach().cpu().numpy()
         loo_vars = posterior.mixture_variance.detach().cpu().numpy()
-    else:
+    elif isinstance(posterior, (GPyTorchPosterior, TransformedPosterior)):
         # Shape: n x 1 x m
         loo_means = posterior.mean.detach().cpu().numpy()
         loo_vars = posterior.variance.detach().cpu().numpy()
+    else:
+        raise UnsupportedError(
+            f"Unsupported posterior type for LOO CV: {type(posterior)}. "
+            "Expected GPyTorchPosterior or TransformedPosterior."
+        )
 
     # Squeeze out the q dimension: n x 1 x m -> n x m
     loo_means = loo_means.squeeze(1)
@@ -584,7 +591,7 @@ def has_good_opt_config_model_fit(
 
     Args:
         optimization_config: Objective/Outcome constraint metrics to assess
-        diagnostics: Output of compute_diagnostics
+        assess_model_fit_result: Output of assess_model_fit
 
     Returns:
         Two dictionaries, one for good metrics, one for bad metrics, each
@@ -594,8 +601,8 @@ def has_good_opt_config_model_fit(
     # Bad fit criteria: Any objective metrics are poorly fit
     # TODO[]: Incl. outcome constraints in assessment
     has_good_opt_config_fit = all(
-        (m.signature in assess_model_fit_result.good_fit_metrics_to_fisher_score)
-        for m in optimization_config.objective.metrics
+        sig in assess_model_fit_result.good_fit_metrics_to_fisher_score
+        for sig in optimization_config.objective.metric_signatures
     )
     return has_good_opt_config_fit
 

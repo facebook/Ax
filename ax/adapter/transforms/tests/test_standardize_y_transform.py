@@ -24,7 +24,6 @@ from ax.utils.common.testutils import TestCase
 from ax.utils.testing.core_stubs import get_experiment_with_observations
 from pandas import DataFrame
 from pandas.testing import assert_frame_equal
-from pyre_extensions import assert_is_instance
 
 
 class StandardizeYTransformTest(TestCase):
@@ -148,25 +147,27 @@ class StandardizeYTransformTest(TestCase):
         ]
         oc = OptimizationConfig(objective=objective, outcome_constraints=cons)
         oc = self.t.transform_optimization_config(oc, None, None)
-        cons_t = [
-            OutcomeConstraint(
-                metric=m1, op=ComparisonOp.GEQ, bound=1.0, relative=False
-            ),
-            OutcomeConstraint(
-                metric=m2,
-                op=ComparisonOp.LEQ,
-                bound=2.0 * sqrt(3),  # (3.5 - 1.5) / sqrt(1/3)
-                relative=False,
-            ),
-            ScalarizedOutcomeConstraint(
-                metrics=[m1, m2],
-                weights=[0.5 * 1.0, 0.5 * sqrt(1 / 3)],
-                op=ComparisonOp.LEQ,
-                bound=2.25,  # 3.5 - (0.5 * 1.0 + 0.5 * 1.5)
-                relative=False,
-            ),
-        ]
-        self.assertTrue(oc.outcome_constraints == cons_t)
+        # Verify the transformed constraints have the expected values.
+        # We compare properties individually to avoid floating-point string
+        # representation issues with expression-based equality.
+        self.assertEqual(len(oc.outcome_constraints), 3)
+        c0, c1, c2 = oc.outcome_constraints
+        # Constraint 0: m1 >= (2.0 - 1.0) / 1.0 = 1.0
+        self.assertEqual(c0.op, ComparisonOp.GEQ)
+        self.assertAlmostEqual(c0.bound, 1.0)
+        self.assertFalse(c0.relative)
+        # Constraint 1: m2 <= (3.5 - 1.5) / sqrt(1/3) = 2*sqrt(3)
+        self.assertEqual(c1.op, ComparisonOp.LEQ)
+        self.assertAlmostEqual(c1.bound, 2.0 * sqrt(3))
+        self.assertFalse(c1.relative)
+        # Constraint 2 (scalarized): 0.5*m1 + 0.5*sqrt(1/3)*m2 <= 2.25
+        self.assertEqual(c2.op, ComparisonOp.LEQ)
+        self.assertAlmostEqual(c2.bound, 2.25)
+        self.assertFalse(c2.relative)
+        self.assertEqual(c2.metric_names, ["m1", "m2"])
+        weights = [w for _, w in c2.metric_weights]
+        self.assertAlmostEqual(weights[0], 0.5 * 1.0)
+        self.assertAlmostEqual(weights[1], 0.5 * sqrt(1 / 3))
         self.assertTrue(oc.objective == objective)
 
         # Check fail with relative
@@ -233,10 +234,12 @@ class StandardizeYTransformTest(TestCase):
 
         # Check that weights are scaled by standard deviations
         expected_weights = [0.5 * 1.0, 0.5 * sqrt(1 / 3)]
-        transformed_objective = assert_is_instance(
-            oc_transformed.objective, ScalarizedObjective
+        transformed_objective = oc_transformed.objective
+        self.assertTrue(
+            np.allclose(
+                [w for _, w in transformed_objective.metric_weights], expected_weights
+            )
         )
-        self.assertTrue(np.allclose(transformed_objective.weights, expected_weights))
 
         # Test with ScalarizedObjective missing a metric
         objective_missing = ScalarizedObjective(
@@ -257,14 +260,15 @@ class StandardizeYTransformTest(TestCase):
             oc_minimize, None, None
         )
 
-        # Check that weights are scaled by standard deviations
-        expected_weights_minimize = [1.0 * 1.0, -2.0 * sqrt(1 / 3)]
-        transformed_objective_minimize = assert_is_instance(
-            oc_minimize_transformed.objective, ScalarizedObjective
-        )
+        # Check that weights are scaled by standard deviations.
+        # Note: ScalarizedObjective with minimize=True bakes negation into the
+        # expression, so the stored weights are [-1.0, 2.0] (not [1.0, -2.0]).
+        expected_weights_minimize = [-1.0 * 1.0, 2.0 * sqrt(1 / 3)]
+        transformed_objective_minimize = oc_minimize_transformed.objective
         self.assertTrue(
             np.allclose(
-                transformed_objective_minimize.weights, expected_weights_minimize
+                [w for _, w in transformed_objective_minimize.metric_weights],
+                expected_weights_minimize,
             )
         )
 

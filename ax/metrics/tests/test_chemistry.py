@@ -19,8 +19,7 @@ from ax.utils.testing.core_stubs import get_trial
 
 
 class DummyEnum(Enum):
-    # pyre-fixme[35]: Target cannot be annotated.
-    DUMMY: str = "dummy"
+    DUMMY = "dummy"
 
 
 class ChemistryMetricTest(TestCase):

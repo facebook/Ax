@@ -35,6 +35,7 @@ from ax.utils.testing.core_stubs import (
 )
 from pandas import DataFrame
 from pandas.testing import assert_frame_equal
+from pyre_extensions import none_throws
 
 
 class CastTransformTest(TestCase):
@@ -179,8 +180,7 @@ class CastTransformTest(TestCase):
                 self.assertIn(p_name, obsf.parameters)
             # Check that full parameterization is recorded in metadata
             self.assertEqual(
-                # pyre-fixme[16]: Optional type has no attribute `get`.
-                obsf.metadata.get(Keys.FULL_PARAMETERIZATION),
+                none_throws(obsf.metadata).get(Keys.FULL_PARAMETERIZATION),
                 self.obs_feats_hss.parameters,
             )
 
@@ -197,7 +197,7 @@ class CastTransformTest(TestCase):
                 self.assertIn(p_name, obsf.parameters)
             # Check that full parameterization is recorded in metadata
             self.assertEqual(
-                obsf.metadata.get(Keys.FULL_PARAMETERIZATION),
+                none_throws(obsf.metadata).get(Keys.FULL_PARAMETERIZATION),
                 self.obs_feats_hss.parameters,
             )
 
@@ -245,8 +245,7 @@ class CastTransformTest(TestCase):
             },
         )
         self.assertEqual(
-            # pyre-fixme[16]: Optional type has no attribute `get`.
-            obsf.metadata.get(Keys.FULL_PARAMETERIZATION),
+            none_throws(obsf.metadata).get(Keys.FULL_PARAMETERIZATION),
             self.obs_feats_hss.parameters,
         )
 
@@ -264,7 +263,7 @@ class CastTransformTest(TestCase):
             },
         )
         self.assertEqual(
-            obsf.metadata.get(Keys.FULL_PARAMETERIZATION),
+            none_throws(obsf.metadata).get(Keys.FULL_PARAMETERIZATION),
             self.obs_feats_hss_2.parameters,
         )
 

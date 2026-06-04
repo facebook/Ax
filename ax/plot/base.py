@@ -13,6 +13,7 @@ from typing import Any, NamedTuple
 from ax.core.types import TParameterization
 from ax.utils.common.serialization import named_tuple_to_dict
 from plotly import utils
+from plotly.graph_objs import Figure
 
 
 # Constants used for numerous plots
@@ -43,7 +44,9 @@ class _AxPlotConfigBase(NamedTuple):
 class AxPlotConfig(_AxPlotConfigBase):
     """Config for plots"""
 
-    def __new__(cls, data: dict[str, Any], plot_type: enum.Enum) -> "AxPlotConfig":
+    def __new__(
+        cls, data: dict[str, Any] | Figure, plot_type: enum.Enum
+    ) -> "AxPlotConfig":
         # Convert data to json-encodable form (strips out NamedTuple and numpy
         # array). This is a lossy conversion.
         dict_data = json.loads(

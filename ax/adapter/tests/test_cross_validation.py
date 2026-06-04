@@ -9,6 +9,7 @@
 import warnings
 from collections.abc import Iterable
 from itertools import product
+from typing import cast
 from unittest import mock
 
 import numpy as np
@@ -70,6 +71,7 @@ from botorch.posteriors.gpytorch import GPyTorchPosterior
 from gpytorch.distributions import MultivariateNormal
 from linear_operator.operators import DiagLinearOperator
 from pandas import DataFrame
+from pyre_extensions import assert_is_instance
 
 # Number of in-design points created by _create_adapter_with_out_of_design_points()
 _OOD_ADAPTER_IN_DESIGN_COUNT = 3
@@ -78,9 +80,8 @@ _OOD_ADAPTER_IN_DESIGN_COUNT = 3
 class CrossValidationTest(TestCase):
     def setUp(self) -> None:
         super().setUp()
-        # pyre-ignore [9] Pyre is too picky with union types.
         parameterizations: list[TParameterization] = [
-            {"x": x} for x in [2.0, 2.0, 3.0, 4.0]
+            cast(TParameterization, {"x": x}) for x in [2.0, 2.0, 3.0, 4.0]
         ]
         means = [[2.0, 4.0], [3.0, 5.0], [7.0, 8.0], [9.0, 10.0]]
         sems = [[1.0, 2.0], [1.0, 2.0], [1.0, 2.0], [1.0, 2.0]]
@@ -135,7 +136,7 @@ class CrossValidationTest(TestCase):
             self.assertEqual(len(set(train[i]).intersection(test[i])), 0)
             self.assertEqual(len(train[i]) + len(test[i]), 4)
         # Test all points used as test points
-        all_test = np.hstack(test)
+        all_test = np.hstack([np.asarray(t) for t in test])
         self.assertTrue(
             np.array_equal(sorted(all_test), np.array([2.0, 2.0, 3.0, 4.0]))
         )
@@ -161,7 +162,7 @@ class CrossValidationTest(TestCase):
             self.assertEqual(len(set(train[i]).intersection(test[i])), 0)
             self.assertEqual(len(train[i]) + len(test[i]), 4)
         # Test all points used as test points
-        all_test = np.hstack(test)
+        all_test = np.hstack([np.asarray(t) for t in test])
         self.assertTrue(
             np.array_equal(sorted(all_test), np.array([2.0, 2.0, 3.0, 4.0]))
         )
@@ -199,7 +200,7 @@ class CrossValidationTest(TestCase):
             self.assertEqual(len(set(train[i]).intersection(test[i])), 0)
             self.assertEqual(len(train[i]) + len(test[i]), 4)
         # Test all points used as test points -- these are transformed after call.
-        all_test = np.hstack(test)
+        all_test = np.hstack([np.asarray(t) for t in test])
         self.assertTrue(
             np.array_equal(sorted(all_test), np.array([0.2, 0.2, 0.3, 0.4]))
         )
@@ -247,7 +248,10 @@ class CrossValidationTest(TestCase):
         z = mock_cv.mock_calls
         self.assertEqual(len(z), 2)
         all_test = np.hstack(
-            [[obsf.parameters["x"] for obsf in r[2]["cv_test_points"]] for r in z]
+            [
+                np.asarray([obsf.parameters["x"] for obsf in r[2]["cv_test_points"]])
+                for r in z
+            ]
         )
         self.assertTrue(np.array_equal(sorted(all_test), np.array([2.0, 2.0, 3.0])))
 
@@ -483,8 +487,8 @@ class CrossValidationTest(TestCase):
         optimization_config = MultiObjectiveOptimizationConfig(
             objective=MultiObjective(
                 objectives=[
-                    Objective(Metric("m1"), minimize=False),
-                    Objective(Metric("m2"), minimize=False),
+                    Objective(metric=Metric("m1"), minimize=False),
+                    Objective(metric=Metric("m2"), minimize=False),
                 ]
             )
         )
@@ -639,6 +643,29 @@ class CrossValidationTest(TestCase):
                 log_message = mock_logger.debug.call_args[0][0]
                 self.assertIn("Efficient LOO CV failed", log_message)
                 self.assertIn("Test failure reason", log_message)
+
+        # Test that unsupported posterior types raise UnsupportedError
+        with self.subTest(condition="unsupported posterior type"):
+            mock_posterior = mock.MagicMock()
+            mock_posterior.__class__.__name__ = "UnknownPosterior"
+
+            surrogate = self.adapter.generator.surrogate
+            model = surrogate.model
+
+            mock_loo_results = CVResults(
+                model=model,
+                posterior=mock_posterior,
+                observed_Y=torch.tensor([[1.0], [2.0], [3.0], [4.0]]),
+                observed_Yvar=None,
+            )
+            with mock.patch(
+                "ax.adapter.cross_validation.loo_cv",
+                return_value=mock_loo_results,
+            ):
+                with self.assertRaisesRegex(
+                    UnsupportedError, "Unsupported posterior type for LOO CV"
+                ):
+                    _efficient_loo_cross_validate(adapter=self.adapter)
 
     def test_efficient_loo_cv_matches_naive(self) -> None:
         """End-to-end test: Ax.Adapter.cross_validate returns same results
@@ -894,29 +921,27 @@ class CrossValidationTest(TestCase):
         experiment = get_branin_experiment(with_batch=True, with_completed_batch=True)
 
         # Create adapter with SaasFullyBayesianSingleTaskGP
+        generator = BoTorchGenerator(
+            surrogate=Surrogate(
+                surrogate_spec=SurrogateSpec(
+                    model_configs=[
+                        ModelConfig(
+                            botorch_model_class=SaasFullyBayesianSingleTaskGP,
+                        )
+                    ],
+                ),
+            )
+        )
         adapter = TorchAdapter(
             experiment=experiment,
-            generator=BoTorchGenerator(
-                surrogate=Surrogate(
-                    surrogate_spec=SurrogateSpec(
-                        model_configs=[
-                            ModelConfig(
-                                botorch_model_class=SaasFullyBayesianSingleTaskGP,
-                            )
-                        ],
-                    ),
-                )
-            ),
+            generator=generator,
             transforms=[UnitX],
         )
 
         # We need to mock the MCMC fitting to avoid running actual NUTS sampling
         # which is very slow. Instead, we'll inject mock MCMC samples.
-        surrogate = adapter.generator.surrogate  # pyre-ignore[16]
-        model = surrogate.model
-
-        # Verify the model is a SaasFullyBayesianSingleTaskGP
-        self.assertIsInstance(model, SaasFullyBayesianSingleTaskGP)
+        surrogate = generator.surrogate
+        model = assert_is_instance(surrogate.model, SaasFullyBayesianSingleTaskGP)
 
         # Get training data shape info
         train_X = model.train_inputs[0]

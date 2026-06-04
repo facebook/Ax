@@ -11,7 +11,8 @@ from collections.abc import Mapping, Sequence
 
 import numpy as np
 from ax.adapter.adapter_utils import (
-    extract_parameter_constraints,
+    extract_equality_constraints,
+    extract_inequality_constraints,
     extract_search_space_digest,
     get_fixed_features,
     parse_observation_features,
@@ -20,12 +21,14 @@ from ax.adapter.adapter_utils import (
 from ax.adapter.base import Adapter, DataLoaderConfig, GenResults
 from ax.adapter.data_utils import ExperimentData
 from ax.adapter.transforms.base import Transform
+from ax.core.batch_trial import BatchTrial
 from ax.core.data import Data
 from ax.core.experiment import Experiment
 from ax.core.observation import ObservationFeatures
 from ax.core.optimization_config import OptimizationConfig
 from ax.core.search_space import SearchSpace
 from ax.generators.random.base import RandomGenerator
+from ax.generators.random.in_sample import InSampleUniformGenerator
 from ax.generators.types import TConfig
 
 
@@ -90,15 +93,58 @@ class RandomAdapter(Adapter):
         # Get fixed features
         fixed_features_dict = get_fixed_features(fixed_features, self.parameters)
         # Extract param constraints
-        linear_constraints = extract_parameter_constraints(
+        linear_constraints = extract_inequality_constraints(
             search_space.parameter_constraints, self.parameters
         )
-        # Extract generated points to deduplicate against.
-        # Exclude out-of-design arms (which can only be manual arms
-        # instead of adapter-generated arms).
+        equality_constraints_np = extract_equality_constraints(
+            search_space.parameter_constraints, self.parameters
+        )
+        # Extract generated points.
+        # For normal generators these are used to deduplicate against.
+        # For in-sample generators (LILO labeling) they are the selection
+        # pool from which arms are drawn — not a dedup set.  The two use
+        # cases have been shoehorned into the same code path; consider
+        # splitting them into separate methods in a future refactor.
         generated_points = None
+        is_in_sample = isinstance(self.generator, InSampleUniformGenerator)
         if self.generator.deduplicate:
-            arms_to_deduplicate = self._experiment.arms_by_signature_for_deduplication
+            # For normal generators, exclude arms from FAILED trials so the
+            # model may re-suggest them.  For in-sample generators this
+            # exclusion is harmful: LILO labeling trials borrow arms from
+            # regular trials, so a FAILED labeling trial would incorrectly
+            # remove the original arm from the selection pool.  Use the
+            # full arms_by_signature instead.
+            arms_to_deduplicate = (
+                self._experiment.arms_by_signature
+                if is_in_sample
+                else self._experiment.arms_by_signature_for_deduplication
+            )
+            # For in-sample generators, restrict to arms from trials that
+            # have or expect observed data (COMPLETED, EARLY_STOPPED,
+            # RUNNING). This prevents selecting arms from CANDIDATE/STAGED
+            # trials that have never been evaluated.
+            if is_in_sample:
+                # Also exclude abandoned arms within data-expecting trials:
+                # they have no observed data and would cause downstream
+                # failures (e.g., LILO source resolution).
+                abandoned_arm_names: set[str] = {
+                    a.name
+                    for t in self._experiment.trials.values()
+                    if isinstance(t, BatchTrial)
+                    for a in t.abandoned_arms
+                }
+                expecting_sigs = {
+                    arm.signature
+                    for trial in self._experiment.trials.values()
+                    if trial.status.expecting_data
+                    for arm in trial.arms
+                    if arm.name not in abandoned_arm_names
+                }
+                arms_to_deduplicate = {
+                    sig: arm
+                    for sig, arm in arms_to_deduplicate.items()
+                    if sig in expecting_sigs
+                }
             generated_obs = [
                 ObservationFeatures.from_arm(arm=arm)
                 for arm in arms_to_deduplicate.values()
@@ -108,9 +154,16 @@ class RandomAdapter(Adapter):
             for t in self.transforms.values():
                 generated_obs = t.transform_observation_features(generated_obs)
             # Add pending observations -- already transformed.
-            generated_obs.extend(
-                [obs for obs_list in pending_observations.values() for obs in obs_list]
-            )
+            # Skipped for in-sample generators: pending observations include
+            # CANDIDATE arms that should not enter the selection pool.
+            if not is_in_sample:
+                generated_obs.extend(
+                    [
+                        obs
+                        for obs_list in pending_observations.values()
+                        for obs in obs_list
+                    ]
+                )
             if len(generated_obs) > 0:
                 # Extract generated points array (n x d).
                 generated_points = np.array(
@@ -128,6 +181,7 @@ class RandomAdapter(Adapter):
             n=n,
             search_space_digest=search_space_digest,
             linear_constraints=linear_constraints,
+            equality_constraints=equality_constraints_np,
             fixed_features=fixed_features_dict,
             model_gen_options=model_gen_options,
             rounding_func=transform_callback(self.parameters, self.transforms),

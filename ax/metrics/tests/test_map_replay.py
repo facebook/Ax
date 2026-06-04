@@ -53,6 +53,7 @@ class MapDataReplayMetricTest(TestCase):
                     minimize=True,
                 )
             ),
+            tracking_metrics=[replay_metric],
             runner=SyntheticRunner(),
         )
         for i in range(0, 2):
@@ -114,6 +115,7 @@ class MapDataReplayMetricTest(TestCase):
                     minimize=True,
                 )
             ),
+            tracking_metrics=[replay_metric],
             runner=SyntheticRunner(),
         )
         for i in range(0, 2):

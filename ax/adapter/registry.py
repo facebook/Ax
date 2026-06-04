@@ -56,12 +56,14 @@ from ax.generators.discrete.eb_ashr import EBAshr
 from ax.generators.discrete.eb_thompson import EmpiricalBayesThompsonSampler
 from ax.generators.discrete.full_factorial import FullFactorialGenerator
 from ax.generators.discrete.thompson import ThompsonSampler
+from ax.generators.random.in_sample import InSampleUniformGenerator
 from ax.generators.random.sobol import SobolGenerator
 from ax.generators.random.uniform import UniformGenerator
 from ax.generators.torch.botorch_modular.generator import (
     BoTorchGenerator as ModularBoTorchGenerator,
 )
-from ax.generators.torch.botorch_modular.surrogate import ModelConfig, SurrogateSpec
+from ax.generators.torch.botorch_modular.surrogate import SurrogateSpec
+from ax.generators.torch.botorch_modular.utils import ModelConfig
 from ax.utils.common.kwargs import (
     consolidate_kwargs,
     get_function_argument_names,
@@ -214,6 +216,18 @@ GENERATOR_KEY_TO_GENERATOR_SETUP: dict[str, GeneratorSetup] = {
         adapter_class=RandomAdapter,
         generator_class=UniformGenerator,
         transforms=Cont_X_trans,
+    ),
+    # In-sample generators only select existing arms -- they do not need
+    # arithmetic transforms (Log, Logit, UnitX) whose forward/reverse
+    # round-trip introduces ~1e-15 IEEE 754 rounding.  This rounding
+    # produces "ghost arms" with slightly different parameter values
+    # and signatures, preventing the experiment from reusing existing
+    # Arm objects.  Structural/type transforms are kept for compatibility
+    # with categorical, ordered-choice, integer, and fixed parameters.
+    "InSampleUniform": GeneratorSetup(
+        adapter_class=RandomAdapter,
+        generator_class=InSampleUniformGenerator,
+        transforms=[RemoveFixed, OrderedChoiceToIntegerRange, OneHot, IntToFloat],
     ),
     "ST_MTGP": GeneratorSetup(
         adapter_class=TorchAdapter,
@@ -454,8 +468,10 @@ class Generators(GeneratorRegistryBase):
     EMPIRICAL_BAYES_THOMPSON = "EB"
     EB_ASHR = "EB_Ashr"
     UNIFORM = "Uniform"
+    IN_SAMPLE_UNIFORM = "InSampleUniform"
     ST_MTGP = "ST_MTGP"
     BO_MIXED = "BO_MIXED"
+    BOTL = "BOTL"
 
 
 def _extract_generator_state_after_gen(

@@ -12,6 +12,7 @@ from unittest import mock
 
 import numpy as np
 import pandas as pd
+from ax.analysis.analysis import NOT_APPLICABLE_STATE_SUBTITLE
 from ax.analysis.plotly.parallel_coordinates import ParallelCoordinatesPlot
 from ax.api.client import Client
 from ax.api.configs import (
@@ -23,11 +24,10 @@ from ax.api.configs import (
 from ax.api.protocols.metric import IMetric
 from ax.api.protocols.runner import IRunner
 from ax.api.types import TParameterization
-from ax.core.analysis_card import AnalysisCard
 from ax.core.data import Data
 from ax.core.experiment import Experiment
 from ax.core.map_metric import MapMetric
-from ax.core.objective import MultiObjective, Objective, ScalarizedObjective
+from ax.core.objective import Objective
 from ax.core.optimization_config import OptimizationConfig
 from ax.core.outcome_constraint import ComparisonOp, OutcomeConstraint
 from ax.core.parameter import (
@@ -41,7 +41,7 @@ from ax.core.trial import Trial
 from ax.core.trial_status import TrialStatus
 from ax.core.utils import compute_metric_availability, MetricAvailability
 from ax.early_stopping.strategies import PercentileEarlyStoppingStrategy
-from ax.exceptions.core import UnsupportedError, UserInputError
+from ax.exceptions.core import UnsupportedError
 from ax.storage.sqa_store.db import init_test_engine_and_session_factory
 from ax.storage.sqa_store.with_db_settings_base import (
     _save_generation_strategy_to_db_if_possible,
@@ -224,10 +224,12 @@ class TestClient(TestCase):
             optimization_config.objective,
             Objective,
         )
-        self.assertEqual(objective.metric.name, "metric1")
+        self.assertEqual(objective.metric_names[0], "metric1")
 
         # Verify no metrics were removed, just moved from tracking to objective
-        all_metrics = [objective.metric] + list(client._experiment.tracking_metrics)
+        all_metrics = [client._experiment.get_metric(objective.metric_names[0])] + list(
+            client._experiment.tracking_metrics
+        )
         self.assertEqual(len(all_metrics), 3)
 
     def test_configure_optimization_with_pruning_target_parameterization(self) -> None:
@@ -368,30 +370,32 @@ class TestClient(TestCase):
 
         self.assertEqual(
             custom_metric,
-            none_throws(client._experiment.optimization_config).objective.metric,
+            client._experiment.get_metric("custom"),
         )
 
         # Test replacing a multi-objective
         client.configure_optimization(objective="custom, foo")
         client.configure_metrics(metrics=[custom_metric])
 
-        self.assertIn(
+        self.assertEqual(
             custom_metric,
-            assert_is_instance(
-                none_throws(client._experiment.optimization_config).objective,
-                MultiObjective,
-            ).metrics,
+            client._experiment.get_metric("custom"),
+        )
+        self.assertIn(
+            "custom",
+            none_throws(client._experiment.optimization_config).objective.metric_names,
         )
         # Test replacing a scalarized objective
         client.configure_optimization(objective="custom + foo")
         client.configure_metrics(metrics=[custom_metric])
 
-        self.assertIn(
+        self.assertEqual(
             custom_metric,
-            assert_is_instance(
-                none_throws(client._experiment.optimization_config).objective,
-                ScalarizedObjective,
-            ).metrics,
+            client._experiment.get_metric("custom"),
+        )
+        self.assertIn(
+            "custom",
+            none_throws(client._experiment.optimization_config).objective.metric_names,
         )
 
         # Test replacing an outcome constraint
@@ -402,9 +406,7 @@ class TestClient(TestCase):
 
         self.assertEqual(
             custom_metric,
-            none_throws(client._experiment.optimization_config)
-            .outcome_constraints[0]
-            .metric,
+            client._experiment.get_metric("custom"),
         )
 
         # Test adding a tracking metric
@@ -654,21 +656,14 @@ class TestClient(TestCase):
         )
 
         # With extra metrics
-        # Try and attach data for a metric that doesn't exist
-        with self.assertRaisesRegex(
-            UserInputError,
-            "Unable to find the metric signature for one or more metrics.",
-        ):
-            client.attach_data(
-                trial_index=trial_index,
-                raw_data={"foo": 1.0, "bar": 2.0},
-            )
-
-        client.configure_metrics(metrics=[DummyMetric(name="bar")])
+        # Extraneous metrics should be auto-registered as tracking metrics
+        self.assertNotIn("bar", client._experiment.metrics)
         client.attach_data(
             trial_index=trial_index,
             raw_data={"foo": 1.0, "bar": 2.0},
         )
+        self.assertIn("bar", client._experiment.metrics)
+        self.assertIn("bar", [m.name for m in client._experiment.tracking_metrics])
         self.assertEqual(
             client._experiment.trials[trial_index].status,
             TrialStatus.RUNNING,
@@ -1107,7 +1102,9 @@ class TestClient(TestCase):
         summary_df = client.summarize()
         self.assertTrue(summary_df.empty)
 
-        # Add manual trial (not at center so CenterGenerationNode won't be skipped).
+        # Add manual trial. With use_existing_trials_for_initialization=True
+        # (default), the CenterGenerationNode will be skipped because the
+        # experiment already has a trial.
         index = client.attach_trial(
             parameters={"x1": 0.3, "x2": 0.7}, arm_name="manual"
         )
@@ -1147,7 +1144,7 @@ class TestClient(TestCase):
                 "trial_index": {0: 0, 1: 1, 2: 2},
                 "arm_name": {0: "manual", 1: "1_0", 2: "2_0"},
                 "trial_status": {0: "RUNNING", 1: "COMPLETED", 2: "FAILED"},
-                "generation_node": {0: None, 1: "CenterOfSearchSpace", 2: "Sobol"},
+                "generation_node": {0: None, 1: "Sobol", 2: "Sobol"},
                 "foo": {0: 0.0, 1: 1.0, 2: np.nan},  # NaN because trial 2 failed
                 "bar": {0: 0.5, 1: 2.0, 2: np.nan},
                 "x1": {
@@ -1172,7 +1169,7 @@ class TestClient(TestCase):
                 "trial_index": {0: 0, 1: 1},
                 "arm_name": {0: "manual", 1: "1_0"},
                 "trial_status": {0: "RUNNING", 1: "COMPLETED"},
-                "generation_node": {0: None, 1: "CenterOfSearchSpace"},
+                "generation_node": {0: None, 1: "Sobol"},
                 "foo": {0: 0.0, 1: 1.0},
                 "bar": {0: 0.5, 1: 2.0},
                 "x1": {
@@ -1194,7 +1191,7 @@ class TestClient(TestCase):
                 "trial_index": {0: 1},
                 "arm_name": {0: "1_0"},
                 "trial_status": {0: "COMPLETED"},
-                "generation_node": {0: "CenterOfSearchSpace"},
+                "generation_node": {0: "Sobol"},
                 "foo": {0: 1.0},
                 "bar": {0: 2.0},
                 "x1": {0: trial_1_parameters["x1"]},
@@ -1210,7 +1207,7 @@ class TestClient(TestCase):
                 "trial_index": {0: 1},
                 "arm_name": {0: "1_0"},
                 "trial_status": {0: "COMPLETED"},
-                "generation_node": {0: "CenterOfSearchSpace"},
+                "generation_node": {0: "Sobol"},
                 "foo": {0: 1.0},
                 "bar": {0: 2.0},
                 "x1": {0: trial_1_parameters["x1"]},
@@ -1244,7 +1241,7 @@ class TestClient(TestCase):
                 "trial_index": {0: 0, 1: 1},
                 "arm_name": {0: "manual", 1: "1_0"},
                 "trial_status": {0: "RUNNING", 1: "COMPLETED"},
-                "generation_node": {0: None, 1: "CenterOfSearchSpace"},
+                "generation_node": {0: None, 1: "Sobol"},
                 "foo": {0: 0.0, 1: 1.0},
                 "bar": {0: 0.5, 1: 2.0},
                 "x1": {
@@ -1277,15 +1274,10 @@ class TestClient(TestCase):
 
         self.assertEqual(len(cards), 1)
         self.assertEqual(cards[0].name, "ParallelCoordinatesPlot")
-        self.assertEqual(cards[0].title, "ParallelCoordinatesPlot Error")
+        self.assertEqual(cards[0].title, "ParallelCoordinatesPlot -- Not Available Yet")
         self.assertEqual(
             cards[0].subtitle,
-            "AnalysisNotApplicableStateError encountered while computing "
-            "ParallelCoordinatesPlot.",
-        )
-        self.assertIn(
-            "Experiment has no trials",
-            assert_is_instance(cards[0], AnalysisCard).blob,
+            NOT_APPLICABLE_STATE_SUBTITLE,
         )
 
         for trial_index, _ in client.get_next_trials(max_trials=1).items():
@@ -1628,32 +1620,36 @@ class TestClient(TestCase):
         client.configure_metrics(metrics=[foo_metric])
         objective = none_throws(client._experiment.optimization_config).objective
         self.assertIsInstance(objective, Objective)
-        self.assertIs(objective.metric, foo_metric)
+        self.assertIs(
+            client._experiment.get_metric(objective.metric_names[0]), foo_metric
+        )
 
         # test 2: Replace the outcome-constraint metric
         bar_metric = DummyMetric(name="bar")
         client.configure_metrics(metrics=[bar_metric])
         oc = none_throws(client._experiment.optimization_config).outcome_constraints[0]
-        self.assertIs(oc.metric, bar_metric)
+        self.assertIs(client._experiment.get_metric(oc.metric_names[0]), bar_metric)
 
         # test 3: Add a tracking metric, then replace it by name
         baz_metric_1 = DummyMetric(name="baz")
         client.configure_metrics(metrics=[baz_metric_1])
-        self.assertIn("baz", client._experiment._tracking_metrics)
-        self.assertIs(client._experiment._tracking_metrics["baz"], baz_metric_1)
+        tracking_names = {m.name for m in client._experiment.tracking_metrics}
+        self.assertIn("baz", tracking_names)
+        self.assertIs(client._experiment.get_metric("baz"), baz_metric_1)
 
         baz_metric_2 = DummyMetric(name="baz")
         client.configure_metrics(metrics=[baz_metric_2])
-        self.assertIs(client._experiment._tracking_metrics["baz"], baz_metric_2)
+        self.assertIs(client._experiment.get_metric("baz"), baz_metric_2)
 
         # test 4: Metric name not present anywhere, should be added as tracking + warn
         quux_metric = DummyMetric(name="quux")
         with self.assertLogs(logger="ax.api.client", level="WARNING") as logs:
             client.configure_metrics(metrics=[quux_metric])
-        self.assertIn("quux", client._experiment._tracking_metrics)
-        self.assertIs(client._experiment._tracking_metrics["quux"], quux_metric)
+        tracking_names = {m.name for m in client._experiment.tracking_metrics}
+        self.assertIn("quux", tracking_names)
+        self.assertIs(client._experiment.get_metric("quux"), quux_metric)
         self.assertTrue(
-            any("added as tracking metric" in msg for msg in logs.output),
+            any("added as a new tracking metric" in msg for msg in logs.output),
             "Expected a warning that the metric was added as a tracking metric.",
         )
 
@@ -1661,21 +1657,13 @@ class TestClient(TestCase):
         client.configure_optimization(objective="foo, qux")
         qux_metric_moo = DummyMetric(name="qux")
         client.configure_metrics(metrics=[qux_metric_moo])
-        moo = assert_is_instance(
-            none_throws(client._experiment.optimization_config).objective,
-            MultiObjective,
-        )
-        self.assertIn(qux_metric_moo, moo.metrics)
+        self.assertEqual(qux_metric_moo, client._experiment.get_metric("qux"))
 
         # test 6: Replace inside a ScalarizedObjective
         client.configure_optimization(objective="foo + qux")
         qux_metric_scalar = DummyMetric(name="qux")
         client.configure_metrics(metrics=[qux_metric_scalar])
-        scalar = assert_is_instance(
-            none_throws(client._experiment.optimization_config).objective,
-            ScalarizedObjective,
-        )
-        self.assertIn(qux_metric_scalar, scalar.metrics)
+        self.assertEqual(qux_metric_scalar, client._experiment.get_metric("qux"))
 
     def test_configure_generation_strategy_with_simplify(self) -> None:
         client = Client()
@@ -1794,10 +1782,11 @@ class TestClient(TestCase):
             self.assertIn("x2", trial_params)
             self.assertIn("x3", trial_params)
             # Verify derived parameter is correctly computed
-            # pyre-fixme[58]: Arithmetic operations on TParameterValue
-            expected_x3 = 1.0 - trial_params["x1"] - trial_params["x2"]
-            # pyre-fixme[6]: Type mismatch on assertAlmostEqual
-            self.assertAlmostEqual(trial_params["x3"], expected_x3, places=6)
+            x1_val = assert_is_instance(trial_params["x1"], float)
+            x2_val = assert_is_instance(trial_params["x2"], float)
+            x3_val = assert_is_instance(trial_params["x3"], float)
+            expected_x3 = 1.0 - x1_val - x2_val
+            self.assertAlmostEqual(x3_val, expected_x3, places=6)
 
     def test_complete_trial_with_derived_parameters(self) -> None:
         # Setup: Configure experiment with derived parameter and generate trial
@@ -1902,6 +1891,48 @@ class TestClient(TestCase):
         self.assertIn("param2", summary_df.columns)
         self.assertIn("param_sum", summary_df.columns)
         self.assertEqual(len(summary_df), 3)
+
+    @mock_botorch_optimize
+    def test_scalarized_single_objective_optimization(self) -> None:
+        """Test that a scalarized single objective (e.g., "0.5*m1 + 0.5*m2")
+        works end-to-end including BoTorch generation."""
+        client = Client()
+        client.configure_experiment(
+            parameters=[
+                RangeParameterConfig(name="x", parameter_type="float", bounds=(-1, 1)),
+            ],
+        )
+        client.configure_optimization(objective="0.5*m1 + 0.5*m2")
+        client.configure_generation_strategy(initialization_budget=3)
+
+        # Verify the objective is set up correctly.
+        opt_config = none_throws(client._experiment.optimization_config)
+        objective = opt_config.objective
+        self.assertTrue(objective.is_scalarized_objective)
+        self.assertFalse(objective.is_multi_objective)
+        self.assertEqual(objective.metric_names, ["m1", "m2"])
+
+        # Run Sobol initialization trials.
+        for _ in range(3):
+            for index, parameters in client.get_next_trials(max_trials=1).items():
+                x = assert_is_instance(parameters["x"], float)
+                client.complete_trial(
+                    trial_index=index,
+                    raw_data={"m1": x**2, "m2": 1 - x**2},
+                )
+
+        # Generate a BoTorch trial (post-initialization).
+        for index, parameters in client.get_next_trials(max_trials=1).items():
+            x = assert_is_instance(parameters["x"], float)
+            client.complete_trial(
+                trial_index=index,
+                raw_data={"m1": x**2, "m2": 1 - x**2},
+            )
+
+        # Verify we can get the best parameterization.
+        best_params, prediction, _index, _name = client.get_best_parameterization()
+        self.assertIn("x", best_params)
+        self.assertEqual(set(prediction.keys()), {"m1", "m2"})
 
 
 class DummyRunner(IRunner):

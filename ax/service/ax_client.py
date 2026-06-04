@@ -9,28 +9,37 @@
 import json
 import logging
 import warnings
-from collections.abc import Callable, Sequence
+from collections.abc import Callable, Generator, Sequence
+from contextlib import contextmanager
 from functools import partial
 from logging import Logger
 from typing import Any, TypeVar
 
 import ax.service.utils.early_stopping as early_stopping_utils
-import numpy as np
 import pandas as pd
 import torch
 from ax.adapter.prediction_utils import predict_by_features
+from ax.api.configs import ChoiceParameterConfig, RangeParameterConfig
+from ax.api.utils.instantiation.from_config import parameter_from_config
 from ax.core.arm import Arm
-from ax.core.base_trial import BaseTrial
 from ax.core.evaluations_to_data import raw_evaluations_to_data
 from ax.core.experiment import Experiment
 from ax.core.generator_run import GeneratorRun
 from ax.core.multi_type_experiment import MultiTypeExperiment
-from ax.core.objective import MultiObjective, Objective
+from ax.core.objective import Objective
 from ax.core.observation import ObservationFeatures
-from ax.core.runner import Runner
+from ax.core.parameter import RangeParameter
+from ax.core.parameter_constraint import ParameterConstraint
+from ax.core.runner import Runner, RunnerConfig
 from ax.core.trial import Trial
 from ax.core.trial_status import TrialStatus
-from ax.core.types import TEvaluationOutcome, TParameterization, TParamValue
+from ax.core.types import (
+    ComparisonOp,
+    TEvaluationOutcome,
+    TParameterization,
+    TParamValue,
+)
+from ax.core.utils import compute_metric_availability, MetricAvailability
 from ax.early_stopping.strategies import BaseEarlyStoppingStrategy
 from ax.early_stopping.utils import estimate_early_stopping_savings
 from ax.exceptions.constants import CHOLESKY_ERROR_ANNOTATION
@@ -47,12 +56,9 @@ from ax.generation_strategy.dispatch_utils import choose_generation_strategy_leg
 from ax.generation_strategy.generation_strategy import GenerationStrategy
 from ax.generation_strategy.transition_criterion import MaxGenerationParallelism
 from ax.global_stopping.strategies.base import BaseGlobalStoppingStrategy
-from ax.global_stopping.strategies.improvement import constraint_satisfaction
 from ax.plot.base import AxPlotConfig
 from ax.plot.contour import plot_contour
 from ax.plot.feature_importances import plot_feature_importance_by_feature
-from ax.plot.helper import _format_dict
-from ax.plot.trace import optimization_trace_single_method
 from ax.service.utils.analysis_base import AnalysisBase
 from ax.service.utils.best_point_mixin import BestPointMixin
 from ax.service.utils.instantiation import (
@@ -87,8 +93,7 @@ AxClientSubclass = TypeVar("AxClientSubclass", bound="AxClient")
 
 ROUND_FLOATS_IN_LOGS_TO_DECIMAL_PLACES: int = 6
 
-# pyre-fixme[5]: Global expression must be annotated.
-round_floats_for_logging = partial(
+round_floats_for_logging: partial[Any] = partial(
     _round_floats_for_logging,
     decimal_places=ROUND_FLOATS_IN_LOGS_TO_DECIMAL_PLACES,
 )
@@ -412,6 +417,35 @@ class AxClient(AnalysisBase, BestPointMixin, InstantiationBase):
             metric_definitions=metric_definitions,
         )
         if optimization_config:
+            # Build lower_is_better map from the optimization config so
+            # that auto-registered metrics carry the correct directionality.
+            lower_is_better_map: dict[str, bool] = {}
+            obj = optimization_config.objective
+            obj_names = obj.metric_names
+            obj_weights = [w for _, w in obj.metric_weights]
+            for mn, weight in zip(obj_names, obj_weights):
+                lower_is_better_map[mn] = weight < 0
+            for constraint in optimization_config.outcome_constraints:
+                for mn in constraint.metric_names:
+                    if mn not in lower_is_better_map:
+                        lower_is_better_map[mn] = constraint.op is ComparisonOp.LEQ
+
+            # Auto-register metrics not yet on the experiment, using
+            # metric_definitions to preserve metric types and properties.
+            # For existing metrics, update lower_is_better to match the
+            # new optimization config.
+            for metric_name in optimization_config.metric_names:
+                if metric_name not in self.experiment.metrics:
+                    metric = self._make_metric(
+                        name=metric_name,
+                        metric_definitions=metric_definitions,
+                        lower_is_better=lower_is_better_map.get(metric_name),
+                    )
+                    self.experiment.add_metric(metric)
+                elif metric_name in lower_is_better_map:
+                    self.experiment.metrics[
+                        metric_name
+                    ].lower_is_better = lower_is_better_map[metric_name]
             self.experiment.optimization_config = optimization_config
             self._save_experiment_to_db_if_possible(
                 experiment=self.experiment,
@@ -516,6 +550,166 @@ class AxClient(AnalysisBase, BestPointMixin, InstantiationBase):
         self._save_experiment_to_db_if_possible(
             experiment=self.experiment,
         )
+
+    def add_parameters(
+        self,
+        parameters: Sequence[RangeParameterConfig | ChoiceParameterConfig],
+        backfill_values: TParameterization,
+        status_quo_values: TParameterization | None = None,
+        parameter_constraints: list[str] | None = None,
+        runner_updates: RunnerConfig.SearchSpaceUpdateArguments | None = None,
+    ) -> None:
+        """
+        Add new parameters to the experiment's search space. This allows extending
+        the search space after the experiment has run some trials.
+
+        Backfill values must be provided for all new parameters to ensure existing
+        trials in the experiment remain valid within the expanded search space. The
+        backfill values represent the parameter values that were used in the existing
+        trials.
+
+        Args:
+            parameters: A sequence of parameter configurations to add to the search
+                space.
+            backfill_values: Parameter values to assign to existing trials for the
+                new parameters being added. All new parameter names must have
+                corresponding backfill values provided.
+            status_quo_values: Optional parameter values for the new parameters to
+                use in the status quo (baseline) arm, if one is defined. If None,
+                the backfill values will be used for the status quo.
+            parameter_constraints: Optional list of string representations of
+                parameter constraints to add (e.g., ``"x1 + x2 <= 5.0"``
+                or ``"x1 <= x2"``). May reference both existing and new
+                parameters.
+            runner_updates: Optional typed context to pass to the runner's
+                ``on_search_space_update`` hook.
+        """
+        parameters_to_add = [
+            parameter_from_config(parameter_config) for parameter_config in parameters
+        ]
+        parameter_names = {parameter.name for parameter in parameters_to_add}
+        missing_backfill_values = parameter_names - backfill_values.keys()
+        if missing_backfill_values:
+            raise UserInputError(
+                "You must provide backfill values for all parameters being added. "
+                f"Missing values for parameters: {missing_backfill_values}."
+            )
+        extra_backfill_values = backfill_values.keys() - parameter_names
+        if extra_backfill_values:
+            logger.warning(
+                "Backfill values provided for parameters not being added: "
+                f"{extra_backfill_values}. Will ignore these values."
+            )
+        for parameter in parameters_to_add:
+            if parameter.name in backfill_values:
+                parameter._backfill_value = backfill_values[parameter.name]
+
+        # Convert string constraints to typed ParameterConstraint objects.
+        typed_parameter_constraints: list[ParameterConstraint] = []
+        if parameter_constraints:
+            # Build a parameter map with both existing and new parameters so
+            # constraints can reference either.
+            parameter_map = {
+                **self.experiment.search_space.parameters,
+                **{p.name: p for p in parameters_to_add},
+            }
+            typed_parameter_constraints = [
+                InstantiationBase.constraint_from_str(c, parameter_map)
+                for c in parameter_constraints
+            ]
+
+        with self._with_runner_on_search_space_update(
+            runner_updates=runner_updates,
+        ):
+            self.experiment.add_parameters_to_search_space(
+                parameters=parameters_to_add,
+                status_quo_values=status_quo_values or backfill_values,
+                parameter_constraints=typed_parameter_constraints or None,
+            )
+        self._save_experiment_to_db_if_possible(experiment=self.experiment)
+
+    def disable_parameters(
+        self,
+        default_parameter_values: TParameterization,
+        runner_updates: RunnerConfig.SearchSpaceUpdateArguments | None = None,
+    ) -> None:
+        """
+        Disable parameters in the experiment. This allows narrowing the search space
+        after the experiment has run some trials.
+
+        When parameters are disabled, they are effectively removed from the search
+        space for future trial generation. Existing trials remain valid, and the
+        disabled parameters are replaced with fixed default values for all subsequent
+        trials.
+
+        Args:
+            default_parameter_values: Fixed values to use for the disabled parameters
+                in all future trials. These values will be used for the parameter in
+                all subsequent trials.
+            runner_updates: Optional typed context to pass to the runner's
+                ``on_search_space_update`` hook.
+        """
+        with self._with_runner_on_search_space_update(
+            runner_updates=runner_updates,
+        ):
+            self.experiment.disable_parameters_in_search_space(
+                default_parameter_values=default_parameter_values
+            )
+        self._save_experiment_to_db_if_possible(experiment=self.experiment)
+
+    def update_parameters(
+        self,
+        parameters: Sequence[RangeParameterConfig],
+        runner_updates: RunnerConfig.SearchSpaceUpdateArguments | None = None,
+    ) -> None:
+        """Update parameters in the experiment's search space.
+
+        This allows modifying the search space after the experiment has run some
+        trials.
+
+        Args:
+            parameters: A sequence of ``RangeParameterConfig`` to update in the
+                search space.
+            runner_updates: Optional typed context to pass to the runner's
+                ``on_search_space_update`` hook.
+
+        Raises:
+            UserInputError: If a parameter is not found in the search space or
+                if the parameter is not a ``RangeParameter``.
+        """
+        search_space = self.experiment.search_space
+        for parameter in parameters:
+            if parameter.name not in search_space.parameters:
+                raise UserInputError(
+                    f"Parameter {parameter.name} not found in search space."
+                )
+            if not isinstance(search_space.parameters[parameter.name], RangeParameter):
+                raise UserInputError(
+                    f"Parameter {parameter.name} is not a RangeParameter."
+                )
+
+        parameters_to_update = [
+            parameter_from_config(parameter) for parameter in parameters
+        ]
+        with self._with_runner_on_search_space_update(
+            runner_updates=runner_updates,
+        ):
+            for parameter in parameters_to_update:
+                search_space.update_parameter(parameter=parameter)
+        self._save_experiment_to_db_if_possible(experiment=self.experiment)
+
+    @property
+    def runner_config_type(self) -> type[RunnerConfig] | None:
+        """The ``RunnerConfig`` subclass declared by the experiment's runner.
+
+        Returns ``None`` if the experiment has no runner. Useful for
+        discovering the typed context a runner expects::
+
+            ctx_cls = client.runner_config_type.SearchSpaceUpdateArguments
+        """
+        if self.experiment.runner is None:
+            return None
+        return self.experiment.runner.config_type
 
     @retry_on_exception(
         logger=logger,
@@ -888,61 +1082,6 @@ class AxClient(AnalysisBase, BestPointMixin, InstantiationBase):
     def get_max_parallelism(self) -> list[tuple[int, int]]:
         raise NotImplementedError("Use `get_max_concurrency` instead.")
 
-    def get_optimization_trace(
-        self, objective_optimum: float | None = None
-    ) -> AxPlotConfig:
-        """Retrieves the plot configuration for optimization trace, which shows
-        the evolution of the objective mean over iterations.
-
-        Args:
-            objective_optimum: Optimal objective, if known, for display in the
-                visualization.
-        """
-        if not self.experiment.trials:
-            raise ValueError("Cannot generate plot as there are no trials.")
-
-        objective = self.objective
-        if isinstance(objective, MultiObjective):
-            raise UnsupportedError(
-                "`get_optimization_trace` is not supported "
-                "for multi-objective experiments"
-            )
-
-        # Setting the objective values of infeasible points to be infinitely
-        # bad prevents them from increasing or decreasing the
-        # optimization trace.
-        def _constrained_trial_objective_mean(trial: BaseTrial) -> float:
-            if constraint_satisfaction(trial):
-                return assert_is_instance(trial, Trial).objective_mean
-            return float("inf") if self.objective.minimize else float("-inf")
-
-        objective_name = self.objective_name
-        best_objectives = np.array(
-            [
-                [
-                    _constrained_trial_objective_mean(trial)
-                    for trial in self.experiment.trials.values()
-                    if trial.status.is_completed
-                ]
-            ]
-        )
-        hover_labels = [
-            _format_dict(none_throws(assert_is_instance(trial, Trial).arm).parameters)
-            for trial in self.experiment.trials.values()
-            if trial.status.is_completed
-        ]
-        return optimization_trace_single_method(
-            y=(
-                np.minimum.accumulate(best_objectives, axis=1)
-                if objective.minimize
-                else np.maximum.accumulate(best_objectives, axis=1)
-            ),
-            optimum=objective_optimum,
-            title="Best objective found vs. # of iterations",
-            ylabel=objective_name.capitalize(),
-            hover_labels=hover_labels,
-        )
-
     def get_contour_plot(
         self,
         param_x: str | None = None,
@@ -978,7 +1117,7 @@ class AxClient(AnalysisBase, BestPointMixin, InstantiationBase):
             )
 
         if not metric_name:
-            if isinstance(self.objective, MultiObjective):
+            if self.objective.is_multi_objective:
                 raise UnsupportedError(
                     "`get_contour_plot` requires a `metric_name` "
                     "for multi-objective experiments"
@@ -1224,13 +1363,23 @@ class AxClient(AnalysisBase, BestPointMixin, InstantiationBase):
 
         NOTE: If the current generation node is not model-based, no model may be fit.
         """
-        if not self.experiment.trial_indices_by_status[TrialStatus.COMPLETED]:
+        completed_trial_indices = self.experiment.trial_indices_by_status[
+            TrialStatus.COMPLETED
+        ]
+        if not completed_trial_indices:
             raise DataRequiredError(
                 "At least one trial must be completed with data to fit a model."
             )
-        # Check if we should transition before generating the next candidate.
-        self.generation_strategy._maybe_transition_to_next_node()
-        self.generation_strategy._curr._fit(experiment=self.experiment)
+        availability = compute_metric_availability(
+            experiment=self.experiment,
+            trial_indices=completed_trial_indices,
+        )
+        if not any(v == MetricAvailability.COMPLETE for v in availability.values()):
+            raise DataRequiredError(
+                "At least one completed trial must have data for all required "
+                "metrics to fit a model."
+            )
+        self.generation_strategy.fit(experiment=self.experiment)
 
     def verify_trial_parameterization(
         self, trial_index: int, parameterization: TParameterization
@@ -1303,8 +1452,7 @@ class AxClient(AnalysisBase, BestPointMixin, InstantiationBase):
     def load_from_json_file(
         cls: type[AxClientSubclass],
         filepath: str = "ax_client_snapshot.json",
-        # pyre-fixme[2]: Parameter must be annotated.
-        **kwargs,
+        **kwargs: Any,
     ) -> AxClientSubclass:
         """Restore an `AxClient` and its state from a JSON-serialized snapshot,
         residing in a .json file by the given path.
@@ -1315,13 +1463,12 @@ class AxClient(AnalysisBase, BestPointMixin, InstantiationBase):
 
     def to_json_snapshot(
         self,
-        # pyre-fixme[24]: Generic type `type` expects 1 type parameter, use
-        #  `typing.Type` to avoid runtime subscripting errors.
-        encoder_registry: dict[type, Callable[[Any], dict[str, Any]]] | None = None,
-        # pyre-fixme[24]: Generic type `type` expects 1 type parameter, use
-        #  `typing.Type` to avoid runtime subscripting errors.
-        class_encoder_registry: None
-        | (dict[type, Callable[[Any], dict[str, Any]]]) = None,
+        encoder_registry: (
+            dict[type[Any], Callable[[Any], dict[str, Any]]] | None
+        ) = None,
+        class_encoder_registry: (
+            dict[type[Any], Callable[[Any], dict[str, Any]]] | None
+        ) = None,
     ) -> dict[str, Any]:
         """Serialize this `AxClient` to JSON to be able to interrupt and restart
         optimization and save it to file by the provided path.
@@ -1357,8 +1504,7 @@ class AxClient(AnalysisBase, BestPointMixin, InstantiationBase):
         decoder_registry: TDecoderRegistry | None = None,
         class_decoder_registry: None
         | (dict[str, Callable[[dict[str, Any]], Any]]) = None,
-        # pyre-fixme[2]: Parameter must be annotated.
-        **kwargs,
+        **kwargs: Any,
     ) -> AxClientSubclass:
         """Recreate an `AxClient` from a JSON snapshot."""
         if decoder_registry is None:
@@ -1425,17 +1571,17 @@ class AxClient(AnalysisBase, BestPointMixin, InstantiationBase):
     def objective_name(self) -> str:
         """Returns the name of the objective in this optimization."""
         objective = self.objective
-        if isinstance(objective, MultiObjective):
+        if objective.is_multi_objective:
             raise UnsupportedError(
                 "Multi-objective experiments contain multiple objectives"
             )
-        return objective.metric.name
+        return objective.metric_names[0]
 
     @property
     def objective_names(self) -> list[str]:
         """Returns the name of the objective in this optimization."""
         objective = self.objective
-        return [m.name for m in objective.metrics]
+        return list(objective.metric_names)
 
     @property
     def metric_definitions(self) -> dict[str, dict[str, Any]]:
@@ -1679,10 +1825,40 @@ class AxClient(AnalysisBase, BestPointMixin, InstantiationBase):
             trial_index=trial_index,
             metric_name_to_signature=metric_name_to_signature,
         )
-        required_metrics = set(opt_config.metrics.keys())
+        required_metrics = opt_config.metric_names
         provided_metrics = data.metric_names
         missing_metrics = required_metrics - provided_metrics
         return not missing_metrics
+
+    @contextmanager
+    def _with_runner_on_search_space_update(
+        self,
+        runner_updates: RunnerConfig.SearchSpaceUpdateArguments | None = None,
+    ) -> Generator[None, None, None]:
+        """Context manager that notifies the runner after search space mutations.
+
+        On enter, snapshots (clones) the current search space. The caller
+        performs the actual search space mutations inside the ``with`` block.
+        On exit, if the experiment has a runner, calls
+        ``runner.on_search_space_update`` with the now-mutated real search
+        space. If ``on_search_space_update`` raises, the search space is
+        restored from the snapshot and the exception is re-raised.
+
+        If the experiment has no runner, this is a no-op wrapper.
+        """
+        runner = self.experiment.runner
+        search_space_snapshot = self.experiment.search_space.clone()
+        yield
+        if runner is None:
+            return
+        try:
+            runner.on_search_space_update(
+                search_space=self.experiment.search_space,
+                arguments=runner_updates,
+            )
+        except Exception:
+            self.experiment.search_space = search_space_snapshot
+            raise
 
     # ------------------------------ Validators. -------------------------------
 

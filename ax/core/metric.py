@@ -15,7 +15,7 @@ from dataclasses import dataclass
 from datetime import timedelta
 from functools import reduce
 from logging import Logger
-from typing import Any, TYPE_CHECKING
+from typing import Any, cast, TYPE_CHECKING
 
 from ax.core.data import Data
 from ax.utils.common.base import SortableBase
@@ -461,18 +461,16 @@ class Metric(SortableBase, SerializationMixin):
         # This is a temporary hack to allow us to deprecate old metric class method
         # implementations. There does not seem to be another way of checking whether
         # base class' classmethods are overridden in subclasses.
-        is_fetch_trial_data_multi_overriden = (
-            getattr(self.__class__.fetch_trial_data_multi, "__code__", "DEFAULT")
-            != Metric.fetch_trial_data_multi.__code__  # pyre-ignore[16]
-        )
-        is_fetch_experiment_data_multi_overriden = (
-            getattr(
-                self.__class__.fetch_experiment_data_multi,
-                "__code__",
-                "DEFAULT",
-            )
-            != Metric.fetch_experiment_data_multi.__code__  # pyre-ignore[16]
-        )
+        # Asymmetric defaults: if __code__ is missing on the subclass, "DEFAULT"
+        # != None is True, treating the method as overridden (safe default).
+        is_fetch_trial_data_multi_overriden = getattr(
+            self.__class__.fetch_trial_data_multi, "__code__", "DEFAULT"
+        ) != getattr(Metric.fetch_trial_data_multi, "__code__", None)
+        is_fetch_experiment_data_multi_overriden = getattr(
+            self.__class__.fetch_experiment_data_multi,
+            "__code__",
+            "DEFAULT",
+        ) != getattr(Metric.fetch_experiment_data_multi, "__code__", None)
         # Raise deprecation warning if this method from the base class is used (meaning
         # that it is not overridden and the classmethod is overridden instead), unless
         # the only overridden method is `fetch_trial_data` (in which case the setup is
@@ -623,16 +621,18 @@ class Metric(SortableBase, SerializationMixin):
     def _wrap_experiment_data_multi(
         cls, data: Data
     ) -> dict[int, dict[str, MetricFetchResult]]:
-        # pyre-fixme[7]
-        return {
-            trial_index: {
-                metric_signature: Ok(
-                    value=data.filter(
-                        trial_indices=[trial_index],
-                        metric_signatures=[metric_signature],
+        return cast(
+            dict[int, dict[str, MetricFetchResult]],
+            {
+                trial_index: {
+                    metric_signature: Ok(
+                        value=data.filter(
+                            trial_indices=[trial_index],
+                            metric_signatures=[metric_signature],
+                        )
                     )
-                )
-                for metric_signature in data.full_df["metric_signature"]
-            }
-            for trial_index in data.full_df["trial_index"]
-        }
+                    for metric_signature in data.full_df["metric_signature"]
+                }
+                for trial_index in data.full_df["trial_index"]
+            },
+        )

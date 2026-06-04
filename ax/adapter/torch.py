@@ -11,18 +11,20 @@ from __future__ import annotations
 from collections.abc import Callable, Mapping, Sequence
 from copy import deepcopy
 from logging import Logger
-from typing import Any
+from typing import Any, cast
 
 import numpy as np
 import numpy.typing as npt
 import torch
 from ax.adapter.adapter_utils import (
+    _get_fresh_pairwise_trial_indices,
     arm_to_np_array,
     array_to_observation_data,
+    extract_equality_constraints,
+    extract_inequality_constraints,
     extract_objective_thresholds,
     extract_objective_weight_matrix,
     extract_outcome_constraints,
-    extract_parameter_constraints,
     extract_search_space_digest,
     get_fixed_features,
     observation_data_to_array,
@@ -88,7 +90,7 @@ from ax.utils.common.constants import Keys
 from ax.utils.common.logger import get_logger
 from botorch.models.model import Model
 from botorch.utils.datasets import MultiTaskDataset, SupervisedDataset
-from pyre_extensions import none_throws
+from pyre_extensions import assert_is_instance, none_throws
 from torch import Tensor
 
 logger: Logger = get_logger(__name__)
@@ -446,7 +448,7 @@ class TorchAdapter(Adapter):
         ).to_numpy()
         metadata = mean_and_params["metadata"]
         datasets: list[SupervisedDataset] = []
-        candidate_metadata = []
+        candidate_metadata: dict[str, list[dict[str, Any] | None]] = {}
         for outcome in outcomes:
             outcome_col_name = (
                 outcome + "_metric" if outcome in duplicated_names else outcome
@@ -459,6 +461,13 @@ class TorchAdapter(Adapter):
             # Drop NaN columns from means & corresponding params.
             outcome_means = mean_and_params[outcome_col_name].to_numpy()
             to_keep = ~np.isnan(outcome_means)
+            if not np.any(to_keep):
+                logger.warning(
+                    f"Skipping outcome '{outcome}': no non-NaN observations "
+                    f"remain after filtering. This can happen when a metric "
+                    f"has data in only a subset of trials."
+                )
+                continue
             Y = torch.from_numpy(outcome_means[to_keep]).double().view(-1, 1)
             X = torch.from_numpy(params_np[to_keep]).double()
             sem = sems_df[outcome].to_numpy()[to_keep]
@@ -468,6 +477,26 @@ class TorchAdapter(Adapter):
                 Yvar = torch.from_numpy(sem).double().square().view(-1, 1)
             group_indices = torch.from_numpy(trial_indices_np[to_keep])
             if outcome == Keys.PAIRWISE_PREFERENCE_QUERY.value:
+                # Filter out stale LILO trials whose input hash no longer
+                # matches the current experiment state.
+                fresh_indices = _get_fresh_pairwise_trial_indices(
+                    experiment=self._experiment,
+                )
+                if fresh_indices is not None:
+                    fresh_mask = torch.tensor(
+                        [int(gi.item()) in fresh_indices for gi in group_indices],
+                        dtype=torch.bool,
+                    )
+                    X = X[fresh_mask]
+                    Y = Y[fresh_mask]
+                    group_indices = group_indices[fresh_mask]
+                    # Narrow the NaN-filtered to_keep mask further so
+                    # candidate_metadata stays aligned.
+                    to_keep_indices = np.where(to_keep)[0]
+                    fresh_mask_np = fresh_mask.numpy()
+                    to_keep = np.zeros_like(to_keep)
+                    to_keep[to_keep_indices[fresh_mask_np]] = True
+
                 dataset = prep_pairwise_data(
                     X=X.to(device=self.device),
                     Y=Y.to(dtype=torch.long, device=self.device),
@@ -485,7 +514,7 @@ class TorchAdapter(Adapter):
                     group_indices=group_indices,
                 )
             datasets.append(dataset)
-            candidate_metadata.append(metadata.loc[to_keep].to_list())
+            candidate_metadata[outcome] = metadata.loc[to_keep].to_list()
 
         # If the search space digest specifies a task feature,
         # convert the datasets into MultiTaskDataset.
@@ -514,31 +543,37 @@ class TorchAdapter(Adapter):
                 )
                 for dataset in datasets
             ]
+        # Build the list of outcomes actually present in datasets (some may
+        # have been skipped above due to all-NaN observations).
+        included_outcomes = [name for d in datasets for name in d.outcome_names]
+
         # Check if there is a `parameter_decomposition` experiment property to
         # decide whether it is a contextual experiment.
         if self._experiment_properties.get("parameter_decomposition", None) is not None:
-            # Convert to a list of ContextualDateset for contextual experiments.
-            # pyre-ignore [9]: ContextualDataset is a subclass of SupervisedDataset.
-            datasets = process_contextual_datasets(
-                datasets=datasets,
-                outcomes=outcomes,
-                parameter_decomposition=self._experiment_properties[
-                    "parameter_decomposition"
-                ],
-                metric_decomposition=self._experiment_properties.get(
-                    "metric_decomposition", None
+            # Convert to a list of ContextualDataset for contextual experiments.
+            # cast() needed: list invariance (ContextualDataset <: SupervisedDataset).
+            datasets = cast(
+                list[SupervisedDataset],
+                process_contextual_datasets(
+                    datasets=datasets,
+                    outcomes=included_outcomes,
+                    parameter_decomposition=self._experiment_properties[
+                        "parameter_decomposition"
+                    ],
+                    metric_decomposition=self._experiment_properties.get(
+                        "metric_decomposition", None
+                    ),
                 ),
             )
 
-        # Get the order of outcomes
-        ordered_outcomes = []
-        for d in datasets:
-            ordered_outcomes.extend(d.outcome_names)
+        # Get the order of outcomes (may differ from included_outcomes
+        # after contextual/multi-task dataset transformations).
+        ordered_outcomes = [name for d in datasets for name in d.outcome_names]
         # Re-order candidate metadata
         if not metadata.isnull().all():
             ordered_metadata = []
             for outcome in ordered_outcomes:
-                ordered_metadata.append(candidate_metadata[outcomes.index(outcome)])
+                ordered_metadata.append(candidate_metadata[outcome])
         else:
             ordered_metadata = None
 
@@ -622,10 +657,14 @@ class TorchAdapter(Adapter):
                 "The `optimization_config` must be specified either while initializing "
                 "the Adapter or to the `evaluate_acquisition_function` call."
             )
-        # pyre-ignore Incompatible parameter type [9]
-        obs_feats: list[list[ObservationFeatures]] = deepcopy(observation_features)
-        if not isinstance(obs_feats[0], list):
-            obs_feats = [[obs] for obs in obs_feats]
+        obs_feats_copy = deepcopy(observation_features)
+        obs_feats: list[list[ObservationFeatures]]
+        if not isinstance(obs_feats_copy[0], list):
+            obs_feats = [
+                [assert_is_instance(obs, ObservationFeatures)] for obs in obs_feats_copy
+            ]
+        else:
+            obs_feats = cast(list[list[ObservationFeatures]], obs_feats_copy)
 
         for t in self.transforms.values():
             for i, batch in enumerate(obs_feats):
@@ -735,6 +774,7 @@ class TorchAdapter(Adapter):
         search_space: SearchSpace,
         experiment_data: ExperimentData,
         update_outcomes_and_parameters: bool,
+        data_parameters: list[str] | None = None,
     ) -> tuple[
         list[SupervisedDataset],
         list[list[TCandidateMetadata]] | None,
@@ -752,6 +792,11 @@ class TorchAdapter(Adapter):
             update_outcomes_and_parameters: Whether to update `self.outcomes` with
                 all outcomes found in the observations and `self.parameters` with
                 all parameters in the search space. Typically only used in `_fit`.
+            data_parameters: When provided, columns to extract from
+                ``experiment_data``. Defaults to ``self.parameters``. Useful when
+                the model space is larger than the data (e.g. transfer learning
+                with heterogeneous search spaces where the data only contains
+                target columns but the model operates in a joint feature space).
 
         Returns:
             The datasets & metadata, extracted from the ``experiment_data``, and the
@@ -779,12 +824,23 @@ class TorchAdapter(Adapter):
         search_space_digest = extract_search_space_digest(
             search_space=search_space, param_names=self.parameters
         )
+        extract_params = (
+            data_parameters if data_parameters is not None else self.parameters
+        )
+        # When data_parameters differs from self.parameters, the SSD's
+        # task_feature indices don't match the data columns. Pass None
+        # to skip MultiTaskDataset wrapping (the caller handles it).
+        extraction_ssd = (
+            None
+            if data_parameters is not None and data_parameters != self.parameters
+            else search_space_digest
+        )
         # Convert observations to datasets
         datasets, ordered_outcomes, candidate_metadata = self._convert_experiment_data(
             experiment_data=experiment_data,
             outcomes=self.outcomes,
-            parameters=self.parameters,
-            search_space_digest=search_space_digest,
+            parameters=extract_params,
+            search_space_digest=extraction_ssd,
         )
         datasets = self._update_w_aux_exp_datasets(datasets=datasets)
 
@@ -990,9 +1046,13 @@ class TorchAdapter(Adapter):
                 "to be specified"
             )
 
-        validate_transformed_optimization_config(optimization_config, self.outcomes)
+        validate_transformed_optimization_config(
+            optimization_config,
+            self.outcomes,
+        )
         objective_weights = extract_objective_weight_matrix(
-            objective=optimization_config.objective, outcomes=self.outcomes
+            objective=optimization_config.objective,
+            outcomes=self.outcomes,
         )
         outcome_constraints = extract_outcome_constraints(
             outcome_constraints=optimization_config.outcome_constraints,
@@ -1002,7 +1062,10 @@ class TorchAdapter(Adapter):
             arm=optimization_config.pruning_target_parameterization,
             parameters=self.parameters,
         )
-        linear_constraints = extract_parameter_constraints(
+        linear_constraints = extract_inequality_constraints(
+            search_space.parameter_constraints, self.parameters
+        )
+        equality_constraints_np = extract_equality_constraints(
             search_space.parameter_constraints, self.parameters
         )
         fixed_features_dict = get_fixed_features(fixed_features, self.parameters)
@@ -1015,12 +1078,15 @@ class TorchAdapter(Adapter):
             )
         else:
             objective_thresholds = None
-        opt_config_metrics = optimization_config.metrics
+        opt_config_metrics = {
+            name: self._experiment.get_metric(name)
+            for name in optimization_config.metric_names
+        }
 
         pending_array = pending_observations_as_array_list(
             pending_observations, self.outcomes, self.parameters
         )
-        obj_w, out_c, lin_c, pend_o, obj_t, pruning_target_p = (
+        obj_w, out_c, lin_c, pend_o, obj_t, pruning_target_p, eq_c = (
             validate_and_apply_final_transform(
                 objective_weights=objective_weights,
                 outcome_constraints=outcome_constraints,
@@ -1028,6 +1094,7 @@ class TorchAdapter(Adapter):
                 pending_observations=pending_array,
                 objective_thresholds=objective_thresholds,
                 pruning_target_point=pruning_target_point,
+                equality_constraints=equality_constraints_np,
                 final_transform=self._array_to_tensor,
             )
         )
@@ -1044,6 +1111,7 @@ class TorchAdapter(Adapter):
             outcome_constraints=out_c,
             objective_thresholds=obj_t,
             linear_constraints=lin_c,
+            equality_constraints=eq_c,
             fixed_features=fixed_features_dict,
             pending_observations=pend_o,
             model_gen_options=model_gen_options or {},
@@ -1104,12 +1172,14 @@ class TorchAdapter(Adapter):
         """
         obj_indices, obj_weights = extract_objectives(objective_weights)
         thresholds = []
-        for idx, w in zip(obj_indices, obj_weights):
+        for i, (idx, w) in enumerate(zip(obj_indices, obj_weights)):
             sign = torch.sign(w)
+            # Thresholds are maximization-aligned; undo sign flip to get raw bound.
+            raw_bound = float(sign * objective_thresholds[i].item())
             thresholds.append(
                 ObjectiveThreshold(
                     metric=opt_config_metrics[self.outcomes[idx]],
-                    bound=float(objective_thresholds[idx].item()),
+                    bound=raw_bound,
                     relative=False,
                     op=ComparisonOp.LEQ if sign < 0 else ComparisonOp.GEQ,
                 )
@@ -1197,7 +1267,7 @@ class TorchAdapter(Adapter):
             pe_aux_exp.experiment.search_space.parameters.keys()
         )
 
-        pref_opt_metrics = [m.name for m in optimization_config.objective.metrics]
+        pref_opt_metrics = optimization_config.objective.metric_names
 
         # Get outcome order from the fitted surrogate. We must use surrogate.outcomes
         # which excludes auxiliary datasets (e.g., pairwise preference queries).
@@ -1233,13 +1303,14 @@ class TorchAdapter(Adapter):
 
 
 def validate_transformed_optimization_config(
-    optimization_config: OptimizationConfig, outcomes: list[str]
+    optimization_config: OptimizationConfig,
+    outcomes: list[str],
 ) -> None:
     """Validate optimization config against generator fitted outcomes.
 
     Args:
         optimization_config: Config to validate.
-        outcomes: List of metric names w/ valid generator fits.
+        outcomes: List of metric signatures w/ valid generator fits.
 
     Raises if:
             1. In the modeling layer, absolute constraints are required, however,
@@ -1259,19 +1330,19 @@ def validate_transformed_optimization_config(
                 " applied but was not."
             )
         if isinstance(c, ScalarizedOutcomeConstraint):
-            for c_metric in c.metrics:
-                if c_metric.signature not in outcomes:
+            for c_sig in c.metric_signatures:
+                if c_sig not in outcomes:
                     raise DataRequiredError(
                         f"Scalarized constraint metric component "
-                        f"{c.metric.signature} not found in fitted data."
+                        f"{c_sig} not found in fitted data."
                     )
-        elif c.metric.signature not in outcomes:
-            raise DataRequiredError(
-                f"Outcome constraint metric {c.metric.signature} not found in fitted "
-                "data."
-            )
-    obj_metric_signatures = [m.signature for m in optimization_config.objective.metrics]
-    for obj_metric_signature in obj_metric_signatures:
+        else:
+            c_sig = c.metric_signatures[0]
+            if c_sig not in outcomes:
+                raise DataRequiredError(
+                    f"Outcome constraint metric {c_sig} not found in fitted data."
+                )
+    for obj_metric_signature in optimization_config.objective.metric_signatures:
         if obj_metric_signature not in outcomes:
             raise DataRequiredError(
                 f"Objective metric {obj_metric_signature} not found in fitted data."

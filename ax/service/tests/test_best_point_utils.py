@@ -14,7 +14,6 @@ from unittest.mock import patch, PropertyMock
 
 import numpy as np
 import pandas as pd
-import torch
 from ax.adapter.cross_validation import AssessModelFitResult
 from ax.adapter.registry import Generators
 from ax.adapter.torch import TorchAdapter
@@ -47,6 +46,7 @@ from ax.service.utils.best_point import (
 )
 from ax.service.utils.best_point_utils import select_baseline_name_default_first_trial
 from ax.service.utils.instantiation import ObjectiveProperties
+from ax.utils.common.sympy import build_constraint_expression_str
 from ax.utils.common.testutils import TestCase
 from ax.utils.testing.core_stubs import (
     get_branin_experiment,
@@ -106,8 +106,15 @@ class TestBestPointUtils(TestCase):
                     df_wide=df, objective=objective
                 )
                 self.assertEqual(len(value), 2)
-                self.assertAlmostEqual(value[0], 0.4 * m1_value + 0.6 * m2_value)
-                self.assertEqual(value[1], worst)
+                # ScalarizedObjective bakes the minimize sign into weights,
+                # so the expression is always "maximize". When minimize=True,
+                # weights are negated, and infeasible entries get -inf.
+                sign = -1 if minimize else 1
+                scalarized_worst = float("-inf")
+                self.assertAlmostEqual(
+                    value[0], sign * (0.4 * m1_value + 0.6 * m2_value)
+                )
+                self.assertEqual(value[1], scalarized_worst)
 
             objective = ScalarizedObjective(
                 metrics=metrics, weights=[0.4, -0.6], minimize=minimize
@@ -119,8 +126,8 @@ class TestBestPointUtils(TestCase):
                     df_wide=df, objective=objective
                 )
                 self.assertEqual(len(value), 2)
-                self.assertEqual(value[0], 0.4 * m1_value - 0.6 * m2_value)
-                self.assertEqual(value[1], worst)
+                self.assertEqual(value[0], sign * (0.4 * m1_value - 0.6 * m2_value))
+                self.assertEqual(value[1], scalarized_worst)
 
     def test_get_hypervolume_trace_of_outcomes_multi_objective(self) -> None:
         objective = MultiObjective(
@@ -219,7 +226,10 @@ class TestBestPointUtils(TestCase):
             objective=objective,
             outcome_constraints=[
                 OutcomeConstraint(
-                    Metric("m2"), op=ComparisonOp.GEQ, bound=0.0, relative=False
+                    metric=Metric("m2"),
+                    op=ComparisonOp.GEQ,
+                    bound=0.0,
+                    relative=False,
                 )
             ],
         )
@@ -494,7 +504,8 @@ class TestBestPointUtils(TestCase):
                 objective=Objective(metric=get_branin_metric(name="not_branin"))
             )
             with self.assertRaisesRegex(
-                ValueError, "Some metrics are not present for all trials and arms"
+                ValueError,
+                "no completed trials have complete metric data",
             ):
                 get_best_raw_objective_point_with_trial_index(
                     experiment=exp, optimization_config=opt_conf
@@ -507,17 +518,6 @@ class TestBestPointUtils(TestCase):
             constrained=True,
             minimize=False,
         )
-        _, __, best_prediction = none_throws(
-            get_best_by_raw_objective_with_trial_index(exp)
-        )
-        best_metrics = none_throws(best_prediction)[0]
-        self.assertDictEqual(best_metrics, {"m1": 3.0, "m2": 4.0})
-
-        # Tensor bounds are accepted.
-        constraint = none_throws(exp.optimization_config).all_constraints[0]
-        # pyre-fixme[8]: Attribute `bound` declared in class `OutcomeConstraint`
-        # has type `float` but is used as type `Tensor`.
-        constraint.bound = torch.tensor(constraint.bound)
         _, __, best_prediction = none_throws(
             get_best_by_raw_objective_with_trial_index(exp)
         )
@@ -544,8 +544,8 @@ class TestBestPointUtils(TestCase):
                 experiment=exp, optimization_config=opt_conf
             )
 
-        # adding a new metric that is not present in the data should raise an error,
-        # even if the other metrics are satisfied
+        # Adding a constraint on an unobserved metric causes the trial to be
+        # filtered out by MetricAvailability before reaching feasibility check.
         opt_conf.outcome_constraints.pop()
         unobserved_metric = get_branin_metric(name="unobserved")
         opt_conf.outcome_constraints.append(
@@ -553,31 +553,39 @@ class TestBestPointUtils(TestCase):
                 metric=unobserved_metric, op=ComparisonOp.LEQ, bound=0, relative=False
             )
         )
-        # also add a constraint that is always satisfied, as the Branin metric is
-        # non-negative, and check that only the "unobserved" metric shows up in the
-        # error message
-        opt_conf.outcome_constraints.append(
-            OutcomeConstraint(
-                metric=get_branin_metric(), op=ComparisonOp.GEQ, bound=0, relative=False
+        with self.assertRaisesRegex(
+            ValueError,
+            "no completed trials have complete metric data",
+        ):
+            get_best_raw_objective_point_with_trial_index(
+                experiment=exp, optimization_config=opt_conf
             )
-        )
 
-        with self.assertLogs(logger=best_point_logger, level="WARN") as lg:
-            with self.assertRaisesRegex(
-                ValueError,
-                r"No points satisfied all outcome constraints within 95 percent "
-                r"confidence interval\. The feasibility of 1 arm\(s\) could not be "
-                r"determined: \['0_0'\]\.",
-            ):
-                get_best_raw_objective_point_with_trial_index(
-                    experiment=exp, optimization_config=opt_conf
-                )
-        self.assertEqual(len(lg.output), 1)
-        self.assertRegex(
-            lg.output[0],
-            r"Arm 0_0 is missing data for one or more constrained metrics: "
-            r"\{'unobserved'\}\.",
+        # Using a constrained experiment where all metrics are observed
+        # (passes MetricAvailability), but constraints are unsatisfiable.
+        constrained_exp = get_experiment_with_observations(
+            observations=[[1.0, 2.0]],
+            constrained=True,
+            minimize=False,
         )
+        constrained_opt = none_throws(constrained_exp.optimization_config).clone()
+        # Make constraint unsatisfiable: require m2 >= 9999 (observed m2=2.0).
+        constrained_opt.outcome_constraints = [
+            OutcomeConstraint(
+                metric=Metric(name="m2"),
+                op=ComparisonOp.GEQ,
+                bound=9999,
+                relative=False,
+            ),
+        ]
+        with self.assertRaisesRegex(
+            ValueError,
+            r"No points satisfied all outcome constraints",
+        ):
+            get_best_raw_objective_point_with_trial_index(
+                experiment=constrained_exp,
+                optimization_config=constrained_opt,
+            )
 
     def test_best_raw_objective_point_unsatisfiable_relative(self) -> None:
         exp = get_experiment_with_observations(
@@ -587,8 +595,16 @@ class TestBestPointUtils(TestCase):
 
         # Create altered optimization config with unsatisfiable relative constraint.
         opt_conf = none_throws(exp.optimization_config).clone()
-        opt_conf.outcome_constraints[0].relative = True
-        opt_conf.outcome_constraints[0].bound = 9999
+        old_c = opt_conf.outcome_constraints[0]
+        opt_conf.outcome_constraints[0] = OutcomeConstraint(
+            expression=build_constraint_expression_str(
+                metric_weights=old_c.metric_weights,
+                op=">=" if old_c.op == ComparisonOp.GEQ else "<=",
+                bound=9999,
+                relative=True,
+            ),
+            metric_name_to_signature=old_c.metric_name_to_signature,
+        )
 
         with self.assertRaisesRegex(
             DataRequiredError,
@@ -664,7 +680,16 @@ class TestBestPointUtils(TestCase):
                 optimization_config=input_optimization_config,
                 experiment=exp,
             )
-            self.assertEqual(input_optimization_config, returned_opt_config)
+            # clone() may return base Objective instead of MultiObjective,
+            # so compare by expression rather than type-strict equality.
+            self.assertEqual(
+                input_optimization_config.objective.expression,
+                returned_opt_config.objective.expression,
+            )
+            self.assertEqual(
+                input_optimization_config.outcome_constraints,
+                returned_opt_config.outcome_constraints,
+            )
 
         with self.subTest("Provided opt config overrides experiment opt config"):
             opt_config = input_optimization_config.clone_with_args(
@@ -674,12 +699,36 @@ class TestBestPointUtils(TestCase):
                 optimization_config=opt_config,
                 experiment=exp,
             )
-            self.assertEqual(opt_config, returned_opt_config)
-            self.assertNotEqual(opt_config, exp.optimization_config)
+            self.assertEqual(
+                opt_config.objective.expression,
+                returned_opt_config.objective.expression,
+            )
+            self.assertEqual(
+                opt_config.outcome_constraints,
+                returned_opt_config.outcome_constraints,
+            )
+            self.assertNotEqual(
+                opt_config.outcome_constraints,
+                none_throws(exp.optimization_config).outcome_constraints,
+            )
 
         # Add relative constraints.
-        for constraint in input_optimization_config.all_constraints:
-            constraint.relative = True
+        def _to_relative(c: OutcomeConstraint) -> OutcomeConstraint:
+            return OutcomeConstraint(
+                expression=build_constraint_expression_str(
+                    metric_weights=c.metric_weights,
+                    op=">=" if c.op == ComparisonOp.GEQ else "<=",
+                    bound=c.bound,
+                    relative=True,
+                ),
+                metric_name_to_signature=c.metric_name_to_signature,
+            )
+
+        for i, c in enumerate(input_optimization_config.outcome_constraints):
+            input_optimization_config.outcome_constraints[i] = _to_relative(c)
+        if isinstance(input_optimization_config, MultiObjectiveOptimizationConfig):
+            for i, c in enumerate(input_optimization_config.objective_thresholds):
+                input_optimization_config.objective_thresholds[i] = _to_relative(c)
 
         # Check errors.
         with (
@@ -703,12 +752,8 @@ class TestBestPointUtils(TestCase):
                 ),
                 MultiObjectiveOptimizationConfig,
             )
-            relativized_obj = assert_is_instance(
-                relativized_opt_config.objective, MultiObjective
-            )
-            input_obj = assert_is_instance(
-                input_optimization_config.objective, MultiObjective
-            )
+            relativized_obj = relativized_opt_config.objective
+            input_obj = input_optimization_config.objective
             status_quo_df = exp.lookup_data(trial_indices={status_quo_trial_index}).df
             # This is not a real test of `derelativize_opt_config` but rather
             # making sure the values on the experiment have't drifted
@@ -722,9 +767,11 @@ class TestBestPointUtils(TestCase):
             for i in range(2):
                 # Relativization is with respect to the absolute value of the
                 # status quo value
+                relativized_weights = [w for _, w in relativized_obj.metric_weights]
+                input_weights = [w for _, w in input_obj.metric_weights]
                 self.assertEqual(
-                    relativized_obj.objectives[i].minimize,
-                    input_obj.objectives[i].minimize,
+                    relativized_weights[i] < 0,
+                    input_weights[i] < 0,
                 )
                 self.assertEqual(
                     relativized_opt_config.objective_thresholds[i].bound,
@@ -796,11 +843,21 @@ class TestBestPointUtils(TestCase):
             feasible_series, expected_series, check_names=False
         )
 
-        exp.optimization_config.outcome_constraints[0].relative = True
+        c = none_throws(exp.optimization_config).outcome_constraints[0]
+        opt_config = none_throws(exp.optimization_config)
+        opt_config.outcome_constraints[0] = OutcomeConstraint(
+            expression=build_constraint_expression_str(
+                metric_weights=c.metric_weights,
+                op=">=" if c.op == ComparisonOp.GEQ else "<=",
+                bound=c.bound,
+                relative=True,
+            ),
+            metric_name_to_signature={name: name for name, _ in c.metric_weights},
+        )
         relative_constraint_warning = (
             "WARNING:ax.service.utils.best_point:Determining trial feasibility only "
             "supported with a derelativized OptimizationConfig, but found the "
-            "following relative constraints: [OutcomeConstraint(m3 >= 0.0%)]. "
+            "following relative constraints: [OutcomeConstraint(m3 >= baseline)]. "
             f"Returning {undetermined_value} as the feasibility."
         )
         with self.assertLogs(logger=best_point_logger, level="WARN") as lg:
@@ -825,8 +882,28 @@ class TestBestPointUtils(TestCase):
             feasible_series, expected_series, check_names=False
         )
         exp._status_quo = exp.trials[0].arms[0]
-        for constraint in none_throws(exp.optimization_config).all_constraints:
-            constraint.relative = True
+        opt_config = none_throws(exp.optimization_config)
+        for i, c in enumerate(opt_config.outcome_constraints):
+            opt_config.outcome_constraints[i] = OutcomeConstraint(
+                expression=build_constraint_expression_str(
+                    metric_weights=c.metric_weights,
+                    op=">=" if c.op == ComparisonOp.GEQ else "<=",
+                    bound=c.bound,
+                    relative=True,
+                ),
+                metric_name_to_signature=c.metric_name_to_signature,
+            )
+        if isinstance(opt_config, MultiObjectiveOptimizationConfig):
+            for i, c in enumerate(opt_config.objective_thresholds):
+                opt_config.objective_thresholds[i] = OutcomeConstraint(
+                    expression=build_constraint_expression_str(
+                        metric_weights=c.metric_weights,
+                        op=">=" if c.op == ComparisonOp.GEQ else "<=",
+                        bound=c.bound,
+                        relative=True,
+                    ),
+                    metric_name_to_signature=c.metric_name_to_signature,
+                )
         optimization_config = derelativize_opt_config(
             optimization_config=none_throws(exp.optimization_config),
             experiment=exp,

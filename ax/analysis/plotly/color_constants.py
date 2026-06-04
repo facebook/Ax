@@ -42,3 +42,4 @@ COLOR_FOR_INCREASES: str = METRIC_CONTINUOUS_COLOR_SCALE[5]  # blue
 COLOR_FOR_DECREASES: str = METRIC_CONTINUOUS_COLOR_SCALE[2]  # brown
 
 DISCRETE_ARM_SCALE = px.colors.qualitative.Alphabet
+GENERATOR_RUN_COLOR_SCALE: list[str] = px.colors.qualitative.Plotly

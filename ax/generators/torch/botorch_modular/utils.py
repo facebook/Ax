@@ -34,24 +34,31 @@ from botorch.acquisition.multi_objective.logei import (
     qLogNoisyExpectedHypervolumeImprovement,
 )
 from botorch.acquisition.multi_objective.parego import qLogNParEGO
+from botorch.acquisition.preference import qExpectedUtilityOfBestOption
+from botorch.exceptions.errors import BotorchError, CandidateGenerationError
 from botorch.fit import fit_fully_bayesian_model_nuts, fit_gpytorch_mll
 from botorch.models import PairwiseLaplaceMarginalLogLikelihood
-from botorch.models.fully_bayesian import (
-    AbstractFullyBayesianSingleTaskGP,
-    FullyBayesianSingleTaskGP,
-)
+from botorch.models.fully_bayesian import AbstractFullyBayesianSingleTaskGP
 from botorch.models.fully_bayesian_multitask import SaasFullyBayesianMultiTaskGP
 from botorch.models.gp_regression import SingleTaskGP
 from botorch.models.gp_regression_fidelity import SingleTaskMultiFidelityGP
 from botorch.models.gp_regression_mixed import MixedSingleTaskGP
 from botorch.models.gpytorch import BatchedMultiOutputGPyTorchModel, GPyTorchModel
 from botorch.models.heterogeneous_mtgp import HeterogeneousMTGP
-from botorch.models.map_saas import EnsembleMapSaasSingleTaskGP
 from botorch.models.model import Model, ModelList
 from botorch.models.multitask import MultiTaskGP
 from botorch.models.pairwise_gp import PairwiseGP
-from botorch.models.transforms.input import InputTransform, Normalize
+from botorch.models.transforms.input import (
+    InputTransform,
+    LearnedFeatureImputation,
+    Normalize,
+)
 from botorch.models.transforms.outcome import OutcomeTransform
+from botorch.optim.parameter_constraints import (
+    evaluate_feasibility,
+    get_constraint_tolerance,
+)
+from botorch.optim.utils import columnwise_clamp
 from botorch.utils.constraints import get_outcome_constraint_transforms
 from botorch.utils.datasets import MultiTaskDataset, RankingDataset, SupervisedDataset
 from botorch.utils.dispatcher import Dispatcher
@@ -194,17 +201,9 @@ def use_model_list(
 
     # Otherwise, the same model class is used for all outcomes.
     botorch_model_class = none_throws(next(iter(botorch_model_class_set)))
-    if issubclass(botorch_model_class, FullyBayesianSingleTaskGP):
-        # SAAS models do not support multiple outcomes.
-        # Use model list if there are multiple outcomes.
-        return len(datasets) > 1 or datasets[0].Y.shape[-1] > 1
-    elif issubclass(botorch_model_class, EnsembleMapSaasSingleTaskGP):
-        # Ensemble MAP SAAS models do not support multiple outcomes.
-        # Use model list if there are multiple outcomes.
-        return len(datasets) > 1 or datasets[0].Y.shape[-1] > 1
-    elif issubclass(botorch_model_class, MultiTaskGP):
-        # We wrap multi-task models into `ModelListGP` when there are
-        # multiple outcomes.
+    if getattr(botorch_model_class, "_supports_batched_models", None) is False:
+        # Models with _supports_batched_models = False do not support batching
+        # multiple metrics. Use model list if there are multiple outcomes.
         return len(datasets) > 1 or datasets[0].Y.shape[-1] > 1
     elif len(datasets) == 1:
         # This method is called before multiple datasets are merged into
@@ -222,6 +221,32 @@ def use_model_list(
     return True
 
 
+def _ensure_input_transform(
+    model_config: ModelConfig,
+    transform_cls: type[InputTransform],
+    position: int | None = None,
+) -> None:
+    """Ensure ``transform_cls`` is in ``model_config.input_transform_classes``.
+
+    If the user hasn't specified any transforms (``DEFAULT``), initialise the
+    list with ``[transform_cls]``.  Otherwise append (or insert at ``position``)
+    only when the class isn't already present.  Mutates ``model_config``
+    in-place.
+    """
+    itc = model_config.input_transform_classes
+    if isinstance(itc, list):
+        if transform_cls not in itc:
+            if position is not None:
+                itc.insert(position, transform_cls)
+            else:
+                itc.append(transform_cls)
+    else:
+        model_config.input_transform_classes = [transform_cls]
+        ito = model_config.input_transform_options or {}
+        ito.setdefault(transform_cls.__name__, {})
+        model_config.input_transform_options = ito
+
+
 def copy_model_config_with_default_values(
     model_config: ModelConfig,
     dataset: SupervisedDataset,
@@ -236,21 +261,15 @@ def copy_model_config_with_default_values(
         specified_model_class=model_config_copy.botorch_model_class,
     )
 
-    # HeterogeneousMTGP requires Normalize input transform
-    if model_config_copy.botorch_model_class is HeterogeneousMTGP:
-        if (
-            isinstance(model_config_copy.input_transform_classes, list)
-            and Normalize not in model_config_copy.input_transform_classes
+    # Handle heterogeneous multi-task datasets: ensure Normalize is present
+    # and add LearnedFeatureImputation for models that don't handle
+    # heterogeneity natively.
+    if isinstance(dataset, MultiTaskDataset) and dataset.has_heterogeneous_features:
+        _ensure_input_transform(model_config_copy, Normalize, position=0)
+        if model_config_copy.botorch_model_class is not None and not issubclass(
+            model_config_copy.botorch_model_class, HeterogeneousMTGP
         ):
-            model_config_copy.input_transform_classes.append(Normalize)
-        else:
-            model_config_copy.input_transform_classes = [Normalize]
-
-        # Add Normalize options if not already present. Bounds should be None.
-        if model_config_copy.input_transform_options is None:
-            model_config_copy.input_transform_options = {}
-        if "Normalize" not in model_config_copy.input_transform_options:
-            model_config_copy.input_transform_options["Normalize"] = {"bounds": None}
+            _ensure_input_transform(model_config_copy, LearnedFeatureImputation)
 
     if model_config_copy.mll_class is None:
         model_config_copy.mll_class = (
@@ -279,8 +298,7 @@ def choose_model_class(
         dataset: The dataset on which the model will be fitted.
         search_space_digest: The digest of the search space the model will be
             fitted within.
-        specified_model_class: If provided, this model class will be used unless
-            overridden for specific cases (e.g., heterogeneous datasets).
+        specified_model_class: If provided, this model class will be used.
 
     Returns:
         A BoTorch `Model` class.
@@ -300,23 +318,17 @@ def choose_model_class(
             "Multi-task multi-fidelity optimization not yet supported."
         )
 
-    # Check for heterogeneous multi-task datasets & override model class if needed.
+    # Check for heterogeneous multi-task datasets. If a model class was
+    # explicitly specified, respect it; otherwise default to MultiTaskGP
+    # (LearnedFeatureImputation handles missing features).
     if (
         search_space_digest.task_features
         and isinstance(dataset, MultiTaskDataset)
         and dataset.has_heterogeneous_features
     ):
-        if (
-            specified_model_class is not None
-            and specified_model_class is not HeterogeneousMTGP
-        ):
-            logger.warning(
-                f"Detected heterogeneous features in MultiTaskDataset. "
-                f"Overriding specified model class {specified_model_class.__name__} "
-                f"with HeterogeneousMTGP for transfer learning with "
-                f"heterogeneous search spaces."
-            )
-        model_class = HeterogeneousMTGP
+        model_class = (
+            specified_model_class if specified_model_class is not None else MultiTaskGP
+        )
         logger.debug(f"Chose BoTorch model class: {model_class}.")
         return model_class
 
@@ -358,37 +370,28 @@ def _objective_threshold_to_outcome_constraints(
 ) -> tuple[Tensor, Tensor]:
     """Convert objective thresholds to outcome constraint format ``(A, b)``.
 
-    For each objective ``i`` with nonzero weight ``w_i`` and non-NaN threshold
-    ``t_i``, the constraint is ``w_i * Y_i >= w_i * t_i``, which is equivalent
-    to ``-w_i * Y_i <= -w_i * t_i`` in the standard ``A f(x) <= b`` format.
+    For each objective ``i`` with non-NaN threshold ``t_i``, the constraint is
+    that the objective value must exceed the threshold in the maximization-
+    aligned space. Since thresholds are already maximization-aligned, the
+    constraint is: ``objective_weights[i] @ Y >= t_i``, which in standard
+    ``A f(x) <= b`` format becomes ``-objective_weights[i] @ Y <= -t_i``.
 
     Args:
         objective_weights: A ``(n_objectives, n_outcomes)`` tensor of objective
             weights.
-        objective_thresholds: A ``m``-dim tensor of objective thresholds.
+        objective_thresholds: A ``(n_objectives,)`` tensor of maximization-
+            aligned objective thresholds.
 
     Returns:
         A tuple ``(A, b)`` of outcome constraint tensors.
     """
-    obj_idcs, obj_weights = extract_objectives(objective_weights)
     # Filter to objectives with non-NaN thresholds. Objective thresholds
     # can contain NaNs if the objective thresholds were inferred, but
     # there are no feasible points. In that case,
     # qLogProbabilityOfFeasibility is used.
-    non_nan_mask = ~objective_thresholds[obj_idcs].isnan()
-    obj_idcs = obj_idcs[non_nan_mask]
-    obj_weights = obj_weights[non_nan_mask]
-    m = objective_weights.shape[1]
-    k = len(obj_idcs)
-    A = torch.zeros(
-        k, m, dtype=objective_weights.dtype, device=objective_weights.device
-    )
-    b = torch.zeros(
-        k, 1, dtype=objective_weights.dtype, device=objective_weights.device
-    )
-    for i, (idx, w) in enumerate(zip(obj_idcs, obj_weights)):
-        A[i, idx] = -w
-        b[i] = -w * objective_thresholds[idx]
+    non_nan_mask = ~objective_thresholds.isnan()
+    A = -objective_weights[non_nan_mask]
+    b = -objective_thresholds[non_nan_mask].unsqueeze(-1)
     return A, b
 
 
@@ -412,12 +415,30 @@ def choose_botorch_acqf_class(
             - `qLogProbabilityOfFeasibility` if no observed point simultaneously
                 satisfies all outcome constraints (if any) and dominates all
                 objective thresholds (if any, for MOO).
+            - `qExpectedUtilityOfBestOption` for single-objective
+                preference-only optimization (PBO / LILO) where the sole
+                objective is ``pairwise_pref_query`` with no constraints.
             - `qLogNoisyExpectedImprovement` for single-objective optimization.
             - `qLogNoisyExpectedHypervolumeImprovement` for multi-objective
                 optimization with <= 4 objectives.
             - `qLogNParEGO` for multi-objective optimization with > 4 objectives
                 to prevent slow optimization.
     """
+
+    # Preferential BO (PBO): single-objective preference-only optimization
+    # (e.g. LILO).  The sole objective is pairwise_pref_query with no
+    # constraints, so we optimize the preference model directly via qEUBO.
+    # This must come before the PFeasibility block to prevent PBO experiments
+    # from reaching convert_to_block_design (which is incompatible with
+    # RankingDatasets).
+    if (
+        not torch_opt_config.is_moo
+        and torch_opt_config.outcome_constraints is None
+        and Keys.PAIRWISE_PREFERENCE_QUERY.value in torch_opt_config.opt_config_metrics
+    ):
+        acqf_class = qExpectedUtilityOfBestOption
+        logger.debug(f"Chose BoTorch acquisition function class: {acqf_class}.")
+        return acqf_class
 
     if use_p_feasible and datasets is not None:
         has_outcome_constraints = torch_opt_config.outcome_constraints is not None
@@ -457,20 +478,21 @@ def choose_botorch_acqf_class(
                 obj_weights = torch_opt_config.objective_weights
                 obj_thresholds = none_throws(torch_opt_config.objective_thresholds)
                 obj_idcs, weights = extract_objectives(obj_weights)
-                non_nan_mask = ~obj_thresholds[obj_idcs].isnan()
+                non_nan_mask = ~obj_thresholds.isnan()
                 if non_nan_mask.any():
-                    # Check: w_i * Y_i >= w_i * t_i for all objectives i.
+                    # Convert observations to maximization-aligned objective
+                    # values and compare against thresholds (already aligned).
                     weighted_Y = dataset.Y[:, obj_idcs] * weights
-                    weighted_t = obj_thresholds[obj_idcs] * weights
                     is_feasible = is_feasible & (
-                        (weighted_Y[:, non_nan_mask] >= weighted_t[non_nan_mask]).all(
-                            dim=-1
-                        )
+                        (
+                            weighted_Y[:, non_nan_mask] >= obj_thresholds[non_nan_mask]
+                        ).all(dim=-1)
                     )
 
             if not is_feasible.any().item():
-                # NOTE: Adding a new acqf class here requires a corresponding
-                # update in get_botorch_objective_and_transform.
+                # NOTE: Adding a new acqf class here requires a
+                # corresponding update in
+                # get_botorch_objective_and_transform.
                 acqf_class = qLogProbabilityOfFeasibility
                 logger.debug(f"Chose BoTorch acquisition function class: {acqf_class}.")
                 return acqf_class
@@ -525,17 +547,11 @@ def construct_acquisition_and_optimizer_options(
                 "Found forbidden keys in `model_gen_options`: "
                 f"{extra_keys_in_model_gen_options}."
             )
-        new_botorch_acqf_options = assert_is_instance(
+        new_botorch_acqf_options: dict[str, Any] = assert_is_instance(
             model_gen_options.get(Keys.ACQF_KWARGS, {}),
             dict,
         )
-        if (
-            # pyre-fixme [6]: Incompatible parameter type [6]: In call `len`,
-            # for 1st positional argument, expected
-            # `pyre_extensions.PyreReadOnly[Sized]` but got `dict`.
-            len(new_botorch_acqf_options) > 0
-            and botorch_acqf_classes_with_options is not None
-        ):
+        if new_botorch_acqf_options and botorch_acqf_classes_with_options is not None:
             if len(botorch_acqf_classes_with_options) > 1:
                 warnings.warn(
                     message="botorch_acqf_options are being ignored, due to using "
@@ -681,8 +697,7 @@ def convert_to_block_design(
         Y = torch.cat([ds.Y[i] for ds, i in zip(datasets, idcs_shared)], dim=-1)
         if is_fixed:
             Yvar = torch.cat(
-                # pyre-fixme[16]: `Optional` has no attribute `__getitem__`.
-                [ds.Yvar[i] for ds, i in zip(datasets, idcs_shared)],
+                [none_throws(ds.Yvar)[i] for ds, i in zip(datasets, idcs_shared)],
                 dim=-1,
             )
         else:
@@ -874,3 +889,108 @@ def get_all_task_values_from_ssd(search_space_digest: SearchSpaceDigest) -> list
     task_feature = search_space_digest.task_features[0]
     task_bounds = search_space_digest.bounds[task_feature]
     return list(range(int(task_bounds[0]), int(task_bounds[1] + 1)))
+
+
+def _format_discrete_value(val: float, allowed_values: Sequence[float]) -> str:
+    """Format a discrete value for display alongside allowed values.
+
+    If all allowed values are integers, formats val as int (via rounding).
+    Otherwise formats as float with 4 decimal places.
+    """
+    if all(float(v).is_integer() for v in allowed_values):
+        return str(int(round(val)))
+    return f"{val:.4f}"
+
+
+def validate_candidates(
+    candidates: Tensor,
+    bounds: Tensor,
+    discrete_choices: Mapping[int, Sequence[float]] | None,
+    inequality_constraints: list[tuple[Tensor, Tensor, float]] | None,
+    feature_names: list[str] | None = None,
+    task_features: list[int] | None = None,
+    equality_constraints: list[tuple[Tensor, Tensor, float]] | None = None,
+) -> None:
+    """Validate candidates satisfy bounds, discrete, and linear constraints.
+
+    Args:
+        candidates: A `n x d`-dim Tensor of candidates to validate.
+        bounds: A `2 x d`-dim Tensor of lower and upper bounds.
+        discrete_choices: A mapping from parameter indices to allowed discrete values.
+        inequality_constraints: A list of tuples (indices, coefficients, rhs),
+            representing inequality constraints of the form
+            `sum_i (X[indices[i]] * coefficients[i]) >= rhs`.
+        feature_names: Optional list of feature names for better error messages.
+        task_features: Optional list of task feature indices to skip discrete value
+            validation for. Task features can be fixed to new task values via
+            fixed_features that are not in the search space's discrete_choices.
+        equality_constraints: A list of tuples (indices, coefficients, rhs),
+            representing equality constraints of the form
+            `sum_i (X[indices[i]] * coefficients[i]) = rhs`.
+
+    Raises:
+        CandidateGenerationError: If any candidate violates constraints.
+    """
+
+    # 1. Bounds validation
+    try:
+        columnwise_clamp(
+            candidates, lower=bounds[0], upper=bounds[1], raise_on_violation=True
+        )
+    except BotorchError as e:
+        raise CandidateGenerationError(f"Candidate violates bounds: {e}")
+
+    # 2. Discrete value validation
+    task_features_set = set(task_features) if task_features else set()
+    if discrete_choices:
+        tol = get_constraint_tolerance(candidates.dtype)
+        for dim, allowed_values in discrete_choices.items():
+            # Skip task features as they can be fixed to new task values via
+            # fixed_features that are not in the search space's discrete_choices
+            if dim in task_features_set:
+                continue
+            allowed = torch.tensor(
+                allowed_values, device=candidates.device, dtype=candidates.dtype
+            )
+            candidate_vals = candidates[..., dim].flatten()
+            # Vectorized check: (num_candidates, num_allowed) -> any match per candidate
+            is_valid = torch.isclose(
+                candidate_vals.unsqueeze(-1), allowed.unsqueeze(0), atol=tol
+            ).any(dim=-1)
+            if not is_valid.all():
+                invalid_idx = int(torch.where(~is_valid)[0][0].item())
+                val_float = candidate_vals[invalid_idx].item()
+                dim_name = feature_names[dim] if feature_names else f"dim {dim}"
+                raise CandidateGenerationError(
+                    f"Invalid discrete value "
+                    f"{_format_discrete_value(val_float, allowed_values)} for "
+                    f"{dim_name}. Allowed: {list(allowed_values)}"
+                )
+
+    # 3. Inequality constraint validation
+    if inequality_constraints:
+        is_feasible = evaluate_feasibility(
+            X=candidates.unsqueeze(-2),  # Add q dimension
+            inequality_constraints=inequality_constraints,
+        )
+        if not is_feasible.all():
+            infeasible_indices = torch.where(~is_feasible)[0].tolist()
+            raise CandidateGenerationError(
+                f"Candidates violate inequality constraints. "
+                f"Infeasible candidate indices: {infeasible_indices}. "
+                f"Number of constraints: {len(inequality_constraints)}."
+            )
+
+    # 4. Equality constraint validation
+    if equality_constraints:
+        is_feasible = evaluate_feasibility(
+            X=candidates.unsqueeze(-2),  # Add q dimension
+            equality_constraints=equality_constraints,
+        )
+        if not is_feasible.all():
+            infeasible_indices = torch.where(~is_feasible)[0].tolist()
+            raise CandidateGenerationError(
+                f"Candidates violate equality constraints. "
+                f"Infeasible candidate indices: {infeasible_indices}. "
+                f"Number of constraints: {len(equality_constraints)}."
+            )

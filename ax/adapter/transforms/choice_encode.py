@@ -105,7 +105,7 @@ class ChoiceToNumericChoice(Transform):
         for p_name, p in search_space.parameters.items():
             if p_name in self.encoded_parameters and isinstance(p, ChoiceParameter):
                 encoding = self.encoded_parameters[p_name]
-                dependents = None
+                dependents: dict[TParamValue, list[str]] | None = None
                 if p.is_hierarchical:
                     # The dependents of hierarchical parameters need to be updated to
                     # reflect the changes by encoding. The encoded keys are ints,

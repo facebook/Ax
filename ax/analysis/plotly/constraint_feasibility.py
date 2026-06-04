@@ -107,7 +107,7 @@ class ConstraintFeasibilityPlot(Analysis):
             return outcome_constraints_validation_str
 
         outcome_constraint_metrics = [
-            outcome_constraint.metric.name
+            outcome_constraint.metric_names[0]
             for outcome_constraint in none_throws(
                 experiment.optimization_config
             ).outcome_constraints
@@ -153,12 +153,10 @@ class ConstraintFeasibilityPlot(Analysis):
 
         # Collect all metrics and compute
         constraint_metric_names = [
-            outcome_constraint.metric.name
+            outcome_constraint.metric_names[0]
             for outcome_constraint in optimization_config.outcome_constraints
         ]
-        objective_metric_names = [
-            metric.name for metric in optimization_config.objective.metrics
-        ]
+        objective_metric_names = optimization_config.objective.metric_names
         all_metric_names = list(set(constraint_metric_names + objective_metric_names))
 
         arm_data = prepare_arm_data(
@@ -244,7 +242,7 @@ def _get_constraint_names(
         if isinstance(oc, ScalarizedOutcomeConstraint):
             constraint_names.append(str(oc))
         else:
-            constraint_names.append(oc.metric.name)
+            constraint_names.append(oc.metric_names[0])
     return constraint_names
 
 

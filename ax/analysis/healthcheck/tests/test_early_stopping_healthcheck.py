@@ -11,6 +11,7 @@ from unittest.mock import patch
 import pandas as pd
 from ax.analysis.healthcheck.early_stopping_healthcheck import EarlyStoppingAnalysis
 from ax.analysis.healthcheck.healthcheck_analysis import HealthcheckStatus
+from ax.core.analysis_card import AnalysisCard
 from ax.core.data import Data
 from ax.core.experiment import Experiment
 from ax.core.objective import MultiObjective, Objective
@@ -39,9 +40,8 @@ class TestEarlyStoppingAnalysis(TestCase):
             early_stopping_strategy=self.early_stopping_strategy
         )
 
-    def _get_df_dict(self, card: object) -> dict[str, str]:
+    def _get_df_dict(self, card: AnalysisCard) -> dict[str, str]:
         """Extract Property -> Value dict from card dataframe."""
-        # pyre-ignore[16]: card has df attribute
         return {row["Property"]: row["Value"] for _, row in card.df.iterrows()}
 
     def _create_map_data(
@@ -177,7 +177,7 @@ class TestEarlyStoppingAnalysis(TestCase):
                 return_value=mock_savings,
             ):
                 card = healthcheck.compute(experiment=self.experiment)
-                self.assertEqual(card.get_status(), HealthcheckStatus.WARNING)
+                self.assertEqual(card.get_status(), HealthcheckStatus.INFO)
                 self.assertIn("25%", card.subtitle)
 
     def test_validate_applicable_state(self) -> None:
@@ -261,7 +261,7 @@ class TestEarlyStoppingAnalysis(TestCase):
             healthcheck = EarlyStoppingAnalysis(auto_early_stopping_config="disabled")
             card = healthcheck.compute(experiment=self.experiment)
 
-            self.assertEqual(card.get_status(), HealthcheckStatus.PASS)
+            self.assertEqual(card.get_status(), HealthcheckStatus.INFO)
             self.assertIn("auto_early_stopping_config='disabled'", card.subtitle)
 
         with self.subTest("standard"):
@@ -269,7 +269,7 @@ class TestEarlyStoppingAnalysis(TestCase):
             healthcheck = EarlyStoppingAnalysis(auto_early_stopping_config="standard")
             card = healthcheck.compute(experiment=self.experiment)
 
-            self.assertEqual(card.get_status(), HealthcheckStatus.PASS)
+            self.assertEqual(card.get_status(), HealthcheckStatus.INFO)
             self.assertIn("0 trials were early stopped", card.subtitle)
 
         with self.subTest("strategy_override"):
@@ -280,7 +280,7 @@ class TestEarlyStoppingAnalysis(TestCase):
             )
             card = healthcheck.compute(experiment=self.experiment)
 
-            self.assertEqual(card.get_status(), HealthcheckStatus.PASS)
+            self.assertEqual(card.get_status(), HealthcheckStatus.INFO)
             self.assertEqual(healthcheck.early_stopping_strategy, custom_strategy)
 
     def test_multiple_metrics_note_in_subtitle(self) -> None:
@@ -294,7 +294,7 @@ class TestEarlyStoppingAnalysis(TestCase):
         ):
             card = self.healthcheck.compute(experiment=self.experiment)
 
-        self.assertEqual(card.get_status(), HealthcheckStatus.PASS)
+        self.assertEqual(card.get_status(), HealthcheckStatus.INFO)
         self.assertIn("2 metrics are", card.subtitle)
 
     def test_get_problem_type_via_disabled_config(self) -> None:
@@ -355,7 +355,7 @@ class TestEarlyStoppingAnalysis(TestCase):
             ):
                 card = healthcheck.compute(experiment=self.experiment)
 
-            self.assertEqual(card.get_status(), HealthcheckStatus.WARNING)
+            self.assertEqual(card.get_status(), HealthcheckStatus.INFO)
             self.assertIn("25%", card.subtitle)
 
         with self.subTest("with_additional_info"):
@@ -375,5 +375,5 @@ class TestEarlyStoppingAnalysis(TestCase):
             ):
                 card = healthcheck_with_info.compute(experiment=self.experiment)
 
-            self.assertEqual(card.get_status(), HealthcheckStatus.WARNING)
+            self.assertEqual(card.get_status(), HealthcheckStatus.INFO)
             self.assertIn(nudge_info, card.subtitle)

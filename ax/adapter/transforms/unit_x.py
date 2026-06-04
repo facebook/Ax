@@ -17,6 +17,7 @@ from ax.core.parameter import ParameterType, RangeParameter
 from ax.core.parameter_constraint import ParameterConstraint
 from ax.core.search_space import SearchSpace
 from ax.generators.types import TConfig
+from pyre_extensions import assert_is_instance
 
 if TYPE_CHECKING:
     # import as module to make sphinx-autodoc-typehints happy
@@ -63,9 +64,7 @@ class UnitX(Transform):
         for obsf in observation_features:
             for p_name, (l, u) in self.bounds.items():
                 if p_name in obsf.parameters:
-                    # pyre: param is declared to have type `float` but is used
-                    # pyre-fixme[9]: as type `Optional[typing.Union[bool, float, str]]`.
-                    param: float = obsf.parameters[p_name]
+                    param = float(obsf.parameters[p_name])
                     obsf.parameters[p_name] = self._normalize_value(param, (l, u))
         return observation_features
 
@@ -74,15 +73,17 @@ class UnitX(Transform):
             if (p_bounds := self.bounds.get(p_name)) is not None and isinstance(
                 p, RangeParameter
             ):
+                # Don't round in unit space; digits will be re-applied in
+                # the original space by the Cast transform during untransform.
+                if p.digits is not None:
+                    p.set_digits(digits=None)
                 p.update_range(
                     lower=self._normalize_value(value=p.lower, bounds=p_bounds),
                     upper=self._normalize_value(value=p.upper, bounds=p_bounds),
                 )
                 if p.target_value is not None:
                     p._target_value = self._normalize_value(
-                        # pyre-fixme[6]: For 1st argument expected `float` but got
-                        #  `Union[bool, float, int, str]`.
-                        value=p.target_value,
+                        value=assert_is_instance(p.target_value, float),
                         bounds=p_bounds,
                     )
         new_constraints: list[ParameterConstraint] = []
@@ -102,11 +103,14 @@ class UnitX(Transform):
             expr = " + ".join(
                 f"{coeff} * {param}" for param, coeff in constraint_dict.items()
             )
-            new_constraints.append(
-                ParameterConstraint(
-                    inequality=f"{expr} <= {bound}",
+            if c.is_equality:
+                new_constraints.append(
+                    ParameterConstraint(equality=f"{expr} == {bound}")
                 )
-            )
+            else:
+                new_constraints.append(
+                    ParameterConstraint(inequality=f"{expr} <= {bound}")
+                )
         search_space.set_parameter_constraints(new_constraints)
         return search_space
 
@@ -116,9 +120,7 @@ class UnitX(Transform):
         for obsf in observation_features:
             for p_name, (l, u) in self.bounds.items():
                 if p_name in obsf.parameters:
-                    # pyre: param is declared to have type `float` but is used as
-                    # pyre-fixme[9]: type `Optional[typing.Union[bool, float, str]]`.
-                    param: float = obsf.parameters[p_name]
+                    param = float(obsf.parameters[p_name])
                     obsf.parameters[p_name] = param * (u - l) + l
         return observation_features
 

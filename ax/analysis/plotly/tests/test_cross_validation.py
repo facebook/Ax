@@ -65,9 +65,12 @@ class TestCrossValidationPlot(TestCase):
         ):
             analysis.compute()
 
-        (card,) = analysis.compute(
+        cards = analysis.compute(
             generation_strategy=self.client.generation_strategy
         ).flatten()
+        # Should have the CV plot card and the R2 summary card
+        self.assertEqual(len(cards), 2)
+        card = cards[0]
         self.assertEqual(
             card.name,
             "CrossValidationPlot",
@@ -106,6 +109,15 @@ class TestCrossValidationPlot(TestCase):
         )
         self.assertIsNotNone(card.blob)
 
+        # Assert that _r2s is populated after compute
+        self.assertIn("bar", analysis._r2s)
+        self.assertAlmostEqual(analysis._r2s["bar"], 0.85)
+
+        # Assert the R2 summary card
+        r2_card = cards[1]
+        self.assertEqual(r2_card.name, "CrossValidationPlot")
+        self.assertEqual(r2_card.title, "Summary of model fits")
+
         # Assert that all arms are in the cross validation df
         # because trial index is not specified
         for t in self.client.experiment.trials.values():
@@ -121,9 +133,10 @@ class TestCrossValidationPlot(TestCase):
 
     def test_it_can_specify_trial_index_correctly(self) -> None:
         analysis = CrossValidationPlot(metric_names=["bar"], trial_index=9)
-        (card,) = analysis.compute(
+        cards = analysis.compute(
             generation_strategy=self.client.generation_strategy
         ).flatten()
+        card = cards[0]
         for t in self.client.experiment.trials.values():
             # Skip the last trial because the model was used to generate it
             # and therefore hasn't observed it
@@ -134,6 +147,22 @@ class TestCrossValidationPlot(TestCase):
                 arm_name,
                 card.df["arm_name"].unique(),
             )
+
+    def test_test_trial_index_filters_to_single_trial(self) -> None:
+        # test_trial_index filters CV to only evaluate predictions for observations
+        # from that trial. Use trial 0 which is in the model's training data.
+        analysis = CrossValidationPlot(metric_names=["bar"], test_trial_index=0)
+        card, _r2_card = analysis.compute(
+            generation_strategy=self.client.generation_strategy
+        ).flatten()
+        # Only the arm from trial 0 should appear as a test point
+        trial_0_arm_name = none_throws(
+            assert_is_instance(self.client.experiment.trials[0], Trial).arm
+        ).name
+        self.assertEqual(
+            list(card.df["arm_name"].unique()),
+            [trial_0_arm_name],
+        )
 
     @mock.patch(
         "ax.analysis.plotly.cross_validation.cross_validate", wraps=cross_validate
@@ -159,15 +188,17 @@ class TestCrossValidationPlot(TestCase):
         cards = compute_cross_validation_adhoc(
             adapter=adapter, labels=metric_mapping
         ).flatten()
-        self.assertEqual(len(cards), 2)
+        self.assertEqual(len(cards), 3)
         titles = {
             "Cross Validation for spunky (R\u00b2 = 0.85)",
             "Cross Validation for foo2 (R\u00b2 = 0.85)",
         }
-        for card in cards:
+        for card in cards[:2]:
             self.assertEqual(card.name, "CrossValidationPlot")
             self.assertIn(card.title, titles)
             titles.remove(card.title)
+        # The last card is the R2 summary
+        self.assertEqual(cards[2].title, "Summary of model fits")
 
     @TestCase.ax_long_test(
         reason=(

@@ -86,6 +86,7 @@ from botorch.models.transforms.input import (
     FilterFeatures,
     InputPerturbation,
     InputTransform,
+    LearnedFeatureImputation,
     Normalize,
     Round,
     Warp,
@@ -96,6 +97,7 @@ from botorch.models.transforms.outcome import (
     Standardize,
     StratifiedStandardize,
 )
+from botorch.models.utils.priors import BetaPrior
 from botorch.sampling.normal import SobolQMCNormalSampler
 
 # Miscellaneous BoTorch imports
@@ -202,6 +204,7 @@ LIKELIHOOD_REGISTRY: dict[type[GaussianLikelihood], str] = {
 }
 
 GPYTORCH_COMPONENT_REGISTRY: dict[type[torch.nn.Module], str] = {
+    BetaPrior: "BetaPrior",
     Interval: "Interval",
     GammaPrior: "GammaPrior",
     LogNormalPrior: "LogNormalPrior",
@@ -213,6 +216,7 @@ Mapping of BoTorch `InputTransform` classes to class name strings.
 """
 INPUT_TRANSFORM_REGISTRY: dict[type[InputTransform], str] = {
     ChainedInputTransform: "ChainedInputTransform",
+    LearnedFeatureImputation: "LearnedFeatureImputation",
     Normalize: "Normalize",
     Round: "Round",
     Warp: "Warp",
@@ -239,6 +243,7 @@ CLASS_TO_REGISTRY: dict[Any, dict[type[Any], str]] = {
     Likelihood: LIKELIHOOD_REGISTRY,
     MarginalLogLikelihood: MLL_REGISTRY,
     Model: MODEL_REGISTRY,
+    BetaPrior: GPYTORCH_COMPONENT_REGISTRY,
     Interval: GPYTORCH_COMPONENT_REGISTRY,
     GammaPrior: GPYTORCH_COMPONENT_REGISTRY,
     LogNormalPrior: GPYTORCH_COMPONENT_REGISTRY,

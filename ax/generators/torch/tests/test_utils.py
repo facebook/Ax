@@ -15,6 +15,7 @@ from unittest.mock import Mock
 import numpy as np
 import torch
 from ax.core.data import MAP_KEY
+from ax.core.metric import Metric
 from ax.core.search_space import SearchSpaceDigest
 from ax.exceptions.core import AxWarning, UnsupportedError, UserInputError
 from ax.generators.torch.botorch_modular.kernels import ScaleMaternKernel
@@ -38,6 +39,7 @@ from ax.generators.torch.utils import (
     extract_objectives,
     get_feature_importances_from_botorch_model,
     get_rounding_func,
+    pick_best_out_of_sample_point_acqf_class,
     predict_from_model,
 )
 from ax.generators.torch_base import TorchOptConfig
@@ -46,14 +48,20 @@ from ax.utils.common.constants import Keys
 from ax.utils.common.testutils import TestCase
 from ax.utils.testing.torch_stubs import get_torch_test_data
 from botorch.acquisition.analytic import PosteriorMean
+from botorch.acquisition.input_constructors import get_acqf_input_constructor
 from botorch.acquisition.logei import (
     qLogNoisyExpectedImprovement,
     qLogProbabilityOfFeasibility,
 )
+from botorch.acquisition.monte_carlo import qSimpleRegret
 from botorch.acquisition.multi_objective.logei import (
     qLogNoisyExpectedHypervolumeImprovement,
 )
 from botorch.acquisition.multi_objective.parego import qLogNParEGO
+from botorch.acquisition.preference import (
+    AnalyticExpectedUtilityOfBestOption,
+    qExpectedUtilityOfBestOption,
+)
 from botorch.models.fully_bayesian import SaasFullyBayesianSingleTaskGP
 from botorch.models.gp_regression import SingleTaskGP
 from botorch.models.gp_regression_fidelity import SingleTaskMultiFidelityGP
@@ -61,7 +69,8 @@ from botorch.models.gp_regression_mixed import MixedSingleTaskGP
 from botorch.models.heterogeneous_mtgp import HeterogeneousMTGP
 from botorch.models.model_list_gp_regression import ModelListGP
 from botorch.models.multitask import MultiTaskGP
-from botorch.models.transforms.input import Normalize, Warp
+from botorch.models.pairwise_gp import PairwiseGP
+from botorch.models.transforms.input import LearnedFeatureImputation, Normalize, Warp
 from botorch.posteriors.ensemble import EnsemblePosterior
 from botorch.utils.datasets import MultiTaskDataset, SupervisedDataset
 from botorch.utils.types import DEFAULT
@@ -174,42 +183,38 @@ class BoTorchGeneratorUtilsTest(TestCase):
             )
 
     def test_choose_model_class_heterogeneous_task_features(self) -> None:
-        # Test that HeterogeneousMTGP is chosen when MultiTaskDataset has
-        # heterogeneous features.
         mt_dataset = self._get_heterogeneous_mt_dataset()
+        ssd = dataclasses.replace(self.search_space_digest, task_features=[-1])
 
-        # Execute: Choose model class with task features
-        model_class = choose_model_class(
-            dataset=mt_dataset,
-            search_space_digest=dataclasses.replace(
-                self.search_space_digest, task_features=[-1]
+        # Default: MultiTaskGP (LearnedFeatureImputation handles missing features).
+        self.assertEqual(
+            MultiTaskGP,
+            choose_model_class(dataset=mt_dataset, search_space_digest=ssd),
+        )
+
+        # Explicit MultiTaskGP is respected.
+        self.assertEqual(
+            MultiTaskGP,
+            choose_model_class(
+                dataset=mt_dataset,
+                search_space_digest=ssd,
+                specified_model_class=MultiTaskGP,
             ),
         )
 
-        # Assert: Should select HeterogeneousMTGP for heterogeneous features
-        self.assertEqual(HeterogeneousMTGP, model_class)
-
-    def test_choose_model_class_heterogeneous_overrides_specified(self) -> None:
-        # Test that HeterogeneousMTGP overrides a pre-specified model class
-        # when heterogeneous features are detected
-        mt_dataset = self._get_heterogeneous_mt_dataset()
-
-        # Execute: Try to specify MultiTaskGP explicitly
-        model_class = choose_model_class(
-            dataset=mt_dataset,
-            search_space_digest=dataclasses.replace(
-                self.search_space_digest, task_features=[-1]
+        # Explicit HeterogeneousMTGP is respected.
+        self.assertEqual(
+            HeterogeneousMTGP,
+            choose_model_class(
+                dataset=mt_dataset,
+                search_space_digest=ssd,
+                specified_model_class=HeterogeneousMTGP,
             ),
-            specified_model_class=MultiTaskGP,
         )
-
-        # Assert: Should override to HeterogeneousMTGP despite specification
-        self.assertEqual(HeterogeneousMTGP, model_class)
 
     def test_choose_model_class_respects_specified_when_no_override_needed(
         self,
     ) -> None:
-        # Test that specified_model_class is used when no override is needed
         model_class = choose_model_class(
             dataset=self.supervised_dataset,
             search_space_digest=self.search_space_digest,
@@ -217,7 +222,6 @@ class BoTorchGeneratorUtilsTest(TestCase):
         )
         self.assertEqual(SingleTaskGP, model_class)
 
-        # Test with a different specified class
         model_class = choose_model_class(
             dataset=self.supervised_dataset,
             search_space_digest=self.search_space_digest,
@@ -225,74 +229,130 @@ class BoTorchGeneratorUtilsTest(TestCase):
         )
         self.assertEqual(MixedSingleTaskGP, model_class)
 
-    def test_copy_model_config_adds_normalize_for_heterogeneous_mtgp(self) -> None:
-        # Test that Normalize input transform is added for HeterogeneousMTGP
+    def test_copy_model_config_heterogeneous_mtgp(self) -> None:
         mt_dataset = self._get_heterogeneous_mt_dataset()
+        ssd = dataclasses.replace(self.search_space_digest, task_features=[-1])
 
-        # Case 1: No input transform classes specified
-        model_config = ModelConfig()
+        # Default (no model class specified) -> MultiTaskGP.
+        # LFI is injected for MultiTaskGP with heterogeneous data.
         updated_config = copy_model_config_with_default_values(
-            model_config=model_config,
+            model_config=ModelConfig(),
             dataset=mt_dataset,
-            search_space_digest=dataclasses.replace(
-                self.search_space_digest, task_features=[-1]
-            ),
+            search_space_digest=ssd,
+        )
+        self.assertEqual(updated_config.botorch_model_class, MultiTaskGP)
+        self.assertEqual(
+            updated_config.input_transform_classes,
+            [Normalize, LearnedFeatureImputation],
+        )
+        # LFI is present in transform classes but absent from options; its
+        # argparse computes kwargs from the dataset at construction time.
+        ito = none_throws(updated_config.input_transform_options)
+        self.assertEqual(ito, {"Normalize": {}})
+        self.assertNotIn("LearnedFeatureImputation", ito)
+
+        # Explicit HeterogeneousMTGP behaves the same.
+        updated_config = copy_model_config_with_default_values(
+            model_config=ModelConfig(botorch_model_class=HeterogeneousMTGP),
+            dataset=mt_dataset,
+            search_space_digest=ssd,
         )
         self.assertEqual(updated_config.botorch_model_class, HeterogeneousMTGP)
         self.assertEqual(updated_config.input_transform_classes, [Normalize])
         self.assertEqual(
             none_throws(updated_config.input_transform_options),
-            {"Normalize": {"bounds": None}},
+            {"Normalize": {}},
         )
 
-        # Case 2: Input transform classes already specified (but not Normalize)
-        model_config = ModelConfig(
-            input_transform_classes=[Warp], input_transform_options={"Warp": {}}
-        )
+    def test_copy_model_config_mtgp_with_lfi_injection(self) -> None:
+        mt_dataset = self._get_heterogeneous_mt_dataset()
+        ssd = dataclasses.replace(self.search_space_digest, task_features=[-1])
+
+        # Explicit MultiTaskGP on heterogeneous data -> LFI injected.
         updated_config = copy_model_config_with_default_values(
-            model_config=model_config,
+            model_config=ModelConfig(botorch_model_class=MultiTaskGP),
             dataset=mt_dataset,
-            search_space_digest=dataclasses.replace(
-                self.search_space_digest, task_features=[-1]
-            ),
+            search_space_digest=ssd,
         )
-        self.assertEqual(updated_config.input_transform_classes, [Warp, Normalize])
+        self.assertEqual(updated_config.botorch_model_class, MultiTaskGP)
         self.assertEqual(
-            none_throws(updated_config.input_transform_options),
-            {"Warp": {}, "Normalize": {"bounds": None}},
+            updated_config.input_transform_classes,
+            [Normalize, LearnedFeatureImputation],
         )
 
-        # Case 3: Normalize already in input transform classes
-        model_config = ModelConfig(
-            input_transform_classes=[Normalize],
-            input_transform_options={"Normalize": {"bounds": None}},
-        )
+        # User already passed LFI in the list -> not duplicated.
         updated_config = copy_model_config_with_default_values(
-            model_config=model_config,
-            dataset=mt_dataset,
-            search_space_digest=dataclasses.replace(
-                self.search_space_digest, task_features=[-1]
+            model_config=ModelConfig(
+                botorch_model_class=MultiTaskGP,
+                input_transform_classes=[Normalize, LearnedFeatureImputation],
             ),
+            dataset=mt_dataset,
+            search_space_digest=ssd,
         )
-        self.assertEqual(updated_config.input_transform_classes, [Normalize])
+        self.assertEqual(updated_config.botorch_model_class, MultiTaskGP)
         self.assertEqual(
-            none_throws(updated_config.input_transform_options),
-            {"Normalize": {"bounds": None}},
+            updated_config.input_transform_classes,
+            [Normalize, LearnedFeatureImputation],
         )
 
     def test_copy_model_config_does_not_add_normalize_for_other_models(self) -> None:
-        # Test that Normalize is NOT added for non-HeterogeneousMTGP models
         model_config = ModelConfig()
         updated_config = copy_model_config_with_default_values(
             model_config=model_config,
             dataset=self.supervised_dataset,
             search_space_digest=self.search_space_digest,
         )
-        # Should be SingleTaskGP, not HeterogeneousMTGP
         self.assertEqual(updated_config.botorch_model_class, SingleTaskGP)
-        # Should not have added Normalize
         self.assertEqual(updated_config.input_transform_classes, DEFAULT)
         self.assertEqual(updated_config.input_transform_options, {})
+
+    def test_copy_model_config_adds_imputation_for_heterogeneous(self) -> None:
+        mt_dataset = self._get_heterogeneous_mt_dataset()
+        ssd = dataclasses.replace(self.search_space_digest, task_features=[-1])
+
+        with self.subTest("no_input_transform_classes"):
+            model_config = ModelConfig(botorch_model_class=MultiTaskGP)
+            updated_config = copy_model_config_with_default_values(
+                model_config=model_config,
+                dataset=mt_dataset,
+                search_space_digest=ssd,
+            )
+            self.assertEqual(updated_config.botorch_model_class, MultiTaskGP)
+            self.assertEqual(
+                updated_config.input_transform_classes,
+                [Normalize, LearnedFeatureImputation],
+            )
+
+        with self.subTest("existing_transform_classes"):
+            model_config = ModelConfig(
+                botorch_model_class=MultiTaskGP,
+                input_transform_classes=[Warp],
+                input_transform_options={"Warp": {}},
+            )
+            updated_config = copy_model_config_with_default_values(
+                model_config=model_config,
+                dataset=mt_dataset,
+                search_space_digest=ssd,
+            )
+            self.assertEqual(
+                updated_config.input_transform_classes,
+                [Normalize, Warp, LearnedFeatureImputation],
+            )
+
+        with self.subTest("imputation_already_present"):
+            model_config = ModelConfig(
+                botorch_model_class=MultiTaskGP,
+                input_transform_classes=[Normalize, LearnedFeatureImputation],
+            )
+            updated_config = copy_model_config_with_default_values(
+                model_config=model_config,
+                dataset=mt_dataset,
+                search_space_digest=ssd,
+            )
+            self.assertEqual(
+                updated_config.input_transform_classes,
+                [Normalize, LearnedFeatureImputation],
+            )
 
     def test_choose_model_class_discrete_features(self) -> None:
         # With discrete features, use MixedSingleTaskyGP.
@@ -382,20 +442,23 @@ class BoTorchGeneratorUtilsTest(TestCase):
         )
 
     def test_objective_threshold_to_outcome_constraints(self) -> None:
-        # Test basic conversion: maximize obj 0, minimize obj 1, skip obj 2.
+        # Test basic conversion: maximize obj 0, minimize obj 1.
+        # Thresholds are (n_objectives,) and maximization-aligned.
         objective_weights = torch.tensor([[1.0, 0.0, 0.0], [0.0, -1.0, 0.0]])
-        objective_thresholds = torch.tensor([0.5, 1.5, float("nan")])
+        # Obj 0 (maximize): threshold 0.5. Obj 1 (minimize): threshold -1.5.
+        objective_thresholds = torch.tensor([0.5, -1.5])
         A, b = _objective_threshold_to_outcome_constraints(
             objective_weights=objective_weights,
             objective_thresholds=objective_thresholds,
         )
-        # Two objectives (idx 0 and 1) have nonzero weights and non-NaN thresholds.
+        # Both objectives have non-NaN thresholds.
         self.assertEqual(A.shape, (2, 3))
         self.assertEqual(b.shape, (2, 1))
-        # For idx 0: w=1.0, t=0.5 → A[0, 0]=-1.0, b[0]=-0.5
+        # A = -objective_weights, b = -objective_thresholds
+        # For obj 0: A[0]=-[1, 0, 0], b[0]=-0.5
         self.assertEqual(A[0, 0].item(), -1.0)
         self.assertEqual(b[0].item(), -0.5)
-        # For idx 1: w=-1.0, t=1.5 → A[1, 1]=1.0, b[1]=1.5
+        # For obj 1: A[1]=-[0, -1, 0]=[0, 1, 0], b[1]=1.5
         self.assertEqual(A[1, 1].item(), 1.0)
         self.assertEqual(b[1].item(), 1.5)
 
@@ -469,16 +532,17 @@ class BoTorchGeneratorUtilsTest(TestCase):
             ),
         )
 
-        # With minimization: w=-1, threshold=1.5 means Y should be <= 1.5.
-        # Point 0: obj1=1.0 (good, <=2.0 after flip), obj2=2.0 > 1.5 → fails.
-        # Point 1: obj1=3.0 > 2.0 → fails.
+        # With minimization: thresholds are maximization-aligned (negated).
+        # weighted_Y = Y * [-1, -1]. Thresholds = [-2.0, -1.5].
+        # Point 0: weighted_Y=[-1, -2], [-1>=-2 ✓, -2>=-1.5 ✗] → fails.
+        # Point 1: weighted_Y=[-3, -0.5], [-3>=-2 ✗] → fails.
         self.assertEqual(
             qLogProbabilityOfFeasibility,
             choose_botorch_acqf_class(
                 search_space_digest=ssd,
                 torch_opt_config=TorchOptConfig(
                     objective_weights=torch.tensor([[-1.0, 0.0], [0.0, -1.0]]),
-                    objective_thresholds=torch.tensor([2.0, 1.5]),
+                    objective_thresholds=torch.tensor([-2.0, -1.5]),
                 ),
                 datasets=[dataset],
             ),
@@ -599,6 +663,84 @@ class BoTorchGeneratorUtilsTest(TestCase):
                 datasets=[dataset],
             ),
         )
+
+    def test_choose_botorch_acqf_class_pbo_dispatches_qeubo(self) -> None:
+        pref_metric = Keys.PAIRWISE_PREFERENCE_QUERY.value
+        pbo_opt_config = TorchOptConfig(
+            objective_weights=torch.tensor([[1.0]]),
+            opt_config_metrics={pref_metric: Metric(name=pref_metric)},
+        )
+        # Single-objective PBO with pairwise_pref_query → qEUBO.
+        self.assertEqual(
+            qExpectedUtilityOfBestOption,
+            choose_botorch_acqf_class(
+                search_space_digest=self.search_space_digest,
+                torch_opt_config=pbo_opt_config,
+                datasets=None,
+            ),
+        )
+        # Adding outcome constraints → should NOT dispatch qEUBO.
+        self.assertEqual(
+            qLogNoisyExpectedImprovement,
+            choose_botorch_acqf_class(
+                search_space_digest=self.search_space_digest,
+                torch_opt_config=TorchOptConfig(
+                    objective_weights=torch.tensor([[1.0, 0.0]]),
+                    outcome_constraints=(
+                        torch.tensor([[0.0, 1.0]]),
+                        torch.tensor([[5.0]]),
+                    ),
+                    opt_config_metrics={
+                        pref_metric: Metric(name=pref_metric),
+                        "other": Metric(name="other"),
+                    },
+                ),
+                datasets=[self.supervised_dataset],
+            ),
+        )
+        # Without pairwise_pref_query in opt_config_metrics → standard SOO.
+        self.assertEqual(
+            qLogNoisyExpectedImprovement,
+            choose_botorch_acqf_class(
+                search_space_digest=self.search_space_digest,
+                torch_opt_config=TorchOptConfig(
+                    objective_weights=torch.tensor([[1.0, 0.0]]),
+                ),
+                datasets=[self.supervised_dataset],
+            ),
+        )
+
+    def test_eubo_construction_pbo_and_bope_modes(self) -> None:
+        """Verify the EUBO construction path used by the early return in
+        _construct_botorch_acquisition: PBO mode (pref_model absent) and
+        BOPE mode (pref_model provided via botorch_acqf_options)."""
+        pref_model = PairwiseGP(
+            datapoints=torch.rand(3, 2),
+            comparisons=torch.tensor([[0, 1], [1, 2]], dtype=torch.long),
+        )
+        outcome_model = SingleTaskGP(train_X=torch.rand(5, 2), train_Y=torch.rand(5, 2))
+
+        for acqf_class in (
+            AnalyticExpectedUtilityOfBestOption,
+            qExpectedUtilityOfBestOption,
+        ):
+            with self.subTest(acqf_class=acqf_class.__name__):
+                # PBO mode: model IS the preference model, no pref_model kwarg.
+                input_constructor = get_acqf_input_constructor(acqf_class)
+                acqf_inputs = input_constructor(model=pref_model)
+                acqf = acqf_class(**acqf_inputs)
+                self.assertIsInstance(acqf, acqf_class)
+                self.assertIs(acqf.model, pref_model)
+                self.assertIsNone(acqf.outcome_model)
+
+                # BOPE mode: model is the outcome model, pref_model provided.
+                acqf_inputs = input_constructor(
+                    model=outcome_model, pref_model=pref_model
+                )
+                acqf = acqf_class(**acqf_inputs)
+                self.assertIsInstance(acqf, acqf_class)
+                self.assertIs(acqf.model, pref_model)
+                self.assertIsNotNone(acqf.outcome_model)
 
     def test_construct_acquisition_and_optimizer_options(self) -> None:
         # Two dicts for `Acquisition` should be concatenated
@@ -874,8 +1016,51 @@ class BoTorchGeneratorUtilsTest(TestCase):
             )
         )
 
+        # Test _supports_batched_models class attribute.
+        class NoBatchModel(SingleTaskGP):
+            _supports_batched_models = False
+
+        # Single outcome: should not use model list.
+        self.assertFalse(
+            use_model_list(
+                datasets=[self.supervised_dataset],
+                model_configs=[ModelConfig(botorch_model_class=NoBatchModel)],
+                search_space_digest=SearchSpaceDigest(feature_names=[], bounds=[]),
+            )
+        )
+        # Multiple datasets: should use model list.
+        self.assertTrue(
+            use_model_list(
+                datasets=2
+                * [
+                    SupervisedDataset(
+                        X=self.Xs,
+                        Y=self.Ys,
+                        feature_names=self.feature_names,
+                        outcome_names=["y"],
+                    )
+                ],
+                model_configs=[ModelConfig(botorch_model_class=NoBatchModel)],
+                search_space_digest=SearchSpaceDigest(feature_names=[], bounds=[]),
+            )
+        )
+        # Single dataset with multiple outcomes: should use model list.
+        self.assertTrue(
+            use_model_list(
+                datasets=[
+                    SupervisedDataset(
+                        X=self.Xs,
+                        Y=self.Ys.repeat(1, 2),
+                        feature_names=self.feature_names,
+                        outcome_names=["y1", "y2"],
+                    ),
+                ],
+                model_configs=[ModelConfig(botorch_model_class=NoBatchModel)],
+                search_space_digest=SearchSpaceDigest(feature_names=[], bounds=[]),
+            )
+        )
+
     def test_get_shared_rows(self) -> None:
-        # test bad input
         with self.assertRaisesRegex(
             UserInputError, "All inputs must be two-dimensional."
         ):
@@ -1062,17 +1247,21 @@ class BoTorchGeneratorUtilsTest(TestCase):
         self.assertAllClose(weights, torch.tensor([0.5, 0.5]))
 
     def test_to_inequality_constraints(self) -> None:
-        A = torch.tensor([[0, 1, -2, 3], [0, 1, 0, 0]])
-        b = torch.tensor([[1], [2]])
+        A = torch.tensor([[0, 1, -2, 3], [0, 1, 0, 0]], dtype=torch.double)
+        b = torch.tensor([[1], [2]], dtype=torch.double)
         ineq_constraints = none_throws(
             _to_inequality_constraints(linear_constraints=(A, b))
         )
         self.assertEqual(len(ineq_constraints), 2)
         self.assertAllClose(ineq_constraints[0][0], torch.tensor([1, 2, 3]))
-        self.assertAllClose(ineq_constraints[0][1], torch.tensor([-1, 2, -3]))
+        self.assertAllClose(
+            ineq_constraints[0][1], torch.tensor([-1.0, 2.0, -3.0], dtype=torch.double)
+        )
         self.assertEqual(ineq_constraints[0][2], -1.0)
         self.assertAllClose(ineq_constraints[1][0], torch.tensor([1]))
-        self.assertAllClose(ineq_constraints[1][1], torch.tensor([-1]))
+        self.assertAllClose(
+            ineq_constraints[1][1], torch.tensor([-1.0], dtype=torch.double)
+        )
         self.assertEqual(ineq_constraints[1][2], -2.0)
 
     def test_subset_state_dict(self) -> None:
@@ -1335,3 +1524,16 @@ class BoTorchGeneratorUtilsTest(TestCase):
         # points exist (after fixing MAP_KEY, the data can be merged properly)
         # We expect qLogNoisyExpectedImprovement for single-objective
         self.assertEqual(acqf_class, qLogNoisyExpectedImprovement)
+
+    def test_pick_best_out_of_sample_point_acqf_class(self) -> None:
+        # Unconstrained: PosteriorMean.
+        acqf_class = pick_best_out_of_sample_point_acqf_class(
+            outcome_constraints=None,
+        )
+        self.assertEqual(acqf_class, PosteriorMean)
+
+        # Constrained: qSimpleRegret.
+        acqf_class = pick_best_out_of_sample_point_acqf_class(
+            outcome_constraints=(torch.tensor([[1.0, 0.0]]), torch.tensor([[0.5]])),
+        )
+        self.assertEqual(acqf_class, qSimpleRegret)

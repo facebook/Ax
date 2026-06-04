@@ -14,7 +14,7 @@ from typing import TYPE_CHECKING
 import pandas as pd
 from ax.adapter.data_utils import ExperimentData
 from ax.adapter.transforms.base import Transform
-from ax.core.objective import MultiObjective, Objective, ScalarizedObjective
+from ax.core.objective import ScalarizedObjective
 from ax.core.observation import ObservationData, ObservationFeatures
 from ax.core.optimization_config import (
     MultiObjectiveOptimizationConfig,
@@ -25,6 +25,7 @@ from ax.core.search_space import SearchSpace
 from ax.core.types import ComparisonOp
 from ax.generators.types import TConfig
 from ax.utils.common.logger import get_logger
+from ax.utils.common.sympy import build_constraint_expression_str
 from pyre_extensions import none_throws
 
 
@@ -194,15 +195,21 @@ class ObjectiveAsConstraint(Transform):
         # Handle ScalarizedObjective: create a single ScalarizedOutcomeConstraint
         # with the bound equal to the status quo value of the scalarized objective.
         if isinstance(objective, ScalarizedObjective):
+            obj_metrics = none_throws(adapter or self.adapter)._experiment.get_metrics(
+                objective.metric_names
+            )
             scalarized_sq_value = 0.0
-            for metric, weight in objective.metric_weights:
+            for metric, (_, weight) in zip(obj_metrics, objective.metric_weights):
                 metric_idx = sq_data.metric_signatures.index(metric.signature)
                 scalarized_sq_value += weight * sq_data.means[metric_idx]
 
-            op = ComparisonOp.LEQ if objective.minimize else ComparisonOp.GEQ
+            # metric_weights are sign-encoded (negative = minimize direction).
+            # With sign-encoded weights, "don't get worse than SQ" is always
+            # GEQ: Σ(signed_wi * yi) >= Σ(signed_wi * sq_yi).
+            op = ComparisonOp.GEQ
             new_constraint = ScalarizedOutcomeConstraint(
-                metrics=[m.clone() for m in objective.metrics],
-                weights=list(objective.weights),
+                metrics=[m.clone() for m in obj_metrics],
+                weights=[w for _, w in objective.metric_weights],
                 op=op,
                 bound=float(scalarized_sq_value),
                 relative=False,
@@ -211,35 +218,31 @@ class ObjectiveAsConstraint(Transform):
             self._scalarized_objective_constraint_added = True
             return optimization_config
 
-        # Get list of objectives to add constraints for.
-        if isinstance(optimization_config, MultiObjectiveOptimizationConfig):
-            # MultiObjectiveOptimizationConfig can have MultiObjective or
-            # ScalarizedObjective. Only MultiObjective has multiple objectives.
-            if isinstance(objective, MultiObjective):
-                objectives = objective.objectives
-            else:
-                objectives = [
-                    Objective(metric=objective.metric, minimize=objective.minimize)
-                ]
-        else:
-            objectives = [objective]
-
         # Add a constraint for each objective at the status quo value.
-        for obj in objectives:
-            metric = obj.metric
-            metric_idx = sq_data.metric_signatures.index(metric.signature)
+        for metric_name, (metric_sig, weight) in zip(
+            objective.metric_names, objective.metric_weights
+        ):
+            metric_idx = sq_data.metric_signatures.index(metric_sig)
             sq_value = sq_data.means[metric_idx]
 
-            op = ComparisonOp.LEQ if obj.minimize else ComparisonOp.GEQ
-            new_constraint = OutcomeConstraint(
-                metric=metric.clone(),
-                op=op,
+            # Negative weight in the maximize-expression means minimize
+            is_minimize = weight < 0
+            op = ComparisonOp.LEQ if is_minimize else ComparisonOp.GEQ
+            new_expr = build_constraint_expression_str(
+                metric_weights=[(metric_name, 1.0)],
+                op=">=" if op == ComparisonOp.GEQ else "<=",
                 bound=float(sq_value),
                 relative=False,
             )
+            new_constraint = OutcomeConstraint(
+                expression=new_expr,
+                metric_name_to_signature={
+                    metric_name: metric_sig,
+                },
+            )
 
             optimization_config._outcome_constraints.append(new_constraint)
-            self._objective_metrics_added.append(metric.name)
+            self._objective_metrics_added.append(metric_sig)
 
         return optimization_config
 
@@ -258,7 +261,7 @@ class ObjectiveAsConstraint(Transform):
             outcome_constraints = [
                 oc
                 for oc in outcome_constraints
-                if oc.metric.name not in self._objective_metrics_added
+                if oc.metric_signatures[0] not in self._objective_metrics_added
             ]
         return outcome_constraints
 
@@ -285,7 +288,7 @@ def _is_point_feasible(
         True if the point satisfies all constraints, False otherwise.
     """
     for constraint in constraints:
-        metric_sig = constraint.metric.signature
+        metric_sig = constraint.metric_signatures[0]
         try:
             mean_val = row["mean", metric_sig]
         except KeyError:

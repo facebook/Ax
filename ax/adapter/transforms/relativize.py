@@ -18,7 +18,6 @@ import numpy as np
 import numpy.typing as npt
 from ax.adapter.data_utils import ExperimentData
 from ax.adapter.transforms.base import Transform
-from ax.core.objective import MultiObjective
 from ax.core.observation import Observation, ObservationData, ObservationFeatures
 from ax.core.optimization_config import (
     MultiObjectiveOptimizationConfig,
@@ -27,14 +26,35 @@ from ax.core.optimization_config import (
 )
 from ax.core.outcome_constraint import OutcomeConstraint
 from ax.core.search_space import SearchSpace
+from ax.core.types import ComparisonOp
 from ax.exceptions.core import DataRequiredError, UnsupportedError
 from ax.generators.types import TConfig
+from ax.utils.common.constants import Keys
+from ax.utils.common.sympy import build_constraint_expression_str
 from ax.utils.stats.math_utils import relativize, unrelativize
 from pyre_extensions import none_throws
 
 if TYPE_CHECKING:
     # import as module to make sphinx-autodoc-typehints happy
     from ax import adapter as adapter_module  # noqa F401
+
+
+def _constraint_with_relative(
+    c: OutcomeConstraint, relative: bool
+) -> OutcomeConstraint:
+    """Create a new OutcomeConstraint identical to ``c`` but with a different
+    ``relative`` flag. Since OutcomeConstraint is immutable, we rebuild the
+    expression string with the desired relativity."""
+    new_expr = build_constraint_expression_str(
+        metric_weights=c.metric_weights,
+        op=">=" if c.op == ComparisonOp.GEQ else "<=",
+        bound=c.bound,
+        relative=relative,
+    )
+    return OutcomeConstraint(
+        expression=new_expr,
+        metric_name_to_signature=c.metric_name_to_signature,
+    )
 
 
 class BaseRelativize(Transform, ABC):
@@ -82,6 +102,18 @@ class BaseRelativize(Transform, ABC):
         # if TrialAsTask was not used to generate the trial.
         self.default_trial_idx: int = max(self.status_quo_data_by_trial.keys())
 
+        # Collect trial indices that should never be relativized (e.g.,
+        # LILO labeling trials that only carry pairwise preference data).
+        self._non_relativizable_trial_indices: set[int] = set()
+        if adapter is not None and adapter._experiment is not None:
+            trials = adapter._experiment.trials
+            if isinstance(trials, dict):
+                self._non_relativizable_trial_indices = {
+                    idx
+                    for idx, t in trials.items()
+                    if t.trial_type == Keys.LILO_LABELING
+                }
+
     @property
     @abstractmethod
     def control_as_constant(self) -> bool:
@@ -107,9 +139,6 @@ class BaseRelativize(Transform, ABC):
 
         """
         # Getting constraints
-        constraints = [
-            constraint.clone() for constraint in optimization_config.outcome_constraints
-        ]
         if not all(
             constraint.relative
             for constraint in optimization_config.outcome_constraints
@@ -117,13 +146,15 @@ class BaseRelativize(Transform, ABC):
             raise ValueError(
                 "All constraints must be relative to use the Relativize transform."
             )
-        for constraint in constraints:
-            constraint.relative = False
+        constraints = [
+            _constraint_with_relative(constraint, relative=False)
+            for constraint in optimization_config.outcome_constraints
+        ]
 
         if isinstance(optimization_config, PreferenceOptimizationConfig):
             objective = optimization_config.objective
-            assert isinstance(objective, MultiObjective), (
-                f"Expected MultiObjective, got {type(objective).__name__}"
+            assert objective.is_multi_objective, (
+                "Expected multi-objective, got single-objective"
             )
             new_optimization_config = optimization_config.clone_with_args(
                 objective=objective,
@@ -131,17 +162,16 @@ class BaseRelativize(Transform, ABC):
             )
         elif isinstance(optimization_config, MultiObjectiveOptimizationConfig):
             # Getting objective thresholds
-            obj_thresholds = [
-                obj_threshold.clone()
-                for obj_threshold in optimization_config.objective_thresholds
-            ]
-            for obj_threshold in obj_thresholds:
+            obj_thresholds = []
+            for obj_threshold in optimization_config.objective_thresholds:
                 if not obj_threshold.relative:
                     raise ValueError(
                         "All objective thresholds must be relative to use "
                         "the Relativize transform."
                     )
-                obj_threshold.relative = False
+                obj_thresholds.append(
+                    _constraint_with_relative(obj_threshold, relative=False)
+                )
 
             new_optimization_config = optimization_config.clone_with_args(
                 objective=optimization_config.objective,
@@ -160,9 +190,9 @@ class BaseRelativize(Transform, ABC):
         outcome_constraints: list[OutcomeConstraint],
         fixed_features: ObservationFeatures | None = None,
     ) -> list[OutcomeConstraint]:
-        for c in outcome_constraints:
-            c.relative = True
-        return outcome_constraints
+        return [
+            _constraint_with_relative(c, relative=True) for c in outcome_constraints
+        ]
 
     def transform_observations(
         self,
@@ -184,43 +214,52 @@ class BaseRelativize(Transform, ABC):
         self, experiment_data: ExperimentData
     ) -> ExperimentData:
         observation_data = experiment_data.observation_data.copy(deep=True)
-        all_trial_indices = observation_data.index.get_level_values(
-            "trial_index"
-        ).unique()
-        if not all_trial_indices.isin(self.status_quo_data_by_trial.keys()).all():
+        trial_indices = observation_data.index.get_level_values("trial_index")
+        # Compute row-level mask first; derive unique indices for validation.
+        non_rel_mask = ~trial_indices.isin(self._non_relativizable_trial_indices)
+        non_rel_unique = trial_indices[non_rel_mask].unique()
+        missing = non_rel_unique[
+            ~non_rel_unique.isin(self.status_quo_data_by_trial.keys())
+        ]
+        if len(missing) > 0:
+            excluded = self._non_relativizable_trial_indices
             raise ValueError(
                 f"{self.__class__.__name__} requires status quo data for all "
-                f"trials in the experiment data. Found trial indices "
-                f"{all_trial_indices} but status quo data is only available for "
-                f"trials {list(self.status_quo_data_by_trial.keys())}."
+                f"relativizable trials. Missing SQ data for trials "
+                f"{missing.tolist()}.  Status quo data is available for "
+                f"trials {list(self.status_quo_data_by_trial.keys())}"
+                + (
+                    f" ({len(excluded)} non-relativizable trials excluded)."
+                    if excluded
+                    else "."
+                )
             )
-
-        trial_indices = observation_data.index.get_level_values("trial_index")
         for metric in experiment_data.metric_signatures:
-            # Create arrays of control values for each row based on trial_index.
+            # Create arrays of control values for relativizable rows.
             mean_c, sem_c = [], []
-            for idx in trial_indices:
+            for idx in trial_indices[non_rel_mask]:
                 sq_data = self.status_quo_data_by_trial[idx]
                 j = get_metric_index(data=sq_data, metric_signature=metric)
                 mean_c.append(sq_data.means[j])
                 sem_c.append(sq_data.covariance[j, j] ** 0.5)
 
-            # Relativize the whole column in one operation.
-            observation_data["mean", metric], observation_data["sem", metric] = (
-                relativize(
-                    means_t=observation_data["mean", metric],
-                    sems_t=observation_data["sem", metric],
-                    mean_c=np.array(mean_c),
-                    sem_c=np.array(sem_c),
-                    as_percent=True,
-                    control_as_constant=self.control_as_constant,
-                )
+            # Relativize only relativizable rows.
+            (
+                observation_data.loc[non_rel_mask, ("mean", metric)],
+                observation_data.loc[non_rel_mask, ("sem", metric)],
+            ) = relativize(
+                means_t=observation_data.loc[non_rel_mask, ("mean", metric)],
+                sems_t=observation_data.loc[non_rel_mask, ("sem", metric)],
+                mean_c=np.array(mean_c),
+                sem_c=np.array(sem_c),
+                as_percent=True,
+                control_as_constant=self.control_as_constant,
             )
 
-        # Set the SQ values to 0.
+        # Set the SQ values to 0 (only for relativizable trials).
         mask = (
             observation_data.index.get_level_values("arm_name") == self.status_quo_name
-        )
+        ) & non_rel_mask
         observation_data.loc[mask, "mean"] = 0
         observation_data.loc[mask, "sem"] = 0
 
@@ -239,6 +278,9 @@ class BaseRelativize(Transform, ABC):
             if obs.features.trial_index is not None
             else self.default_trial_idx
         )
+        # Skip non-relativizable trials (e.g., LILO labeling trials).
+        if idx in self._non_relativizable_trial_indices:
+            return obs.data
         if idx not in self.status_quo_data_by_trial:
             raise ValueError(
                 f"{self.__class__.__name__} requires status quo data for trial "

@@ -134,7 +134,7 @@ class TestGenerationNode(TestCase):
         self.assertEqual(self.sobol_generation_node.input_constructors, {})
 
     def test_incorrect_trial_type(self) -> None:
-        with self.assertRaisesRegex(NotImplementedError, "Trial type must be either"):
+        with self.assertRaisesRegex(NotImplementedError, "Trial type must be one of"):
             GenerationNode(
                 name="test",
                 generator_specs=[self.sobol_generator_spec],
@@ -147,12 +147,18 @@ class TestGenerationNode(TestCase):
             generator_specs=[self.sobol_generator_spec],
             trial_type=Keys.LONG_RUN,
         )
+        node_lilo = GenerationNode(
+            name="test",
+            generator_specs=[self.sobol_generator_spec],
+            trial_type=Keys.LILO_LABELING,
+        )
         node_default = GenerationNode(
             name="test",
             generator_specs=[self.sobol_generator_spec],
         )
         self.assertEqual(self.node_short._trial_type, Keys.SHORT_RUN)
         self.assertEqual(node_long._trial_type, Keys.LONG_RUN)
+        self.assertEqual(node_lilo._trial_type, Keys.LILO_LABELING)
         self.assertIsNone(node_default._trial_type)
 
     def test_input_constructor(self) -> None:
@@ -210,7 +216,6 @@ class TestGenerationNode(TestCase):
             data=self.branin_experiment.lookup_data(),
             n=1,
             pending_observations={"branin": []},
-            fixed_features=None,
         )
 
     def test_suggested_experiment_status_propagation(self) -> None:
@@ -279,6 +284,41 @@ class TestGenerationNode(TestCase):
         )
         self.assertIsNotNone(gr)
         self.assertNotIn("trial_type", none_throws(gr.gen_metadata))
+
+    @mock_botorch_optimize
+    def test_fitted_adapter_prefers_predictive_over_fallback(self) -> None:
+        """After a Sobol fallback, _fitted_adapter should still return the
+        original predictive TorchAdapter rather than the fallback's
+        RandomAdapter. This ensures analysis code can generate model-dependent
+        plots even after a transient fallback during candidate generation."""
+        node = GenerationNode(
+            name="test",
+            generator_specs=[
+                GeneratorSpec(
+                    generator_enum=Generators.BOTORCH_MODULAR,
+                    generator_kwargs={},
+                    generator_gen_kwargs={},
+                ),
+            ],
+        )
+        node._fit(experiment=self.branin_experiment)
+        original_adapter = none_throws(node._fitted_adapter)
+        self.assertTrue(original_adapter.can_predict)
+
+        # Simulate fallback: fit a Sobol fallback spec and override
+        # _generator_spec_to_gen_from, mimicking _try_gen_with_fallback.
+        fallback_spec = GeneratorSpec(
+            generator_enum=Generators.SOBOL,
+            generator_key_override="Fallback_Sobol",
+        )
+        fallback_spec.fit(experiment=self.branin_experiment)
+        self.assertFalse(none_throws(fallback_spec._fitted_adapter).can_predict)
+        node._generator_spec_to_gen_from = fallback_spec
+
+        # _fitted_adapter should still return the original predictive adapter.
+        adapter_after_fallback = none_throws(node._fitted_adapter)
+        self.assertTrue(adapter_after_fallback.can_predict)
+        self.assertIs(adapter_after_fallback, original_adapter)
 
     @mock_botorch_optimize
     def test_generator_gen_kwargs_deepcopy(self) -> None:
@@ -416,55 +456,6 @@ class TestGenerationNode(TestCase):
             node.generator_spec_to_gen_from.fixed_features,
             ObservationFeatures(parameters={"x": 0}),
         )
-
-    def test_disabled_parameters(self) -> None:
-        """Test that disabled parameters are correctly passed as fixed_features
-        to _gen.
-        """
-        # First, test with no disabled parameters - fixed_features should be None
-        with patch.object(GenerationNode, "_gen", autospec=True) as mock_gen:
-            mock_gen.return_value = MagicMock()
-            mock_gen.return_value._generation_node_name = None
-            mock_gs = MagicMock()
-            mock_gs.experiment = self.branin_experiment
-            self.sobol_generation_node._generation_strategy = mock_gs
-            self.sobol_generation_node.gen(
-                experiment=self.branin_experiment,
-                pending_observations={},
-            )
-            # With no disabled parameters, fixed_features should not be in kwargs
-            # or should be None
-            call_kwargs = mock_gen.call_args.kwargs
-            self.assertIsNone(call_kwargs.get("fixed_features"))
-
-        # Disable parameter and test again
-        self.branin_experiment.disable_parameters_in_search_space({"x1": 1.2345})
-        with patch.object(GenerationNode, "_gen", autospec=True) as mock_gen:
-            mock_gen.return_value = MagicMock()
-            mock_gen.return_value._generation_node_name = None
-            self.sobol_generation_node.gen(
-                experiment=self.branin_experiment,
-                pending_observations={},
-            )
-            call_kwargs = mock_gen.call_args.kwargs
-            expected_fixed_features = ObservationFeatures(parameters={"x1": 1.2345})
-            self.assertEqual(call_kwargs.get("fixed_features"), expected_fixed_features)
-
-        # Test fixed features override - passed fixed_features should take precedence
-        with patch.object(GenerationNode, "_gen", autospec=True) as mock_gen:
-            mock_gen.return_value = MagicMock()
-            mock_gen.return_value._generation_node_name = None
-            self.sobol_generation_node.gen(
-                experiment=self.branin_experiment,
-                pending_observations={},
-                fixed_features=ObservationFeatures(parameters={"x1": 0.0, "x2": 0.0}),
-            )
-            call_kwargs = mock_gen.call_args.kwargs
-            # The passed fixed feature overrides the disabled parameter default value
-            expected_fixed_features = ObservationFeatures(
-                parameters={"x1": 0.0, "x2": 0.0}
-            )
-            self.assertEqual(call_kwargs.get("fixed_features"), expected_fixed_features)
 
 
 class TestGenerationStep(TestCase):

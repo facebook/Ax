@@ -493,8 +493,6 @@ def interact_cross_validation(
     Returns an AxPlotConfig
     """
     return AxPlotConfig(
-        # pyre-fixme[6]: For 1st argument expected `Dict[str, typing.Any]` but got
-        #  `Figure`.
         data=interact_cross_validation_plotly(
             cv_results=cv_results,
             show_context=show_context,

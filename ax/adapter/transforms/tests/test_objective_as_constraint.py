@@ -151,7 +151,7 @@ class ObjectiveAsConstraintTest(TestCase):
         self.assertEqual(len(transformed.outcome_constraints), 2)
 
         new_constraint = transformed.outcome_constraints[1]
-        self.assertEqual(new_constraint.metric.name, "m1")
+        self.assertEqual(new_constraint.metric_names[0], "m1")
         self.assertEqual(new_constraint.op, ComparisonOp.GEQ)
         self.assertEqual(new_constraint.bound, 1.0)  # SQ value for m1
         self.assertFalse(new_constraint.relative)
@@ -179,7 +179,7 @@ class ObjectiveAsConstraintTest(TestCase):
         transformed = t.transform_optimization_config(opt_config, adapter)
 
         new_constraint = transformed.outcome_constraints[1]
-        self.assertEqual(new_constraint.metric.name, "m1")
+        self.assertEqual(new_constraint.metric_names[0], "m1")
         self.assertEqual(new_constraint.op, ComparisonOp.LEQ)
         self.assertEqual(new_constraint.bound, 1.0)  # SQ value for m1
         self.assertFalse(new_constraint.relative)
@@ -187,11 +187,13 @@ class ObjectiveAsConstraintTest(TestCase):
     def test_no_op_without_status_quo(self) -> None:
         """Test that the transform is a no-op without a status quo."""
         optimization_config = OptimizationConfig(
-            objective=Objective(Metric("m1", lower_is_better=False), minimize=False),
+            objective=Objective(
+                metric=Metric("m1", lower_is_better=False), minimize=False
+            ),
             outcome_constraints=[
                 OutcomeConstraint(
-                    Metric("m2", lower_is_better=True),
-                    ComparisonOp.GEQ,
+                    metric=Metric("m2", lower_is_better=True),
+                    op=ComparisonOp.GEQ,
                     bound=10.0,
                 ),
             ],
@@ -218,7 +220,9 @@ class ObjectiveAsConstraintTest(TestCase):
     def test_no_op_without_constraints(self) -> None:
         """Test that the transform is a no-op when there are no constraints."""
         optimization_config = OptimizationConfig(
-            objective=Objective(Metric("m1", lower_is_better=False), minimize=False),
+            objective=Objective(
+                metric=Metric("m1", lower_is_better=False), minimize=False
+            ),
         )
         search_space = SearchSpace(
             parameters=[
@@ -273,7 +277,7 @@ class ObjectiveAsConstraintTest(TestCase):
             outcome_constraints=transformed.outcome_constraints,
         )
         self.assertEqual(len(untransformed), 1)
-        self.assertEqual(untransformed[0].metric.name, "m2")
+        self.assertEqual(untransformed[0].metric_names[0], "m2")
 
     def test_raises_on_relative_constraints(self) -> None:
         """Test that a ValueError is raised in transform_optimization_config
@@ -500,10 +504,10 @@ class ObjectiveAsConstraintScalarizedObjectiveTest(TestCase):
         ]
         self.assertEqual(len(scalarized_constraints), 1)
         sc = scalarized_constraints[0]
+        # The expression "m1 + m2 >= 3" round-trips as GEQ with bound 3.
         self.assertEqual(sc.op, ComparisonOp.GEQ)
         self.assertAlmostEqual(sc.bound, 3.0)
-        self.assertEqual([m.name for m in sc.metrics], ["m1", "m2"])
-        self.assertEqual(sc.weights, [1.0, 1.0])
+        self.assertCountEqual(sc.metric_names, ["m1", "m2"])
         self.assertFalse(sc.relative)
 
     def test_scalarized_objective_soo_minimize(self) -> None:
@@ -534,8 +538,9 @@ class ObjectiveAsConstraintScalarizedObjectiveTest(TestCase):
         ]
         self.assertEqual(len(scalarized_constraints), 1)
         sc = scalarized_constraints[0]
+        # With sign-encoded weights [-1, -1], the expression is
+        # "-m1 - m2 >= -3" which normalizes to LEQ form: "m1 + m2 <= 3".
         self.assertEqual(sc.op, ComparisonOp.LEQ)
-        # SQ value = 1.0*1.0 + 1.0*2.0 = 3.0
         self.assertAlmostEqual(sc.bound, 3.0)
 
     def test_scalarized_objective_with_weights(self) -> None:
@@ -569,9 +574,9 @@ class ObjectiveAsConstraintScalarizedObjectiveTest(TestCase):
         ]
         self.assertEqual(len(scalarized_constraints), 1)
         sc = scalarized_constraints[0]
-        self.assertEqual(sc.op, ComparisonOp.GEQ)
+        # Expression "2*m1 - m2 >= 0" normalizes to LEQ: "-2*m1 + m2 <= 0".
+        self.assertEqual(sc.op, ComparisonOp.LEQ)
         self.assertAlmostEqual(sc.bound, 0.0)
-        self.assertEqual(sc.weights, [2.0, -1.0])
 
     def test_scalarized_objective_moo_config(self) -> None:
         """Test ScalarizedObjective in MultiObjectiveOptimizationConfig."""
@@ -604,6 +609,7 @@ class ObjectiveAsConstraintScalarizedObjectiveTest(TestCase):
         ]
         self.assertEqual(len(scalarized_constraints), 1)
         sc = scalarized_constraints[0]
+        # Expression "m1 + m2 >= 3" round-trips as GEQ with bound 3.
         self.assertEqual(sc.op, ComparisonOp.GEQ)
         self.assertAlmostEqual(sc.bound, 3.0)
 
@@ -631,7 +637,7 @@ class ObjectiveAsConstraintScalarizedObjectiveTest(TestCase):
             outcome_constraints=transformed.outcome_constraints,
         )
         self.assertEqual(len(untransformed), 1)
-        self.assertEqual(untransformed[0].metric.name, "m3")
+        self.assertEqual(untransformed[0].metric_names[0], "m3")
 
     def test_scalarized_objective_no_op_when_feasible(self) -> None:
         """Test no-op with ScalarizedObjective when feasible points exist."""
@@ -703,7 +709,7 @@ class ObjectiveAsConstraintMOOTest(TestCase):
                 )
             )
 
-        obj_thresholds_list: list[ObjectiveThreshold] = []
+        obj_thresholds_list: list[OutcomeConstraint] = []
         if objective_thresholds is not None:
             for i, (bound, relative) in enumerate(objective_thresholds):
                 metric_name = f"m{i + 1}"
@@ -821,14 +827,14 @@ class ObjectiveAsConstraintMOOTest(TestCase):
 
         # Check the new constraints.
         m1_constraint = next(
-            c for c in transformed.outcome_constraints if c.metric.name == "m1"
+            c for c in transformed.outcome_constraints if c.metric_names[0] == "m1"
         )
         self.assertEqual(m1_constraint.op, ComparisonOp.GEQ)
         self.assertEqual(m1_constraint.bound, 1.0)
         self.assertFalse(m1_constraint.relative)
 
         m2_constraint = next(
-            c for c in transformed.outcome_constraints if c.metric.name == "m2"
+            c for c in transformed.outcome_constraints if c.metric_names[0] == "m2"
         )
         self.assertEqual(m2_constraint.op, ComparisonOp.GEQ)
         self.assertEqual(m2_constraint.bound, 1.0)
@@ -858,13 +864,13 @@ class ObjectiveAsConstraintMOOTest(TestCase):
         transformed = t.transform_optimization_config(opt_config, adapter)
 
         m1_constraint = next(
-            c for c in transformed.outcome_constraints if c.metric.name == "m1"
+            c for c in transformed.outcome_constraints if c.metric_names[0] == "m1"
         )
         self.assertEqual(m1_constraint.op, ComparisonOp.LEQ)
         self.assertEqual(m1_constraint.bound, 1.0)
 
         m2_constraint = next(
-            c for c in transformed.outcome_constraints if c.metric.name == "m2"
+            c for c in transformed.outcome_constraints if c.metric_names[0] == "m2"
         )
         self.assertEqual(m2_constraint.op, ComparisonOp.LEQ)
         self.assertEqual(m2_constraint.bound, 2.0)
@@ -912,4 +918,4 @@ class ObjectiveAsConstraintMOOTest(TestCase):
             outcome_constraints=transformed.outcome_constraints,
         )
         self.assertEqual(len(untransformed), 1)
-        self.assertEqual(untransformed[0].metric.name, "m3")
+        self.assertEqual(untransformed[0].metric_names[0], "m3")

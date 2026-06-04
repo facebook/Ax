@@ -108,7 +108,7 @@ def get_jenatton_benchmark_problem(
     noise_std: float = 0.0,
 ) -> BenchmarkProblem:
     name = "Jenatton" + ("_observed_noise" if observe_noise_sd else "")
-    optimization_config = get_soo_opt_config(
+    optimization_config, opt_config_metrics = get_soo_opt_config(
         outcome_names=[name], observe_noise_sd=observe_noise_sd
     )
 
@@ -121,4 +121,5 @@ def get_jenatton_benchmark_problem(
         num_trials=num_trials,
         optimal_value=JENATTON_OPTIMAL_VALUE,
         baseline_value=JENATTON_BASELINE_VALUE,
+        opt_config_metrics=opt_config_metrics,
     )

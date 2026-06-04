@@ -179,12 +179,14 @@ class GenerationNode(SerializationMixin, SortableBase):
             )
         if len(generator_specs) > 1 and best_model_selector is None:
             raise UserInputError(MISSING_MODEL_SELECTOR_MESSAGE)
-        if trial_type is not None and (
-            trial_type != Keys.SHORT_RUN and trial_type != Keys.LONG_RUN
+        if trial_type is not None and trial_type not in (
+            Keys.SHORT_RUN,
+            Keys.LONG_RUN,
+            Keys.LILO_LABELING,
         ):
             raise NotImplementedError(
-                f"Trial type must be either {Keys.SHORT_RUN} or {Keys.LONG_RUN},"
-                f" got {trial_type}."
+                f"Trial type must be one of {Keys.SHORT_RUN}, {Keys.LONG_RUN},"
+                f" or {Keys.LILO_LABELING}, got {trial_type}."
             )
         # If possible, assign `_generator_spec_to_gen_from` right away, for use in
         # `__repr__`
@@ -347,14 +349,31 @@ class GenerationNode(SerializationMixin, SortableBase):
         """Private property to return optional fitted_adapter from
         self.generator_spec_to_gen_from for convenience. If no model is fit,
         this will return None.
+
+        If the current adapter (e.g. from a Sobol fallback after
+        ``_try_gen_with_fallback``) cannot predict, prefer a predictive adapter
+        from the original ``generator_specs`` when available. This ensures that
+        analysis code which relies on model predictions (e.g. cross-validation,
+        sensitivity, surface plots) can still use the fitted surrogate model
+        even after a transient fallback during candidate generation.
         """
         try:
             # Using the private attribute since using the non-private `fitted_adapter`
             # property will raise a UserInputError if there is no fitted model.
-            return self.generator_spec_to_gen_from._fitted_adapter
+            adapter = self.generator_spec_to_gen_from._fitted_adapter
         except ModelError:
             # ModelError is raised if there are no fitted adapters to select from.
             return None
+
+        if adapter is not None and not adapter.can_predict:
+            for spec in self.generator_specs:
+                if (
+                    spec._fitted_adapter is not None
+                    and spec._fitted_adapter.can_predict
+                ):
+                    return spec._fitted_adapter
+
+        return adapter
 
     def __repr__(self) -> str:
         """String representation of this ``GenerationNode`` (note that it
@@ -493,16 +512,6 @@ class GenerationNode(SerializationMixin, SortableBase):
         if self._should_skip:
             logger.debug(f"Skipping generation for node {self.name}.")
             return None
-
-        # TODO[drfreund]: Move this to `Adapter` or another more suitable place.
-        # Keeping here for now to limit the scope of the current changeset.
-        generator_gen_kwargs["fixed_features"] = (
-            experiment.search_space.get_disabled_parameter_fixed_features(
-                fixed_features_to_overlay_on=generator_gen_kwargs.get(
-                    "fixed_features", None
-                )
-            )
-        )
 
         # Step 2: Fit this node's underlying adapter and generator.
         if not skip_fit:
@@ -991,7 +1000,6 @@ class GenerationStep:
             to `generation_strategy.gen` will fail with a `MaxParallelismReached
             Exception`, indicating that more trials need to be completed before
             generating and running next trials.
-        use_update: DEPRECATED.
         enforce_num_trials: Whether to enforce that only `num_trials` are generated
             from the given step. If False and `num_trials` have been generated, but
             `min_trials_observed` have not been completed, `generation_strategy.gen`
@@ -1045,7 +1053,6 @@ class GenerationStep:
         should_deduplicate: bool = False,
         generator_name: str | None = None,
         use_all_trials_in_exp: bool = False,
-        use_update: bool = False,  # DEPRECATED.
         index: int = -1,  # Index of this step, set internally.
         suggested_experiment_status: ExperimentStatus | None = None,
         # Deprecated arguments for backwards compatibility.
@@ -1059,9 +1066,6 @@ class GenerationStep:
         Returns:
             A ``GenerationNode`` instance configured with the provided step parameters.
         """
-        if use_update:
-            raise DeprecationWarning("`GenerationStep.use_update` is deprecated.")
-
         if num_trials < 1 and num_trials != -1:
             raise UserInputError(
                 "`num_trials` must be positive or -1 (indicating unlimited) "

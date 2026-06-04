@@ -61,8 +61,8 @@ def scatter_plot_with_hypervolume_trace_plotly(experiment: Experiment) -> go.Fig
 
     df = pd.DataFrame(
         {
-            "hypervolume": hypervolume_trace,
-            "trial_index": [*range(len(hypervolume_trace))],
+            "trial_index": list(hypervolume_trace.keys()),
+            "hypervolume": list(hypervolume_trace.values()),
         }
     )
 
@@ -386,7 +386,6 @@ def plot_pareto_frontier(
     )
 
     fig = go.Figure(data=[trace], layout=layout)
-    # pyre-fixme[6]: For 1st argument expected `Dict[str, typing.Any]` but got `Figure`.
     return AxPlotConfig(data=fig, plot_type=AxPlotTypes.GENERIC)
 
 
@@ -493,7 +492,6 @@ def interact_pareto_frontier(
     )
 
     fig = go.Figure(data=traces, layout=layout)
-    # pyre-fixme[6]: For 1st argument expected `Dict[str, typing.Any]` but got `Figure`.
     return AxPlotConfig(data=fig, plot_type=AxPlotTypes.GENERIC)
 
 
@@ -586,9 +584,7 @@ def _validate_and_maybe_get_default_metric_names(
             multi_objective = assert_is_instance(
                 none_throws(optimization_config).objective, MultiObjective
             )
-            metric_names = tuple(
-                obj.metric.signature for obj in multi_objective.objectives
-            )
+            metric_names = tuple(multi_objective.metric_names)
         else:
             raise UserInputError(
                 "Inference of `metric_names` failed. Expected `MultiObjective` but "
@@ -619,14 +615,14 @@ def _validate_experiment_and_maybe_get_objective_thresholds(
         if any(
             ot.relative
             for ot in objective_thresholds
-            if ot.metric.signature in metric_names
+            if ot.metric_names[0] in metric_names
         ):
             raise NotImplementedError(
                 "Pareto plotting not supported for experiments with relative objective "
                 "thresholds."
             )
         constraint_metric_names = {
-            objective_threshold.metric.signature
+            objective_threshold.metric_names[0]
             for objective_threshold in objective_thresholds
         }
         missing_metric_names = set(metric_names) - set(constraint_metric_names)
@@ -651,7 +647,7 @@ def _validate_and_maybe_get_default_reference_point(
 ) -> tuple[float, float] | None:
     if reference_point is None:
         reference_point = {
-            objective_threshold.metric.signature: objective_threshold.bound
+            objective_threshold.metric_names[0]: objective_threshold.bound
             for objective_threshold in objective_thresholds
         }
         missing_metric_names = set(metric_names) - set(reference_point)
@@ -728,15 +724,15 @@ def _maybe_get_default_minimize_single_metric(
         optimization_config is not None
         and metric_name in optimization_config.objective.metric_names
     ):
-        if optimization_config.is_moo_problem:
-            multi_objective = assert_is_instance(
-                optimization_config.objective, MultiObjective
-            )
-            for objective in multi_objective.objectives:
-                if objective.metric.signature == metric_name:
-                    return objective.minimize
+        objective = optimization_config.objective
+        if not objective.is_single_objective:
+            # Covers both multi-objective and scalarized objectives.
+            # For both, metric_weights encodes direction via sign.
+            for obj_metric_name, weight in objective.metric_weights:
+                if obj_metric_name == metric_name:
+                    return weight < 0
         else:
-            return optimization_config.objective.minimize
+            return objective.minimize
 
     # Next try to get minimize from objective_thresholds
     if objective_thresholds is not None:
@@ -750,7 +746,7 @@ def _maybe_get_default_minimize_single_metric(
                 f"{VALID_CONSTRAINT_OP_NAMES}. Got {invalid_constraint_op_names}.)"
             )
         minimize = {
-            objective_threshold.metric.signature: objective_threshold.op.name == "LEQ"
+            objective_threshold.metric_names[0]: objective_threshold.op.name == "LEQ"
             for objective_threshold in objective_thresholds
         }
         minimize = minimize.get(metric_name)

@@ -477,7 +477,7 @@ class Orchestrator(WithDBSettingsBase, BestPointMixin):
         """
         trials = []
         for trial in self.experiment.trials.values():
-            if trial.status.expecting_data:
+            if trial.expecting_data:
                 if self.trial_type is None or trial.trial_type == self.trial_type:
                     trials.append(trial)
         return trials
@@ -501,7 +501,7 @@ class Orchestrator(WithDBSettingsBase, BestPointMixin):
 
     def __repr__(self) -> str:
         """Short user-friendly string representation."""
-        if not hasattr(self, "experiment"):
+        if not hasattr(self, "experiment") or not hasattr(self, "generation_strategy"):
             # Experiment, generation strategy, etc. attributes have not
             # yet been set.
             return f"{self.__class__.__name__}"
@@ -1207,7 +1207,7 @@ class Orchestrator(WithDBSettingsBase, BestPointMixin):
 
                 if is_infeasible:
                     constraint_descriptions = [
-                        f"{c.metric.name} {c.op.name} {c.bound}"
+                        f"{c.metric_names[0]} {c.op.name} {c.bound}"
                         for c in optimization_config.outcome_constraints
                     ]
                     error_msg = (
@@ -1311,7 +1311,7 @@ class Orchestrator(WithDBSettingsBase, BestPointMixin):
         self._sleep_if_too_early_to_poll()
 
         # POLL TRIAL STATUSES
-        new_status_to_trial_idcs = self.poll_trial_status(
+        polled_status_to_trial_idcs = self.poll_trial_status(
             poll_all_trial_statuses=poll_all_trial_statuses
         )
 
@@ -1321,12 +1321,12 @@ class Orchestrator(WithDBSettingsBase, BestPointMixin):
         # This must be done before updating the trial statuses, so we can differentiate
         # newly and previously completed trials.
         trial_indices_to_fetch = self._get_trial_indices_to_fetch(
-            new_status_to_trial_idcs=new_status_to_trial_idcs
+            polled_status_to_trial_idcs=polled_status_to_trial_idcs
         )
 
         # UPDATE TRIAL STATUSES
-        trial_indices_with_updated_statuses = self._apply_new_trial_statuses(
-            new_status_to_trial_idcs=new_status_to_trial_idcs,
+        trial_indices_with_updated_statuses = self._apply_trial_statuses(
+            polled_status_to_trial_idcs=polled_status_to_trial_idcs,
         )
         updated_any_trial_status = len(trial_indices_with_updated_statuses) > 0
         trial_indices_with_updated_data_or_status.update(
@@ -1423,24 +1423,32 @@ class Orchestrator(WithDBSettingsBase, BestPointMixin):
         """Returns the number of trials that have been run by the orchestrator."""
         return len(self.experiment.trials) - self._num_preexisting_trials
 
-    def _apply_new_trial_statuses(
-        self, new_status_to_trial_idcs: dict[TrialStatus, set[int]]
+    def _apply_trial_statuses(
+        self, polled_status_to_trial_idcs: dict[TrialStatus, set[int]]
     ) -> set[int]:
-        """Apply new trial statuses to the experiment according to poll results.
+        """Apply polled trial statuses to the experiment.
 
         Args:
-            new_status_to_trial_idcs: Changes to be applied to trial statuses from
-                poll_trial_status.
+            polled_status_to_trial_idcs: Statuses as reported by poll_trial_status.
+                May include trials whose status has not changed.
 
         Returns:
-            Set of trial indices that were updated with new statuses.
+            Set of trial indices that were processed.
         """
         updated_trial_indices = set()
-        for status, trial_idcs in new_status_to_trial_idcs.items():
-            if status.is_candidate or status.is_deployed:
-                # No need to consider candidate, staged or running trials here (none of
-                # these trials should actually be candidates, but we can filter on that)
+        for status, trial_idcs in polled_status_to_trial_idcs.items():
+            if status.is_candidate:
                 continue
+            if status.is_deployed:
+                # Only process trials whose status actually changed
+                # (e.g. STAGED -> RUNNING), skip no-ops.
+                trial_idcs = {
+                    idx
+                    for idx in trial_idcs
+                    if self.experiment.trials[idx].status != status
+                }
+                if not trial_idcs:
+                    continue
 
             if len(trial_idcs) > 0:
                 idcs = make_indices_str(indices=trial_idcs)
@@ -1459,13 +1467,40 @@ class Orchestrator(WithDBSettingsBase, BestPointMixin):
                         # we fall back to marking the without a reason.
                         trial.mark_as(status=status, unsafe=True)
                 else:
-                    trial.mark_as(status=status, unsafe=True)
+                    kwargs: dict[str, datetime] = {}
+                    if status == TrialStatus.RUNNING:
+                        started_time_raw = trial.run_metadata.get(Keys.START_TIME_STR)
+                        if isinstance(started_time_raw, str):
+                            try:
+                                kwargs["started_time"] = datetime.strptime(
+                                    started_time_raw, "%Y-%m-%d %H:%M:%S"
+                                )
+                            except ValueError:
+                                self.logger.warning(
+                                    f"Could not parse {Keys.START_TIME_STR} "
+                                    f"{started_time_raw!r} for trial "
+                                    f"{trial.index}; defaulting to now."
+                                )
+                        elif isinstance(started_time_raw, datetime):
+                            kwargs["started_time"] = started_time_raw
+                        elif isinstance(started_time_raw, (int, float)):
+                            kwargs["started_time"] = datetime.fromtimestamp(
+                                started_time_raw
+                            )
+                        elif started_time_raw is not None:
+                            self.logger.warning(
+                                f"Unexpected type for {Keys.START_TIME_STR} "
+                                f"in trial {trial.index} run_metadata: "
+                                f"{type(started_time_raw).__name__}; "
+                                f"defaulting to now."
+                            )
+                    trial.mark_as(status=status, unsafe=True, **kwargs)
         return updated_trial_indices
 
     def _identify_trial_indices_to_fetch(
         self,
         old_status_to_trial_idcs: Mapping[TrialStatus, set[int]],
-        new_status_to_trial_idcs: Mapping[TrialStatus, set[int]],
+        polled_status_to_trial_idcs: Mapping[TrialStatus, set[int]],
     ) -> set[int]:
         """
         Identify trial indices to fetch data for based on changes in trial statuses.
@@ -1473,7 +1508,7 @@ class Orchestrator(WithDBSettingsBase, BestPointMixin):
         Args:
             old_status_to_trial_idcs: Mapping of old trial statuses
                 to their corresponding trial indices.
-            new_status_to_trial_idcs: Mapping of new trial statuses
+            polled_status_to_trial_idcs: Mapping of new trial statuses
                 to their corresponding trial indices.
         Returns:
             Set of trial indices to fetch data for.
@@ -1484,7 +1519,7 @@ class Orchestrator(WithDBSettingsBase, BestPointMixin):
         ) | old_status_to_trial_idcs.get(TrialStatus.EARLY_STOPPED, set())
 
         newly_completed = (
-            new_status_to_trial_idcs.get(TrialStatus.COMPLETED, set())
+            polled_status_to_trial_idcs.get(TrialStatus.COMPLETED, set())
             - prev_completed_trial_idcs
         )
 
@@ -1499,11 +1534,11 @@ class Orchestrator(WithDBSettingsBase, BestPointMixin):
         if any(
             m.is_available_while_running() for m in self.experiment.metrics.values()
         ):
-            running_trial_indices_with_metrics = new_status_to_trial_idcs.get(
+            running_trial_indices_with_metrics = polled_status_to_trial_idcs.get(
                 TrialStatus.RUNNING, set()
             ) | old_status_to_trial_idcs.get(TrialStatus.RUNNING, set())
 
-            for status, indices in new_status_to_trial_idcs.items():
+            for status, indices in polled_status_to_trial_idcs.items():
                 if status.is_terminal and indices:
                     running_trial_indices_with_metrics -= indices
 
@@ -1533,17 +1568,17 @@ class Orchestrator(WithDBSettingsBase, BestPointMixin):
         return trial_indices_to_fetch
 
     def _get_trial_indices_to_fetch(
-        self, new_status_to_trial_idcs: Mapping[TrialStatus, set[int]]
+        self, polled_status_to_trial_idcs: Mapping[TrialStatus, set[int]]
     ) -> set[int]:
         """Get trial indices to fetch data for the experiment given
-        `new_status_to_trial_idcs` and metric properties.  This should include:
+        `polled_status_to_trial_idcs` and metric properties.  This should include:
             - newly completed trials
             - running trials if the experiment has metrics available while running
             - previously completed (or early stopped) trials if the experiment
                 has metrics with new data after completion which finished recently
 
         Args:
-            new_status_to_trial_idcs: Changes about to be applied to trial statuses.
+            polled_status_to_trial_idcs: Changes about to be applied to trial statuses.
 
         Returns:
             Set of trial indices to fetch data for.
@@ -1555,7 +1590,7 @@ class Orchestrator(WithDBSettingsBase, BestPointMixin):
 
         return self._identify_trial_indices_to_fetch(
             old_status_to_trial_idcs=old_status_to_trial_idcs,
-            new_status_to_trial_idcs=new_status_to_trial_idcs,
+            polled_status_to_trial_idcs=polled_status_to_trial_idcs,
         )
 
     def _get_recently_completed_trial_indices(self) -> set[int]:
@@ -2097,7 +2132,7 @@ class Orchestrator(WithDBSettingsBase, BestPointMixin):
                 optimization_config = self.experiment.optimization_config
                 if (
                     optimization_config is not None
-                    and metric_name in optimization_config.metrics.keys()
+                    and metric_name in optimization_config.metric_names
                     and not self.experiment.metrics[metric_name].is_recoverable_fetch_e(
                         metric_fetch_e=metric_fetch_e
                     )

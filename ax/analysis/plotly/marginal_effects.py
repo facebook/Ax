@@ -96,8 +96,9 @@ class MarginalEffectsPlot(Analysis):
             ]
             if len(self.parameters) == 0:
                 return (
-                    "MarginalEffectsPlot is only for `ChoiceParameter`s, "
-                    "but no ChoiceParameters were found in the experiment."
+                    "MarginalEffectsPlot is only applicable to experiments with "
+                    "ChoiceParameters (discrete, enumerated parameters), but none "
+                    "were found."
                 )
         else:
             for param_name in none_throws(self.parameters):
@@ -219,7 +220,7 @@ def _prepare_data(
 
     arm_dfs = []
     for arm in plot_data.in_sample.values():
-        arm_df = pd.DataFrame(arm.parameters, index=[arm.name])
+        arm_df = pd.DataFrame(arm.parameters, index=pd.Index([arm.name]))
         arm_df["mean"] = arm.y_hat[metric]
         arm_df["sem"] = arm.se_hat[metric]
         arm_dfs.append(arm_df)

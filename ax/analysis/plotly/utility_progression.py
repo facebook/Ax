@@ -19,7 +19,6 @@ from ax.analysis.plotly.plotly_analysis import (
 )
 from ax.analysis.utils import validate_experiment
 from ax.core.experiment import Experiment
-from ax.core.objective import ScalarizedObjective
 from ax.exceptions.core import ExperimentNotReadyError
 from ax.generation_strategy.generation_strategy import GenerationStrategy
 from ax.service.utils.best_point import get_trace
@@ -29,11 +28,9 @@ from pyre_extensions import none_throws, override
 _UTILITY_PROGRESSION_TITLE = "Utility Progression"
 
 _TRACE_INDEX_EXPLANATION = (
-    "The x-axis shows trace index, which counts completed or early-stopped trials "
-    "sequentially (1, 2, 3, ...). This differs from trial index, which may have "
-    "gaps if some trials failed or were abandoned. For example, if trials 0, 2, "
-    "and 5 completed while trials 1, 3, and 4 failed, the trace indices would be "
-    "1, 2, 3 corresponding to trial indices 0, 2, 5."
+    "The x-axis shows trial index. Only completed or early-stopped trials with "
+    "complete metric data are included, so there may be gaps if some trials "
+    "failed, were abandoned, or have incomplete data."
 )
 
 _CUMULATIVE_BEST_EXPLANATION = (
@@ -58,7 +55,8 @@ class UtilityProgressionAnalysis(Analysis):
 
     The DataFrame computed will contain one row per completed trial and the
     following columns:
-        - trace_index: Sequential index of completed/early-stopped trials (1, 2, 3, ...)
+        - trial_index: The trial index of each completed/early-stopped trial
+            that has complete metric avilability.
         - utility: The cumulative best utility value at that trial
     """
 
@@ -115,7 +113,7 @@ class UtilityProgressionAnalysis(Analysis):
             )
 
         # Check if all points are infeasible (inf or -inf values)
-        if all(np.isinf(value) for value in trace):
+        if all(np.isinf(value) for value in trace.values()):
             raise ExperimentNotReadyError(
                 "All trials in the utility trace are infeasible i.e., they violate "
                 "outcome constraints, so there are no feasible points to plot. During "
@@ -126,12 +124,11 @@ class UtilityProgressionAnalysis(Analysis):
                 "space, or (2) relaxing outcome constraints."
             )
 
-        # Create DataFrame with 1-based trace index for user-friendly display
-        # (1st completed trial, 2nd completed trial, etc. instead of 0-indexed)
+        # Create DataFrame with trial indices from the trace
         df = pd.DataFrame(
             {
-                "trace_index": list(range(1, len(trace) + 1)),
-                "utility": trace,
+                "trial_index": list(trace.keys()),
+                "utility": list(trace.values()),
             }
         )
 
@@ -151,7 +148,7 @@ class UtilityProgressionAnalysis(Analysis):
             subtitle = (
                 "Shows the hypervolume of the Pareto frontier achieved so far across "
                 f"completed trials. {_TRACE_INDEX_EXPLANATION} The y-axis shows "
-                "cumulative best hypervolume—only improvements, so flat "
+                "cumulative best hypervolume -- only improvements, so flat "
                 "segments indicate trials that didn't improve the frontier. "
                 "Hypervolume measures the volume of objective space dominated by the "
                 f"Pareto frontier. "
@@ -159,23 +156,22 @@ class UtilityProgressionAnalysis(Analysis):
             )
         else:
             objective = none_throws(opt_config).objective
-            minimize = objective.minimize
-            direction = "minimize" if minimize else "maximize"
 
             # Handle ScalarizedObjective vs regular Objective
-            if isinstance(objective, ScalarizedObjective):
+            if objective.is_scalarized_objective:
                 expression = objective.expression
                 y_label = f"Best Observed {expression}"
                 subtitle = (
                     f"Shows the best scalarized objective value (formula: "
-                    f"{expression}) achieved so far across completed trials "
-                    f"(objective is to {direction}). {_TRACE_INDEX_EXPLANATION} "
+                    f"{expression}) achieved so far across completed trials. "
+                    f"{_TRACE_INDEX_EXPLANATION} "
                     f"{_CUMULATIVE_BEST_EXPLANATION} "
                     f"{_INFEASIBLE_TRIALS_EXPLANATION}"
                 )
             else:
-                # Regular single-objective
-                objective_name = objective.metric.name
+                minimize = objective.minimize
+                direction = "minimize" if minimize else "maximize"
+                objective_name = objective.metric_names[0]
                 y_label = f"Best Observed {objective_name}"
                 subtitle = (
                     f"Shows the best {objective_name} value achieved so far across "
@@ -187,14 +183,14 @@ class UtilityProgressionAnalysis(Analysis):
         # Create the plot
         fig = px.line(
             data_frame=df,
-            x="trace_index",
+            x="trial_index",
             y="utility",
             markers=True,
             color_discrete_sequence=[AX_BLUE],
         )
 
         # Update axis labels and format x-axis to show integers only
-        fig.update_xaxes(title_text="Trace Index", dtick=1, rangemode="nonnegative")
+        fig.update_xaxes(title_text="Trial Index", dtick=1, rangemode="nonnegative")
         fig.update_yaxes(title_text=y_label)
 
         return create_plotly_analysis_card(

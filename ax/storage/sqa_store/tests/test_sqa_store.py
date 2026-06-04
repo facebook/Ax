@@ -24,7 +24,11 @@ from ax.api.utils.generation_strategy_dispatch import (
     choose_generation_strategy,
     GenerationStrategyDispatchStruct,
 )
-from ax.core.analysis_card import AnalysisCard, AnalysisCardGroup
+from ax.core.analysis_card import (
+    AnalysisCard,
+    AnalysisCardGroup,
+    NotApplicableStateAnalysisCard,
+)
 from ax.core.arm import Arm
 from ax.core.auxiliary import (
     AuxiliaryExperiment,
@@ -34,7 +38,9 @@ from ax.core.auxiliary import (
 from ax.core.experiment import Experiment
 from ax.core.experiment_status import ExperimentStatus
 from ax.core.generator_run import GeneratorRun
+from ax.core.llm_provider import LLMMessage
 from ax.core.metric import Metric
+from ax.core.multi_type_experiment import MultiTypeExperiment
 from ax.core.objective import MultiObjective, Objective, ScalarizedObjective
 from ax.core.optimization_config import (
     MultiObjectiveOptimizationConfig,
@@ -42,7 +48,13 @@ from ax.core.optimization_config import (
     PreferenceOptimizationConfig,
 )
 from ax.core.outcome_constraint import OutcomeConstraint, ScalarizedOutcomeConstraint
-from ax.core.parameter import ChoiceParameter, ParameterType, RangeParameter
+from ax.core.parameter import (
+    ChoiceParameter,
+    DerivedParameter,
+    FixedParameter,
+    ParameterType,
+    RangeParameter,
+)
 from ax.core.runner import Runner
 from ax.core.search_space import SearchSpace
 from ax.core.trial import Trial
@@ -209,9 +221,8 @@ class SQAStoreTest(TestCase):
         init_engine_and_session_factory(url="sqlite://", force_init=True)
 
     def MockDBAPI(self) -> MagicMock:
-        connection = Mock()
+        connection: Mock = Mock()
 
-        # pyre-fixme[53]: Captured variable `connection` is not annotated.
         def connect(*args: Any, **kwargs: Any) -> Mock:
             return connection
 
@@ -229,9 +240,12 @@ class SQAStoreTest(TestCase):
         )
         with session_scope() as session:
             engine = session.bind
+            # pyre-ignore[16]: SA 2.0 bind is Union; runtime Engine.
             engine.connect()
             self.assertEqual(mocked_dbapi.connect.call_count, 1)
+            # pyre-ignore[16]: SA 2.0 bind is Union; runtime Engine.
             self.assertTrue(engine.echo)
+            # pyre-ignore[16]: SA 2.0 bind is Union; runtime Engine.
             self.assertEqual(engine.pool.size(), 2)
 
     def test_connection_to_db_with_session_context(self) -> None:
@@ -447,10 +461,10 @@ class SQAStoreTest(TestCase):
             tracking_metrics=[Metric(name="tracking")],
             is_test=True,
             auxiliary_experiments_by_purpose={
-                # pyre-ignore[16]: `AuxiliaryExperimentPurpose` has no attribute
-                self.config.auxiliary_experiment_purpose_enum.PE_EXPERIMENT: [
-                    AuxiliaryExperiment(experiment=aux_experiment)
-                ]
+                cast(
+                    type[AuxiliaryExperimentPurpose],
+                    self.config.auxiliary_experiment_purpose_enum,
+                ).PE_EXPERIMENT: [AuxiliaryExperiment(experiment=aux_experiment)]
             },
         )
         self.assertIsNone(experiment_w_aux_exp.db_id)
@@ -474,8 +488,10 @@ class SQAStoreTest(TestCase):
         aux_exp_gs = get_generation_strategy()
         aux_exp.new_trial(aux_exp_gs.gen_single_trial(experiment=aux_exp))
         save_experiment(aux_exp, config=self.config)
-        # pyre-ignore[16]: `AuxiliaryExperimentPurpose` has no attribute
-        purpose = self.config.auxiliary_experiment_purpose_enum.PE_EXPERIMENT
+        purpose = cast(
+            type[AuxiliaryExperimentPurpose],
+            self.config.auxiliary_experiment_purpose_enum,
+        ).PE_EXPERIMENT
 
         target_exp = Experiment(
             name="test_experiment_w_aux_exp_in_SQAStoreTest_reduced_state",
@@ -531,10 +547,10 @@ class SQAStoreTest(TestCase):
             search_space=get_search_space(),
             is_test=True,
             auxiliary_experiments_by_purpose={
-                # pyre-ignore[16]: `AuxiliaryExperimentPurpose` has no attribute
-                self.config.auxiliary_experiment_purpose_enum.PE_EXPERIMENT: [
-                    AuxiliaryExperiment(experiment=aux_experiment)
-                ]
+                cast(
+                    type[AuxiliaryExperimentPurpose],
+                    self.config.auxiliary_experiment_purpose_enum,
+                ).PE_EXPERIMENT: [AuxiliaryExperiment(experiment=aux_experiment)]
             },
         )
         with self.assertRaisesRegex(SQAEncodeError, "that does not exist in"):
@@ -545,8 +561,10 @@ class SQAStoreTest(TestCase):
     ) -> None:
         exp1_name = "test_aux_exp_in_SQAStoreTest1"
         exp2_name = "test_aux_exp_in_SQAStoreTest2"
-        # pyre-ignore[16]: `AuxiliaryExperimentPurpose` has no attribute
-        exp_purpose = self.config.auxiliary_experiment_purpose_enum.PE_EXPERIMENT
+        exp_purpose = cast(
+            type[AuxiliaryExperimentPurpose],
+            self.config.auxiliary_experiment_purpose_enum,
+        ).PE_EXPERIMENT
 
         exp1 = Experiment(
             name=exp1_name,
@@ -759,28 +777,24 @@ class SQAStoreTest(TestCase):
                 # Check generator runs
                 gr = trial.generator_runs[0]
                 if composite_type == "multi_objective" and not immutable:
-                    objectives = assert_is_instance(
+                    multi_obj = assert_is_instance(
                         none_throws(gr.optimization_config).objective, MultiObjective
-                    ).objectives
-                    for i, objective in enumerate(objectives):
-                        metric = objective.metric
-                        self.assertEqual(metric.name, f"m{1 + 2 * i}")
-                        self.assertEqual(metric.signature, f"m{1 + 2 * i}")
-                        self.assertEqual(metric.__class__, Metric)
+                    )
+                    metric_names = multi_obj.metric_names
+                    for i, name in enumerate(metric_names):
+                        self.assertEqual(name, f"m{1 + 2 * i}")
                 elif composite_type == "scalarized" and not immutable:
                     # Check scalarized objective children
                     scalarized_objective = none_throws(gr.optimization_config).objective
                     if isinstance(scalarized_objective, ScalarizedObjective):
-                        for metric in scalarized_objective.metrics:
-                            self.assertEqual(metric.__class__, Metric)
+                        self.assertTrue(len(scalarized_objective.metric_names) > 0)
 
                     # Check scalarized outcome constraint children
                     for constraint in none_throws(
                         gr.optimization_config
                     ).outcome_constraints:
                         if isinstance(constraint, ScalarizedOutcomeConstraint):
-                            for metric in constraint.metrics:
-                                self.assertEqual(metric.__class__, Metric)
+                            self.assertTrue(len(constraint.metric_names) > 0)
 
     @patch(
         f"{Decoder.__module__}.Decoder.generator_run_from_sqa",
@@ -796,7 +810,10 @@ class SQAStoreTest(TestCase):
         side_effect=Decoder(SQAConfig()).experiment_from_sqa,
     )
     def test_experiment_save_and_load_reduced_state(
-        self, _mock_exp_from_sqa, _mock_trial_from_sqa, _mock_gr_from_sqa
+        self,
+        _mock_exp_from_sqa: Mock,
+        _mock_trial_from_sqa: Mock,
+        _mock_gr_from_sqa: Mock,
     ) -> None:
         for skip_runners_and_metrics in [False, True]:
             # 1. No abandoned arms + no trials case, reduced state should be the
@@ -819,13 +836,13 @@ class SQAStoreTest(TestCase):
             # 3. Try case with model state and search space + opt.config on a
             # generator run in the experiment.
             gr = Generators.SOBOL(experiment=exp).gen(1)
-            # Expecting model kwargs to have 7 fields (seed, deduplicate, init_position,
-            # scramble, generated_points, fallback_to_sample_polytope,
+            # Expecting model kwargs to have 6 fields (seed, deduplicate, init_position,
+            # scramble, fallback_to_sample_polytope,
             # polytope_sampler_kwargs)
             # and the rest of model-state info on generator run to have values too.
             generator_kwargs = gr._generator_kwargs
             self.assertIsNotNone(generator_kwargs)
-            self.assertEqual(len(generator_kwargs), 7)
+            self.assertEqual(len(generator_kwargs), 6)
             adapter_kwargs = gr._adapter_kwargs
             self.assertIsNotNone(adapter_kwargs)
             self.assertEqual(len(adapter_kwargs), 6)
@@ -924,29 +941,28 @@ class SQAStoreTest(TestCase):
     def test_mt_experiment_save_and_load(self) -> None:
         experiment = get_multi_type_experiment(add_trials=True)
         save_experiment(experiment)
-        loaded_experiment = load_experiment(experiment.name)
+        loaded_experiment = assert_is_instance(
+            load_experiment(experiment.name), MultiTypeExperiment
+        )
         self.assertEqual(loaded_experiment.default_trial_type, "type1")
         self.assertEqual(len(loaded_experiment._trial_type_to_runner), 2)
-        # pyre-fixme[16]: `Experiment` has no attribute `metric_to_trial_type`.
         self.assertEqual(loaded_experiment.metric_to_trial_type["m1"], "type1")
         self.assertEqual(loaded_experiment.metric_to_trial_type["m2"], "type2")
-        # pyre-fixme[16]: `Experiment` has no attribute `_metric_to_canonical_name`.
         self.assertEqual(loaded_experiment._metric_to_canonical_name["m2"], "m1")
         self.assertEqual(len(loaded_experiment.trials), 2)
 
     def test_mt_experiment_save_and_load_skip_runners_and_metrics(self) -> None:
         experiment = get_multi_type_experiment(add_trials=True)
         save_experiment(experiment)
-        loaded_experiment = load_experiment(
-            experiment.name, skip_runners_and_metrics=True
+        loaded_experiment = assert_is_instance(
+            load_experiment(experiment.name, skip_runners_and_metrics=True),
+            MultiTypeExperiment,
         )
         self.assertEqual(loaded_experiment.default_trial_type, "type1")
         self.assertIsNone(loaded_experiment._trial_type_to_runner["type1"])
         self.assertIsNone(loaded_experiment._trial_type_to_runner["type2"])
-        # pyre-fixme[16]: `Experiment` has no attribute `metric_to_trial_type`.
         self.assertEqual(loaded_experiment.metric_to_trial_type["m1"], "type1")
         self.assertEqual(loaded_experiment.metric_to_trial_type["m2"], "type2")
-        # pyre-fixme[16]: `Experiment` has no attribute `_metric_to_canonical_name`.
         self.assertEqual(loaded_experiment._metric_to_canonical_name["m2"], "m1")
         self.assertEqual(len(loaded_experiment.trials), 2)
 
@@ -1261,8 +1277,7 @@ class SQAStoreTest(TestCase):
         # update objective
         # (should perform update in place)
         optimization_config = get_optimization_config()
-        objective = get_objective()
-        objective.minimize = True
+        objective = get_objective(minimize=True)
         optimization_config.objective = objective
         experiment.optimization_config = optimization_config
         save_experiment(experiment)
@@ -1272,6 +1287,7 @@ class SQAStoreTest(TestCase):
 
         # replace objective
         # (old one should become tracking metric)
+        experiment.add_tracking_metric(Metric(name="objective"))
         optimization_config.objective = Objective(
             metric=Metric(name="objective"), minimize=False
         )
@@ -1294,8 +1310,12 @@ class SQAStoreTest(TestCase):
         # update outcome constraint
         # (should perform update in place)
         optimization_config = get_optimization_config()
-        outcome_constraint = get_outcome_constraint()
-        outcome_constraint.bound = -1.0
+        outcome_constraint = OutcomeConstraint(
+            metric=Metric(name="m2"),
+            op=ComparisonOp.GEQ,
+            bound=-1.0,
+            relative=True,
+        )
         optimization_config.outcome_constraints = [outcome_constraint]
         experiment.optimization_config = optimization_config
         save_experiment(experiment)
@@ -1304,6 +1324,7 @@ class SQAStoreTest(TestCase):
         )
 
         # add outcome constraint
+        experiment.add_tracking_metric(Metric(name="outcome"))
         outcome_constraint2 = OutcomeConstraint(
             metric=Metric(name="outcome"), op=ComparisonOp.GEQ, bound=-0.5
         )
@@ -1318,6 +1339,8 @@ class SQAStoreTest(TestCase):
         )
 
         # add a scalarized outcome constraint
+        experiment.add_tracking_metric(Metric(name="oc_m3"))
+        experiment.add_tracking_metric(Metric(name="oc_m4"))
         outcome_constraint3 = get_scalarized_outcome_constraint()
         optimization_config.outcome_constraints = [
             outcome_constraint,
@@ -1611,12 +1634,10 @@ class SQAStoreTest(TestCase):
                     loaded_config.objective, MultiObjective
                 )
                 self.assertEqual(
-                    len(loaded_objective.objectives),
-                    len(multi_objective.objectives),
+                    len(loaded_objective.metric_names),
+                    len(multi_objective.metric_names),
                 )
-                loaded_metric_names = {
-                    obj.metric.name for obj in loaded_objective.objectives
-                }
+                loaded_metric_names = set(loaded_objective.metric_names)
                 self.assertEqual(loaded_metric_names, {"m1", "m2"})
 
     def test_experiment_objective_threshold_updates(self) -> None:
@@ -1637,15 +1658,13 @@ class SQAStoreTest(TestCase):
             objective_threshold,
             objective_threshold2,
         ]
+        experiment.add_tracking_metric(Metric(name="m3"))
         experiment.optimization_config = optimization_config
         save_experiment(experiment)
         self.assertEqual(get_session().query(SQAMetric).count(), 7)
-        self.assertIsNotNone(
-            # pyre-fixme[16]: Optional type has no attribute `objective_thresholds`.
-            experiment.optimization_config.objective_thresholds[0].metric.db_id
-        )
 
         # add outcome constraint
+        experiment.add_tracking_metric(Metric(name="outcome"))
         outcome_constraint2 = OutcomeConstraint(
             metric=Metric(name="outcome"), op=ComparisonOp.GEQ, bound=-0.5
         )
@@ -1662,7 +1681,7 @@ class SQAStoreTest(TestCase):
         optimization_config.outcome_constraints = []
         experiment.optimization_config = optimization_config
         save_experiment(experiment)
-        self.assertEqual(get_session().query(SQAMetric).count(), 6)
+        self.assertEqual(get_session().query(SQAMetric).count(), 8)
 
         loaded_experiment = load_experiment(experiment.name)
         self.assertEqual(experiment, loaded_experiment)
@@ -1671,7 +1690,7 @@ class SQAStoreTest(TestCase):
         # objective_thresholds
         optimization_config.objective_thresholds = []
         save_experiment(experiment)
-        self.assertEqual(get_session().query(SQAMetric).count(), 4)
+        self.assertEqual(get_session().query(SQAMetric).count(), 6)
 
         loaded_experiment = load_experiment(experiment.name)
         self.assertEqual(experiment, loaded_experiment)
@@ -1880,8 +1899,6 @@ class SQAStoreTest(TestCase):
         sqa_parameter_constraint = SQAParameterConstraint(
             bound=Decimal(0),
             constraint_dict={},
-            # pyre-fixme[6]: For 3rd param expected `IntEnum` but got
-            #  `ParameterConstraintType`.
             type=ParameterConstraintType.LINEAR,
         )
         with self.assertRaises(ValueError):
@@ -1899,8 +1916,6 @@ class SQAStoreTest(TestCase):
         sqa_parameter_constraint = SQAParameterConstraint(
             bound=Decimal(0),
             constraint_dict={},
-            # pyre-fixme[6]: For 3rd param expected `IntEnum` but got
-            #  `ParameterConstraintType`.
             type=ParameterConstraintType.LINEAR,
             generator_run_id=0,
         )
@@ -1913,8 +1928,6 @@ class SQAStoreTest(TestCase):
 
     def test_decode_order_parameter_constraint_failure(self) -> None:
         sqa_parameter = SQAParameterConstraint(
-            # pyre-fixme[6]: For 1st param expected `IntEnum` but got
-            #  `ParameterConstraintType`.
             type=ParameterConstraintType.ORDER,
             constraint_dict={},
             bound=Decimal(0),
@@ -1926,8 +1939,6 @@ class SQAStoreTest(TestCase):
 
     def test_decode_sum_parameter_constraint_failure(self) -> None:
         sqa_parameter = SQAParameterConstraint(
-            # pyre-fixme[6]: For 1st param expected `IntEnum` but got
-            #  `ParameterConstraintType`.
             type=ParameterConstraintType.SUM,
             constraint_dict={},
             bound=Decimal(0),
@@ -2197,8 +2208,7 @@ class SQAStoreTest(TestCase):
         save_generation_strategy(generation_strategy=generation_strategy)
         # Also try restoring this generation strategy by its ID in the DB.
         new_generation_strategy = load_generation_strategy_by_id(
-            # pyre-fixme[6]: For 1st param expected `int` but got `Optional[int]`.
-            gs_id=generation_strategy._db_id
+            gs_id=none_throws(generation_strategy._db_id)
         )
         # Some fields of the reloaded GS are not expected to be set (both will be
         # set during next model fitting call), so we unset them on the original GS as
@@ -2255,8 +2265,7 @@ class SQAStoreTest(TestCase):
         # Try restoring this generation strategy by its ID in the DB.
         save_generation_strategy(generation_strategy=generation_strategy)
         new_generation_strategy = load_generation_strategy_by_id(
-            # pyre-fixme[6]: For 1st param expected `int` but got `Optional[int]`.
-            gs_id=generation_strategy._db_id
+            gs_id=none_throws(generation_strategy._db_id)
         )
 
         # Some fields of the reloaded GS are not expected to be set (both will be
@@ -2701,13 +2710,12 @@ class SQAStoreTest(TestCase):
                 encoder=self.encoder,
                 decoder=self.decoder,
             )
-        # pyre-fixme[16]: Optional type has no attribute `db_id`.
-        self.assertIsNone(experiment.runner.db_id)
-        self.assertIsNotNone(experiment.runner)
-        # pyre-fixme[16]: `Runner` has no attribute `dummy_metadata`.
-        self.assertIsNone(experiment.runner.dummy_metadata)
+        runner = none_throws(experiment.runner)
+        self.assertIsNone(runner.db_id)
+        self.assertIsNotNone(runner)
+        self.assertIsNone(assert_is_instance(runner, SyntheticRunner).dummy_metadata)
         save_experiment(experiment=experiment)
-        old_runner_db_id = experiment.runner.db_id
+        old_runner_db_id = runner.db_id
         self.assertIsNotNone(old_runner_db_id)
         new_runner = get_synthetic_runner()
         # pyre-fixme[8]: Attribute has type `Optional[str]`; used as `Dict[str, str]`.
@@ -2721,9 +2729,9 @@ class SQAStoreTest(TestCase):
             decoder=self.decoder,
         )
         self.assertIsNotNone(new_runner.db_id)  # New runner should be added to DB.
-        self.assertEqual(experiment.runner.db_id, new_runner.db_id)
+        self.assertEqual(none_throws(experiment.runner).db_id, new_runner.db_id)
         loaded_experiment = load_experiment(experiment_name=experiment.name)
-        self.assertEqual(loaded_experiment.runner.db_id, new_runner.db_id)
+        self.assertEqual(none_throws(loaded_experiment.runner).db_id, new_runner.db_id)
 
     def test_experiment_validation(self) -> None:
         exp = get_experiment()
@@ -2810,9 +2818,9 @@ class SQAStoreTest(TestCase):
     )
     def test_immutable_search_space_and_opt_config_loading(
         self,
-        _mock_get_exp_sqa_imm_oc_ss,
-        _mock_get_gs_sqa_imm_oc_ss,
-        _mock_gr_from_sqa,
+        _mock_get_exp_sqa_imm_oc_ss: Mock,
+        _mock_get_gs_sqa_imm_oc_ss: Mock,
+        _mock_gr_from_sqa: Mock,
     ) -> None:
         experiment = get_experiment_with_batch_trial(constrain_search_space=False)
         experiment._properties = {Keys.IMMUTABLE_SEARCH_SPACE_AND_OPT_CONF: True}
@@ -2854,6 +2862,29 @@ class SQAStoreTest(TestCase):
 
         loaded_experiment = load_experiment(experiment.name)
         self.assertTrue(loaded_experiment.immutable_search_space_and_opt_config)
+
+    def test_update_properties_on_experiment_with_llm_messages(self) -> None:
+        """Test that LLMMessage objects in experiment properties are correctly
+        serialized through the incremental update_properties_on_experiment path,
+        not just the full experiment_to_sqa path."""
+        experiment = get_experiment_with_batch_trial()
+        save_experiment(experiment)
+
+        messages = [
+            LLMMessage(role="system", content="You are helpful."),
+            LLMMessage(role="user", content="Hello", metadata={"key": "val"}),
+        ]
+        experiment.llm_messages = messages
+        update_properties_on_experiment(
+            experiment_with_updated_properties=experiment,
+        )
+
+        loaded_experiment = load_experiment(experiment.name)
+        self.assertEqual(len(loaded_experiment.llm_messages), 2)
+        self.assertEqual(loaded_experiment.llm_messages[0].role, "system")
+        self.assertEqual(loaded_experiment.llm_messages[0].content, "You are helpful.")
+        self.assertEqual(loaded_experiment.llm_messages[1].role, "user")
+        self.assertEqual(loaded_experiment.llm_messages[1].metadata, {"key": "val"})
 
     def test_update_properties_on_trial(self) -> None:
         experiment = get_experiment_with_batch_trial()
@@ -2932,8 +2963,7 @@ class SQAStoreTest(TestCase):
         # loaded are non-null.
         save_experiment(exp)
         loaded_exp = load_experiment(exp.name)
-        # pyre-fixme[16]: Optional type has no attribute `generator_run`.
-        loaded_gr = loaded_exp.trials.get(0).generator_run
+        loaded_gr = assert_is_instance(loaded_exp.trials[0], Trial).generator_run
         for instrumented_attr in GR_LARGE_MODEL_ATTRS:
             python_attr = SQA_COL_TO_GR_ATTR[instrumented_attr.key]
             self.assertIsNotNone(getattr(loaded_gr, f"_{python_attr}"))
@@ -2948,7 +2978,9 @@ class SQAStoreTest(TestCase):
         # was not propagated to the DB.
         save_experiment(loaded_exp)
         newly_loaded_exp = load_experiment(exp.name)
-        newly_loaded_gr = newly_loaded_exp.trials.get(0).generator_run
+        newly_loaded_gr = assert_is_instance(
+            newly_loaded_exp.trials[0], Trial
+        ).generator_run
         for instrumented_attr in GR_LARGE_MODEL_ATTRS:
             python_attr = SQA_COL_TO_GR_ATTR[instrumented_attr.key]
             self.assertIsNotNone(getattr(newly_loaded_gr, f"_{python_attr}"))
@@ -2997,6 +3029,13 @@ class SQAStoreTest(TestCase):
             df=test_df,
             blob=pio.to_json(go.Figure()),
         )
+        na_card = NotApplicableStateAnalysisCard(
+            name="test_na_card",
+            title="test_title",
+            subtitle="test_subtitle",
+            df=test_df,
+            blob="Not enough data.",
+        )
 
         # Create two groups which hold the leaf cards
         # Add the same analysis card multiple times to test _unique_id logic
@@ -3004,7 +3043,12 @@ class SQAStoreTest(TestCase):
             name="small_group",
             title="Small Group",
             subtitle="This is a small group with just a few cards",
-            children=[base_analysis_card, markdown_analysis_card, plotly_analysis_card],
+            children=[
+                base_analysis_card,
+                markdown_analysis_card,
+                plotly_analysis_card,
+                na_card,
+            ],
         )
         big_group = AnalysisCardGroup(
             name="big_group",
@@ -3065,6 +3109,12 @@ class SQAStoreTest(TestCase):
             )
             self.assertEqual(loaded_small_group_plotly.name, plotly_analysis_card.name)
             self.assertEqual(loaded_small_group_plotly.blob, plotly_analysis_card.blob)
+
+            loaded_na = assert_is_instance(
+                loaded_small_group.children[3], NotApplicableStateAnalysisCard
+            )
+            self.assertEqual(loaded_na.name, na_card.name)
+            self.assertEqual(loaded_na.blob, na_card.blob)
 
     def test_delete_generation_strategy(self) -> None:
         # GIVEN an experiment with a generation strategy
@@ -3197,11 +3247,66 @@ class SQAStoreTest(TestCase):
 
             # Assert: Should find the experiment with the matching parameters
             self.assertIn(experiment.name, result)
-            returned_ss = result[experiment.name]
+            returned_ss, _time_created = result[experiment.name]
             self.assertIsNotNone(returned_ss)
             # The returned search space should contain w and x
             self.assertIn("w", none_throws(returned_ss).parameters)
             self.assertIn("x", none_throws(returned_ss).parameters)
+
+        with self.subTest("returns_none_search_space_on_decode_failure"):
+            # Save two experiments
+            exp1 = get_experiment_with_batch_trial()
+            exp1.name = "exp_decode_success"
+            exp1.experiment_type = "TEST"
+            exp1.is_test = False
+            trial1 = exp1.trials[0]
+            exp1.attach_data(get_data(trial_index=trial1.index))
+            save_experiment(exp1, config=config)
+
+            exp2 = get_experiment_with_batch_trial()
+            exp2.name = "exp_decode_failure"
+            exp2.experiment_type = "TEST"
+            exp2.is_test = False
+            trial2 = exp2.trials[0]
+            exp2.attach_data(get_data(trial_index=trial2.index))
+            save_experiment(exp2, config=config)
+
+            # Look up exp2's ID before mocking to avoid nested session_scope
+            with session_scope() as session:
+                exp2_id: int = (
+                    session.query(SQAExperiment.id)
+                    .filter(SQAExperiment.name == "exp_decode_failure")
+                    .scalar()
+                )
+
+            # Mock decoder to raise on the second experiment's parameters
+            original_search_space_from_sqa: Callable[..., SearchSpace | None] = (
+                Decoder.search_space_from_sqa
+            )
+
+            def _side_effect(self: Decoder, **kwargs: Any) -> SearchSpace | None:
+                params = kwargs.get("parameters_sqa", [])
+                exp_ids = {p.experiment_id for p in params}
+                if exp_ids == {exp2_id}:
+                    raise RuntimeError("Simulated decode failure")
+                return original_search_space_from_sqa(self, **kwargs)
+
+            with patch.object(Decoder, "search_space_from_sqa", _side_effect):
+                result = _query_historical_experiments_given_parameters(
+                    parameter_names=["w", "x"],
+                    experiment_types=["TEST"],
+                    config=config,
+                )
+
+            # The successfully decoded experiment should have a SearchSpace
+            self.assertIn("exp_decode_success", result)
+            ss_success, _ = result["exp_decode_success"]
+            self.assertIsNotNone(ss_success)
+
+            # The failed experiment should have None search space
+            self.assertIn("exp_decode_failure", result)
+            ss_failure, _ = result["exp_decode_failure"]
+            self.assertIsNone(ss_failure)
 
     def test_identify_transferable_experiments(
         self,
@@ -3233,12 +3338,7 @@ class SQAStoreTest(TestCase):
             source_experiment.attach_data(get_data(trial_index=trial.index))
             save_experiment(source_experiment, config=config)
 
-            # Execute: Find transferable experiments for a target search space
-            # that only has RangeParameters w and x (overlapping with source)
-            # Note: We use only RangeParameters to avoid incompatibility issues
-            # with Choice/Fixed parameters that have different values
-            from ax.core.search_space import SearchSpace
-
+            # Target has w and x (overlapping with source).
             target_search_space = SearchSpace(
                 parameters=[
                     get_range_parameter(),  # w
@@ -3264,7 +3364,8 @@ class SQAStoreTest(TestCase):
         with self.subTest("filters_by_overlap_threshold"):
             config = SQAConfig(experiment_type_enum=MockExperimentTypeEnum)
 
-            # Create and save a source experiment with parameters w, x, y, z
+            # Source experiment has params w, x, y, z, d (from get_search_space).
+            # w is RangeParameter(FLOAT), x is RangeParameter(INT).
             source_experiment = get_experiment_with_batch_trial()
             source_experiment.name = "exp_with_partial_overlap"
             source_experiment.experiment_type = "TEST"
@@ -3273,70 +3374,145 @@ class SQAStoreTest(TestCase):
             source_experiment.attach_data(get_data(trial_index=trial.index))
             save_experiment(source_experiment, config=config)
 
-            # Target has 6 range parameters: w, x overlap with source (33% overlap)
-            from ax.core.search_space import SearchSpace
-
+            # Target has w (FLOAT, compatible) and x (FLOAT, incompatible
+            # with source x which is INT). Overlap = [w], prop = 1/2 = 0.5.
             target_search_space = SearchSpace(
                 parameters=[
-                    get_range_parameter(),  # w - overlaps
-                    get_range_parameter2(),  # x - overlaps
+                    get_range_parameter(),  # w (FLOAT) - compatible with source
                     RangeParameter(
-                        name="extra1",
+                        name="x",
                         parameter_type=ParameterType.FLOAT,
                         lower=0,
                         upper=10,
+                    ),  # x (FLOAT) - incompatible with source x (INT)
+                ]
+            )
+
+            # Threshold 0.4 < 0.5 -- should include
+            result_above = identify_transferable_experiments(
+                search_space=target_search_space,
+                experiment_types=["TEST"],
+                overlap_threshold=0.4,
+                max_num_exps=10,
+                config=config,
+            )
+
+            self.assertIn("exp_with_partial_overlap", result_above)
+            metadata = result_above["exp_with_partial_overlap"]
+            self.assertIsNotNone(metadata.overlap_parameters)
+            # Only w overlaps (x is incompatible due to type mismatch)
+            self.assertEqual(len(none_throws(metadata.overlap_parameters)), 1)
+
+            # Threshold 0.6 > 0.5 -- should exclude
+            result_below = identify_transferable_experiments(
+                search_space=target_search_space,
+                experiment_types=["TEST"],
+                overlap_threshold=0.6,
+                max_num_exps=10,
+                config=config,
+            )
+
+            self.assertNotIn("exp_with_partial_overlap", result_below)
+
+        with self.subTest("prop_overlap_uses_source_tunable_params_as_denominator"):
+            config = SQAConfig(experiment_type_enum=MockExperimentTypeEnum)
+
+            # Source experiment has w (Range FLOAT), x (Range INT), y (Choice),
+            # z (Fixed), d (Derived).
+            source_experiment = get_experiment_with_batch_trial()
+            source_experiment.name = "exp_prop_overlap_denom"
+            source_experiment.experiment_type = "TEST"
+            source_experiment.is_test = False
+            trial = source_experiment.trials[0]
+            source_experiment.attach_data(get_data(trial_index=trial.index))
+            save_experiment(source_experiment, config=config)
+
+            # Target has w (compatible) and x (FLOAT, incompatible with
+            # source x which is INT). DB returns source {w, x} (filtered
+            # to target names). Tunable = {w, x} = 2. Overlap = [w].
+            # prop_overlap = 1/2 = 0.5.
+            target_search_space = SearchSpace(
+                parameters=[
+                    get_range_parameter(),  # w (FLOAT) - compatible
+                    RangeParameter(
+                        name="x",
+                        parameter_type=ParameterType.FLOAT,
+                        lower=0,
+                        upper=10,
+                    ),  # x (FLOAT) - incompatible with source x (INT)
+                ]
+            )
+
+            # prop_overlap = 0.5, so threshold 0.4 should include
+            result_above = identify_transferable_experiments(
+                search_space=target_search_space,
+                experiment_types=["TEST"],
+                overlap_threshold=0.4,
+                max_num_exps=10,
+                config=config,
+            )
+            self.assertIn("exp_with_partial_overlap", result_above)
+            metadata = result_above["exp_with_partial_overlap"]
+            self.assertEqual(len(none_throws(metadata.overlap_parameters)), 1)
+
+            # prop_overlap = 0.5, so threshold 0.6 should exclude
+            result_below = identify_transferable_experiments(
+                search_space=target_search_space,
+                experiment_types=["TEST"],
+                overlap_threshold=0.6,
+                max_num_exps=10,
+                config=config,
+            )
+            self.assertNotIn("exp_with_partial_overlap", result_below)
+
+        with self.subTest("derived_params_exempt_fixed_params_compatible"):
+            config = SQAConfig(experiment_type_enum=MockExperimentTypeEnum)
+
+            # Source has w, x, y (tunable) + z (Fixed BOOL) + d (Derived).
+            source_experiment = get_experiment_with_batch_trial()
+            source_experiment.name = "exp_ignore_fixed_derived"
+            source_experiment.experiment_type = "TEST"
+            source_experiment.is_test = False
+            trial = source_experiment.trials[0]
+            source_experiment.attach_data(get_data(trial_index=trial.index))
+            save_experiment(source_experiment, config=config)
+
+            # Target has w, x (compatible range), z (compatible fixed,
+            # different value), d (incompatible derived, exempt).
+            # Overlap = [w, x, z]. Source tunable = {w, x, y} (3).
+            # prop_overlap = 3/3 = 1.0.
+            target_search_space = SearchSpace(
+                parameters=[
+                    get_range_parameter(),  # w
+                    get_range_parameter2(),  # x
+                    FixedParameter(
+                        name="z",
+                        parameter_type=ParameterType.BOOL,
+                        value=False,
                     ),
-                    RangeParameter(
-                        name="extra2",
+                    DerivedParameter(
+                        name="d",
                         parameter_type=ParameterType.FLOAT,
-                        lower=0,
-                        upper=10,
-                    ),
-                    RangeParameter(
-                        name="extra3",
-                        parameter_type=ParameterType.FLOAT,
-                        lower=0,
-                        upper=10,
-                    ),
-                    RangeParameter(
-                        name="extra4",
-                        parameter_type=ParameterType.FLOAT,
-                        lower=0,
-                        upper=10,
+                        expression_str="99.0 * w",
                     ),
                 ]
             )
 
-            # Execute with threshold of 0.2 (20%) - should include experiment
-            # since overlap is ~33% which exceeds 20%
-            result_above = identify_transferable_experiments(
+            result = identify_transferable_experiments(
                 search_space=target_search_space,
                 experiment_types=["TEST"],
-                overlap_threshold=0.2,  # Threshold below the ~33% overlap
+                overlap_threshold=0.5,
                 max_num_exps=10,
                 config=config,
             )
-
-            # Assert: Should find experiment
-            self.assertIn("exp_with_partial_overlap", result_above)
-            # Verify overlap metadata is correct
-            metadata = result_above["exp_with_partial_overlap"]
-            self.assertIsNotNone(metadata.overlap_parameters)
-            # Should have 2 overlapping parameters (w and x)
-            self.assertEqual(len(none_throws(metadata.overlap_parameters)), 2)
-
-            # Execute with threshold of 0.5 (50%) - should exclude experiment
-            # since overlap is only ~33%
-            result_below = identify_transferable_experiments(
-                search_space=target_search_space,
-                experiment_types=["TEST"],
-                overlap_threshold=0.5,  # Threshold above the ~33% overlap
-                max_num_exps=10,
-                config=config,
-            )
-
-            # Assert: Should NOT find experiment due to threshold
-            self.assertNotIn("exp_with_partial_overlap", result_below)
+            self.assertIn("exp_ignore_fixed_derived", result)
+            metadata = result["exp_ignore_fixed_derived"]
+            overlap = none_throws(metadata.overlap_parameters)
+            # w, x, z overlap; d is derived (exempt, excluded from result)
+            self.assertEqual(len(overlap), 3)
+            self.assertIn("w", overlap)
+            self.assertIn("x", overlap)
+            self.assertIn("z", overlap)
 
         with self.subTest("respects_max_num_exps"):
             config = SQAConfig(experiment_type_enum=MockExperimentTypeEnum)
@@ -3350,9 +3526,6 @@ class SQAStoreTest(TestCase):
                 trial = exp.trials[0]
                 exp.attach_data(get_data(trial_index=trial.index))
                 save_experiment(exp, config=config)
-
-            # Use a target search space with only RangeParameters
-            from ax.core.search_space import SearchSpace
 
             target_search_space = SearchSpace(
                 parameters=[
@@ -3416,10 +3589,7 @@ class SQAStoreTest(TestCase):
                 source_exp.attach_data(get_data(trial_index=trial.index))
                 save_experiment(source_exp, config=config)
 
-            # Create target experiment with same experiment type
-            # Use only RangeParameters to ensure overlap with source experiments
-            from ax.core.search_space import SearchSpace
-
+            # Create target experiment with same type and overlapping params.
             target_search_space = SearchSpace(
                 parameters=[
                     get_range_parameter(),  # w

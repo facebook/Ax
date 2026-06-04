@@ -13,7 +13,7 @@ from functools import reduce
 from operator import mul
 
 import numpy.typing as npt
-from ax.core.types import TGenMetadata, TParamValue, TParamValueList
+from ax.core.types import TGenMetadata, TParamValue
 from ax.generators.discrete_base import DiscreteGenerator
 from ax.generators.types import TConfig
 from ax.utils.common.docutils import copy_doc
@@ -49,7 +49,6 @@ class FullFactorialGenerator(DiscreteGenerator):
         self.check_cardinality = check_cardinality
 
     @copy_doc(DiscreteGenerator.gen)
-    # pyre-fixme[15]: Inconsistent override in return
     def gen(
         self,
         n: int,
@@ -59,7 +58,7 @@ class FullFactorialGenerator(DiscreteGenerator):
         fixed_features: dict[int, TParamValue] | None = None,
         pending_observations: Sequence[Sequence[Sequence[TParamValue]]] | None = None,
         model_gen_options: TConfig | None = None,
-    ) -> tuple[list[TParamValueList], list[float], TGenMetadata]:
+    ) -> tuple[list[Sequence[TParamValue]], list[float], TGenMetadata]:
         if fixed_features:
             # Make a copy so as to not mutate it
             parameter_values = list(parameter_values)
@@ -80,5 +79,7 @@ class FullFactorialGenerator(DiscreteGenerator):
                 f"{self.max_cardinality}."
             )
 
-        points = [list(x) for x in itertools.product(*parameter_values)]
+        points: list[Sequence[TParamValue]] = [
+            list(x) for x in itertools.product(*parameter_values)
+        ]
         return (points, [1.0 for _ in range(len(points))], {})

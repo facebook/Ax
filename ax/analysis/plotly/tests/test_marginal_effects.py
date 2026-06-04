@@ -11,13 +11,15 @@ from ax.analysis.plotly.marginal_effects import (
     compute_marginal_effects_adhoc,
     MarginalEffectsPlot,
 )
+from ax.core.arm import Arm
 from ax.core.data import Data
 from ax.core.experiment import Experiment
+from ax.core.generator_run import GeneratorRun
 from ax.core.metric import Metric
 from ax.core.objective import Objective
 from ax.core.optimization_config import OptimizationConfig
 from ax.utils.common.testutils import TestCase
-from ax.utils.testing.core_stubs import get_discrete_search_space, get_sobol
+from ax.utils.testing.core_stubs import get_discrete_search_space
 from pyre_extensions import none_throws
 
 
@@ -30,13 +32,23 @@ class TestMarginalEffectsPlot(TestCase):
             name="test_experiment",
             is_test=True,
             optimization_config=OptimizationConfig(
-                objective=Objective(Metric("metric_1", lower_is_better=False))
+                objective=Objective(metric=Metric("metric_1", lower_is_better=False))
             ),
         )
         num_arms = 3
         num_trials = 3
-        sobol = get_sobol(search_space=self.experiment.search_space)
-        gr = sobol.gen(n=num_arms)
+        # Use explicit arms instead of a Sobol generator to guarantee each
+        # level of the ChoiceParameter "z" is represented. Sobol can map
+        # quasi-random points to the same discrete level depending on the
+        # environment (observed on Python 3.14 CI), which causes
+        # marginal_effects to skip covariates with <= 1 unique value.
+        gr = GeneratorRun(
+            arms=[
+                Arm(parameters={"x": 0, "y": 5, "z": "red"}, name="0_0"),
+                Arm(parameters={"x": 1, "y": 6, "z": "panda"}, name="0_1"),
+                Arm(parameters={"x": 2, "y": 7, "z": "bear"}, name="0_2"),
+            ]
+        )
 
         for i in range(num_trials):
             self.experiment.new_batch_trial(generator_run=gr)
@@ -63,7 +75,7 @@ class TestMarginalEffectsPlot(TestCase):
 
     def test_validate_applicable_state(self) -> None:
         self.assertIn(
-            "Requires an Experiment",
+            "An Experiment must be provided",
             none_throws(
                 MarginalEffectsPlot(metric_name="foo").validate_applicable_state()
             ),
@@ -74,14 +86,16 @@ class TestMarginalEffectsPlot(TestCase):
             data=self.experiment.lookup_data(trial_indices=[0]),
         )
 
-        self.assertIn(
-            "MarginalEffectsPlot is only for `ChoiceParameter`s",
-            none_throws(
-                self.analysis_all_variables.validate_applicable_state(
-                    experiment=self.experiment, adapter=adapter
-                )
-            ),
+        result = none_throws(
+            self.analysis_all_variables.validate_applicable_state(
+                experiment=self.experiment, adapter=adapter
+            )
         )
+        self.assertIn(
+            "MarginalEffectsPlot is only for `ChoiceParameter`s, but got", result
+        )
+        # Verify type(parameter).__name__ rendered correctly (x is a RangeParameter)
+        self.assertIn("RangeParameter", result)
 
     def test_compute(self) -> None:
         adapter = get_thompson(

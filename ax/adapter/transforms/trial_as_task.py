@@ -16,6 +16,7 @@ from ax.adapter.transforms.base import Transform
 from ax.core.observation import ObservationFeatures
 from ax.core.parameter import ChoiceParameter, ParameterType
 from ax.core.search_space import SearchSpace
+from ax.core.types import TParamValue
 from ax.core.utils import get_target_trial_index
 from ax.generators.types import TConfig
 from ax.utils.common.constants import Keys
@@ -183,10 +184,11 @@ class TrialAsTask(Transform):
                     f"TrialAsTask transform expects 2+ task params, {details}"
                 )
             is_int = all(isinstance(val, int) for val in level_values)
+            param_values: list[TParamValue] = list(level_values)
             trial_param = ChoiceParameter(
                 name=p_name,
                 parameter_type=ParameterType.INT if is_int else ParameterType.STRING,
-                values=level_values,  # pyre-fixme [6]
+                values=param_values,
                 # if all values are integers, retain the original order
                 # they are encoded in TaskChoiceToIntTaskChoice
                 is_ordered=is_int,

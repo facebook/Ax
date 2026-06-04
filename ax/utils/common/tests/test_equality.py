@@ -24,9 +24,7 @@ from ax.utils.common.testutils import TestCase
 class EqualityTest(TestCase):
     def test_EqualityTypechecker(self) -> None:
         @equality_typechecker
-        # pyre-fixme[3]: Return type must be annotated.
-        # pyre-fixme[2]: Parameter must be annotated.
-        def eq(x, y):
+        def eq(x: object, y: object) -> bool:
             return x == y
 
         self.assertFalse(eq(5, 5.0))

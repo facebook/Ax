@@ -139,7 +139,11 @@ def search_space_boundary_proportions(
         if isinstance(parameter, RangeParameter):
             lower = parameter.lower
             upper = parameter.upper
-        elif isinstance(parameter, ChoiceParameter) and parameter.is_ordered:
+        elif (
+            isinstance(parameter, ChoiceParameter)
+            and parameter.is_ordered
+            and all(isinstance(v, (int, float)) for v in parameter.values)
+        ):
             values = [
                 assert_is_instance(v, Union[int, float]) for v in parameter.values
             ]

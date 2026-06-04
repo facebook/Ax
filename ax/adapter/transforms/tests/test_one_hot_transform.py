@@ -25,6 +25,7 @@ from ax.utils.common.testutils import TestCase
 from ax.utils.testing.core_stubs import get_experiment_with_observations
 from pandas import DataFrame
 from pandas.testing import assert_frame_equal
+from pyre_extensions import assert_is_instance
 
 
 class OneHotTransformTest(TestCase):
@@ -130,10 +131,18 @@ class OneHotTransformTest(TestCase):
         self.assertEqual(ss2.parameters["d"].parameter_type, ParameterType.FLOAT)
 
         # Parameter range fixed to [0,1].
-        # pyre-fixme[16]: `Parameter` has no attribute `lower`.
-        self.assertEqual(ss2.parameters["b" + OH_PARAM_INFIX + "0"].lower, 0.0)
-        # pyre-fixme[16]: `Parameter` has no attribute `upper`.
-        self.assertEqual(ss2.parameters["b" + OH_PARAM_INFIX + "1"].upper, 1.0)
+        self.assertEqual(
+            assert_is_instance(
+                ss2.parameters["b" + OH_PARAM_INFIX + "0"], RangeParameter
+            ).lower,
+            0.0,
+        )
+        self.assertEqual(
+            assert_is_instance(
+                ss2.parameters["b" + OH_PARAM_INFIX + "1"], RangeParameter
+            ).upper,
+            1.0,
+        )
         self.assertEqual(ss2.parameters["c"].parameter_type, ParameterType.BOOL)
 
         # Ensure we error if we try to transform a fidelity parameter

@@ -60,7 +60,9 @@ def find_adoptable_descendants(
                 continue
             if isinstance(search_space.parameters[child], FixedParameter):
                 lst_adoptable_descendants += find_adoptable_descendants(
-                    assert_is_instance(search_space.parameters[child], FixedParameter),
+                    param=assert_is_instance(
+                        search_space.parameters[child], FixedParameter
+                    ),
                     search_space=search_space,
                 )
             else:

@@ -10,7 +10,7 @@ import json
 from abc import ABC, abstractmethod
 from collections import defaultdict
 from collections.abc import Iterable, Mapping
-from typing import Any
+from typing import Any, cast
 
 import pandas as pd
 from ax.api.types import TParameterization
@@ -115,10 +115,10 @@ class _APIRunner(Runner, ABC):
         """
         metadata = self.run_trial(
             trial_index=trial.index,
-            # pyre-ignore[6] Arms in core Ax may have None in their parameters
-            parameterization=none_throws(
-                assert_is_instance(trial, Trial).arm
-            ).parameters,
+            parameterization=cast(
+                TParameterization,
+                none_throws(assert_is_instance(trial, Trial).arm).parameters,
+            ),
         )
 
         # Runtime validate metadata is JSON serializable to avoid issues when

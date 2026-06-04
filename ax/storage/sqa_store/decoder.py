@@ -6,8 +6,11 @@
 
 # pyre-strict
 
+import re
+import warnings
 from collections import defaultdict
 from collections.abc import Callable
+from copy import deepcopy
 from enum import Enum
 from io import StringIO
 from logging import Logger
@@ -23,6 +26,7 @@ from ax.core.analysis_card import (
     AnalysisCardBase,
     AnalysisCardGroup,
     ErrorAnalysisCard,
+    NotApplicableStateAnalysisCard,
 )
 from ax.core.arm import Arm
 from ax.core.auxiliary import AuxiliaryExperiment, AuxiliaryExperimentPurpose
@@ -31,6 +35,7 @@ from ax.core.batch_trial import AbandonedArm, BatchTrial
 from ax.core.data import Data
 from ax.core.experiment import Experiment
 from ax.core.generator_run import GeneratorRun
+from ax.core.llm_provider import LLMMessage
 from ax.core.metric import Metric
 from ax.core.multi_type_experiment import MultiTypeExperiment
 from ax.core.objective import MultiObjective, Objective, ScalarizedObjective
@@ -56,6 +61,7 @@ from ax.core.runner import Runner
 from ax.core.search_space import SearchSpace
 from ax.core.trial import Trial
 from ax.core.trial_status import TrialStatus
+from ax.core.types import TModelPredict, TModelPredictArm
 from ax.exceptions.storage import JSONDecodeError, SQADecodeError
 from ax.generation_strategy.generation_strategy import GenerationStrategy
 from ax.storage.json_store.decoder import _DEPRECATED_GENERATOR_KWARGS, object_from_json
@@ -82,6 +88,7 @@ from ax.storage.utils import (
     DomainType,
     EXPECT_RELATIVIZED_OUTCOMES,
     MetricIntent,
+    ParameterConstraintType,
     PREFERENCE_PROFILE_NAME,
 )
 from ax.utils.common.constants import Keys
@@ -135,7 +142,7 @@ class Decoder:
             return None
 
         try:
-            return enum(value).name  # pyre-ignore T29651755
+            return cast(type[Enum], enum)(value).name
         except ValueError:
             raise SQADecodeError(f"Value {value} is invalid for enum {enum}.")
 
@@ -219,13 +226,21 @@ class Decoder:
         # `experiment_sqa.properties` is `sqlalchemy.ext.mutable.MutableDict`
         # so need to convert it to regular dict.
         properties = dict(experiment_sqa.properties or {})
-        opt_config, tracking_metrics = self.opt_config_and_tracking_metrics_from_sqa(
-            metrics_sqa=experiment_sqa.metrics,
-            pruning_target_parameterization=(
-                self._get_pruning_target_parameterization_from_experiment_properties(
-                    properties=properties
-                )
-            ),
+        if Keys.LLM_MESSAGES in properties:
+            # pyre-ignore[6]: SA 2.0 properties values are ColumnElement; runtime list.
+            properties[Keys.LLM_MESSAGES] = [
+                LLMMessage(**m) for m in properties[Keys.LLM_MESSAGES]
+            ]
+        pruning_target = (
+            self._get_pruning_target_parameterization_from_experiment_properties(
+                properties=properties
+            )
+        )
+        opt_config, _tracking_metrics, all_metrics = (
+            self.opt_config_and_tracking_metrics_from_sqa(
+                metrics_sqa=experiment_sqa.metrics,
+                pruning_target_parameterization=pruning_target,
+            )
         )
         search_space = self.search_space_from_sqa(
             parameters_sqa=experiment_sqa.parameters,
@@ -266,7 +281,7 @@ class Decoder:
             description=experiment_sqa.description,
             search_space=search_space,
             optimization_config=opt_config,
-            tracking_metrics=tracking_metrics,
+            tracking_metrics=all_metrics,
             runner=runner,
             status_quo=status_quo,
             is_test=experiment_sqa.is_test,
@@ -280,13 +295,21 @@ class Decoder:
     ) -> MultiTypeExperiment:
         """First step of conversion within experiment_from_sqa."""
         properties = dict(experiment_sqa.properties or {})
-        opt_config, tracking_metrics = self.opt_config_and_tracking_metrics_from_sqa(
-            metrics_sqa=experiment_sqa.metrics,
-            pruning_target_parameterization=(
-                self._get_pruning_target_parameterization_from_experiment_properties(
-                    properties=properties
-                )
-            ),
+        if Keys.LLM_MESSAGES in properties:
+            # pyre-ignore[6]: SA 2.0 properties values are ColumnElement; runtime list.
+            properties[Keys.LLM_MESSAGES] = [
+                LLMMessage(**m) for m in properties[Keys.LLM_MESSAGES]
+            ]
+        pruning_target = (
+            self._get_pruning_target_parameterization_from_experiment_properties(
+                properties=properties
+            )
+        )
+        opt_config, tracking_metrics, all_metrics = (
+            self.opt_config_and_tracking_metrics_from_sqa(
+                metrics_sqa=experiment_sqa.metrics,
+                pruning_target_parameterization=pruning_target,
+            )
         )
         search_space = self.search_space_from_sqa(
             parameters_sqa=experiment_sqa.parameters,
@@ -304,11 +327,13 @@ class Decoder:
         )
 
         default_trial_type = none_throws(experiment_sqa.default_trial_type)
-        trial_type_to_runner = {
+        # pyre-ignore[9]: SA 2.0 Column[Optional[str]] keys; runtime str.
+        trial_type_to_runner: dict[str, Runner | None] = {
             none_throws(sqa_runner.trial_type): self.runner_from_sqa(sqa_runner)
             for sqa_runner in experiment_sqa.runners
         }
         if len(trial_type_to_runner) == 0:
+            # pyre-ignore[9]: SA 2.0 Column[Optional[str]] keys; runtime str.
             trial_type_to_runner = {default_trial_type: None}
             trial_types_with_metrics = {
                 metric.trial_type
@@ -318,6 +343,7 @@ class Decoder:
             # trial_type_to_runner is instantiated to map all trial types to None,
             # so the trial types are associated with the experiment. This is
             # important for adding metrics.
+            # pyre-ignore[6]: SA 2.0 Column[T] keys vs str keys.
             trial_type_to_runner.update(dict.fromkeys(trial_types_with_metrics))
 
         experiment = MultiTypeExperiment(
@@ -330,9 +356,18 @@ class Decoder:
             status_quo=status_quo,
             properties=properties,
         )
-        # pyre-ignore Imcompatible attribute type [8]: attribute _trial_type_to_runner
-        # has type Dict[str, Optional[Runner]] but is used as type
-        # Uniont[Dict[str, Optional[Runner]], Dict[str, None]]
+        # Replace any placeholder Metric objects (created by __init__'s
+        # auto-registration for optimization config metric names) with the
+        # properly typed metrics decoded from the database (e.g. BraninMetric).
+        for metric in all_metrics:
+            if (
+                metric.name in experiment._metrics
+                and type(experiment._metrics[metric.name]) is Metric
+                and type(metric) is not Metric
+            ):
+                experiment._metrics[metric.name] = metric
+        # pyre-fixme[8]: `_trial_type_to_runner` expects `Dict[Optional[str],
+        #  Optional[Runner]]` but the dict built here uses `str` keys.
         experiment._trial_type_to_runner = trial_type_to_runner
         sqa_metric_dict = {metric.name: metric for metric in experiment_sqa.metrics}
         for tracking_metric in tracking_metrics:
@@ -519,9 +554,15 @@ class Decoder:
             f"{coeff} * {param}"
             for param, coeff in parameter_constraint_sqa.constraint_dict.items()
         )
-        constraint = ParameterConstraint(
-            inequality=f"{expr} <= {parameter_constraint_sqa.bound}",
-        )
+        is_equality = parameter_constraint_sqa.type == ParameterConstraintType.EQUALITY
+        if is_equality:
+            constraint = ParameterConstraint(
+                equality=f"{expr} == {parameter_constraint_sqa.bound}",
+            )
+        else:
+            constraint = ParameterConstraint(
+                inequality=f"{expr} <= {parameter_constraint_sqa.bound}",
+            )
 
         constraint.db_id = parameter_constraint_sqa.id
         return constraint
@@ -601,32 +642,109 @@ class Decoder:
 
     def opt_config_and_tracking_metrics_from_sqa(
         self, metrics_sqa: list[SQAMetric], pruning_target_parameterization: Arm | None
-    ) -> tuple[OptimizationConfig | None, list[Metric]]:
+    ) -> tuple[OptimizationConfig | None, list[Metric], list[Metric]]:
         """Convert a list of SQLAlchemy Metrics to Ax OptimizationConfig
         and tracking metrics.
+
+        Returns:
+            A tuple of (optimization_config, tracking_metrics, all_metrics).
+            ``tracking_metrics`` contains only non-optimization metrics.
+            ``all_metrics`` contains all decoded Metric objects, including
+            those used in the optimization config, so the Experiment can
+            register the full metric types (e.g. BraninMetric) rather than
+            plain Metric placeholders.
         """
         objective = None
         objective_thresholds = []
         outcome_constraints = []
         tracking_metrics = []
         preference_objective_sqa = None
+        # Collect all decoded Metric objects (including those used in the
+        # optimization config) so the Experiment can register the real metric
+        # types (e.g. BraninMetric) rather than plain Metric placeholders.
+        all_metrics: list[Metric] = []
 
         for metric_sqa in metrics_sqa:
             if metric_sqa.intent == MetricIntent.PREFERENCE_OBJECTIVE:
                 preference_objective_sqa = metric_sqa
 
-            metric = self.metric_from_sqa(metric_sqa=metric_sqa)
-            if isinstance(metric, Objective):
-                objective = metric
-            elif isinstance(metric, ObjectiveThreshold):
-                objective_thresholds.append(metric)
-            elif isinstance(metric, OutcomeConstraint):
-                outcome_constraints.append(metric)
+            # Decode the raw Metric first (before wrapping in Objective etc.)
+            raw_metric = self._metric_from_sqa_util(metric_sqa)
+
+            result = self.metric_from_sqa(metric_sqa=metric_sqa)
+            if isinstance(result, Objective):
+                objective = result
+                # Collect metrics from the objective
+                if metric_sqa.intent in (
+                    MetricIntent.MULTI_OBJECTIVE,
+                    MetricIntent.PREFERENCE_OBJECTIVE,
+                    MetricIntent.SCALARIZED_OBJECTIVE,
+                ):
+                    # For multi/scalarized objectives, decode each child metric
+                    try:
+                        children_sqa = (
+                            metric_sqa.scalarized_objective_children_metrics or []
+                        )
+                    except DetachedInstanceError:
+                        children_sqa = _get_scalarized_objective_children_metrics(
+                            metric_sqa.id, self
+                        )
+                    # Apply skip_runners_and_metrics to children if set
+                    if metric_sqa.properties and metric_sqa.properties.get(
+                        "skip_runners_and_metrics"
+                    ):
+                        for child_sqa in children_sqa:
+                            child_sqa.metric_type = self.config.metric_registry[Metric]
+                    for child_sqa in children_sqa:
+                        child_metric = self._metric_from_sqa_util(child_sqa)
+                        # Clear db_id: child SQA rows have
+                        # scalarized_objective_id set (not experiment_id),
+                        # so their IDs must not leak into experiment._metrics
+                        # which are matched against experiment-level SQA rows.
+                        child_metric._db_id = None
+                        all_metrics.append(child_metric)
+                else:
+                    all_metrics.append(raw_metric)
+            elif isinstance(result, ObjectiveThreshold):
+                objective_thresholds.append(result)
+                all_metrics.append(raw_metric)
+            elif isinstance(result, OutcomeConstraint):
+                outcome_constraints.append(result)
+                if metric_sqa.intent == MetricIntent.SCALARIZED_OUTCOME_CONSTRAINT:
+                    # For scalarized outcome constraints, decode each child
+                    # metric rather than the parent placeholder.
+                    try:
+                        children_sqa = (
+                            metric_sqa.scalarized_outcome_constraint_children_metrics
+                            or []
+                        )
+                    except DetachedInstanceError:
+                        children_sqa = (
+                            _get_scalarized_outcome_constraint_children_metrics(
+                                metric_sqa.id, self
+                            )
+                        )
+                    if metric_sqa.properties and metric_sqa.properties.get(
+                        "skip_runners_and_metrics"
+                    ):
+                        for child_sqa in children_sqa:
+                            child_sqa.metric_type = self.config.metric_registry[Metric]
+                    for child_sqa in children_sqa:
+                        child_metric = self._metric_from_sqa_util(child_sqa)
+                        # Clear db_id: child SQA rows have
+                        # scalarized_outcome_constraint_id set (not
+                        # experiment_id), so their IDs must not leak into
+                        # experiment._metrics.
+                        child_metric._db_id = None
+                        all_metrics.append(child_metric)
+                else:
+                    all_metrics.append(raw_metric)
             else:
-                tracking_metrics.append(metric)
+                tracking_metrics.append(result)
+                all_metrics.append(raw_metric)
 
         if objective is None:
-            return None, tracking_metrics
+            return None, tracking_metrics, all_metrics
 
         if preference_objective_sqa is not None:
             if objective_thresholds:
@@ -658,7 +776,7 @@ class Decoder:
                 outcome_constraints=outcome_constraints,
                 pruning_target_parameterization=pruning_target_parameterization,
             )
-        return (optimization_config, tracking_metrics)
+        return (optimization_config, tracking_metrics, all_metrics)
 
     def arm_from_sqa(self, arm_sqa: SQAArm) -> Arm:
         """Convert SQLAlchemy Arm to Ax Arm."""
@@ -713,6 +831,7 @@ class Decoder:
                 (
                     opt_config,
                     tracking_metrics,
+                    _all_metrics,
                 ) = self.opt_config_and_tracking_metrics_from_sqa(
                     metrics_sqa=generator_run_sqa.metrics,
                     pruning_target_parameterization=None,
@@ -730,8 +849,8 @@ class Decoder:
                 opt_config = None
                 search_space = None
 
-        best_arm_predictions = None
-        model_predictions = None
+        best_arm_predictions: tuple[Arm, TModelPredictArm | None] | None = None
+        model_predictions: TModelPredict | None = None
         if (
             generator_run_sqa.best_arm_parameters is not None
             and generator_run_sqa.best_arm_predictions is not None
@@ -740,15 +859,14 @@ class Decoder:
                 name=generator_run_sqa.best_arm_name,
                 parameters=none_throws(generator_run_sqa.best_arm_parameters),
             )
+            raw_predictions = none_throws(generator_run_sqa.best_arm_predictions)
             best_arm_predictions = (
                 best_arm,
-                tuple(none_throws(generator_run_sqa.best_arm_predictions)),
+                cast(TModelPredictArm, tuple(raw_predictions)),
             )
-        model_predictions = (
-            tuple(none_throws(generator_run_sqa.model_predictions))
-            if generator_run_sqa.model_predictions is not None
-            else None
-        )
+        if generator_run_sqa.model_predictions is not None:
+            raw_model_predictions = none_throws(generator_run_sqa.model_predictions)
+            model_predictions = cast(TModelPredict, tuple(raw_model_predictions))
 
         generator_run = GeneratorRun(
             arms=arms,
@@ -765,11 +883,7 @@ class Decoder:
                 if generator_run_sqa.gen_time is None
                 else float(generator_run_sqa.gen_time)
             ),
-            best_arm_predictions=best_arm_predictions,  # pyre-ignore[6]
-            # pyre-fixme[6]: Expected `Optional[Tuple[typing.Dict[str, List[float]],
-            #  typing.Dict[str, typing.Dict[str, List[float]]]]]` for 8th param but got
-            #  `Optional[typing.Tuple[Union[typing.Dict[str, List[float]],
-            #  typing.Dict[str, typing.Dict[str, List[float]]]], ...]]`.
+            best_arm_predictions=best_arm_predictions,
             model_predictions=model_predictions,
             generator_key=generator_run_sqa.model_key,
             generator_kwargs=(
@@ -929,11 +1043,12 @@ class Decoder:
         runner_class = self.config.reverse_runner_registry[runner_sqa.runner_type]
 
         args = runner_class.deserialize_init_args(
-            args=dict(runner_sqa.properties or {}),
+            args=deepcopy(dict(runner_sqa.properties or {})),
             decoder_registry=self.config.json_decoder_registry,
             class_decoder_registry=self.config.json_class_decoder_registry,
         )
-        # pyre-ignore[45]: Cannot instantiate abstract class `Runner`.
+        # pyre-fixme[45]: `runner_class` is always a concrete subclass at runtime,
+        #  but pyre sees `Runner` (abstract) from the reverse_runner_registry type.
         runner = runner_class(**args)
         runner.db_id = runner_sqa.id
         return runner
@@ -1012,21 +1127,11 @@ class Decoder:
         trial._time_staged = trial_sqa.time_staged
         trial._time_run_started = trial_sqa.time_run_started
         trial._status_reason = trial_sqa.abandoned_reason or trial_sqa.failed_reason
-        # pyre-fixme[9]: _run_metadata has type `Dict[str, Any]`; used as
-        #  `Optional[Dict[str, Any]]`.
-        # pyre-fixme[8]: Attribute has type `Dict[str, typing.Any]`; used as
-        #  `Optional[typing.Dict[Variable[_KT], Variable[_VT]]]`.
         trial._run_metadata = (
-            dict(trial_sqa.run_metadata) if trial_sqa.run_metadata is not None else None
+            dict(trial_sqa.run_metadata) if trial_sqa.run_metadata is not None else {}
         )
-        # pyre-fixme[9]: _run_metadata has type `Dict[str, Any]`; used as
-        #  `Optional[Dict[str, Any]]`.
-        # pyre-fixme[8]: Attribute has type `Dict[str, typing.Any]`; used as
-        #  `Optional[typing.Dict[Variable[_KT], Variable[_VT]]]`.
         trial._stop_metadata = (
-            dict(trial_sqa.stop_metadata)
-            if trial_sqa.stop_metadata is not None
-            else None
+            dict(trial_sqa.stop_metadata) if trial_sqa.stop_metadata is not None else {}
         )
         trial._num_arms_created = trial_sqa.num_arms_created
         trial._properties = dict(trial_sqa.properties or {})
@@ -1086,6 +1191,15 @@ class Decoder:
         blob = none_throws(analysis_card_sqa.blob)
         blob_annotation = analysis_card_sqa.blob_annotation
 
+        if blob_annotation == "not_applicable_state":
+            return NotApplicableStateAnalysisCard(
+                name=analysis_card_sqa.name,
+                title=title,
+                subtitle=subtitle,
+                df=read_json(StringIO(analysis_card_sqa.dataframe_json)),
+                blob=blob,
+                timestamp=analysis_card_sqa.timestamp,
+            )
         if blob_annotation == "error":
             return ErrorAnalysisCard(
                 name=analysis_card_sqa.name,
@@ -1151,7 +1265,7 @@ class Decoder:
 
         args = dict(
             object_from_json(
-                metric_sqa.properties,
+                deepcopy(metric_sqa.properties or {}),
                 decoder_registry=self.config.json_decoder_registry,
                 class_decoder_registry=self.config.json_class_decoder_registry,
             )
@@ -1219,6 +1333,34 @@ class Decoder:
                 "because minimize is None."
             )
 
+        # If the parent metric has an expression in its properties, use it
+        # directly to create an Objective (preserving the original expression).
+        parent_properties = parent_metric_sqa.properties or {}
+        if "expression" in parent_properties:
+            expr = parent_properties["expression"]
+            from ax.utils.common.sympy import (
+                extract_metric_names_from_objective_expr,
+                parse_objective_expression,
+            )
+
+            if re.search(r"[()]", expr):
+                warnings.warn(
+                    f"Objective expression {expr!r} contains characters that "
+                    "SymPy may misinterpret (parentheses, commas). Metric "
+                    "names with special characters may not round-trip "
+                    "correctly through this deserialization path.",
+                    stacklevel=2,
+                )
+            parsed = parse_objective_expression(expr)
+            sub_exprs = parsed if isinstance(parsed, tuple) else (parsed,)
+            names: list[str] = []
+            for se in sub_exprs:
+                names.extend(extract_metric_names_from_objective_expr(se))
+            mapping = {n: n for n in names}
+            obj = Objective(expression=expr, metric_name_to_signature=mapping)
+            obj.db_id = parent_metric_sqa.id
+            return obj
+
         metrics_sqa_children = self._get_and_process_children_metrics(
             parent_metric_sqa=parent_metric_sqa,
             children_attribute_name="scalarized_objective_children_metrics",
@@ -1256,12 +1398,14 @@ class Decoder:
                 "Cannot decode SQAMetric to OutcomeConstraint because "
                 "bound, op, or relative is None."
             )
-        return OutcomeConstraint(
+        oc = OutcomeConstraint(
             metric=metric,
             bound=float(none_throws(metric_sqa.bound)),
             op=none_throws(metric_sqa.op),
             relative=none_throws(metric_sqa.relative),
         )
+        oc.db_id = metric_sqa.id
+        return oc
 
     def _scalarized_outcome_constraint_from_sqa(
         self, metric: Metric, metric_sqa: SQAMetric
@@ -1325,9 +1469,7 @@ class Decoder:
             relative=relative,
             op=metric_sqa.op,
         )
-        # ObjectiveThreshold constructor clones the passed-in metric, which means
-        # the db id gets lost and so we need to reset it
-        ot.metric._db_id = metric.db_id
+        ot.db_id = metric_sqa.id
         return ot
 
     def _get_and_process_children_metrics(
@@ -1346,6 +1488,8 @@ class Decoder:
         4. Applying skip_runners_and_metrics logic to children.
             This step requires setting skip_runners_and_metrics in
             `_set_sqa_metric_to_base_type` ahead of time.
+        5. Deduplicating children by metric name, keeping the first
+            occurrence and logging a warning if duplicates are found.
 
         Args:
             parent_metric_sqa: The parent metric SQA object.
@@ -1373,7 +1517,20 @@ class Decoder:
             for child_metric in children_metrics_sqa:
                 child_metric.metric_type = self.config.metric_registry[Metric]
 
-        return children_metrics_sqa
+        # Dedup children by metric name, keeping the first occurrence.
+        seen_names: set[str] = set()
+        deduped_children: list[SQAMetric] = []
+        for child in children_metrics_sqa:
+            if child.name not in seen_names:
+                seen_names.add(child.name)
+                deduped_children.append(child)
+            else:
+                logger.warning(
+                    f"Duplicate child metric '{child.name}' found in "
+                    f"{metric_type_name}; dropping duplicate."
+                )
+
+        return deduped_children
 
 
 def _get_scalarized_objective_children_metrics(

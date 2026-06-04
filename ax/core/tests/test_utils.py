@@ -10,36 +10,35 @@ from copy import deepcopy
 from datetime import datetime, timedelta
 from unittest.mock import patch
 
-import numpy as np
 import pandas as pd
 from ax.core.arm import Arm
 from ax.core.batch_trial import BatchTrial
 from ax.core.data import Data
+from ax.core.derived_metric import DerivedMetric
 from ax.core.evaluations_to_data import raw_evaluations_to_data
 from ax.core.generator_run import GeneratorRun
+from ax.core.llm_provider import LLMMessage
 from ax.core.metric import Metric
 from ax.core.objective import Objective
 from ax.core.observation import ObservationFeatures
 from ax.core.optimization_config import OptimizationConfig
 from ax.core.outcome_constraint import OutcomeConstraint
+from ax.core.trial import Trial
 from ax.core.trial_status import TrialStatus
 from ax.core.types import ComparisonOp
 from ax.core.utils import (
     _maybe_update_trial_status_to_complete,
     batch_trial_only,
-    best_feasible_objective,
     compute_metric_availability,
     extract_pending_observations,
-    get_missing_metrics,
-    get_missing_metrics_by_name,
     get_model_times,
     get_model_trace_of_times,
     get_pending_observation_features,
     get_pending_observation_features_based_on_trial_status as get_pending_status,
     get_target_trial_index,
     is_bandit_experiment,
+    is_lilo_experiment,
     MetricAvailability,
-    MissingMetrics,
 )
 from ax.exceptions.core import AxError
 from ax.utils.common.constants import Keys
@@ -51,7 +50,7 @@ from ax.utils.testing.core_stubs import (
     get_experiment,
     get_hierarchical_search_space_experiment,
 )
-from pyre_extensions import none_throws
+from pyre_extensions import assert_is_instance, none_throws
 
 
 class UtilsTest(TestCase):
@@ -94,119 +93,10 @@ class UtilsTest(TestCase):
             trial_index=self.hss_trial.index,
             metadata=self.hss_cand_metadata,
         )
-        self.df = pd.DataFrame(
-            [
-                {
-                    "arm_name": "0_0",
-                    "mean": 2.0,
-                    "sem": 0.2,
-                    "trial_index": 1,
-                    "metric_name": "a",
-                    "start_time": "2018-01-01",
-                    "end_time": "2018-01-02",
-                    "metric_signature": "a",
-                },
-                {
-                    "arm_name": "0_0",
-                    "mean": 1.8,
-                    "sem": 0.3,
-                    "trial_index": 1,
-                    "metric_name": "b",
-                    "start_time": "2018-01-01",
-                    "end_time": "2018-01-02",
-                    "metric_signature": "b",
-                },
-                {
-                    "arm_name": "0_1",
-                    "mean": float("nan"),
-                    "sem": float("nan"),
-                    "trial_index": 1,
-                    "metric_name": "a",
-                    "start_time": "2018-01-01",
-                    "end_time": "2018-01-02",
-                    "metric_signature": "a",
-                },
-                {
-                    "arm_name": "0_1",
-                    "mean": 3.7,
-                    "sem": 0.5,
-                    "trial_index": 1,
-                    "metric_name": "b",
-                    "start_time": "2018-01-01",
-                    "end_time": "2018-01-02",
-                    "metric_signature": "b",
-                },
-                {
-                    "arm_name": "0_2",
-                    "mean": 0.5,
-                    "sem": None,
-                    "trial_index": 1,
-                    "metric_name": "a",
-                    "start_time": "2018-01-01",
-                    "end_time": "2018-01-02",
-                    "metric_signature": "a",
-                },
-                {
-                    "arm_name": "0_2",
-                    "mean": float("nan"),
-                    "sem": float("nan"),
-                    "trial_index": 1,
-                    "metric_name": "b",
-                    "start_time": "2018-01-01",
-                    "end_time": "2018-01-02",
-                    "metric_signature": "b",
-                },
-                {
-                    "arm_name": "0_2",
-                    "mean": float("nan"),
-                    "sem": float("nan"),
-                    "trial_index": 1,
-                    "metric_name": "c",
-                    "start_time": "2018-01-01",
-                    "end_time": "2018-01-02",
-                    "metric_signature": "c",
-                },
-            ]
-        )
-
-        self.data = Data(df=self.df)
-
-        self.optimization_config = OptimizationConfig(
-            objective=Objective(metric=Metric(name="a"), minimize=False),
-            outcome_constraints=[
-                OutcomeConstraint(
-                    metric=Metric(name="b"),
-                    op=ComparisonOp.GEQ,
-                    bound=0,
-                    relative=False,
-                )
-            ],
-        )
         self.batch_experiment = get_branin_experiment(with_completed_trial=False)
         self.batch_experiment.status_quo = Arm(
             name="status_quo", parameters={"x1": 0.0, "x2": 0.0}
         )
-
-    def test_get_missing_metrics_by_name(self) -> None:
-        expected = {"a": {("0_1", 1)}, "b": {("0_2", 1)}}
-        actual = get_missing_metrics_by_name(self.data, ["a", "b"])
-        self.assertEqual(actual, expected)
-
-    def test_get_missing_metrics(self) -> None:
-        expected = MissingMetrics(
-            {"a": {("0_1", 1)}},
-            {"b": {("0_2", 1)}},
-            {"c": {("0_0", 1), ("0_1", 1), ("0_2", 1)}},
-        )
-        actual = get_missing_metrics(self.data, self.optimization_config)
-        self.assertEqual(actual, expected)
-
-    def test_best_feasible_objective(self) -> None:
-        bfo = best_feasible_objective(
-            self.optimization_config,
-            values={"a": np.array([1.0, 3.0, 2.0]), "b": np.array([0.0, -1.0, 0.0])},
-        )
-        self.assertEqual(list(bfo), [1.0, 1.0, 2.0])
 
     def test_get_model_times(self) -> None:
         exp = get_branin_experiment(num_trial=2)
@@ -377,7 +267,7 @@ class UtilsTest(TestCase):
                         }
                         for metric_name in none_throws(
                             experiment.optimization_config
-                        ).metrics
+                        ).metric_names
                     ]
                 )
             )
@@ -459,7 +349,7 @@ class UtilsTest(TestCase):
                     }
                     for metric_name in none_throws(
                         experiment.optimization_config
-                    ).metrics
+                    ).metric_names
                 ]
             )
         )
@@ -474,14 +364,14 @@ class UtilsTest(TestCase):
         # NOT be pending for any metric.
         pending = get_pending_observation_features(experiment)
         if pending is not None:
-            for metric_name in none_throws(experiment.optimization_config).metrics:
+            for metric_name in none_throws(experiment.optimization_config).metric_names:
                 self.assertNotIn(obs_feat, pending.get(metric_name, []))
 
         # get_pending_observation_features_based_on_trial_status:
         # COMPLETED+COMPLETE trial should NOT be pending.
         pending_status = get_pending_status(experiment)
         if pending_status is not None:
-            for metric_name in none_throws(experiment.optimization_config).metrics:
+            for metric_name in none_throws(experiment.optimization_config).metric_names:
                 self.assertNotIn(obs_feat, pending_status.get(metric_name, []))
 
     def test_get_pending_observation_features_multi_trial(self) -> None:
@@ -981,6 +871,93 @@ class UtilsTest(TestCase):
             completed_trial.index,
         )
 
+    def test_get_target_trial_index_excludes_lilo_trials(self) -> None:
+        """LILO labeling trials should never be selected as the target trial."""
+        exp = get_branin_experiment(with_completed_trial=False)
+        exp.status_quo = Arm(name="status_quo", parameters={"x1": 0.0, "x2": 0.0})
+
+        # Sobol trial with base metric data.
+        sobol_trial = exp.new_batch_trial().add_arm(exp.status_quo)
+        sobol_trial.mark_completed(unsafe=True)
+        exp.attach_data(get_branin_data_batch(batch=sobol_trial))
+
+        # Register a pairwise preference DerivedMetric (mimics configure_lilo).
+        pairwise_name = Keys.PAIRWISE_PREFERENCE_QUERY.value
+        pairwise_metric = DerivedMetric(
+            name=pairwise_name, input_metric_names=["branin"]
+        )
+        exp.add_tracking_metric(pairwise_metric)
+        exp.optimization_config = OptimizationConfig(
+            objective=Objective(
+                expression=pairwise_name,
+                metric_name_to_signature={pairwise_name: pairwise_name},
+            ),
+        )
+        exp.llm_messages = [LLMMessage(role="system", content="test")]
+
+        # LILO trial with pairwise data and SQ.
+        lilo_trial = exp.new_batch_trial(trial_type=Keys.LILO_LABELING)
+        lilo_trial.add_arm(exp.status_quo)
+        lilo_trial.add_arm(Arm(name="lilo_arm", parameters={"x1": 0.5, "x2": 0.5}))
+        lilo_trial.mark_completed(unsafe=True)
+        exp.attach_data(
+            Data(
+                df=pd.DataFrame(
+                    [
+                        {
+                            "arm_name": "status_quo",
+                            "mean": 0.0,
+                            "sem": 0.0,
+                            "trial_index": lilo_trial.index,
+                            "metric_name": pairwise_name,
+                            "metric_signature": pairwise_name,
+                        },
+                        {
+                            "arm_name": "lilo_arm",
+                            "mean": 1.0,
+                            "sem": 0.0,
+                            "trial_index": lilo_trial.index,
+                            "metric_name": pairwise_name,
+                            "metric_signature": pairwise_name,
+                        },
+                    ]
+                )
+            )
+        )
+
+        # Without the LILO exclusion, the LILO trial would be selected
+        # (it has COMPLETE data for the opt config metric).  With the
+        # exclusion, the Sobol trial is selected via the INCOMPLETE fallback.
+        target = get_target_trial_index(experiment=exp)
+        self.assertEqual(target, sobol_trial.index)
+
+    def test_is_lilo_experiment(self) -> None:
+        # No opt config → False.
+        exp_no_oc = get_branin_experiment(has_optimization_config=False)
+        self.assertFalse(is_lilo_experiment(exp_no_oc))
+
+        # Objective is not pairwise_pref_query → False.
+        exp = get_branin_experiment(with_completed_trial=False)
+        self.assertFalse(is_lilo_experiment(exp))
+
+        # Pairwise metric in objective but no LLM messages → False (PBO).
+        pairwise_name = Keys.PAIRWISE_PREFERENCE_QUERY.value
+        pairwise_metric = DerivedMetric(
+            name=pairwise_name, input_metric_names=["branin"]
+        )
+        exp.add_tracking_metric(pairwise_metric)
+        exp.optimization_config = OptimizationConfig(
+            objective=Objective(
+                expression=pairwise_name,
+                metric_name_to_signature={pairwise_name: pairwise_name},
+            ),
+        )
+        self.assertFalse(is_lilo_experiment(exp))
+
+        # Both conditions met → True.
+        exp.llm_messages = [LLMMessage(role="user", content="optimize latency")]
+        self.assertTrue(is_lilo_experiment(exp))
+
 
 class TestMetricAvailability(TestCase):
     def setUp(self) -> None:
@@ -1138,6 +1115,8 @@ class TestMetricAvailability(TestCase):
             with_trial=True,
             with_completed_trial=False,
         )
+        exp.add_metric(Metric(name="metric_a"))
+        exp.add_metric(Metric(name="metric_b"))
         exp.optimization_config = OptimizationConfig(
             objective=Objective(metric=Metric(name="metric_a"), minimize=False),
             outcome_constraints=[
@@ -1151,7 +1130,7 @@ class TestMetricAvailability(TestCase):
         )
         trial = exp.trials[0]
         trial.mark_running(no_runner_required=True)
-        arm_name = trial.arm.name  # pyre-ignore[16]
+        arm_name = none_throws(assert_is_instance(trial, Trial).arm).name
 
         # Both metrics present at various steps → COMPLETE.
         df_both = pd.DataFrame(
@@ -1180,10 +1159,12 @@ class TestMetricAvailability(TestCase):
             with_trial=True,
             with_completed_trial=False,
         )
+        exp2.add_metric(Metric(name="metric_a"))
+        exp2.add_metric(Metric(name="metric_b"))
         exp2.optimization_config = none_throws(exp.optimization_config)
         trial2 = exp2.trials[0]
         trial2.mark_running(no_runner_required=True)
-        arm_name2 = trial2.arm.name  # pyre-ignore[16]
+        arm_name2 = none_throws(assert_is_instance(trial2, Trial).arm).name
         df_partial = pd.DataFrame(
             [
                 {

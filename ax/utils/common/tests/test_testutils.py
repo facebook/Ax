@@ -17,13 +17,12 @@ from botorch.exceptions.warnings import InputDataWarning
 from botorch.models.gp_regression import SingleTaskGP
 
 
-# pyre-fixme[3]: Return type must be annotated.
-def _f():
+def _f() -> None:
     e = RuntimeError("Test")
     raise e
 
 
-F_FAILURE_LINENO = 23  # Line # for the error in `_f`.
+F_FAILURE_LINENO = 22  # Line # for the error in `_f`.
 
 
 def _g() -> None:

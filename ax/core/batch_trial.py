@@ -396,7 +396,7 @@ class BatchTrial(BaseTrial):
             if self.experiment.search_space.check_membership(arm.parameters)
         ]
 
-    # pyre-ignore[6]: T77111662.
+    # pyre-ignore[6]: pyre does not understand @copy_doc with @property.
     @copy_doc(BaseTrial.generator_runs)
     @property
     def generator_runs(self) -> list[GeneratorRun]:
@@ -457,7 +457,7 @@ class BatchTrial(BaseTrial):
         weights = np.array(self.weights)
         if trunc_digits is not None:
             atomic_weight = 10**-trunc_digits
-            int_weights = (
+            int_weights = np.asarray(
                 (total / atomic_weight) * (weights / np.sum(weights))
             ).astype(int)
             n_leftover = int(total / atomic_weight) - np.sum(int_weights)
@@ -473,11 +473,11 @@ class BatchTrial(BaseTrial):
         Usually done after deployment when one arm causes issues but
         user wants to continue running other arms in the batch.
 
-        NOTE: Abandoned arms are considered to be 'pending points' in
-        experiment after their abandonment to avoid Ax models suggesting
-        the same arm again as a new candidate. Abandoned arms are also
-        excluded from model training data unless ``fit_abandoned``
-        is specified to adapter via ``DataLoaderConfig``.
+        NOTE: Abandoned arms are not considered pending points, so
+        their parameter configurations are eligible for re-suggestion
+        by the model. Abandoned arms are also excluded from model
+        training data unless ``fit_abandoned`` is specified to adapter
+        via ``DataLoaderConfig``.
 
         Args:
             arm_name: The name of the arm to abandon.

@@ -16,10 +16,10 @@ from ax.core.optimization_config import (
     MultiObjectiveOptimizationConfig,
     OptimizationConfig,
 )
-from ax.core.outcome_constraint import ObjectiveThreshold
+from ax.core.outcome_constraint import OutcomeConstraint
 from ax.core.trial import Trial
 from ax.core.types import ComparisonOp
-from ax.exceptions.core import AxError
+from ax.exceptions.core import AxError, UnsupportedError
 from ax.global_stopping.strategies.base import BaseGlobalStoppingStrategy
 from ax.service.utils.best_point import (
     get_tensor_converter_adapter,
@@ -79,7 +79,7 @@ class ImprovementGlobalStoppingStrategy(BaseGlobalStoppingStrategy):
         self.window_size = window_size
         self.improvement_bar = improvement_bar
         self.hv_by_trial: dict[int, float] = {}
-        self._inferred_objective_thresholds: list[ObjectiveThreshold] | None = None
+        self._inferred_objective_thresholds: list[OutcomeConstraint] | None = None
 
     def __repr__(self) -> str:
         return super().__repr__() + (
@@ -93,7 +93,7 @@ class ImprovementGlobalStoppingStrategy(BaseGlobalStoppingStrategy):
         self,
         experiment: Experiment,
         trial_to_check: int | None = None,
-        objective_thresholds: list[ObjectiveThreshold] | None = None,
+        objective_thresholds: list[OutcomeConstraint] | None = None,
     ) -> tuple[bool, str]:
         """
         Check if the objective has improved significantly in the past
@@ -157,6 +157,19 @@ class ImprovementGlobalStoppingStrategy(BaseGlobalStoppingStrategy):
                 "state of the experiment."
             )
 
+        opt_config = none_throws(experiment.optimization_config)
+        if opt_config.objective.is_scalarized_objective:
+            raise UnsupportedError(
+                "ImprovementGlobalStoppingStrategy does not support scalarized "
+                "objectives. The objective is a combination of metrics, not a "
+                "single metric."
+            )
+        if any(len(oc.metric_names) > 1 for oc in opt_config.outcome_constraints):
+            raise UnsupportedError(
+                "ImprovementGlobalStoppingStrategy does not support scalarized "
+                "outcome constraints."
+            )
+
         if isinstance(experiment.optimization_config, MultiObjectiveOptimizationConfig):
             if objective_thresholds is None:
                 # self._inferred_objective_thresholds is cached and only computed once.
@@ -198,7 +211,7 @@ class ImprovementGlobalStoppingStrategy(BaseGlobalStoppingStrategy):
         self,
         experiment: Experiment,
         trial_to_check: int,
-        objective_thresholds: list[ObjectiveThreshold],
+        objective_thresholds: list[OutcomeConstraint],
     ) -> tuple[bool, str]:
         """
         This is the "should_stop_optimization" method of this class, specialized
@@ -303,9 +316,10 @@ class ImprovementGlobalStoppingStrategy(BaseGlobalStoppingStrategy):
                 objectives.append(tr.objective_mean)
                 is_feasible.append(constraint_satisfaction(tr))
 
-        if assert_is_instance(
+        minimize = assert_is_instance(
             experiment.optimization_config, OptimizationConfig
-        ).objective.minimize:
+        ).objective.minimize
+        if minimize:
             selector, mask_val = np.minimum, np.inf
         else:
             selector, mask_val = np.maximum, -np.inf
@@ -362,7 +376,7 @@ def constraint_satisfaction(trial: BaseTrial) -> bool:
     df = trial.lookup_data().df
     for constraint in outcome_constraints:
         bound = constraint.bound
-        metric_name = constraint.metric.name
+        metric_name = constraint.metric_names[0]
         metric_data = df.loc[df["metric_name"] == metric_name]
         mean, sem = metric_data.iloc[0][["mean", "sem"]]
         if sem > 0.0:

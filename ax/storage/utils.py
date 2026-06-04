@@ -58,6 +58,7 @@ class ParameterConstraintType(enum.Enum):
     ORDER = 1
     SUM = 2
     DISTRIBUTION = 3  # DEPRECATED
+    EQUALITY = 4
 
 
 def stable_hash(s: str) -> int:

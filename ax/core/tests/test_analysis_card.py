@@ -9,7 +9,7 @@ import pandas as pd
 from ax.analysis.analysis import AnalysisCard
 from ax.analysis.markdown.markdown_analysis import MarkdownAnalysisCard
 from ax.analysis.plotly.plotly_analysis import PlotlyAnalysisCard
-from ax.core.analysis_card import AnalysisCardGroup
+from ax.core.analysis_card import AnalysisCardGroup, NotApplicableStateAnalysisCard
 from ax.utils.common.testutils import TestCase
 from plotly import graph_objects as go, io as pio
 
@@ -67,3 +67,14 @@ class TestAnalysisCard(TestCase):
         test_markdown_analysis_card_title"""
 
         self.assertEqual(big_group.hierarchy_str(), expected)
+
+    def test_not_applicable_card(self) -> None:
+        """Test NotApplicableStateAnalysisCard._body_html renders blob content."""
+        card = NotApplicableStateAnalysisCard(
+            name="Test",
+            title="Test",
+            subtitle="",
+            df=pd.DataFrame(),
+            blob="Explanation text.",
+        )
+        self.assertIn("Explanation text.", card._body_html(depth=0))

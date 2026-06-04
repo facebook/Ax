@@ -84,9 +84,12 @@ class PFeasiblePlot(Analysis):
 
         optimization_config = experiment.optimization_config
         if optimization_config is None:
-            return "Experiment must have an OptimizationConfig."
+            return (
+                "The experiment must have an OptimizationConfig (with defined "
+                "objectives and constraints) to compute probability of feasibility."
+            )
 
-        if len(optimization_config.objective.metrics) > 1:
+        if optimization_config.objective.is_multi_objective:
             return "Only single-objective optimization is supported."
 
         outcome_constraints_validation_str = validate_outcome_constraints(
@@ -96,7 +99,7 @@ class PFeasiblePlot(Analysis):
             return outcome_constraints_validation_str
 
         outcome_constraint_metrics = [
-            outcome_constraint.metric.name
+            outcome_constraint.metric_names[0]
             for outcome_constraint in optimization_config.outcome_constraints
         ]
 
@@ -151,7 +154,7 @@ class PFeasiblePlot(Analysis):
         arm_data = prepare_arm_data(
             experiment=experiment,
             metric_names=[
-                outcome_constrinat.metric.name
+                outcome_constrinat.metric_names[0]
                 for outcome_constrinat in optimization_config.outcome_constraints
             ],
             use_model_predictions=self.use_model_predictions,

@@ -143,9 +143,11 @@ class DiscreteAdapterTest(TestCase):
     def test_gen(self) -> None:
         # Test with constraints
         optimization_config = OptimizationConfig(
-            objective=Objective(Metric("m1"), minimize=True),
+            objective=Objective(metric=Metric("m1"), minimize=True),
             outcome_constraints=[
-                OutcomeConstraint(Metric("m2"), ComparisonOp.GEQ, 2, False)
+                OutcomeConstraint(
+                    metric=Metric("m2"), op=ComparisonOp.GEQ, bound=2, relative=False
+                )
             ],
         )
         with mock.patch("ax.generators.discrete_base.DiscreteGenerator.fit"):
@@ -229,9 +231,11 @@ class DiscreteAdapterTest(TestCase):
 
         # Test validation
         optimization_config = OptimizationConfig(
-            objective=Objective(Metric("m1"), minimize=False),
+            objective=Objective(metric=Metric("m1"), minimize=False),
             outcome_constraints=[
-                OutcomeConstraint(Metric("m2"), ComparisonOp.GEQ, 2, True)
+                OutcomeConstraint(
+                    metric=Metric("m2"), op=ComparisonOp.GEQ, bound=2, relative=True
+                )
             ],
         )
         with self.assertRaisesRegex(ValueError, "relative constraint"):

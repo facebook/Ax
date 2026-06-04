@@ -8,6 +8,7 @@
 
 import logging
 from collections.abc import Mapping
+from datetime import datetime
 from math import ceil
 from typing import Any, cast
 
@@ -418,10 +419,10 @@ def _get_experiment_id(experiment_name: str, config: SQAConfig) -> int | None:
     """Get DB ID of the experiment by the given name if its in DB,
     return None otherwise.
     """
-    exp_sqa_class = config.class_to_sqa_class[Experiment]
+    exp_sqa_class = cast(type[SQAExperiment], config.class_to_sqa_class[Experiment])
     with session_scope() as session:
         sqa_experiment_id = (
-            session.query(exp_sqa_class.id)  # pyre-ignore
+            session.query(exp_sqa_class.id)
             .filter_by(name=experiment_name)
             .one_or_none()
         )
@@ -521,11 +522,7 @@ def _load_generation_strategy_by_id(
         (
             _get_experiment_immutable_opt_config_and_search_space(
                 experiment_name=experiment.name,
-                # pyre-ignore Incompatible parameter type [6]: Expected
-                # `Type[SQAExperiment]` for 2nd parameter `exp_sqa_class`
-                # to call `_get_experiment_immutable_opt_config_and_search_space`
-                # but got `Type[ax.storage.sqa_store.db.SQABase]`.
-                exp_sqa_class=exp_sqa_class,
+                exp_sqa_class=cast(type[SQAExperiment], exp_sqa_class),
             )
         )
         if experiment is not None
@@ -552,13 +549,14 @@ def get_generation_strategy_id(experiment_name: str, decoder: Decoder) -> int | 
     """
     exp_sqa_class = decoder.config.class_to_sqa_class[Experiment]
     gs_sqa_class = decoder.config.class_to_sqa_class[GenerationStrategy]
+    gs_sqa_class_typed = cast(type[SQAGenerationStrategy], gs_sqa_class)
+    exp_sqa_class_typed = cast(type[SQAExperiment], exp_sqa_class)
     with session_scope() as session:
         sqa_gs_ids = (
-            session.query(gs_sqa_class.id)  # pyre-ignore[16]
-            .join(exp_sqa_class.generation_strategy)  # pyre-ignore[16]
-            # pyre-fixme[16]: `SQABase` has no attribute `name`.
-            .filter(exp_sqa_class.name == experiment_name)
-            .order_by(gs_sqa_class.id.desc())
+            session.query(gs_sqa_class_typed.id)
+            .join(exp_sqa_class_typed.generation_strategy)
+            .filter(exp_sqa_class_typed.name == experiment_name)
+            .order_by(gs_sqa_class_typed.id.desc())
             .all()
         )
 
@@ -616,10 +614,12 @@ def get_generation_strategy_sqa_reduced_state(
                 gr_sqa_class.parameter_constraints
             ),
             defaultload(gs_sqa_class.generator_runs).lazyload(gr_sqa_class.metrics),
-            defaultload(gs_sqa_class.generator_runs).defer("model_kwargs"),
-            defaultload(gs_sqa_class.generator_runs).defer("bridge_kwargs"),
-            defaultload(gs_sqa_class.generator_runs).defer("model_state_after_gen"),
-            defaultload(gs_sqa_class.generator_runs).defer("gen_metadata"),
+            defaultload(gs_sqa_class.generator_runs).defer(gr_sqa_class.model_kwargs),
+            defaultload(gs_sqa_class.generator_runs).defer(gr_sqa_class.bridge_kwargs),
+            defaultload(gs_sqa_class.generator_runs).defer(
+                gr_sqa_class.model_state_after_gen
+            ),
+            defaultload(gs_sqa_class.generator_runs).defer(gr_sqa_class.gen_metadata),
         ],
     )
 
@@ -648,10 +648,12 @@ def get_generator_runs_by_id(
     immutable_search_space_and_opt_config: bool = False,
 ) -> list[GeneratorRun]:
     """Bulk fetches generator runs by id."""
-    generator_run_sqa_class = decoder.config.class_to_sqa_class[GeneratorRun]
+    generator_run_sqa_class = cast(
+        type[SQAGeneratorRun], decoder.config.class_to_sqa_class[GeneratorRun]
+    )
     with session_scope() as session:
         query = session.query(generator_run_sqa_class).filter(
-            generator_run_sqa_class.id.in_(generator_run_ids)  # pyre-ignore[16]
+            generator_run_sqa_class.id.in_(generator_run_ids)
         )
         sqa_grs = query.all()
     return [
@@ -712,8 +714,8 @@ def load_analysis_cards_by_experiment_name(
             analysis_card_sqa_class.children
         )
 
-    exp_sqa_class: SQAExperiment = cast(
-        SQAExperiment, decoder.config.class_to_sqa_class[Experiment]
+    exp_sqa_class = cast(
+        type[SQAExperiment], decoder.config.class_to_sqa_class[Experiment]
     )
 
     with session_scope() as session:
@@ -735,7 +737,7 @@ def _query_historical_experiments_given_parameters(
     parameter_names: list[str],
     experiment_types: list[str],
     config: SQAConfig | None = None,
-) -> dict[str, SearchSpace | None]:
+) -> dict[str, tuple[SearchSpace | None, datetime]]:
     r"""
     Find historical experiments of given types tuning any of the given
         parameter names.
@@ -744,8 +746,9 @@ def _query_historical_experiments_given_parameters(
         parameter_names: List of parameter names.
         experiment_types: List of experiment types.
 
-    Returns: Dictionary mapping experiment names to their filtered SearchSpace objects
-        containing only the parameters that are also present in the target experiment.
+    Returns: Dictionary mapping experiment names to a tuple of their filtered
+        SearchSpace (containing only parameters also present in the target
+        experiment) and the experiment's creation time.
     """
     from ax.storage.sqa_store.encoder import Encoder
 
@@ -754,9 +757,9 @@ def _query_historical_experiments_given_parameters(
     encoder = Encoder(config=config)
 
     with session_scope() as session:
-        # Query both parameters and experiment names
+        # Query parameters, experiment names, and creation time
         parameters_query = (
-            session.query(SQAParameter, SQAExperiment.name)
+            session.query(SQAParameter, SQAExperiment.name, SQAExperiment.time_created)
             .filter(SQAParameter.name.in_(parameter_names))
             .join(SQAExperiment, SQAParameter.experiment_id == SQAExperiment.id)
             .filter(
@@ -765,6 +768,8 @@ def _query_historical_experiments_given_parameters(
                         encoder.get_enum_value(t, config.experiment_type_enum)
                         for t in experiment_types
                     ]
+                    if config.experiment_type_enum is not None
+                    else experiment_types
                 )
             )
             .filter(SQAExperiment.is_test == False)  # noqa E712 `is` won't work for SQA
@@ -775,22 +780,31 @@ def _query_historical_experiments_given_parameters(
 
         query_results = parameters_query.all()
 
-        # Group parameters by experiment name
+        # Group parameters by experiment name, track creation time
         experiments_params: dict[str, list[SQAParameter]] = {}
-        for sqa_param, exp_name in query_results:
+        experiments_time_created: dict[str, datetime] = {}
+        for sqa_param, exp_name, time_created in query_results:
             if exp_name not in experiments_params:
                 experiments_params[exp_name] = []
-
             experiments_params[exp_name].append(sqa_param)
+            experiments_time_created[exp_name] = time_created
 
-        return {
-            exp_name: decoder.search_space_from_sqa(
-                parameters_sqa=parameters_sqa,
-                # Parameter constraints don't matter for search space compatibility
-                parameter_constraints_sqa=[],
-            )
-            for exp_name, parameters_sqa in experiments_params.items()
-        }
+        results: dict[str, tuple[SearchSpace | None, datetime]] = {}
+        for exp_name, parameters_sqa in experiments_params.items():
+            try:
+                search_space = decoder.search_space_from_sqa(
+                    parameters_sqa=parameters_sqa,
+                    # Parameter constraints don't matter for search space
+                    # compatibility
+                    parameter_constraints_sqa=[],
+                )
+            except Exception as e:
+                logger.warning(
+                    f"Failed to decode search space for experiment '{exp_name}': {e}"
+                )
+                search_space = None
+            results[exp_name] = (search_space, experiments_time_created[exp_name])
+        return results
 
 
 def identify_transferable_experiments(
@@ -799,10 +813,14 @@ def identify_transferable_experiments(
     overlap_threshold: float = 0.0,
     max_num_exps: int = 10,
     config: SQAConfig | None = None,
+    experiment_name: str | None = None,
 ) -> Mapping[str, TransferLearningMetadata]:
     r"""
     Find all transferable historical experiments of given types having at least the
     given proportion of overlapping parameters with the provided search space.
+
+    Results are sorted by overlap proportion descending, then by recency
+    (most recently created first).
 
     Args:
         search_space: Search space to compare with historical experiments.
@@ -811,8 +829,11 @@ def identify_transferable_experiments(
         max_num_exps: Max number of transferable experiments to return
             with highest prop overlap.
         config: SQAConfig to use for the query. Defaults to None (use default config).
+        experiment_name: If provided, exclude this experiment from results (used
+            to filter out the target experiment itself).
 
-    Returns: A dictionary mapping experiment names to overlapping parameter names
+    Returns: A dictionary mapping experiment names to overlapping parameter names,
+        ordered by overlap then recency.
     """
 
     experiments_search_spaces = _query_historical_experiments_given_parameters(
@@ -825,17 +846,23 @@ def identify_transferable_experiments(
 
     # Calculate overlap for each experiment
     results = []
-    for exp_name, exp_search_space in experiments_search_spaces.items():
+    for exp_name, (exp_search_space, time_created) in experiments_search_spaces.items():
+        if experiment_name is not None and exp_name == experiment_name:
+            continue
         if not exp_search_space:
             continue
+        num_tunable_params = len(exp_search_space.tunable_parameters.values())
+        if num_tunable_params == 0:
+            continue
         overlap_params = exp_search_space.get_overlapping_parameters(search_space)
-        prop_overlap = len(overlap_params) / len(search_space.parameters)
+        prop_overlap = len(overlap_params) / num_tunable_params
         if prop_overlap >= overlap_threshold:
             results.append(
                 {
                     "experiment_name": exp_name,
                     "overlap_params": overlap_params,
                     "prop_overlap": prop_overlap,
+                    "time_created": time_created,
                 }
             )
 
@@ -843,7 +870,8 @@ def identify_transferable_experiments(
     df = pd.DataFrame(results)
     if df.empty:
         return {}
-    df = df.sort_values(by="prop_overlap", ascending=False)
+    # Sort by overlap descending, then by recency (most recent first)
+    df = df.sort_values(by=["prop_overlap", "time_created"], ascending=[False, False])
 
     if max_num_exps is not None:
         df = df.head(max_num_exps)
@@ -883,12 +911,9 @@ def load_candidate_source_auxiliary_experiments(
                 search_space=target_experiment.search_space,
                 experiment_types=[experiment_type],
                 config=config,
+                experiment_name=target_experiment.name,
             )
-            return {
-                experiment: metadata
-                for experiment, metadata in transferable_experiments.items()
-                if experiment != target_experiment.name
-            }
+            return transferable_experiments
         case _:
             raise NotImplementedError(
                 "Loading candidate source auxiliary experiments for purpose "

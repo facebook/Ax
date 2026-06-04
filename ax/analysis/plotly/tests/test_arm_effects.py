@@ -12,7 +12,9 @@ from ax.adapter.registry import Generators
 from ax.analysis.plotly.arm_effects import ArmEffectsPlot, compute_arm_effects_adhoc
 from ax.api.client import Client
 from ax.api.configs import RangeParameterConfig
+from ax.core.analysis_card import AnalysisCard
 from ax.core.arm import Arm
+from ax.core.generator_run import GeneratorRun
 from ax.core.trial_status import DEFAULT_ANALYSIS_STATUSES, TrialStatus
 from ax.exceptions.core import UserInputError
 from ax.utils.common.testutils import TestCase
@@ -201,6 +203,57 @@ class TestArmEffectsPlot(TestCase):
 
         self.assertEqual(cards, adhoc_cards.children[0])
 
+    def test_compute_with_generator_runs(self) -> None:
+        gr = GeneratorRun(
+            arms=[
+                Arm(parameters={"x1": 0.1, "x2": 0.2}),
+                Arm(parameters={"x1": 0.3, "x2": 0.4}),
+            ]
+        )
+        analysis = ArmEffectsPlot(
+            metric_name="foo",
+            use_model_predictions=True,
+            generator_runs={"my_gr": gr},
+        )
+        card = analysis.compute(
+            experiment=self.client._experiment,
+            generation_strategy=self.client._generation_strategy,
+        )
+        # Check that generator run arms appear with the expected names
+        ticktext = json.loads(card.blob)["layout"]["xaxis"]["ticktext"]
+        self.assertIn("my_gr_0", ticktext)
+        self.assertIn("my_gr_1", ticktext)
+
+    def test_compute_with_additional_arms_and_generator_runs(self) -> None:
+        additional_arm = Arm(parameters={"x1": 0.5, "x2": 0.5}, name="extra_arm")
+        gr = GeneratorRun(arms=[Arm(parameters={"x1": 0.1, "x2": 0.2})])
+        analysis = ArmEffectsPlot(
+            metric_name="foo",
+            use_model_predictions=True,
+            additional_arms=[additional_arm],
+            generator_runs={"my_gr": gr},
+        )
+        card = analysis.compute(
+            experiment=self.client._experiment,
+            generation_strategy=self.client._generation_strategy,
+        )
+        ticktext = json.loads(card.blob)["layout"]["xaxis"]["ticktext"]
+        self.assertIn("extra_arm", ticktext)
+        self.assertIn("my_gr_0", ticktext)
+
+    def test_compute_adhoc_with_generator_runs(self) -> None:
+        gr = GeneratorRun(arms=[Arm(parameters={"x1": 0.1, "x2": 0.2})])
+        cards = compute_arm_effects_adhoc(
+            experiment=self.client._experiment,
+            generation_strategy=self.client._generation_strategy,
+            metric_names=["foo"],
+            generator_runs={"my_gr": gr},
+        )
+        self.assertEqual(len(cards.children), 1)
+        card = assert_is_instance(cards.children[0], AnalysisCard)
+        ticktext = json.loads(card.blob)["layout"]["xaxis"]["ticktext"]
+        self.assertIn("my_gr_0", ticktext)
+
     @TestCase.ax_long_test(
         reason=(
             "Adapter.predict still too slow under @mock_botorch_optimize for this test"
@@ -305,6 +358,108 @@ class TestArmEffectsPlot(TestCase):
                                 experiment=experiment,
                                 adapter=adapter,
                             )
+
+
+class TestArmEffectsPlotInfeasibility(TestCase):
+    def setUp(self) -> None:
+        super().setUp()
+
+        self.client = Client()
+        self.client.configure_experiment(
+            name="test_infeasibility",
+            parameters=[
+                RangeParameterConfig(
+                    name="x1",
+                    parameter_type="float",
+                    bounds=(0, 1),
+                ),
+                RangeParameterConfig(
+                    name="x2",
+                    parameter_type="float",
+                    bounds=(0, 1),
+                ),
+            ],
+        )
+        # Constraint on "bar" (non-objective) so it stays as an OutcomeConstraint.
+        self.client.configure_optimization(
+            objective="foo",
+            outcome_constraints=["bar >= 0.5"],
+        )
+
+        # Trial data: (foo, bar). Arms with bar < 0.5 are infeasible.
+        trial_data = [
+            {"foo": 1.0, "bar": (0.9, 0.01)},  # feasible
+            {"foo": 0.5, "bar": (0.8, 0.01)},  # feasible
+            {"foo": 0.8, "bar": (0.1, 0.01)},  # infeasible
+            {"foo": 0.3, "bar": (0.2, 0.01)},  # infeasible
+        ]
+
+        for raw_data in trial_data:
+            for trial_index, _ in self.client.get_next_trials(max_trials=1).items():
+                self.client.complete_trial(trial_index=trial_index, raw_data=raw_data)
+
+    def test_infeasible_arms_have_red_outline(self) -> None:
+        card = ArmEffectsPlot(metric_name="bar", use_model_predictions=False).compute(
+            experiment=self.client._experiment,
+            generation_strategy=self.client._generation_strategy,
+        )
+        fig_data = json.loads(none_throws(card.blob))
+
+        # All infeasible arms are in a single trace with legendgroup="infeasible"
+        infeasible_traces = [
+            t for t in fig_data["data"] if t.get("legendgroup") == "infeasible"
+        ]
+        # Single trace containing all infeasible arms
+        self.assertEqual(len(infeasible_traces), 1)
+        trace = infeasible_traces[0]
+        self.assertEqual(trace["marker"]["line"]["color"], "rgba(255, 0, 0, 0.6)")
+        self.assertGreater(trace["marker"]["line"]["width"], 0)
+        # The trace should contain 2 infeasible points
+        self.assertEqual(len([x for x in trace["x"] if x is not None]), 2)
+        # Legend entry is on the same trace
+        self.assertTrue(trace["showlegend"])
+        self.assertEqual(trace["legendgroup"], "infeasible")
+
+    def test_no_infeasible_legend_when_all_feasible(self) -> None:
+        # Create an experiment where all arms satisfy the constraint
+        client = Client()
+        client.configure_experiment(
+            name="all_feasible",
+            parameters=[
+                RangeParameterConfig(
+                    name="x1",
+                    parameter_type="float",
+                    bounds=(0, 1),
+                ),
+                RangeParameterConfig(
+                    name="x2",
+                    parameter_type="float",
+                    bounds=(0, 1),
+                ),
+            ],
+        )
+        client.configure_optimization(
+            objective="foo",
+            outcome_constraints=["bar >= 0.5"],
+        )
+
+        for bar_val in [0.9, 0.8, 0.7, 0.6]:
+            for trial_index, _ in client.get_next_trials(max_trials=1).items():
+                client.complete_trial(
+                    trial_index=trial_index,
+                    raw_data={"foo": 1.0, "bar": (bar_val, 0.01)},
+                )
+
+        card = ArmEffectsPlot(metric_name="bar", use_model_predictions=False).compute(
+            experiment=client._experiment,
+            generation_strategy=client._generation_strategy,
+        )
+        fig_data = json.loads(none_throws(card.blob))
+
+        legend_traces = [
+            t for t in fig_data["data"] if t.get("name") == "Likely Infeasible"
+        ]
+        self.assertEqual(len(legend_traces), 0)
 
 
 class TestArmEffectsPlotRel(TestCase):

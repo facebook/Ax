@@ -8,10 +8,10 @@
 
 from __future__ import annotations
 
-import warnings
+from collections.abc import Sequence
 from copy import deepcopy
 from logging import Logger
-from typing import Any, TypeVar
+from typing import cast, TypeVar
 
 from ax.adapter.base import Adapter
 from ax.core.data import Data
@@ -52,14 +52,14 @@ class GenerationStrategy(Base):
     numbers of trials.
 
     Args:
-        nodes: A list of `GenerationNode`. Each `GenerationNode` in the list
-            represents a single node in a `GenerationStrategy` which, when
-            composed of `GenerationNodes`, can be conceptualized as a graph instead
-            of a linear list. `TransitionCriterion` defined in each `GenerationNode`
-            represent the edges in the `GenerationStrategy` graph. `GenerationNodes`
-            are more flexible than `GenerationSteps` and new `GenerationStrategies`
-            should use nodes. Notably, either, but not both, of `nodes` and `steps`
-            must be provided.
+        nodes: A list of `GenerationNode` (or legacy `GenerationStep`). Each
+            `GenerationNode` in the list represents a single node in a
+            `GenerationStrategy` which, when composed of `GenerationNodes`, can
+            be conceptualized as a graph instead of a linear list.
+            `TransitionCriterion` defined in each `GenerationNode` represent the
+            edges in the `GenerationStrategy` graph. `GenerationNodes` are more
+            flexible than `GenerationSteps` and new `GenerationStrategies`
+            should use nodes.
         name: An optional name for this generation strategy. If not specified,
             strategy's name will be names of its nodes' generators joined with '+'.
     """
@@ -77,28 +77,13 @@ class GenerationStrategy(Base):
     def __init__(
         self,
         *,
-        nodes: list[GenerationNode] | None = None,
+        nodes: Sequence[GenerationNode | GenerationStep],
         name: str | None = None,
-        **kwargs: Any,
     ) -> None:
         self._generator_runs = []
-        if not (bool(steps := kwargs.get("steps")) ^ bool(nodes)):  # Steps XOR nodes
-            raise GenerationStrategyMisconfiguredException(
-                "GenerationStrategy must contain either steps or nodes. "
-                f"Got: nodes={nodes}, steps={steps}."
-            )
-
-        if steps:
-            warnings.warn(
-                DeprecationWarning(
-                    "Specifying `steps` input is no longer supported. Please use "
-                    "`nodes`. `steps` argument will be removed in early 2026."
-                ),
-                stacklevel=2,
-            )
-            nodes = steps
-
-        self._validate_and_set_node_graph(nodes=nodes)
+        # GenerationStep.__new__ returns GenerationNode, so all elements
+        # are GenerationNode at runtime despite the union type signature.
+        self._validate_and_set_node_graph(nodes=cast(list[GenerationNode], list(nodes)))
 
         # Set name to an explicit value ahead of time to avoid
         # adding properties during equality checks
@@ -145,6 +130,33 @@ class GenerationStrategy(Base):
         adapters (the case for ``ExternalGenerationNode``).
         """
         return self._curr._fitted_adapter
+
+    def fit(
+        self,
+        experiment: Experiment,
+        data: Data | None = None,
+    ) -> Adapter | None:
+        """Transition to the appropriate node and fit the model.
+
+        This is the public API for fitting a model outside the ``gen`` flow.
+        It first transitions to the appropriate node so the strategy
+        advances to the correct node based on the current experiment state
+        (e.g. selecting a transfer-learning node when auxiliary experiments
+        are present), then fits all ``GeneratorSpec``s on that node.
+
+        Args:
+            experiment: The experiment to fit the model to.
+            data: Optional data to use for fitting. If not provided, the
+                node will use ``experiment.lookup_data()``.
+
+        Returns:
+            The fitted ``Adapter`` from the selected node, or ``None`` if
+            no adapter was fitted (e.g. the node is not model-based).
+        """
+        self.experiment = experiment
+        self._maybe_transition_to_next_node(raise_data_required_error=False)
+        self._curr._fit(experiment=experiment, data=data)
+        return self.adapter
 
     @property
     def experiment(self) -> Experiment:
@@ -361,12 +373,17 @@ class GenerationStrategy(Base):
             n._step_index = None
             if len(n.generator_specs) > 1:
                 n._generator_spec_to_gen_from = None
+            elif len(n.generator_specs) == 1:
+                # Reset to the sole spec, matching what __init__ sets on
+                # deserialized nodes. This is needed because
+                # _try_gen_with_fallback can override this field with a
+                # non-persisted fallback spec (e.g. Fallback_Sobol).
+                n._generator_spec_to_gen_from = n.generator_specs[0]
             # Reset cache fields that are used for performance optimization only
             # and should not affect equality comparisons.
             n._trials_from_node_cache = set()
             n._cached_trial_count = None
 
-    # TODO: Deprecate `steps` argument fully in Q1'26.
     def _validate_and_set_step_sequence(self, steps: list[GenerationNode]) -> None:
         """Initialize and validate the steps provided to this GenerationStrategy.
 
@@ -543,7 +560,7 @@ class GenerationStrategy(Base):
                 # reset should skip as conditions may have changed, do not reset
                 # until now so node properties can be as up to date as possible
                 node_to_gen_from._should_skip = False
-            transitioned = self._maybe_transition_to_next_node()
+            transitioned = self._transition_to_next_node()
             try:
                 gr = self._curr.gen(
                     experiment=experiment,
@@ -604,24 +621,11 @@ class GenerationStrategy(Base):
 
     # ------------------------- Node selection logic helpers. -------------------------
 
-    def _maybe_transition_to_next_node(
-        self,
-        raise_data_required_error: bool = True,
-    ) -> bool:
-        """Moves this generation strategy to next node if the current node's
-        transition criteria are met. This method is safe to use both when generating
-        candidates or simply checking how many generator runs (to be made into trials)
-        can currently be produced.
-
-        NOTE: this method raises ``GenerationStrategyCompleted`` error if the
-        optimization is complete
-
-        Args:
-            raise_data_required_error: Whether to raise ``DataRequiredError`` in the
-                maybe_step_completed method in GenerationNode class.
+    def _transition_to_next_node(self, raise_data_required_error: bool = True) -> bool:
+        """Attempts a single transition to the next node if criteria are met.
 
         Returns:
-            Whether generation strategy moved to the next node.
+            Whether the generation strategy moved to the next node.
         """
         move_to_next_node, next_node = self._curr.should_transition_to_next_node(
             raise_data_required_error=raise_data_required_error
@@ -634,3 +638,29 @@ class GenerationStrategy(Base):
                 )
             self._curr = self.nodes_by_name[next_node]
         return move_to_next_node
+
+    def _maybe_transition_to_next_node(
+        self, raise_data_required_error: bool = True
+    ) -> bool:
+        """Moves this generation strategy to next node if the current node's
+        transition criteria are met, advancing through multiple nodes if
+        possible. This method is safe to use both when generating candidates or
+        simply checking how many generator runs (to be made into trials) can
+        currently be produced.
+
+        NOTE: this method raises ``GenerationStrategyCompleted`` error if the
+        optimization is complete
+
+        Args:
+            raise_data_required_error: Whether to raise ``DataRequiredError`` in the
+                maybe_step_completed method in GenerationNode class.
+
+        Returns:
+            Whether generation strategy moved to the next node.
+        """
+        moved = False
+        while self._transition_to_next_node(
+            raise_data_required_error=raise_data_required_error
+        ):
+            moved = True
+        return moved

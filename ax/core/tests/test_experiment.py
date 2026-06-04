@@ -25,11 +25,10 @@ from ax.core.metric import Metric
 from ax.core.objective import MultiObjective, Objective
 from ax.core.optimization_config import (
     MultiObjectiveOptimizationConfig,
-    ObjectiveThreshold,
     OptimizationConfig,
     PreferenceOptimizationConfig,
 )
-from ax.core.outcome_constraint import OutcomeConstraint
+from ax.core.outcome_constraint import ObjectiveThreshold, OutcomeConstraint
 from ax.core.parameter import (
     ChoiceParameter,
     DerivedParameter,
@@ -37,6 +36,7 @@ from ax.core.parameter import (
     ParameterType,
     RangeParameter,
 )
+from ax.core.parameter_constraint import ParameterConstraint
 from ax.core.search_space import SearchSpace
 from ax.core.types import ComparisonOp
 from ax.exceptions.core import (
@@ -52,6 +52,7 @@ from ax.generation_strategy.generator_spec import GeneratorSpec
 from ax.metrics.branin import BraninMetric
 from ax.metrics.hartmann6 import Hartmann6Metric
 from ax.metrics.noisy_function import NoisyFunctionMetric
+from ax.metrics.noisy_function_map import NoisyFunctionMapMetric
 from ax.runners.synthetic import SyntheticRunner
 from ax.service.ax_client import AxClient
 from ax.service.utils.instantiation import ObjectiveProperties
@@ -190,7 +191,8 @@ class ExperimentTest(TestCase):
             tracking_metrics=[Metric(name="m1"), Metric(name="m3")],
         )
         self.assertEqual(
-            len(none_throws(exp.optimization_config).metrics) + 1, len(exp.metrics)
+            len(none_throws(exp.optimization_config).metric_names) + 1,
+            len(exp.metrics),
         )
 
     def test_basic_batch_creation(self) -> None:
@@ -206,6 +208,18 @@ class ExperimentTest(TestCase):
         with self.assertRaises(ValueError):
             new_exp = get_experiment()
             new_exp._attach_trial(batch)
+
+    def test_supports_trial_type(self) -> None:
+        exp = get_experiment()
+        self.assertTrue(exp.supports_trial_type(None))
+        self.assertTrue(exp.supports_trial_type(Keys.SHORT_RUN))
+        self.assertTrue(exp.supports_trial_type(Keys.LONG_RUN))
+        self.assertTrue(exp.supports_trial_type(Keys.LILO_LABELING))
+        self.assertFalse(exp.supports_trial_type("unsupported_type"))
+
+        # Verify LILO_LABELING trial type works with new_batch_trial
+        batch = exp.new_batch_trial(trial_type=Keys.LILO_LABELING)
+        self.assertEqual(batch.trial_type, Keys.LILO_LABELING)
 
     def test_repr(self) -> None:
         self.assertEqual("Experiment(test)", str(self.experiment))
@@ -281,31 +295,46 @@ class ExperimentTest(TestCase):
 
     def test_metric_setters(self) -> None:
         # Establish current metrics size
+        # get_optimization_config() has metric_names {"m1", "m2"}, len=2
+        # experiment has m1, m2, tracking = 3
         self.assertEqual(
-            len(get_optimization_config().metrics) + 1, len(self.experiment.metrics)
+            len(get_optimization_config().metric_names) + 1,
+            len(self.experiment.metrics),
         )
 
-        # Add optimization config with 1 different metric
-        opt_config = get_optimization_config()
-        opt_config.outcome_constraints[0].metric = Metric(name="m3")
+        # Add a new metric and set optimization config using it as constraint
+        self.experiment.add_metric(Metric(name="m3"))
+        opt_config = OptimizationConfig(
+            objective=Objective(expression="m1", metric_name_to_signature={"m1": "m1"}),
+            outcome_constraints=[
+                OutcomeConstraint(
+                    expression="m3 >= -0.25 * baseline",
+                    metric_name_to_signature={"m3": "m3"},
+                )
+            ],
+        )
         self.experiment.optimization_config = opt_config
 
-        # Verify total metrics has increaed by 1.
+        # Verify total metrics has increased by 1 (m1, m2, m3, tracking = 4).
         self.assertEqual(
-            len(get_optimization_config().metrics) + 2, len(self.experiment.metrics)
+            len(get_optimization_config().metric_names) + 2,
+            len(self.experiment.metrics),
         )
 
         # Add optimization config with 1 scalarized constraint composed of 2 metrics
+        self.experiment.add_metric(Metric(name="oc_m3"))
+        self.experiment.add_metric(Metric(name="oc_m4"))
         opt_config = get_optimization_config()
         opt_config.outcome_constraints = opt_config.outcome_constraints + [
             get_scalarized_outcome_constraint()
         ]
         self.experiment.optimization_config = opt_config
 
-        # Verify total metrics size is the same.
-        self.assertEqual(len(opt_config.metrics) + 2, len(self.experiment.metrics))
+        # Verify total metrics size (m1, m2, m3, oc_m3, oc_m4, tracking = 6).
+        self.assertEqual(len(opt_config.metric_names) + 2, len(self.experiment.metrics))
         self.assertEqual(
-            len(get_optimization_config().metrics) + 4, len(self.experiment.metrics)
+            len(get_optimization_config().metric_names) + 4,
+            len(self.experiment.metrics),
         )
         # set back
         self.experiment.optimization_config = get_optimization_config()
@@ -313,13 +342,15 @@ class ExperimentTest(TestCase):
         # Test adding new tracking metric
         self.experiment.add_tracking_metric(Metric(name="m4"))
         self.assertEqual(
-            len(get_optimization_config().metrics) + 5, len(self.experiment.metrics)
+            len(get_optimization_config().metric_names) + 5,
+            len(self.experiment.metrics),
         )
 
         # Test adding new tracking metrics
         self.experiment.add_tracking_metrics([Metric(name="z1")])
         self.assertEqual(
-            len(get_optimization_config().metrics) + 6, len(self.experiment.metrics)
+            len(get_optimization_config().metric_names) + 6,
+            len(self.experiment.metrics),
         )
 
         # Verify update_tracking_metric updates the metric definition
@@ -335,11 +366,11 @@ class ExperimentTest(TestCase):
         with self.assertRaises(ValueError):
             self.experiment.add_tracking_metrics([Metric(name="z1"), Metric(name="m4")])
 
-        # Verify unable to add metric in optimization config
+        # Verify unable to add metric already on experiment
         with self.assertRaises(ValueError):
             self.experiment.add_tracking_metric(Metric(name="m1"))
 
-        # Verify unable to add metric in optimization config
+        # Verify unable to add metric already on experiment
         with self.assertRaises(ValueError):
             self.experiment.add_tracking_metrics([Metric(name="z2"), Metric(name="m1")])
 
@@ -399,6 +430,31 @@ class ExperimentTest(TestCase):
             self.assertIsNotNone(experiment.status_quo)
             self.assertIn("new_param", experiment.status_quo.parameters)
             self.assertEqual(experiment.status_quo.parameters["new_param"], 0.0)
+
+        with self.subTest("Add parameter with parameter constraints"):
+            experiment = self.experiment.clone_with(trial_indices=[])
+            num_existing_constraints = len(
+                experiment.search_space.parameter_constraints
+            )
+            constraint = ParameterConstraint(
+                inequality="new_param + w <= 5.0",
+            )
+            experiment.add_parameters_to_search_space(
+                parameters=[new_param],
+                status_quo_values={new_param.name: 0.0},
+                parameter_constraints=[constraint],
+            )
+            # Verify parameter was added
+            self.assertIn("new_param", experiment.search_space.parameters)
+            # Verify constraint was added
+            self.assertEqual(
+                len(experiment.search_space.parameter_constraints),
+                num_existing_constraints + 1,
+            )
+            added_constraint = experiment.search_space.parameter_constraints[-1]
+            self.assertIn("new_param", added_constraint.constraint_dict)
+            self.assertIn("w", added_constraint.constraint_dict)
+            self.assertEqual(added_constraint.bound, 5.0)
 
     def test_add_derived_parameter_to_search_space_with_trials(self) -> None:
         """Test adding DerivedParameters to an experiment that has existing trials.
@@ -492,13 +548,26 @@ class ExperimentTest(TestCase):
     def test_optimization_config_setter(self) -> None:
         # Establish current metrics size
         self.assertEqual(
-            len(get_optimization_config().metrics) + 1, len(self.experiment.metrics)
+            len(get_optimization_config().metric_names) + 1,
+            len(self.experiment.metrics),
         )
 
-        # Add optimization config with 1 different metric
+        # Setting an opt config whose metrics are all registered should work
         opt_config = get_optimization_config()
-        opt_config.outcome_constraints[0].metric = Metric(name="m3")
-        self
+        self.experiment.optimization_config = opt_config
+
+        # Setting an opt config with an unregistered metric should raise
+        new_opt_config = OptimizationConfig(
+            objective=Objective(expression="m1", metric_name_to_signature={"m1": "m1"}),
+            outcome_constraints=[
+                OutcomeConstraint(
+                    expression="unknown_metric >= 0.5",
+                    metric_name_to_signature={"unknown_metric": "unknown_metric"},
+                )
+            ],
+        )
+        with self.assertRaisesRegex(ValueError, "not found on experiment"):
+            self.experiment.optimization_config = new_opt_config
 
     def test_status_quo_setter(self) -> None:
         sq_parameters = self.experiment.status_quo.parameters
@@ -744,10 +813,6 @@ class ExperimentTest(TestCase):
                 attributes_to_update={"param_names": ["foo", "bar"]},
             )
             self.assertEqual(inital_metrics, exp.metrics)
-            # double check the change is populated in opt config too
-            inital_metrics.pop("no update")
-            self.assertIsNotNone(exp.optimization_config)
-            self.assertEqual(inital_metrics, exp.optimization_config.metrics)
         with self.subTest("parameter not in initialization"):
             with self.assertRaisesRegex(
                 UserInputError, "does not contain the requested "
@@ -816,14 +881,26 @@ class ExperimentTest(TestCase):
         candidate_batch.run()
         candidate_batch._status = TrialStatus.CANDIDATE
         self.assertEqual(self.experiment.trials_expecting_data, [batch])
+
+        # LILO labeling trials are excluded from trials_expecting_data
+        # (their data is fetched inline during the labeling loop).
+        lilo_batch = self.experiment.new_batch_trial(
+            trial_type=Keys.LILO_LABELING,
+        )
+        lilo_batch.run()
+        lilo_batch.mark_completed()
+        self.assertEqual(self.experiment.trials_expecting_data, [batch])
+
         tbs = self.experiment.trials_by_status  # All statuses should be present
         self.assertEqual(len(tbs), len(TrialStatus))
         self.assertEqual(tbs[TrialStatus.RUNNING], [batch])
         self.assertEqual(tbs[TrialStatus.CANDIDATE], [candidate_batch])
+        self.assertEqual(tbs[TrialStatus.COMPLETED], [lilo_batch])
         tibs = self.experiment.trial_indices_by_status
         self.assertEqual(len(tibs), len(TrialStatus))
         self.assertEqual(tibs[TrialStatus.RUNNING], {0})
         self.assertEqual(tibs[TrialStatus.CANDIDATE], {1})
+        self.assertEqual(tibs[TrialStatus.COMPLETED], {2})
 
         identifier = {"new_runner": True}
         # pyre-fixme[6]: For 1st param expected `Optional[str]` but got `Dict[str,
@@ -1252,7 +1329,12 @@ class ExperimentTest(TestCase):
             else:
                 trial.mark_completed()
         # make metric noiseless for exact reproducibility
-        old_experiment.optimization_config.objective.metric.noise_sd = 0
+        _obj_name = none_throws(
+            old_experiment.optimization_config
+        ).objective.metric_names[0]
+        assert_is_instance(
+            old_experiment.get_metric(_obj_name), NoisyFunctionMetric
+        ).noise_sd = 0
         old_experiment.fetch_data()
 
         # should fail if new_experiment has trials
@@ -1269,7 +1351,12 @@ class ExperimentTest(TestCase):
         # check that all non-failed trials are copied to new_experiment
         new_experiment = get_branin_experiment()
         # make metric noiseless for exact reproducibility
-        new_experiment.optimization_config.objective.metric.noise_sd = 0
+        _obj_name = none_throws(
+            new_experiment.optimization_config
+        ).objective.metric_names[0]
+        assert_is_instance(
+            new_experiment.get_metric(_obj_name), NoisyFunctionMetric
+        ).noise_sd = 0
         for _, trial in old_experiment.trials.items():
             trial._run_metadata = DUMMY_RUN_METADATA
         # name one arm to test name-preserving logic.
@@ -1315,7 +1402,12 @@ class ExperimentTest(TestCase):
         # check that all non-failed/abandoned trials are copied to new_experiment
         new_experiment = get_branin_experiment()
         # make metric noiseless for exact reproducibility
-        new_experiment.optimization_config.objective.metric.noise_sd = 0
+        _obj_name = none_throws(
+            new_experiment.optimization_config
+        ).objective.metric_names[0]
+        assert_is_instance(
+            new_experiment.get_metric(_obj_name), NoisyFunctionMetric
+        ).noise_sd = 0
         new_experiment.warm_start_from_old_experiment(
             old_experiment=old_experiment,
             trial_statuses_to_copy=[TrialStatus.COMPLETED],
@@ -1327,7 +1419,12 @@ class ExperimentTest(TestCase):
 
         # check that only run_metadata of specified keys are copied
         new_experiment = get_branin_experiment()
-        new_experiment.optimization_config.objective.metric.noise_sd = 0
+        _obj_name = none_throws(
+            new_experiment.optimization_config
+        ).objective.metric_names[0]
+        assert_is_instance(
+            new_experiment.get_metric(_obj_name), NoisyFunctionMetric
+        ).noise_sd = 0
         new_experiment.warm_start_from_old_experiment(
             old_experiment=old_experiment,
             copy_run_metadata_keys=[DUMMY_RUN_METADATA_KEY_1],
@@ -1514,6 +1611,12 @@ class ExperimentTest(TestCase):
                 ],
             ),
             tracking_metrics=[
+                # Pass opt config metrics with their real types so the
+                # experiment preserves the Metric subclass information.
+                Metric(name="my_objective_1", lower_is_better=True),
+                TestMetric(name="my_objective_2"),
+                Metric(name="my_constraint_1", lower_is_better=False),
+                TestMetric(name="my_constraint_2"),
                 Metric(name="my_tracking_metric_1", lower_is_better=True),
                 TestMetric(name="my_tracking_metric_2", lower_is_better=False),
                 Metric(name="my_tracking_metric_3"),
@@ -1568,6 +1671,31 @@ class ExperimentTest(TestCase):
         )
         pd.testing.assert_frame_equal(df, expected_df)
 
+    def test_metric_summary_df_scalarized_objective(self) -> None:
+        experiment = Experiment(
+            name="test_experiment",
+            search_space=SearchSpace(parameters=[]),
+            optimization_config=OptimizationConfig(
+                objective=Objective(
+                    expression="2*metric_a + -3*metric_b",
+                    metric_name_to_signature={
+                        "metric_a": "metric_a",
+                        "metric_b": "metric_b",
+                    },
+                ),
+            ),
+            tracking_metrics=[
+                Metric(name="metric_a", lower_is_better=False),
+                Metric(name="metric_b", lower_is_better=True),
+            ],
+        )
+        df = experiment.metric_config_summary_df
+        # metric_a has positive weight -> maximize
+        # metric_b has negative weight -> minimize
+        goal_by_name = dict(zip(df["Name"], df["Goal"]))
+        self.assertEqual(goal_by_name["metric_a"], "maximize")
+        self.assertEqual(goal_by_name["metric_b"], "minimize")
+
     def test_arms_by_signature_for_deduplication(self) -> None:
         experiment = self.experiment
         trial = experiment.new_trial()
@@ -1611,6 +1739,12 @@ class ExperimentTest(TestCase):
         )
         self.assertEqual(experiment.trial_indices_expecting_data, {2, 5})
 
+        # LILO labeling trials are excluded from trial_indices_expecting_data.
+        lilo_trial = experiment.new_batch_trial(trial_type=Keys.LILO_LABELING)
+        lilo_trial.mark_running(no_runner_required=True)
+        lilo_trial.mark_completed()
+        self.assertEqual(experiment.trial_indices_expecting_data, {2, 5})
+
     def test_trial_indices_with_data(self) -> None:
         exp = get_branin_experiment_with_multi_objective(
             with_status_quo=True,
@@ -1649,6 +1783,7 @@ class ExperimentTest(TestCase):
             trials = exp.trial_indices_with_data(critical_metrics_only=True)
             self.assertEqual(trials, {0, 1})
         with self.subTest("changed opt config, no data for new config"):
+            exp.add_metric(Metric(name="test_metric"))
             exp.optimization_config = get_optimization_config_no_constraints()
             trials = exp.trial_indices_with_data(critical_metrics_only=True)
             self.assertEqual(len(trials), 0)
@@ -2195,13 +2330,23 @@ class ExperimentWithMapDataTest(TestCase):
             else:
                 trial.mark_completed()
         # make metric noiseless for exact reproducibility
-        old_experiment.optimization_config.objective.metric.noise_sd = 0
+        _obj_name = none_throws(
+            old_experiment.optimization_config
+        ).objective.metric_names[0]
+        assert_is_instance(
+            old_experiment.get_metric(_obj_name), NoisyFunctionMapMetric
+        ).noise_sd = 0
         old_experiment.fetch_data()
 
         # check that all non-failed trials are copied to new_experiment
         new_experiment = get_branin_experiment_with_timestamp_map_metric()
         # make metric noiseless for exact reproducibility
-        new_experiment.optimization_config.objective.metric.noise_sd = 0
+        _obj_name = none_throws(
+            new_experiment.optimization_config
+        ).objective.metric_names[0]
+        assert_is_instance(
+            new_experiment.get_metric(_obj_name), NoisyFunctionMapMetric
+        ).noise_sd = 0
         for _, trial in old_experiment.trials.items():
             trial._run_metadata = DUMMY_RUN_METADATA
         new_experiment.warm_start_from_old_experiment(old_experiment=old_experiment)
@@ -2227,7 +2372,12 @@ class ExperimentWithMapDataTest(TestCase):
 
         # check that only run_metadata of specified keys are copied
         new_experiment = get_branin_experiment_with_timestamp_map_metric()
-        new_experiment.optimization_config.objective.metric.noise_sd = 0
+        _obj_name = none_throws(
+            new_experiment.optimization_config
+        ).objective.metric_names[0]
+        assert_is_instance(
+            new_experiment.get_metric(_obj_name), NoisyFunctionMapMetric
+        ).noise_sd = 0
         for _, trial in old_experiment.trials.items():
             trial._run_metadata = DUMMY_RUN_METADATA
         new_experiment.warm_start_from_old_experiment(
@@ -2486,6 +2636,8 @@ class ExperimentWithMapDataTest(TestCase):
 
         with self.subTest("Has PreferenceOptimizationConfig"):
             experiment = get_branin_experiment()
+            experiment.add_metric(Metric(name="m1"))
+            experiment.add_metric(Metric(name="m2"))
             pref_opt_config = PreferenceOptimizationConfig(
                 objective=MultiObjective(
                     objectives=[

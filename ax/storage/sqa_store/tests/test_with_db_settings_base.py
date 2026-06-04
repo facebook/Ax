@@ -6,13 +6,18 @@
 
 # pyre-strict
 import logging
+import os
 import random
 import string
 from unittest.mock import patch
 
+import sqlalchemy
+from ax.core.base_trial import BaseTrial
 from ax.core.experiment import Experiment
+from ax.core.trial import Trial
 from ax.core.trial_status import TrialStatus
 from ax.generation_strategy.generation_strategy import GenerationStrategy
+from ax.storage.sqa_store import with_db_settings_base as _wdb_module
 from ax.storage.sqa_store.db import init_test_engine_and_session_factory
 from ax.storage.sqa_store.load import (
     _load_experiment,
@@ -32,6 +37,7 @@ from ax.storage.sqa_store.with_db_settings_base import (
 from ax.utils.common.testutils import TestCase
 from ax.utils.testing.core_stubs import DEFAULT_USER, get_experiment, get_generator_run
 from ax.utils.testing.modeling_stubs import get_generation_strategy
+from pyre_extensions import assert_is_instance
 
 
 class TestWithDBSettingsBase(TestCase):
@@ -260,8 +266,7 @@ class TestWithDBSettingsBase(TestCase):
             experiment.name, decoder=self.with_db_settings.db_settings.decoder
         )
         self.assertEqual(
-            # pyre-fixme[16]: Optional type has no attribute `status`.
-            loaded_experiment.trials.get(trial.index).status,
+            loaded_experiment.trials[trial.index].status,
             TrialStatus.CANDIDATE,
         )
         self.assertIsNotNone(trial.db_id)
@@ -294,17 +299,15 @@ class TestWithDBSettingsBase(TestCase):
             save_generation_strategy=True
         )
 
-        trials = [experiment.new_trial() for _ in range(5)]
+        trials: list[BaseTrial] = [experiment.new_trial() for _ in range(5)]
         grs = []
         for t in trials:
             gr = generation_strategy.gen_single_trial(experiment)
             grs.append(gr)
-            t.add_generator_run(gr)
+            assert_is_instance(t, Trial).add_generator_run(gr)
 
         self.with_db_settings._save_or_update_trials_and_generation_strategy_if_possible(  # noqa E501
             experiment=experiment,
-            # pyre-fixme[6]: For 2nd param expected `List[BaseTrial]` but got
-            #  `List[Trial]`.
             trials=trials,
             generation_strategy=generation_strategy,
             new_generator_runs=grs,
@@ -320,11 +323,11 @@ class TestWithDBSettingsBase(TestCase):
             for attr in GR_LARGE_MODEL_ATTRS:
                 # Map SQA column name to Python attribute name
                 python_attr_name = f"_{SQA_COL_TO_GR_ATTR[attr.key]}"
+                t = assert_is_instance(trial, Trial)
                 if idx < len(loaded_experiment.trials) - 1:
-                    # pyre-fixme[16]: `BaseTrial` has no attribute `generator_run`.
-                    self.assertIsNone(getattr(trial.generator_run, python_attr_name))
+                    self.assertIsNone(getattr(t.generator_run, python_attr_name))
                 else:
-                    self.assertIsNotNone(getattr(trial.generator_run, python_attr_name))
+                    self.assertIsNotNone(getattr(t.generator_run, python_attr_name))
 
         loaded_generation_strategy = _load_generation_strategy_by_experiment_name(
             experiment.name, decoder=self.with_db_settings.db_settings.decoder
@@ -396,3 +399,47 @@ class TestWithDBSettingsBase(TestCase):
                 lg.output[0],
             )
         self.assertEqual(output, generation_strategy)
+
+
+class TestSQLAlchemyDualVersionCompat(TestCase):
+    """Self-proving checks that the dual-version SA 2.0 BUCK targets actually
+    resolved their constraint_overrides and that the SA 2.0 hard guard is gone.
+
+    Part of the SA 2.0 dual-version migration (T163607006).
+    """
+
+    def test_module_level_dbsettings_is_defined(self) -> None:
+        """The SA 2.0 hard guard previously set DBSettings = None at module level
+        when SA major > 1, breaking WithDBSettingsBase.__init__ type checks. Now
+        that the guard is removed, DBSettings must always resolve to the real
+        type when SQLAlchemy is importable. Uses getattr because DBSettings is
+        conditionally defined in a try/except in with_db_settings_base.
+        """
+        # pyre-ignore[16]: DBSettings is conditionally defined in with_db_settings_base.
+        module_dbsettings = getattr(_wdb_module, "DBSettings", None)
+        self.assertIsNotNone(
+            module_dbsettings,
+            "with_db_settings_base.DBSettings is None -- guard removal regressed",
+        )
+        self.assertIs(module_dbsettings, DBSettings)
+
+    def test_sa_major_matches_buck_target(self) -> None:
+        """When the BUCK target sets EXPECTED_SA_MAJOR, assert the runtime
+        SQLAlchemy major matches. Makes :tests vs :tests_sa2 self-proving.
+        Skipped when EXPECTED_SA_MAJOR is unset (e.g., local one-off invocations).
+        """
+        expected_major_str = os.environ.get("EXPECTED_SA_MAJOR")
+        if expected_major_str is None:
+            self.skipTest(
+                "EXPECTED_SA_MAJOR not set; only enforced under the dual-version "
+                "BUCK targets that pin SQLAlchemy via constraint_overrides"
+            )
+        # pyre-ignore[16]: Module `sqlalchemy` has no attribute `__version__`.
+        actual_version = sqlalchemy.__version__
+        actual_major = int(actual_version.split(".")[0])
+        self.assertEqual(
+            actual_major,
+            int(expected_major_str),
+            f"BUCK target expected SQLAlchemy major {expected_major_str}, "
+            f"got {actual_version}",
+        )

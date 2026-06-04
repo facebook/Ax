@@ -21,8 +21,16 @@ from ax.core.batch_trial import BatchTrial
 from ax.core.experiment import Experiment
 from ax.core.utils import is_bandit_experiment
 from ax.generation_strategy.generation_strategy import GenerationStrategy
+from ax.utils.common.constants import is_preference_metric
 from pyre_extensions import none_throws, override
 
+
+# When the number of parameters exceeds this threshold, use total-order
+# sensitivity analysis instead of second-order. Second-order computes pairwise
+# interaction effects (O(p^2)) which becomes expensive for high-dimensional
+# search spaces, while total-order captures each parameter's overall importance
+# including all interactions at O(p) cost.
+_MAX_NUM_PARAMS_FOR_SECOND_ORDER: int = 25
 
 INSIGHTS_CARDGROUP_TITLE = "Insights Analysis"
 
@@ -31,6 +39,26 @@ INSIGHTS_CARDGROUP_SUBTITLE = (
     "experiment i.e parameter and metric relationships learned by the Ax model."
     "Use this information to better understand your experiment space and users."
 )
+
+
+def _choose_sensitivity_order(
+    num_params: int,
+) -> Literal["first", "second", "total"]:
+    """Choose the sensitivity analysis order based on parameter count.
+
+    - 1 parameter: first-order (second-order requires >= 2 for interaction
+      effects).
+    - Many parameters (> threshold): total-order to avoid the O(p^2) cost of
+      second-order pairwise interactions.
+    - Otherwise: second-order to surface pairwise interactions for contour
+      plots.
+    """
+    if num_params == 1:
+        return "first"
+    elif num_params > _MAX_NUM_PARAMS_FOR_SECOND_ORDER:
+        return "total"
+    else:
+        return "second"
 
 
 @final
@@ -61,7 +89,10 @@ class InsightsAnalysis(Analysis):
 
         experiment = none_throws(experiment)
         if experiment.optimization_config is None:
-            return "Experiment must have an OptimizationConfig to compute insights."
+            return (
+                "The experiment must have an OptimizationConfig (with defined "
+                "objectives) to compute insights."
+            )
 
     @override
     def compute(
@@ -77,9 +108,22 @@ class InsightsAnalysis(Analysis):
 
         objective_names = optimization_config.objective.metric_names
         constraint_names = [
-            constraint.metric.name
+            constraint.metric_names[0]
             for constraint in optimization_config.outcome_constraints
         ]
+
+        # Build human-readable labels for preference metrics so sensitivity
+        # plots show "Learned Preference Utility" instead of the raw metric
+        # name (e.g., "pairwise_pref_query"). Sobol indices of PairwiseGP's
+        # latent utility function are semantically meaningful — "which
+        # parameters most influence preference?"
+        all_metric_names = [*objective_names, *constraint_names]
+        preference_labels = {
+            n: "Learned Preference Utility"
+            for n in all_metric_names
+            if is_preference_metric(n)
+        }
+
         # Relativize the effects if the status quo is set and there are BatchTrials
         # present.
         relativize = experiment.status_quo is not None and any(
@@ -116,18 +160,19 @@ class InsightsAnalysis(Analysis):
         # For non-bandit experiments, for each objective and constraint, compute a
         # sensitivity analysis and plot the top 3 surfaces.
         else:
-            # Default to second-order sensitivity analysis, but fall back to first-order
-            # if there is only one parameter (second-order requires at least 2
-            # parameters for interaction effects).
-            order: Literal["first", "second"] = (
-                "first" if len(experiment.search_space.parameters) == 1 else "second"
+            num_params = len(experiment.search_space.parameters)
+            sensitivity_order: Literal["first", "second", "total"] = (
+                _choose_sensitivity_order(num_params=num_params)
             )
             top_surfaces_groups = [
                 TopSurfacesAnalysis(
                     metric_name=metric_name,
                     top_k=3,
-                    relativize=relativize,
-                    order=order,
+                    # Preference utility is on an arbitrary latent scale —
+                    # percentage-based relativization is meaningless.
+                    relativize=relativize and not is_preference_metric(metric_name),
+                    order=sensitivity_order,
+                    labels=preference_labels if preference_labels else None,
                 ).compute_or_error_card(
                     experiment=experiment,
                     generation_strategy=generation_strategy,
@@ -166,14 +211,23 @@ class OutcomeConstraintsAnalysis(Analysis):
 
         experiment = none_throws(experiment)
         if experiment.optimization_config is None:
-            return "Experiment must have an OptimizationConfig."
+            return (
+                "The experiment must have an OptimizationConfig (with defined "
+                "objectives and constraints)."
+            )
 
         optimization_config = none_throws(experiment.optimization_config)
         if len(optimization_config.objective.metric_names) > 1:
-            return "Experiment may not have more than one Objective."
+            return (
+                "This analysis only supports single-objective optimization. The "
+                "experiment has more than one objective metric."
+            )
 
         if len(optimization_config.outcome_constraints) == 0:
-            return "Experiment must have at least one OutcomeConstraint."
+            return (
+                "The experiment must have at least one OutcomeConstraint (a metric "
+                "constraint defined in the optimization config)."
+            )
 
     @override
     def compute(

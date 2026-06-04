@@ -20,8 +20,7 @@ from ax.utils.common.base import Base
 from ax.utils.common.func_enum import FuncEnum
 from pyre_extensions import none_throws
 
-# pyre-fixme[24]: Generic type `np.ndarray` expects 2 type parameters.
-ARRAYLIKE = np.ndarray | list[float] | list[np.ndarray]
+ARRAYLIKE = npt.NDArray | list[float] | list[npt.NDArray]
 
 
 class BestModelSelector(ABC, Base):

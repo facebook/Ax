@@ -15,9 +15,17 @@ SLASH_PLACEHOLDER = "__slash__"
 COLON_PLACEHOLDER = "__colon__"
 PIPE_PLACEHOLDER = "__pipe__"
 TILDE_PLACEHOLDER = "__tilde__"
+SPACE_PLACEHOLDER = "__space__"
+HYPHEN_PLACEHOLDER = "__hyphen__"
+AT_PLACEHOLDER = "__at__"
+LPAREN_PLACEHOLDER = "__lparen__"
+RPAREN_PLACEHOLDER = "__rparen__"
 _forbidden_re: re.Pattern[str] = re.compile(r"[\;\[\'\\]")
 
 SYMPY_GLOBALS: set[str] = set(dir(sympy))
+
+# Allow some globals, like oo (infinity) to be used in expressions.
+ALLOWED_GLOBALS: set[str] = {"oo"}
 
 
 def _check_sympy_conflicts(expression: str) -> None:
@@ -32,7 +40,7 @@ def _check_sympy_conflicts(expression: str) -> None:
     identifiers = set(re.findall(identifier_pattern, expression))
 
     # Check for conflicts
-    conflicts = identifiers & SYMPY_GLOBALS
+    conflicts = (identifiers & SYMPY_GLOBALS) - ALLOWED_GLOBALS
 
     if conflicts:
         conflicts_list = ", ".join(sorted(conflicts))
@@ -43,7 +51,7 @@ def _check_sympy_conflicts(expression: str) -> None:
         )
 
 
-def sanitize_name(s: str) -> str:
+def sanitize_name(s: str, sanitize_parens: bool = False) -> str:
     """
     Converts a string with normal dots and slashes to a string with sanitized dots and
     slashes. This is temporarily necessary because SymPy symbol names must be valid
@@ -57,29 +65,92 @@ def sanitize_name(s: str) -> str:
 
     This does not allow obvious attack vectors  `;`, `[`, backslashes, and quotations.
     Colons, dots, slashes, and tildes are sanitized.
+
+    Args:
+        s: The string to sanitize.
+        sanitize_parens: If True, also sanitize parentheses that appear to be
+            part of metric/parameter names (e.g. ``"metric_(p50)"`` becomes
+            ``"metric___lparen__p50__rparen__"``). The regex matches
+            ``identifier(alphanumeric_content)`` — any ``(...)`` preceded by
+            an identifier whose content is purely ``[a-zA-Z0-9_]``. This
+            means single-argument SymPy calls like ``log(x)`` are also
+            sanitized, which is fine because this flag is only enabled in
+            objective/constraint parsing where SymPy function calls are
+            not valid expressions. Mathematical grouping like ``"(a + b)"``
+            (no preceding identifier) is never affected.
+            Defaults to False so that ``ExpressionDerivedMetric``, which
+            relies on genuine SymPy function calls, is unaffected.
     """
     if _forbidden_re.search(s) is not None:
         raise ValueError(f"Expression {s} has forbidden control characters.")
-    # Replace occurances of "." and "/" when they appear after a valid Python variable
-    # name and before any alphanumeric character.
+    # When in objective/constraint parsing mode (sanitize_parens=True) and
+    # the string contains a colon — a character that is never a valid SymPy
+    # operator — or multi-word metric names (spaces directly between word
+    # characters, e.g. ``"This Metric"``), any `` - ``
+    # (space-hyphen-space) is possibly part of a metric name rather than
+    # mathematical subtraction.  Pre-sanitize the spaces around the hyphen
+    # so the hyphen regex below can match it.
+    # Without this, metric names like ``"This metric - subgroup"`` or
+    # would be misinterpreted as subtraction of two symbols.
+    # We skip this when the string contains ``*`` because that indicates a
+    # mathematical expression (e.g. ``"-0.5*m:c1 - 0.5*m:c2"``) where
+    # `` - `` is genuine subtraction.
+    # Note: ``\w \w`` does NOT match simple expressions like ``"m1 - m2"``
+    # because the spaces there are around the operator, not between word
+    # characters within an identifier.
+    has_multiword_names = re.search(r"\w \w", s) is not None
+    if sanitize_parens and (":" in s or has_multiword_names) and "*" not in s:
+        s = re.sub(
+            r"(?<=\w) - (?=\w)",
+            f"{SPACE_PLACEHOLDER}-{SPACE_PLACEHOLDER}",
+            s,
+        )
+    # Replace spaces that appear inside metric/parameter names so they
+    # become valid Python identifiers.  We match spaces between word
+    # characters (e.g. "CIFAR10 Test Accuracy"), as well as spaces that
+    # follow colons or close-parens and precede word characters or
+    # open-parens (e.g. "scope: value", "metric(p50): next", "fn (arg)").
+    # Spaces around mathematical operators (+, -, *, >=, <=) are NOT
+    # affected because those operator characters are not in the
+    # lookbehind/lookahead character classes.
+    sans_space = re.sub(r"(?<=[\w:)])\s+(?=[\w(])", SPACE_PLACEHOLDER, s)
+    # Replace occurrences of "." and "/" when they appear after a valid Python variable
+    # name and before any alphanumeric character.  We use a lookahead (?=...)
+    # for the trailing character so it is NOT consumed by the match; this
+    # allows chained separators (e.g. "a:b:c:d") to be fully sanitized in a
+    # single pass.
     sans_dots = re.sub(
-        r"([a-zA-Z_][a-zA-Z0-9_]*)\.([a-zA-Z0-9_])",
-        rf"\1{DOT_PLACEHOLDER}\2",
-        s,
+        r"([a-zA-Z_][a-zA-Z0-9_]*)\.(?=[a-zA-Z0-9_])",
+        rf"\1{DOT_PLACEHOLDER}",
+        sans_space,
     )
     sans_slash = re.sub(
-        r"([a-zA-Z_][a-zA-Z0-9_]*)\/([a-zA-Z0-9_])",
-        rf"\1{SLASH_PLACEHOLDER}\2",
+        r"([a-zA-Z_][a-zA-Z0-9_]*)\/(?=[a-zA-Z0-9_])",
+        rf"\1{SLASH_PLACEHOLDER}",
         sans_dots,
     )
+    # Optionally sanitize parentheses that are part of metric/parameter
+    # names BEFORE colons so that ``__rparen__:`` is recognised as an
+    # identifier–colon boundary by the colon regex below.
+    # Matches ``identifier(content)`` where content is purely [a-zA-Z0-9_].
+    # This intentionally also matches single-argument SymPy calls like
+    # ``log(x)``; callers that need SymPy function calls (e.g.
+    # ExpressionDerivedMetric) should leave sanitize_parens=False.
+    sans_parens = sans_slash
+    if sanitize_parens:
+        sans_parens = re.sub(
+            r"([a-zA-Z_][a-zA-Z0-9_]*)\(([a-zA-Z0-9_]+)\)",
+            rf"\1{LPAREN_PLACEHOLDER}\2{RPAREN_PLACEHOLDER}",
+            sans_slash,
+        )
     sans_colon = re.sub(
-        r"([a-zA-Z_][a-zA-Z0-9_]*):([a-zA-Z0-9_])",
-        rf"\1{COLON_PLACEHOLDER}\2",
-        sans_slash,
+        r"([a-zA-Z_][a-zA-Z0-9_]*):(?=[a-zA-Z0-9_])",
+        rf"\1{COLON_PLACEHOLDER}",
+        sans_parens,
     )
     sans_pipe = re.sub(
-        r"([a-zA-Z_][a-zA-Z0-9_]*)\|([a-zA-Z0-9_])",
-        rf"\1{PIPE_PLACEHOLDER}\2",
+        r"([a-zA-Z_][a-zA-Z0-9_]*)\|(?=[a-zA-Z0-9_])",
+        rf"\1{PIPE_PLACEHOLDER}",
         sans_colon,
     )
     # Replace tilde at the start of a variable name or after alphanumeric characters
@@ -88,10 +159,30 @@ def sanitize_name(s: str) -> str:
         rf"{TILDE_PLACEHOLDER}\1",
         sans_pipe,
     )
-    # Check for conflicts with sympy's global dictionary
-    _check_sympy_conflicts(sans_tilde)
+    # Replace hyphens when they appear between identifier characters
+    # (e.g. "120s-300s" in metric names like "metric:120s-300s").
+    # We require at least 2 characters in the preceding identifier to avoid
+    # false positives on scientific notation (e.g. "2.3E-4").
+    sans_hyphen = re.sub(
+        r"([a-zA-Z_][a-zA-Z0-9_]+)-(?=[a-zA-Z0-9_])",
+        rf"\1{HYPHEN_PLACEHOLDER}",
+        sans_tilde,
+    )
+    # Replace "@" when it appears between identifier characters
+    # (e.g. "metric@region" in metric names). In Python, @ is the matrix
+    # multiplication operator (PEP 465), so SymPy's sympify() will
+    # misinterpret it and raise a TypeError.
+    sans_at = re.sub(
+        r"([a-zA-Z_][a-zA-Z0-9_]*)@(?=[a-zA-Z0-9_])",
+        rf"\1{AT_PLACEHOLDER}",
+        sans_hyphen,
+    )
+    result = sans_at
 
-    return sans_tilde
+    # Check for conflicts with sympy's global dictionary
+    _check_sympy_conflicts(result)
+
+    return result
 
 
 def unsanitize_name(s: str) -> str:
@@ -103,10 +194,15 @@ def unsanitize_name(s: str) -> str:
     """
 
     # Unsanitize in the reverse order of sanitization
-    with_tilde = re.sub(rf"{TILDE_PLACEHOLDER}", "~", s)
+    with_rparen = re.sub(rf"{RPAREN_PLACEHOLDER}", ")", s)
+    with_lparen = re.sub(rf"{LPAREN_PLACEHOLDER}", "(", with_rparen)
+    with_at = re.sub(rf"{AT_PLACEHOLDER}", "@", with_lparen)
+    with_hyphen = re.sub(rf"{HYPHEN_PLACEHOLDER}", "-", with_at)
+    with_tilde = re.sub(rf"{TILDE_PLACEHOLDER}", "~", with_hyphen)
     with_pipe = re.sub(rf"{PIPE_PLACEHOLDER}", "|", with_tilde)
     with_colon = re.sub(rf"{COLON_PLACEHOLDER}", ":", with_pipe)
     with_slash = re.sub(rf"{SLASH_PLACEHOLDER}", "/", with_colon)
     with_dot = re.sub(rf"{DOT_PLACEHOLDER}", ".", with_slash)
+    with_space = re.sub(rf"{SPACE_PLACEHOLDER}", " ", with_dot)
 
-    return with_dot
+    return with_space

@@ -17,6 +17,8 @@ from ax.core.trial_status import TrialStatus
 from ax.core.utils import get_trial_indices_with_required_metrics
 from ax.exceptions.core import DataRequiredError, UserInputError
 from ax.exceptions.generation_strategy import MaxParallelismReachedException
+from ax.utils.common.constants import Keys
+from ax.utils.common.hash_utils import get_current_lilo_hash
 
 if TYPE_CHECKING:
     from ax.generation_strategy.generation_node import GenerationNode
@@ -642,6 +644,135 @@ class MinTrials(TrialBasedCriterion):
             continue_trial_generation=continue_trial_generation,
             count_only_trials_with_data=count_only_trials_with_data,
         )
+
+
+class FreshLILOLabelCheck(TrialBasedCriterion):
+    """Transition criterion based on the freshness of LILO preference labels.
+
+    LILO (Language-in-the-Loop) trials are stamped with a hash of the
+    experiment state (metric data + LLM messages) at labeling time.
+    When the experiment state changes (new data arrives, or the user updates
+    LLM messages), old labels become stale.  This criterion gates transitions
+    based on how many *fresh* labels exist.
+
+    The ``require_sufficient`` flag controls the direction:
+
+    - **``require_sufficient=True``** (LILO_LABELING -> MBG): ``is_met``
+      when the number of fresh labels >= ``threshold``.  "We have enough
+      fresh labels -- proceed to BO generation."
+    - **``require_sufficient=False``** (MBG -> LILO_LABELING): ``is_met``
+      when the number of fresh labels < ``threshold``.  "Labels are stale
+      -- relabel before generating."
+
+    **Non-LILO fallback** (no pairwise ``DerivedMetric`` on the experiment):
+    ``require_sufficient=True`` -> always met (proceed normally).
+    ``require_sufficient=False`` -> never met (never trigger relabeling).
+    The fallback short-circuits *before* the count comparison so that a
+    non-LILO experiment with fewer than ``threshold`` trials does not
+    falsely trigger relabeling.
+
+    Args:
+        threshold: Number of fresh trials for the sufficiency check.
+        transition_to: The GenerationNode to transition to when met.
+        require_sufficient: If ``True``, ``is_met`` when fresh count >=
+            threshold.  If ``False``, ``is_met`` when fresh count <
+            threshold.  Defaults to ``True``.
+        only_in_statuses: Only count trials with these statuses.
+        not_in_statuses: Exclude trials with these statuses.
+        use_all_trials_in_exp: Count all experiment trials, not just
+            those from the current node.
+        continue_trial_generation: Continue generating arms for the
+            same trial after transition.
+        count_only_trials_with_data: Only count trials that have data.
+    """
+
+    def __init__(
+        self,
+        threshold: int,
+        transition_to: str,
+        require_sufficient: bool = True,
+        only_in_statuses: list[TrialStatus] | None = None,
+        not_in_statuses: list[TrialStatus] | None = None,
+        use_all_trials_in_exp: bool | None = False,
+        continue_trial_generation: bool | None = False,
+        count_only_trials_with_data: bool = False,
+    ) -> None:
+        self.require_sufficient = require_sufficient
+        super().__init__(
+            threshold=threshold,
+            transition_to=transition_to,
+            only_in_statuses=only_in_statuses,
+            not_in_statuses=not_in_statuses,
+            use_all_trials_in_exp=use_all_trials_in_exp,
+            continue_trial_generation=continue_trial_generation,
+            count_only_trials_with_data=count_only_trials_with_data,
+        )
+
+    def num_contributing_to_threshold(
+        self,
+        experiment: Experiment,
+        trials_from_node: set[int],
+    ) -> int:
+        """Count trials toward threshold, excluding those with stale hashes.
+
+        First applies the standard status-based filtering from the base class,
+        then further filters to only trials whose LILO input hash matches
+        the current experiment state.
+        """
+        # Get the base count of candidate trial indices (status-filtered).
+        all_trials = self.all_trials_to_check(experiment)
+        if self.count_only_trials_with_data:
+            data_trial_indices = get_trial_indices_with_required_metrics(
+                experiment=experiment,
+                df=experiment.lookup_data().df,
+                require_data_for_all_metrics=False,
+            )
+            all_trials = all_trials.intersection(data_trial_indices)
+
+        if not bool(self.use_all_trials_in_exp):
+            all_trials = trials_from_node.intersection(all_trials)
+
+        # Further filter by LILO input hash freshness.
+        current_hash = get_current_lilo_hash(experiment)
+        if current_hash is None:
+            # No pairwise DerivedMetric found — fall back to plain count.
+            return len(all_trials)
+
+        fresh_count = 0
+        for idx in all_trials:
+            trial = experiment.trials[idx]
+            trial_hash = trial._properties.get(Keys.LILO_INPUT_HASH)
+            # Only count trials that have a LILO_INPUT_HASH (i.e., actual
+            # LILO labeling trials) and whose hash matches the current state.
+            # Trials without a hash (regular Sobol/MBG trials) are excluded
+            # so they don't inflate the fresh-label count.
+            if trial_hash is not None and trial_hash == current_hash:
+                fresh_count += 1
+
+        return fresh_count
+
+    def is_met(
+        self,
+        experiment: Experiment,
+        curr_node: GenerationNode,
+    ) -> bool:
+        """Check whether the freshness condition is satisfied.
+
+        For non-LILO experiments (no pairwise ``DerivedMetric``), this
+        short-circuits: ``require_sufficient=True`` → always met,
+        ``require_sufficient=False`` → never met.
+        """
+        # Short-circuit for non-LILO experiments.
+        if get_current_lilo_hash(experiment) is None:
+            return self.require_sufficient
+
+        count = self.num_contributing_to_threshold(
+            experiment=experiment, trials_from_node=curr_node.trials_from_node
+        )
+        if self.require_sufficient:
+            return count >= self.threshold
+        else:
+            return count < self.threshold
 
 
 class AuxiliaryExperimentCheck(TransitionCriterion):

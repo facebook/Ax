@@ -17,8 +17,7 @@ from ax.utils.common.logger import get_logger
 from ax.utils.stats.math_utils import relativize
 
 logger: Logger = get_logger(__name__)
-# pyre-fixme[24]: Generic type `np.ndarray` expects 2 type parameters.
-num_mixed = np.ndarray | list[float]
+num_mixed = npt.NDArray | list[float]
 
 
 def inverse_variance_weight(
@@ -217,4 +216,4 @@ def marginal_effects(
             formatted_vals.append(
                 {"Name": cov, "Level": name, "Beta": effect, "SE": effect_sem}
             )
-    return pd.DataFrame(formatted_vals)[["Name", "Level", "Beta", "SE"]]
+    return pd.DataFrame(formatted_vals, columns=["Name", "Level", "Beta", "SE"])

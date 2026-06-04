@@ -4,23 +4,13 @@
 # LICENSE file in the root directory of this source tree.
 
 # pyre-strict
-from ax.api.utils.instantiation.from_string import (
-    optimization_config_from_string,
-    parse_objective,
-    parse_outcome_constraint,
-)
-from ax.core.map_metric import MapMetric
-from ax.core.objective import MultiObjective, Objective, ScalarizedObjective
+from ax.api.utils.instantiation.from_string import optimization_config_from_string
+from ax.core.objective import Objective
 from ax.core.optimization_config import (
     MultiObjectiveOptimizationConfig,
     OptimizationConfig,
 )
-from ax.core.outcome_constraint import (
-    ComparisonOp,
-    ObjectiveThreshold,
-    OutcomeConstraint,
-    ScalarizedOutcomeConstraint,
-)
+from ax.core.outcome_constraint import OutcomeConstraint
 from ax.exceptions.core import UserInputError
 from ax.utils.common.testutils import TestCase
 
@@ -32,7 +22,7 @@ class TestFromString(TestCase):
             only_objective,
             OptimizationConfig(
                 objective=Objective(
-                    metric=MapMetric(name="ne", lower_is_better=False), minimize=False
+                    expression="ne", metric_name_to_signature={"ne": "ne"}
                 ),
             ),
         )
@@ -44,15 +34,12 @@ class TestFromString(TestCase):
             with_constraints,
             OptimizationConfig(
                 objective=Objective(
-                    metric=MapMetric(name="ne", lower_is_better=False), minimize=False
+                    expression="ne", metric_name_to_signature={"ne": "ne"}
                 ),
                 outcome_constraints=[
                     OutcomeConstraint(
-                        metric=MapMetric(name="qps"),
-                        op=ComparisonOp.GEQ,
-                        bound=0.0,
-                        relative=False,
-                    )
+                        expression="qps >= 0", metric_name_to_signature={"qps": "qps"}
+                    ),
                 ],
             ),
         )
@@ -64,140 +51,29 @@ class TestFromString(TestCase):
         self.assertEqual(
             with_constraints_and_objective_threshold,
             MultiObjectiveOptimizationConfig(
-                objective=MultiObjective(
-                    objectives=[
-                        Objective(
-                            metric=MapMetric(name="ne", lower_is_better=True),
-                            minimize=True,
-                        ),
-                        Objective(
-                            metric=MapMetric(name="qps", lower_is_better=False),
-                            minimize=False,
-                        ),
-                    ]
+                objective=Objective(
+                    expression="-ne, qps",
+                    metric_name_to_signature={"ne": "ne", "qps": "qps"},
                 ),
                 outcome_constraints=[
                     OutcomeConstraint(
-                        metric=MapMetric(name="flops"),
-                        op=ComparisonOp.LEQ,
-                        bound=1000000.0,
-                        relative=False,
-                    )
+                        expression="flops <= 1000000",
+                        metric_name_to_signature={"flops": "flops"},
+                    ),
                 ],
                 objective_thresholds=[
-                    ObjectiveThreshold(
-                        metric=MapMetric(name="qps"),
-                        op=ComparisonOp.GEQ,
-                        bound=1000.0,
-                        relative=False,
-                    )
+                    OutcomeConstraint(
+                        expression="qps >= 1000",
+                        metric_name_to_signature={"qps": "qps"},
+                    ),
                 ],
             ),
         )
 
-    def test_parse_objective(self) -> None:
-        single_objective = parse_objective(objective_str="ne")
-        self.assertEqual(
-            single_objective,
-            Objective(
-                metric=MapMetric(name="ne", lower_is_better=False), minimize=False
-            ),
-        )
-
-        maximize_single_objective = parse_objective(objective_str="-qps")
-        self.assertEqual(
-            maximize_single_objective,
-            Objective(
-                metric=MapMetric(name="qps", lower_is_better=True), minimize=True
-            ),
-        )
-
-        scalarized_objective = parse_objective(
-            objective_str="0.5 * ne1 + 0.3 * ne2 + 0.2 * ne3"
-        )
-        self.assertEqual(
-            scalarized_objective,
-            ScalarizedObjective(
-                metrics=[
-                    MapMetric(name="ne1"),
-                    MapMetric(name="ne2"),
-                    MapMetric(name="ne3"),
-                ],
-                weights=[0.5, 0.3, 0.2],
-                minimize=False,
-            ),
-        )
-
-        multiobjective = parse_objective(objective_str="ne, -qps")
-        self.assertEqual(
-            multiobjective,
-            MultiObjective(
-                objectives=[
-                    Objective(
-                        metric=MapMetric(name="ne", lower_is_better=False),
-                        minimize=False,
-                    ),
-                    Objective(
-                        metric=MapMetric(name="qps", lower_is_better=True),
-                        minimize=True,
-                    ),
-                ]
-            ),
-        )
-
-        with self.assertRaisesRegex(UserInputError, "Only linear"):
-            parse_objective(objective_str="ne * qps")
-
-    def test_parse_outcome_constraint(self) -> None:
-        constraint = parse_outcome_constraint(constraint_str="flops <= 1000000")
-        self.assertEqual(
-            constraint,
-            OutcomeConstraint(
-                metric=MapMetric(name="flops"),
-                op=ComparisonOp.LEQ,
-                bound=1000000.0,
-                relative=False,
-            ),
-        )
-
-        flipped_sign = parse_outcome_constraint(constraint_str="flops >= 1000000.0")
-        self.assertEqual(
-            flipped_sign,
-            OutcomeConstraint(
-                metric=MapMetric(name="flops"),
-                op=ComparisonOp.GEQ,
-                bound=1000000.0,
-                relative=False,
-            ),
-        )
-
-        relative = parse_outcome_constraint(constraint_str="flops <= 105 * baseline")
-        self.assertEqual(
-            relative,
-            OutcomeConstraint(
-                metric=MapMetric(name="flops"),
-                op=ComparisonOp.LEQ,
-                bound=105.0,
-                relative=True,
-            ),
-        )
-
-        scalarized = parse_outcome_constraint(
-            constraint_str="0.5 * flops1 + 0.3 * flops2 <= 1000000"
-        )
-        self.assertEqual(
-            scalarized,
-            ScalarizedOutcomeConstraint(
-                metrics=[MapMetric(name="flops1"), MapMetric(name="flops2")],
-                weights=[0.5, 0.3],
-                op=ComparisonOp.LEQ,
-                bound=1000000.0,
-                relative=False,
-            ),
-        )
-
-        with self.assertRaisesRegex(UserInputError, "Expected an inequality"):
-            parse_outcome_constraint(constraint_str="flops == 1000000")
-
-        with self.assertRaisesRegex(UserInputError, "Only linear"):
-            parse_outcome_constraint(constraint_str="flops * flops <= 1000000")
+    def test_objective_constraint_on_single_objective_raises(self) -> None:
+        with self.assertRaisesRegex(
+            UserInputError, "Outcome constraints may not be placed"
+        ):
+            optimization_config_from_string(
+                objective_str="ne", outcome_constraint_strs=["ne >= 0"]
+            )

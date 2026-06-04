@@ -206,8 +206,6 @@ def plot_feature_importance_by_feature(
     """Wrapper method to convert `plot_feature_importance_by_feature_plotly` to
     AxPlotConfig"""
     return AxPlotConfig(
-        # pyre-fixme[6]: For 1st argument expected `Dict[str, typing.Any]` but got
-        #  `Figure`.
         data=plot_feature_importance_by_feature_plotly(
             model=model,
             sensitivity_values=sensitivity_values,

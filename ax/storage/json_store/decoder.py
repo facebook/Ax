@@ -6,8 +6,11 @@
 
 # pyre-strict
 
+import copy
 import datetime
 import json
+import re
+import warnings
 from collections import OrderedDict
 from collections.abc import Mapping
 from dataclasses import dataclass
@@ -69,6 +72,10 @@ from ax.utils.common.serialization import (
     SerializationMixin,
     TClassDecoderRegistry,
     TDecoderRegistry,
+)
+from ax.utils.common.sympy import (
+    extract_metric_names_from_objective_expr,
+    parse_objective_expression,
 )
 from ax.utils.common.typeutils_torch import torch_type_from_str
 from botorch.utils.types import DEFAULT
@@ -135,6 +142,7 @@ _DEPRECATED_GENERATOR_KWARGS: tuple[str, ...] = (
     "torch_dtype",
     "status_quo_name",
     "status_quo_features",
+    "generated_points",
 )
 
 # Deprecated node input constructors, removed from GNodes.
@@ -473,7 +481,6 @@ def _criterion_from_json(
         for key, value in object_json.items()
     }
     init_args = extract_init_args(args=decoded, class_=criterion_class)
-    # pyre-ignore[45]: Class passed is always a concrete subclass.
     return criterion_class(**init_args)
 
 
@@ -603,6 +610,15 @@ def parameter_constraints_from_json(
                     )
                 )
 
+            elif "equality" in constraint:
+                # New equality constraint format
+                parameter_constraints.append(
+                    ParameterConstraint(equality=constraint["equality"])
+                )
+            elif "inequality" in constraint:
+                parameter_constraints.append(
+                    ParameterConstraint(inequality=constraint["inequality"])
+                )
             else:
                 parameter_constraints.append(
                     object_from_json(
@@ -715,7 +731,7 @@ def multi_type_experiment_from_json(
 
     experiment = MultiTypeExperiment(**kwargs)
     for metric in tracking_metrics:
-        experiment._tracking_metrics[metric.name] = metric
+        experiment._metrics[metric.name] = metric
     experiment._metric_to_canonical_name = _metric_to_canonical_name
     experiment._metric_to_trial_type = _metric_to_trial_type
     experiment._trial_type_to_runner = _trial_type_to_runner
@@ -934,13 +950,19 @@ def generation_node_from_json(
             class_decoder_registry=class_decoder_registry,
         ),
         should_deduplicate=generation_node_json.pop("should_deduplicate", False),
+        # Deep-copy criteria JSON before decoding. object_from_json mutates
+        # its input dicts (pops "__type" keys). If the transport layer (e.g.
+        # FBLearner/msgpack) returns data with shared dict objects between
+        # transition_criteria and generation_pausing_criteria (e.g. shared
+        # TrialStatus dicts), decoding one would strip "__type" from the other,
+        # causing enums to be deserialized as plain dicts.
         transition_criteria=object_from_json(
-            object_json=transition_criteria_json,
+            object_json=copy.deepcopy(transition_criteria_json),
             decoder_registry=decoder_registry,
             class_decoder_registry=class_decoder_registry,
         ),
         pausing_criteria=object_from_json(
-            object_json=generation_pausing_criteria_json,
+            object_json=copy.deepcopy(generation_pausing_criteria_json),
             decoder_registry=decoder_registry,
             class_decoder_registry=class_decoder_registry,
         ),
@@ -1252,7 +1274,7 @@ def generation_strategy_from_json(
         class_decoder_registry=class_decoder_registry,
     )
     if len(steps) > 0:
-        gs = GenerationStrategy(steps=steps, name=generation_strategy_json.pop("name"))
+        gs = GenerationStrategy(nodes=steps, name=generation_strategy_json.pop("name"))
         gs._curr = gs._nodes[generation_strategy_json.pop("curr_index")]
     else:
         gs = GenerationStrategy(nodes=nodes, name=generation_strategy_json.pop("name"))
@@ -1439,10 +1461,13 @@ def objective_from_json(
 ) -> Objective:
     """Load an ``Objective`` from JSON in a backwards compatible way.
 
-    If both ``minimize`` and ``lower_is_better`` are specified but have conflicting
-    values, this will overwrite ``lower_is_better=minimize`` to resolve the conflict.
+    Supports two formats:
+    - New expression-based format: ``{"expression": "..."}``
+    - Legacy format: ``{"metric": {...}, "minimize": true/false}``
 
-    # TODO: Do we need to do this for scalarized objective as well?
+    For the legacy format, if both ``minimize`` and ``lower_is_better`` are
+    specified but have conflicting values, this will overwrite
+    ``lower_is_better=minimize`` to resolve the conflict.
     """
     input_args = {
         k: object_from_json(
@@ -1452,6 +1477,27 @@ def objective_from_json(
         )
         for k, v in object_json.items()
     }
+    # New expression-based format
+    if "expression" in input_args:
+        expr = input_args["expression"]
+        mapping = input_args.get("metric_name_to_signature")
+        if mapping is None:
+            if re.search(r"[()]", expr):
+                warnings.warn(
+                    f"Objective expression {expr!r} contains characters that "
+                    "SymPy may misinterpret (parentheses, commas). Metric "
+                    "names with special characters may not round-trip "
+                    "correctly through this deserialization path.",
+                    stacklevel=2,
+                )
+            parsed = parse_objective_expression(expr)
+            sub_exprs = parsed if isinstance(parsed, tuple) else (parsed,)
+            names: list[str] = []
+            for se in sub_exprs:
+                names.extend(extract_metric_names_from_objective_expr(se))
+            mapping = {n: n for n in names}
+        return Objective(expression=expr, metric_name_to_signature=mapping)
+    # Legacy metric/minimize format
     metric = input_args.pop("metric")
     minimize = input_args.pop("minimize")
     if metric.lower_is_better is not None and metric.lower_is_better != minimize:

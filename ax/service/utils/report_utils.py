@@ -33,7 +33,7 @@ from ax.core.generator_run import GeneratorRunType
 from ax.core.map_metric import MapMetric
 from ax.core.metric import Metric
 from ax.core.multi_type_experiment import MultiTypeExperiment
-from ax.core.objective import MultiObjective, ScalarizedObjective
+from ax.core.objective import ScalarizedObjective
 from ax.core.optimization_config import (
     MultiObjectiveOptimizationConfig,
     OptimizationConfig,
@@ -42,7 +42,7 @@ from ax.core.parameter import Parameter
 from ax.core.trial import BaseTrial
 from ax.core.trial_status import TrialStatus
 from ax.early_stopping.strategies.base import BaseEarlyStoppingStrategy
-from ax.exceptions.core import DataRequiredError, UserInputError
+from ax.exceptions.core import DataRequiredError, UnsupportedError, UserInputError
 from ax.generation_strategy.generation_strategy import GenerationStrategy
 from ax.plot.contour import interact_contour_plotly
 from ax.plot.diagnostic import interact_cross_validation_plotly
@@ -123,10 +123,18 @@ def _get_objective_trace_plot(
     if optimization_config is None:
         return []
 
+    objective = optimization_config.objective
+    if objective.is_scalarized_objective:
+        raise UnsupportedError(
+            "`_get_objective_trace_plot` is not supported for scalarized "
+            "objectives. The objective is a combination of metrics, not a "
+            "single metric."
+        )
+
     metric_names = (
         metric_name
         for metric_name in [
-            optimization_config.objective.metric.name,
+            objective.metric_names[0],
             true_objective_metric_name,
         ]
         if metric_name is not None
@@ -137,8 +145,8 @@ def _get_objective_trace_plot(
             exp_df=exp_df,
             metric_colname=metric_name,
             minimize=none_throws(
-                optimization_config.objective.minimize
-                if optimization_config.objective.metric.name == metric_name
+                objective.minimize
+                if objective.metric_names[0] == metric_name
                 else experiment.metrics[metric_name].lower_is_better
             ),
             title=f"Best {metric_name} found vs. trial index",
@@ -228,9 +236,7 @@ def _get_objective_v_param_plots(
                     # sort the params by their sensitivity
                     params_to_use = sorted(
                         range_params_sens_for_metric,
-                        # pyre-fixme[6]: For 2nd argument expected `None` but got
-                        #  `(x: Any) -> Union[ndarray[typing.Any, typing.Any], float]`.
-                        key=lambda x: range_params_sens_for_metric[x],
+                        key=lambda x: float(range_params_sens_for_metric[x]),
                         reverse=True,
                     )[:num_params_per_metric]
                 # if sens is not available, just use the first num_features_per_metric.
@@ -416,11 +422,9 @@ def get_standard_plots(
             logger.debug("Starting feature importance plot.")
             feature_importance_plot = plot_feature_importance_by_feature_plotly(
                 model=model,
-                # pyre-ignore [6]:
-                # In call for argument `sensitivity_values`, expected
-                # `Optional[Dict[str, Dict[str, Union[float, ndarray]]]]`
-                # but got `Dict[str, Dict[str, ndarray]]`.
-                sensitivity_values=sens,
+                sensitivity_values=cast(
+                    dict[str, dict[str, float | npt.NDArray]] | None, sens
+                ),
                 relative=False,
                 caption=FEATURE_IMPORTANCE_CAPTION if importance_measure == "" else "",
                 importance_measure=importance_measure,
@@ -445,7 +449,7 @@ def get_standard_plots(
         if map_metrics:
             # Sort so that objective metrics appear first
             map_metrics.sort(
-                key=lambda e: e.name in [m.name for m in objective.metrics],
+                key=lambda e: e.name in objective.metric_names,
                 reverse=True,
             )
             for by_walltime in [False, True]:
@@ -998,10 +1002,8 @@ def _get_metric_name_pairs(
         experiment=experiment
     )
     if none_throws(optimization_config).is_moo_problem:
-        multi_objective = assert_is_instance(
-            none_throws(optimization_config).objective, MultiObjective
-        )
-        metric_names = [obj.metric.name for obj in multi_objective.objectives]
+        objective = none_throws(optimization_config).objective
+        metric_names = list(objective.metric_names)
         if len(metric_names) > use_first_n_metrics:
             logger.info(
                 f"Got `metric_names = {metric_names}` of length {len(metric_names)}. "
@@ -1012,9 +1014,9 @@ def _get_metric_name_pairs(
         metric_name_pairs = itertools.combinations(metric_names, 2)
         return metric_name_pairs
     raise UserInputError(
-        "Inference of `metric_names` failed. Expected `MultiObjective` but "
+        "Inference of `metric_names` failed. Expected a multi-objective but "
         f"got {none_throws(optimization_config).objective}. Please provide an "
-        "experiment with a MultiObjective `optimization_config`."
+        "experiment with a multi-objective `optimization_config`."
     )
 
 
@@ -1344,32 +1346,33 @@ def maybe_extract_baseline_comparison_values(
     baseline_rows = arms_df[arms_df["arm_name"] == baseline_arm_name]
 
     if experiment.is_moo_problem:
-        multi_objective = assert_is_instance(
-            optimization_config.objective, MultiObjective
-        )
+        objective = optimization_config.objective
         result_list = []
-        for objective in multi_objective.objectives:
-            name = objective.metric.name
-            minimize = objective.minimize
+        obj_names = objective.metric_names
+        obj_weights = [w for _, w in objective.metric_weights]
+        for metric_name, weight in zip(obj_names, obj_weights):
+            minimize = weight < 0
 
             # Check if metric column exists in both comparison and baseline dataframes
             if (
-                name not in comparison_arm_df.columns
-                or name not in baseline_rows.columns
+                metric_name not in comparison_arm_df.columns
+                or metric_name not in baseline_rows.columns
             ):
-                logger.debug(f"compare_to_baseline: metric '{name}' not found in data.")
+                logger.debug(
+                    f"compare_to_baseline: metric '{metric_name}' not found in data."
+                )
                 return None
 
             opt_index = (
-                comparison_arm_df[name].idxmin()
+                comparison_arm_df[metric_name].idxmin()
                 if minimize
-                else comparison_arm_df[name].idxmax()
+                else comparison_arm_df[metric_name].idxmax()
             )
             comparison_row = arms_df.iloc[opt_index]
-            baseline_value = baseline_rows.iloc[0][name]
+            baseline_value = baseline_rows.iloc[0][metric_name]
 
             result_tuple = _build_result_tuple(
-                objective_name=name,
+                objective_name=metric_name,
                 objective_minimize=minimize,
                 baseline_arm_name=baseline_arm_name,
                 baseline_value=baseline_value,
@@ -1379,7 +1382,14 @@ def maybe_extract_baseline_comparison_values(
             result_list.append(result_tuple)
         return result_list if result_list else None
 
-    objective_name = optimization_config.objective.metric.name
+    if optimization_config.objective.is_scalarized_objective:
+        raise UnsupportedError(
+            "`maybe_extract_baseline_comparison_values` is not supported for "
+            "scalarized objectives. The objective is a combination of "
+            "metrics, not a single metric."
+        )
+
+    objective_name = optimization_config.objective.metric_names[0]
 
     # Check if metric column exists in both comparison and baseline dataframes
     if (
@@ -1477,7 +1487,7 @@ def warn_if_unpredictable_metrics(
             metric_names = list(experiment.metrics.keys())
         else:
             metric_names = list(
-                none_throws(experiment.optimization_config).metrics.keys()
+                none_throws(experiment.optimization_config).metric_names
             )
     else:
         # Raise a ValueError if any metric names are invalid.
@@ -1501,10 +1511,7 @@ def warn_if_unpredictable_metrics(
 
 
 def _has_reference_point(optimization_config: MultiObjectiveOptimizationConfig) -> bool:
-    objectives = assert_is_instance(
-        optimization_config.objective, MultiObjective
-    ).objectives
-    objective_names = {obj.metric.name for obj in objectives}
+    objective_names = set(optimization_config.objective.metric_names)
     thresholds = optimization_config.objective_thresholds
-    threshold_names = {threshold.metric.name for threshold in thresholds}
+    threshold_names = {threshold.metric_names[0] for threshold in thresholds}
     return objective_names == threshold_names

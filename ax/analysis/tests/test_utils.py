@@ -15,6 +15,7 @@ from ax.analysis.utils import (
     _prepare_p_feasible,
     _relativize_df_with_sq,
     prepare_arm_data,
+    validate_outcome_constraints,
 )
 from ax.api.client import Client
 from ax.api.configs import RangeParameterConfig
@@ -27,6 +28,7 @@ from ax.core.outcome_constraint import OutcomeConstraint, ScalarizedOutcomeConst
 from ax.core.trial_status import TrialStatus  # noqa
 from ax.core.types import ComparisonOp
 from ax.exceptions.core import UserInputError
+from ax.utils.common.constants import is_preference_metric
 from ax.utils.common.testutils import TestCase
 from ax.utils.testing.core_stubs import get_offline_experiments, get_online_experiments
 from ax.utils.testing.mock import mock_botorch_optimize
@@ -156,6 +158,7 @@ class TestUtils(TestCase):
                 "trial_status",
                 "status_reason",
                 "generation_node",
+                "generator_run_key",
                 "p_feasible_mean",
                 "p_feasible_sem",
                 "foo_mean",
@@ -203,6 +206,7 @@ class TestUtils(TestCase):
                 "trial_status",
                 "status_reason",
                 "generation_node",
+                "generator_run_key",
                 "p_feasible_mean",
                 "p_feasible_sem",
                 "foo_mean",
@@ -234,6 +238,7 @@ class TestUtils(TestCase):
                 "trial_status",
                 "status_reason",
                 "generation_node",
+                "generator_run_key",
                 "p_feasible_mean",
                 "p_feasible_sem",
                 "foo_mean",
@@ -343,6 +348,7 @@ class TestUtils(TestCase):
                 "trial_status",
                 "status_reason",
                 "generation_node",
+                "generator_run_key",
                 "p_feasible_mean",
                 "p_feasible_sem",
                 "foo_mean",
@@ -387,6 +393,7 @@ class TestUtils(TestCase):
                 "trial_status",
                 "status_reason",
                 "generation_node",
+                "generator_run_key",
                 "p_feasible_mean",
                 "p_feasible_sem",
                 "foo_mean",
@@ -420,6 +427,7 @@ class TestUtils(TestCase):
                 "trial_status",
                 "status_reason",
                 "generation_node",
+                "generator_run_key",
                 "p_feasible_mean",
                 "p_feasible_sem",
                 "foo_mean",
@@ -459,6 +467,7 @@ class TestUtils(TestCase):
                 "trial_status",
                 "status_reason",
                 "generation_node",
+                "generator_run_key",
                 "p_feasible_mean",
                 "p_feasible_sem",
                 "foo_mean",
@@ -502,6 +511,7 @@ class TestUtils(TestCase):
                 "trial_status",
                 "status_reason",
                 "generation_node",
+                "generator_run_key",
                 "p_feasible_mean",
                 "p_feasible_sem",
                 "foo_mean",
@@ -711,6 +721,12 @@ class TestUtils(TestCase):
             decimal=1,
         )
 
+    def test_is_preference_metric(self) -> None:
+        self.assertTrue(is_preference_metric("pairwise_pref_query"))
+        self.assertFalse(is_preference_metric("branin"))
+        self.assertFalse(is_preference_metric(""))
+        self.assertFalse(is_preference_metric("pairwise_pref"))
+
     def test_truncate_label(self) -> None:
         with self.subTest("No truncation"):
             self.assertEqual(
@@ -872,6 +888,17 @@ class TestUtils(TestCase):
                             trial_index=trial_index,
                             additional_arms=additional_arms,
                         )
+
+    def test_validate_outcome_constraints_no_optimization_config(self) -> None:
+        """Test validate_outcome_constraints returns error when experiment has
+        no OptimizationConfig."""
+        experiment = Experiment(
+            name="no_opt_config",
+            search_space=self.client._experiment.search_space.clone(),
+        )
+        result = validate_outcome_constraints(experiment=experiment)
+        self.assertIsNotNone(result)
+        self.assertIn("must have an OptimizationConfig", result)
 
     def test_scalarized_constraints(self) -> None:
         df = pd.DataFrame(

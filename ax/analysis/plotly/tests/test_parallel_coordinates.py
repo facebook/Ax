@@ -26,7 +26,7 @@ from pyre_extensions import none_throws
 class TestParallelCoordinatesPlot(TestCase):
     def test_validate_applicable_state(self) -> None:
         self.assertIn(
-            "Requires an Experiment",
+            "An Experiment must be provided",
             none_throws(ParallelCoordinatesPlot("branin").validate_applicable_state()),
         )
 

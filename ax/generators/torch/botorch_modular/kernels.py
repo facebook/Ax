@@ -233,8 +233,7 @@ class DefaultRBFKernel(RBFKernel):
             lengthscale_constraint=GreaterThan(
                 2.5e-2, transform=None, initial_value=initial_value
             ),
-            # pyre-ignore[6] GPyTorch type is unnecessarily restrictive.
-            active_dims=active_dims,
+            active_dims=tuple(active_dims) if active_dims is not None else None,
         )
 
 

@@ -44,6 +44,9 @@ class SyntheticFunction(ABC):
         """Simplified way to call the synthetic function and pass the argument
         numbers directly, e.g. `branin(2.0, 3.0)`.
         """
+        values: (
+            tuple[int | float | npt.NDArray, ...] | list[int | float | npt.NDArray]
+        ) = args
         if kwargs:
             if self.required_dimensionality:
                 assert (
@@ -57,8 +60,8 @@ class SyntheticFunction(ABC):
                 f"Function {self.name} expected either all anonymous "
                 "arguments or all keyword arguments."
             )
-            args = list(kwargs.values())  # pyre-ignore[9]
-        for x in args:
+            values = list(kwargs.values())
+        for x in values:
             if isinstance(x, np.ndarray):
                 return self.f(X=x)
             assert np.isscalar(x), (
@@ -66,7 +69,7 @@ class SyntheticFunction(ABC):
             )
             if isinstance(x, int):
                 x = float(x)
-        return assert_is_instance(self.f(np.array(args)), float)
+        return assert_is_instance(self.f(np.array(values)), float)
 
     def f(self, X: npt.NDArray) -> float | npt.NDArray:
         """Synthetic function implementation.
@@ -227,9 +230,9 @@ class Aug_Hartmann6(Hartmann6):
 
     _required_dimensionality = 7
     _domain: list[tuple[float, float]] = [(0.0, 1.0) for i in range(7)]
-    # pyre-fixme[15]: `_minimums` overrides attribute defined in `Hartmann6`
-    #  inconsistently.
-    _minimums = [(0.20169, 0.150011, 0.476874, 0.275332, 0.311652, 0.6573, 1.0)]
+    _minimums: list[tuple[float, ...]] = [
+        (0.20169, 0.150011, 0.476874, 0.275332, 0.311652, 0.6573, 1.0)
+    ]
     _fmin: float = -3.32237
     _fmax = 0.0
 

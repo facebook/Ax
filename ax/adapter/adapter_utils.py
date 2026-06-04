@@ -9,21 +9,25 @@
 from __future__ import annotations
 
 import warnings
-from collections.abc import Callable, Iterable, Mapping, MutableMapping, Sequence
+from collections.abc import Iterable, Mapping, MutableMapping, Sequence
 from copy import deepcopy
 from logging import Logger
-from typing import Any, SupportsFloat, TYPE_CHECKING
+from typing import Any, Callable, cast, SupportsFloat, TYPE_CHECKING
 
 import numpy as np
 import numpy.typing as npt
 import torch
+from ax.adapter.parameter_utils import (  # noqa: F401
+    can_map_to_binary,
+    is_unordered_choice,
+)
 from ax.adapter.transforms.base import Transform
 from ax.adapter.transforms.utils import (
     derelativize_optimization_config_with_raw_status_quo,
 )
 from ax.core.arm import Arm
 from ax.core.experiment import Experiment
-from ax.core.objective import MultiObjective, Objective, ScalarizedObjective
+from ax.core.objective import _build_objective_expression, Objective
 from ax.core.observation import Observation, ObservationData, ObservationFeatures
 from ax.core.optimization_config import (
     MultiObjectiveOptimizationConfig,
@@ -35,16 +39,22 @@ from ax.core.outcome_constraint import (
     OutcomeConstraint,
     ScalarizedOutcomeConstraint,
 )
-from ax.core.parameter import ChoiceParameter, Parameter, ParameterType, RangeParameter
+from ax.core.parameter import ChoiceParameter, ParameterType, RangeParameter
 from ax.core.parameter_constraint import ParameterConstraint
 from ax.core.search_space import SearchSpace, SearchSpaceDigest
 from ax.core.types import TBounds, TCandidateMetadata, TNumeric
 from ax.exceptions.core import DataRequiredError, UserInputError
 from ax.generators.torch.botorch_moo_utils import (
-    get_weighted_mc_objective_and_objective_thresholds,
+    get_weighted_mc_objective,
     pareto_frontier_evaluator,
 )
+from ax.utils.common.constants import Keys
+from ax.utils.common.hash_utils import get_current_lilo_hash
 from ax.utils.common.logger import get_logger
+from ax.utils.common.sympy import (
+    extract_metric_weights_from_objective_expr,
+    parse_objective_expression,
+)
 from ax.utils.common.typeutils import (
     assert_is_instance_of_tuple,
     assert_is_instance_optional,
@@ -66,29 +76,65 @@ if TYPE_CHECKING:
     from ax import adapter as adapter_module  # noqa F401
 
 
-def extract_parameter_constraints(
+def _extract_constraints(
+    parameter_constraints: list[ParameterConstraint],
+    param_names: list[str],
+    is_equality: bool,
+) -> TBounds:
+    """Extract linear constraints into a tuple of NumPy arrays.
+
+    Shared helper for extracting inequality (``A x <= b``) or equality
+    (``A x = b``) constraints.
+
+    Args:
+        parameter_constraints: A list of parameter constraint objects.
+        param_names: A list of parameter names.
+        is_equality: If True, extract equality constraints; otherwise
+            extract inequality constraints.
+
+    Returns:
+        An optional tuple of NumPy arrays (A, b).
+    """
+    filtered = [c for c in parameter_constraints if c.is_equality == is_equality]
+    if len(filtered) == 0:
+        return None
+    A = np.zeros((len(filtered), len(param_names)))
+    b = np.zeros((len(filtered), 1))
+    for i, c in enumerate(filtered):
+        b[i, 0] = c.bound
+        for name, val in c.constraint_dict.items():
+            A[i, param_names.index(name)] = val
+    return (A, b)
+
+
+def extract_inequality_constraints(
     parameter_constraints: list[ParameterConstraint], param_names: list[str]
 ) -> TBounds:
-    """Convert Ax parameter constraints into a tuple of NumPy arrays representing the
-    system of linear inequality constraints.
+    """Convert Ax inequality parameter constraints into NumPy arrays.
 
     Args:
         parameter_constraints: A list of parameter constraint objects.
         param_names: A list of parameter names.
 
     Returns:
-        An optional tuple of NumPy arrays (A, b) representing the system of linear
-        inequality constraints A x < b.
+        An optional tuple of NumPy arrays (A, b) with ``A x <= b``.
     """
-    if len(parameter_constraints) == 0:
-        return None
-    A = np.zeros((len(parameter_constraints), len(param_names)))
-    b = np.zeros((len(parameter_constraints), 1))
-    for i, c in enumerate(parameter_constraints):
-        b[i, 0] = c.bound
-        for name, val in c.constraint_dict.items():
-            A[i, param_names.index(name)] = val
-    return (A, b)
+    return _extract_constraints(parameter_constraints, param_names, is_equality=False)
+
+
+def extract_equality_constraints(
+    parameter_constraints: list[ParameterConstraint], param_names: list[str]
+) -> TBounds:
+    """Convert Ax equality parameter constraints into NumPy arrays.
+
+    Args:
+        parameter_constraints: A list of parameter constraint objects.
+        param_names: A list of parameter names.
+
+    Returns:
+        An optional tuple of NumPy arrays (A, b) with ``A x = b``.
+    """
+    return _extract_constraints(parameter_constraints, param_names, is_equality=True)
 
 
 def extract_search_space_digest(
@@ -135,8 +181,9 @@ def extract_search_space_digest(
         if isinstance(p, ChoiceParameter):
             if p.is_task:
                 task_features.append(i)
-                target_values[i] = assert_is_instance_of_tuple(
-                    p.target_value, (int, float)
+                target_values[i] = cast(
+                    TNumeric,
+                    assert_is_instance_of_tuple(p.target_value, (int, float)),
                 )
             elif p.is_ordered:
                 ordinal_features.append(i)
@@ -144,7 +191,8 @@ def extract_search_space_digest(
                 categorical_features.append(i)
             # at this point we can assume that values are numeric due to transforms
             numeric_values: list[TNumeric] = [
-                assert_is_instance_of_tuple(v, (int, float)) for v in p.values
+                cast(TNumeric, assert_is_instance_of_tuple(v, (int, float)))
+                for v in p.values
             ]
             discrete_choices[i] = numeric_values
             bounds.append((min(numeric_values), max(numeric_values)))
@@ -164,7 +212,10 @@ def extract_search_space_digest(
             raise ValueError(f"Unknown parameter type {type(p)}")
         if p.is_fidelity:
             fidelity_features.append(i)
-            target_values[i] = assert_is_instance_of_tuple(p.target_value, (int, float))
+            target_values[i] = cast(
+                TNumeric,
+                assert_is_instance_of_tuple(p.target_value, (int, float)),
+            )
 
     if search_space.is_hierarchical:
         hierarchical_dependencies = {}
@@ -172,7 +223,10 @@ def extract_search_space_digest(
         for p_name, p in search_space.parameters.items():
             if p.is_hierarchical:
                 hierarchical_dependencies[param_names.index(p_name)] = {
-                    assert_is_instance_of_tuple(parent_value, (int, float)): [
+                    cast(
+                        TNumeric,
+                        assert_is_instance_of_tuple(parent_value, (int, float)),
+                    ): [
                         param_names.index(activated_param)
                         for activated_param in activated_params
                     ]
@@ -197,52 +251,75 @@ def extract_objective_thresholds(
     objective: Objective,
     outcomes: list[str],
 ) -> npt.NDArray | None:
-    """Extracts objective thresholds' values, in the order of `outcomes`.
+    """Extracts objective thresholds' values, in the order of objectives.
 
-    Will return None if no objective thresholds, otherwise the extracted tensor
-    will be the same length as `outcomes`.
+    Will return None if no objective thresholds or if the objective is single-
+    objective. Otherwise the extracted array will have length ``n_objectives``
+    (matching the rows of the objective weight matrix).
 
-    Outcomes that are not part of an objective and the objectives that do no have
-    a corresponding objective threshold will be given a threshold of NaN. We will
-    later infer appropriate threshold values for the objectives that are given a
-    threshold of NaN.
+    Objectives that do not have a corresponding objective threshold will be
+    given a threshold of NaN. We will later infer appropriate threshold values
+    for those objectives.
+
+    The returned thresholds are maximization-aligned: for minimize objectives,
+    the threshold is negated. E.g., an outcome we want to maximize with a
+    threshold of at least 5 returns 5. An outcome we want to minimize with a
+    threshold of no more than 5 returns -5, since we maximize the negative of
+    the outcome internally.
 
     Args:
         objective_thresholds: Objective thresholds to extract values from.
         objective: The corresponding Objective, for validation purposes.
-        outcomes: n-length list of names of metrics.
+        outcomes: n-length list of metric signatures.
 
     Returns:
-        (n,) array of thresholds
+        ``(n_objectives,)`` array of maximization-aligned thresholds, or None.
     """
     if len(objective_thresholds) == 0:
         return None
 
     objective_threshold_dict = {}
     for ot in objective_thresholds:
+        ot_signature = ot.metric_signatures[0]
         if ot.relative:
             raise ValueError(
-                f"Objective {ot.metric.signature} has a relative threshold that "
+                f"Objective {ot_signature} has a relative threshold that "
                 f"is not supported here."
             )
-        objective_threshold_dict[ot.metric.signature] = ot.bound
+        objective_threshold_dict[ot_signature] = ot.bound
 
     # Check that all thresholds correspond to a metric.
-    if set(objective_threshold_dict.keys()).difference(set(objective.metric_names)):
+    obj_metric_signatures = objective.metric_signatures
+    if set(objective_threshold_dict.keys()).difference(set(obj_metric_signatures)):
         raise ValueError(
             "Some objective thresholds do not have corresponding metrics. "
             f"Got {objective_thresholds=} and {objective=}."
         )
 
-    # Initialize these to be NaN to make sure that objective thresholds for
-    # non-objective metrics are never used.
-    obj_t = np.full(len(outcomes), float("nan"))
-    for metric, threshold in objective_threshold_dict.items():
-        obj_t[outcomes.index(metric)] = threshold
+    if not objective.is_multi_objective:
+        # Single objective — thresholds not applicable.
+        return None
+
+    parsed = parse_objective_expression(objective.expression)
+    sub_exprs = parsed if isinstance(parsed, tuple) else (parsed,)
+    n_objectives = len(sub_exprs)
+    obj_t = np.full(n_objectives, float("nan"))
+    for i, sub_expr in enumerate(sub_exprs):
+        sub_mw = extract_metric_weights_from_objective_expr(sub_expr)
+        if len(sub_mw) > 1:
+            continue  # Scalarized sub-objective — NaN, will be inferred later.
+        name, weight = sub_mw[0]
+        sig = objective.metric_name_to_signature[name]
+        if sig in objective_threshold_dict:
+            sign = 1.0 if weight > 0 else -1.0
+            obj_t[i] = sign * objective_threshold_dict[sig]
     return obj_t
 
 
-def extract_objective_weights(objective: Objective, outcomes: list[str]) -> npt.NDArray:
+def extract_objective_weights(
+    objective: Objective,
+    outcomes: list[str],
+) -> npt.NDArray:
     """Extract a weights for objectives.
 
     Weights are for a maximization problem.
@@ -258,29 +335,23 @@ def extract_objective_weights(objective: Objective, outcomes: list[str]) -> npt.
 
     Args:
         objective: Objective to extract weights from.
-        outcomes: n-length list of names of metrics.
+        outcomes: n-length list of metric signatures.
 
     Returns:
         n-length array of weights.
 
     """
     objective_weights = np.zeros(len(outcomes))
-    if isinstance(objective, ScalarizedObjective):
-        s = -1.0 if objective.minimize else 1.0
-        for obj_metric, obj_weight in objective.metric_weights:
-            objective_weights[outcomes.index(obj_metric.signature)] = obj_weight * s
-    elif isinstance(objective, MultiObjective):
-        for obj in objective.objectives:
-            s = -1.0 if obj.minimize else 1.0
-            objective_weights[outcomes.index(obj.metric.signature)] = s
-    else:
-        s = -1.0 if objective.minimize else 1.0
-        objective_weights[outcomes.index(objective.metric.signature)] = s
+    # metric_weights returns sign-encoded (signature, weight) tuples for all
+    # objective types (single, scalarized, multi).
+    for obj_metric_sig, obj_weight in objective.metric_weights:
+        objective_weights[outcomes.index(obj_metric_sig)] = obj_weight
     return objective_weights
 
 
 def extract_objective_weight_matrix(
-    objective: Objective, outcomes: list[str]
+    objective: Objective,
+    outcomes: list[str],
 ) -> npt.NDArray:
     """Extract a 2D weight matrix for objectives.
 
@@ -294,23 +365,39 @@ def extract_objective_weight_matrix(
 
     Args:
         objective: Objective to extract weights from.
-        outcomes: n-length list of names of metrics.
+        outcomes: n-length list of metric signatures.
 
     Returns:
         ``(n_objectives, n)`` array of weights.
     """
-    if isinstance(objective, MultiObjective):
+    if objective.is_multi_objective:
         rows: list[npt.NDArray] = []
-        for obj in objective.objectives:
-            rows.append(extract_objective_weights(obj, outcomes))
+        obj_names = objective.metric_names
+        obj_weights = [w for _, w in objective.metric_weights]
+        name_to_sig = objective.metric_name_to_signature
+        for name, weight in zip(obj_names, obj_weights):
+            rows.append(
+                extract_objective_weights(
+                    objective=Objective(
+                        expression=_build_objective_expression([(name, weight)]),
+                        metric_name_to_signature={name: name_to_sig[name]},
+                        _parsed=([name], [[(name, weight)]]),
+                    ),
+                    outcomes=outcomes,
+                )
+            )
         return np.stack(rows, axis=0)
     else:
         # Single row – covers Objective and ScalarizedObjective
-        return extract_objective_weights(objective, outcomes).reshape(1, -1)
+        return extract_objective_weights(
+            objective=objective,
+            outcomes=outcomes,
+        ).reshape(1, -1)
 
 
 def extract_outcome_constraints(
-    outcome_constraints: list[OutcomeConstraint], outcomes: list[str]
+    outcome_constraints: list[OutcomeConstraint],
+    outcomes: list[str],
 ) -> TBounds:
     if len(outcome_constraints) == 0:
         return None
@@ -320,11 +407,11 @@ def extract_outcome_constraints(
     for i, c in enumerate(outcome_constraints):
         s = 1 if c.op == ComparisonOp.LEQ else -1
         if isinstance(c, ScalarizedOutcomeConstraint):
-            for c_metric, c_weight in c.metric_weights:
-                j = outcomes.index(c_metric.signature)
+            for c_metric_sig, c_weight in c.metric_weights:
+                j = outcomes.index(c_metric_sig)
                 A[i, j] = s * c_weight
         else:
-            j = outcomes.index(c.metric.signature)
+            j = outcomes.index(c.metric_signatures[0])
             A[i, j] = s
         b[i, 0] = s * c.bound
     return (A, b)
@@ -352,6 +439,7 @@ def validate_and_apply_final_transform(
     pending_observations: list[npt.NDArray] | None,
     objective_thresholds: npt.NDArray | None = None,
     pruning_target_point: npt.NDArray | None = None,
+    equality_constraints: tuple[npt.NDArray, npt.NDArray] | None = None,
     final_transform: Callable[[npt.NDArray], Tensor] = torch.tensor,
 ) -> tuple[
     Tensor,
@@ -360,41 +448,48 @@ def validate_and_apply_final_transform(
     list[Tensor] | None,
     Tensor | None,
     Tensor | None,
+    tuple[Tensor, Tensor] | None,
 ]:
     # TODO: use some container down the road (similar to
     # SearchSpaceDigest) to limit the return arguments
-    # pyre-fixme[35]: Target cannot be annotated.
-    objective_weights: Tensor = final_transform(objective_weights)
+    obj_weights_tensor = final_transform(objective_weights)
+    outcome_constraints_tensors: tuple[Tensor, Tensor] | None = None
     if outcome_constraints is not None:
-        # pyre-fixme[35]: Target cannot be annotated.
-        outcome_constraints: tuple[Tensor, Tensor] = (
+        outcome_constraints_tensors = (
             final_transform(outcome_constraints[0]),
             final_transform(outcome_constraints[1]),
         )
+    linear_constraints_tensors: tuple[Tensor, Tensor] | None = None
     if linear_constraints is not None:
-        # pyre-fixme[35]: Target cannot be annotated.
-        linear_constraints: tuple[Tensor, Tensor] = (
+        linear_constraints_tensors = (
             final_transform(linear_constraints[0]),
             final_transform(linear_constraints[1]),
         )
+    pending_obs_tensors: list[Tensor] | None = None
     if pending_observations is not None:
-        # pyre-fixme[35]: Target cannot be annotated.
-        pending_observations: list[Tensor] = [
+        pending_obs_tensors = [
             final_transform(pending_obs) for pending_obs in pending_observations
         ]
+    obj_thresholds_tensor: Tensor | None = None
     if objective_thresholds is not None:
-        # pyre-fixme[35]: Target cannot be annotated.
-        objective_thresholds: Tensor = final_transform(objective_thresholds)
+        obj_thresholds_tensor = final_transform(objective_thresholds)
+    pruning_target_tensor: Tensor | None = None
     if pruning_target_point is not None:
-        # pyre-fixme[35]: Target cannot be annotated.
-        pruning_target_point: Tensor = final_transform(pruning_target_point)
+        pruning_target_tensor = final_transform(pruning_target_point)
+    equality_constraints_tensors: tuple[Tensor, Tensor] | None = None
+    if equality_constraints is not None:
+        equality_constraints_tensors = (
+            final_transform(equality_constraints[0]),
+            final_transform(equality_constraints[1]),
+        )
     return (
-        objective_weights,
-        outcome_constraints,
-        linear_constraints,
-        pending_observations,
-        objective_thresholds,
-        pruning_target_point,
+        obj_weights_tensor,
+        outcome_constraints_tensors,
+        linear_constraints_tensors,
+        pending_obs_tensors,
+        obj_thresholds_tensor,
+        pruning_target_tensor,
+        equality_constraints_tensors,
     )
 
 
@@ -636,7 +731,8 @@ def get_pareto_frontier_and_configs(
     )
     # Extract weights, constraints, and objective_thresholds
     objective_weights = extract_objective_weight_matrix(
-        objective=optimization_config.objective, outcomes=adapter.outcomes
+        objective=optimization_config.objective,
+        outcomes=adapter.outcomes,
     )
     outcome_constraints = extract_outcome_constraints(
         outcome_constraints=optimization_config.outcome_constraints,
@@ -650,7 +746,7 @@ def get_pareto_frontier_and_configs(
     if obj_t is not None:
         obj_t = array_to_tensor(obj_t)
     # Transform to tensors.
-    obj_w, oc_c, _, _, _, _ = validate_and_apply_final_transform(
+    obj_w, oc_c, _, _, _, _, _ = validate_and_apply_final_transform(
         objective_weights=objective_weights,
         outcome_constraints=outcome_constraints,
         linear_constraints=None,
@@ -736,10 +832,8 @@ def pareto_frontier(
     if obj_t is None:
         return frontier_observations
 
-    # Apply appropriate weights and thresholds
-    obj, obj_t = get_weighted_mc_objective_and_objective_thresholds(
-        objective_weights=obj_w, objective_thresholds=obj_t
-    )
+    # Apply appropriate weights
+    obj = get_weighted_mc_objective(objective_weights=obj_w)
     f_t = obj(f)
 
     # Compute individual hypervolumes by taking the difference between the observation
@@ -904,15 +998,13 @@ def hypervolume(
         dtype=torch.bool,
         device=f.device,
     )
-    # Apply appropriate weights and thresholds
-    obj, obj_t = get_weighted_mc_objective_and_objective_thresholds(
-        objective_weights=obj_w, objective_thresholds=none_throws(obj_t)
-    )
+    # Apply appropriate weights
+    obj = get_weighted_mc_objective(objective_weights=obj_w)
     f_t = obj(f)
     obj_mask = (obj_w != 0).any(dim=0).nonzero().view(-1)
     selected_metrics_mask = selected_metrics_mask[obj_mask]
     f_t = f_t[:, selected_metrics_mask]
-    obj_t = obj_t[selected_metrics_mask]
+    obj_t = none_throws(obj_t)[selected_metrics_mask]
     bd = DominatedPartitioning(ref_point=obj_t, Y=f_t)
     return bd.compute_hypervolume().item()
 
@@ -1109,7 +1201,7 @@ def feasible_hypervolume(
 
     Args:
         optimization_config: Optimization config.
-        values: Dictionary from metric name to array of value at each
+        values: Dictionary from metric signature to array of value at each
             iteration (each array is `n`-dim). If optimization config contains
             outcome constraints, values for them must be present in `values`.
 
@@ -1117,29 +1209,28 @@ def feasible_hypervolume(
     """
     # Get objective at each iteration
     obj_threshold_dict = {
-        ot.metric.signature: ot.bound for ot in optimization_config.objective_thresholds
+        ot.metric_signatures[0]: ot.bound
+        for ot in optimization_config.objective_thresholds
     }
-    f_vals = np.hstack(
-        [
-            values[m.signature].reshape(-1, 1)
-            for m in optimization_config.objective.metrics
-        ]
-    )
-    obj_thresholds = np.array(
-        [obj_threshold_dict[m.signature] for m in optimization_config.objective.metrics]
-    )
+    obj_metric_sigs = optimization_config.objective.metric_signatures
+    f_vals = np.hstack([values[sig].reshape(-1, 1) for sig in obj_metric_sigs])
+    obj_thresholds = np.array([obj_threshold_dict[sig] for sig in obj_metric_sigs])
     # Set infeasible points to be the objective threshold
     for oc in optimization_config.outcome_constraints:
         if oc.relative:
             raise ValueError(
                 "Benchmark aggregation does not support relative constraints"
             )
-        g = values[oc.metric.signature]
+        oc_sig = oc.metric_signatures[0]
+        g = values[oc_sig]
         feas = g <= oc.bound if oc.op == ComparisonOp.LEQ else g >= oc.bound
         f_vals[~feas] = obj_thresholds
 
+    # Derive objective directions from the objective's metric_weights.
+    # Positive weight = maximize, negative weight = minimize.
+    obj_weight_dict = dict(optimization_config.objective.metric_weights)
     obj_weights = np.array(
-        [-1 if m.lower_is_better else 1 for m in optimization_config.objective.metrics]
+        [1 if obj_weight_dict[sig] > 0 else -1 for sig in obj_metric_sigs]
     )
     obj_thresholds = obj_thresholds * obj_weights
     f_vals = f_vals * obj_weights
@@ -1263,6 +1354,57 @@ def process_contextual_datasets(
     return contextual_datasets
 
 
+def _get_fresh_pairwise_trial_indices(
+    experiment: Experiment,
+) -> set[int] | None:
+    """Return trial indices whose pairwise labels match current experiment state.
+
+    LILO (Language-in-the-Loop) trials are stamped with a hash of the
+    experiment state (metric data + LLM messages) at labeling time.  When
+    the experiment state changes (new data, updated LLM messages), old labels
+    become stale and should be excluded from PairwiseGP model fitting.
+
+    Design note: we intentionally compare each trial's stamped hash against
+    the *current* experiment state rather than the most-recently-stamped LILO
+    hash.  This is because the LLM prompt includes a full experiment summary
+    (via ``get_llm_messages_with_experiment_summary``), so any change to
+    input metric data -- even from non-LILO trials -- alters the context
+    under which labels would be produced and warrants relabeling.
+
+    Returns:
+        A set of trial indices whose LILO input hash matches the current
+        experiment state, or ``None`` if hash-based filtering is not
+        applicable (e.g., no trials have a LILO input hash -- the experiment
+        uses BOPE or another non-LILO pairwise workflow).
+    """
+    # Collect trials that have been stamped with a LILO input hash.
+    stamped_trials = {
+        idx: trial
+        for idx, trial in experiment.trials.items()
+        if Keys.LILO_INPUT_HASH in trial._properties
+    }
+    if not stamped_trials:
+        # Not a LILO experiment -- no filtering needed.
+        return None
+
+    current_hash = get_current_lilo_hash(experiment)
+    if current_hash is None:
+        return None
+
+    fresh_indices: set[int] = set()
+    for idx, trial in experiment.trials.items():
+        trial_hash = trial._properties.get(Keys.LILO_INPUT_HASH)
+        if trial_hash is None:
+            # Trial without hash (non-LILO trial) -- always include.
+            fresh_indices.add(idx)
+        elif trial_hash == current_hash:
+            # Hash matches -- labels are fresh.
+            fresh_indices.add(idx)
+        # else: stale hash -- excluded.
+
+    return fresh_indices
+
+
 def prep_pairwise_data(
     X: Tensor,
     Y: Tensor,
@@ -1346,56 +1488,3 @@ def _consolidate_comparisons(X: Tensor, Y: Tensor) -> tuple[Tensor, Tensor]:
 
     X, Y, _ = consolidate_duplicates(X, Y)
     return X, Y
-
-
-def is_unordered_choice(
-    p: Parameter, min_choices: int | None = None, max_choices: int | None = None
-) -> bool:
-    """Returns whether a parameter is an unordered choice (categorical) parameter.
-
-    You can also specify `min_choices` and `max_choices` to restrict how many
-    possible values the parameter can take on.
-
-    Args:
-        p: Parameter.
-        min_choices: The minimum number of possible values for the parameter.
-        max_choices: The maximum number of possible values for the parameter.
-
-    Returns:
-        A boolean indicating whether p is an unordered choice parameter or not.
-    """
-    if min_choices is not None and min_choices < 0:
-        raise UserInputError("`min_choices` must be a non-negative integer.")
-    if max_choices is not None and max_choices < 0:
-        raise UserInputError("`max_choices` must be a non-negative integer.")
-    if (
-        min_choices is not None
-        and max_choices is not None
-        and min_choices > max_choices
-    ):
-        raise UserInputError("`min_choices` cannot be larger than `max_choices`.")
-    return (
-        isinstance(p, ChoiceParameter)
-        and not p.is_ordered
-        and (min_choices is None or min_choices <= len(p.values))
-        and (max_choices is None or max_choices >= len(p.values))
-    )
-
-
-def can_map_to_binary(p: Parameter) -> bool:
-    """Returns whether a parameter can be transformed to a binary parameter.
-
-    Any choice/range parameters with exactly two values can be transformed to a
-    binary parameter.
-
-    Args:
-        p: Parameter.
-
-    Returns
-        A boolean indicating whether p can be transformed to a binary parameter.
-    """
-    return (isinstance(p, ChoiceParameter) and len(p.values) == 2) or (
-        isinstance(p, RangeParameter)
-        and p.parameter_type == ParameterType.INT
-        and p.lower == p.upper - 1
-    )

@@ -23,7 +23,7 @@ from ax.exceptions.core import UserInputError
 from ax.generators.types import TConfig
 from ax.utils.common.logger import get_logger
 from pandas import Index, MultiIndex
-from pyre_extensions import none_throws
+from pyre_extensions import assert_is_instance, none_throws
 
 if TYPE_CHECKING:
     # import as module to make sphinx-autodoc-typehints happy
@@ -67,12 +67,9 @@ class MapKeyToFloat(MetadataToParameterMixin, Transform):
             adapter=adapter,
             config=config,
         )
-        # pyre-fixme[9]: Incompatible variable type [9]: parameters is declared
-        # to have type `Dict[str, Dict[str, typing.Any]]` but is used as type
-        # `Union[None, Dict[int, typing.Any], Dict[str, typing.Any], List[int],
-        # List[str], OptimizationConfig, WinsorizationConfig,
-        # AcquisitionFunction, float, int, str]`.
-        parameters: dict[str, dict[str, Any]] = self.config.get("parameters", {})
+        parameters: dict[str, dict[str, Any]] = assert_is_instance(
+            self.config.get("parameters", {}), dict
+        )
         is_map_data = (
             # Note: experiment_data can't be None because
             # `requires_data_for_initialization` is True; if it is None, there
@@ -98,7 +95,7 @@ class MapKeyToFloat(MetadataToParameterMixin, Transform):
                     "The only allowed key in `config['parameters']` is "
                     f"{MAP_KEY}. Got {disallowed_parameters}."
                 )
-        elif len(parameters) > 0:
+        elif parameters:
             raise ValueError(
                 "No parameters may be provided to MapKeyToFloat with non-map "
                 f"data. Got {received_parameters}."

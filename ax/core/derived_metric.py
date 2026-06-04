@@ -53,6 +53,7 @@ from typing import Any, Callable, cast
 
 import pandas as pd
 from ax.core.base_trial import BaseTrial
+from ax.core.batch_trial import BatchTrial
 from ax.core.data import Data
 from ax.core.metric import Metric, MetricFetchE, MetricFetchResult
 from ax.exceptions.core import UserInputError
@@ -106,6 +107,16 @@ class DerivedMetric(Metric):
         self._input_metric_names = input_metric_names
         self._relativize_inputs = relativize_inputs
         self._as_percent = as_percent
+
+    @classmethod
+    def is_available_while_running(cls) -> bool:
+        # Derived metrics should always attempt to compute from base data.
+        # If base data isn't available for running trials, fetch_trial_data
+        # will return empty data, which is handled gracefully.
+        # TODO: Ideally this would dynamically check whether all input metrics
+        # are available while running, but that requires experiment context
+        # that this classmethod doesn't have access to.
+        return True
 
     @property
     def input_metric_names(self) -> list[str]:
@@ -262,7 +273,30 @@ class DerivedMetric(Metric):
         """
         arm_data: dict[str, pd.DataFrame] = {}
 
+        # Skip abandoned arms -- they have no base metric data (the metric
+        # system correctly does not fetch data for abandoned arms), so
+        # requiring their data would cause a spurious MetricFetchE.
+        abandoned_names: set[str] = (
+            {a.name for a in trial.abandoned_arms}
+            if isinstance(trial, BatchTrial)
+            else set()
+        )
+
         for arm in trial.arms:
+            if arm.name in abandoned_names:
+                continue
+            # If cross-trial resolution was used but this arm has no
+            # source mapping, skip it -- no data is available (e.g.,
+            # the arm was abandoned in its original trial).
+            if (
+                source_trial_indices is not None
+                and arm.name not in source_trial_indices
+            ):
+                logger.warning(
+                    f"Skipping arm '{arm.name}' in trial {trial.index} for "
+                    f"DerivedMetric '{self.name}': no source data resolved."
+                )
+                continue
             if source_trial_indices is not None and arm.name in source_trial_indices:
                 src_trial_idx, src_arm_name = source_trial_indices[arm.name]
                 arm_df = df[
@@ -318,8 +352,9 @@ class DerivedMetric(Metric):
         properly transform both means and SEMs.
 
         When ``relativize_inputs`` is ``False``, returns ``arm_data``
-        unchanged.  When ``True``, the status quo arm is excluded from
-        the returned dict (its relativized values are zero by definition).
+        unchanged.  When ``True``, the status quo arm is included with
+        zero-valued inputs so the expression can be evaluated on it
+        (e.g., ``exp(0)=1``).
         """
         if not self._relativize_inputs:
             return arm_data
@@ -342,8 +377,24 @@ class DerivedMetric(Metric):
         # different SQ metric values (non-stationarity).
         relativized: dict[str, pd.DataFrame] = {}
         for arm_name, arm_df in arm_data.items():
-            # Skip the SQ arm itself — its relativized values are zero.
+            # SQ relativized against itself is trivially zero for all inputs.
+            # Include it so _compute_derived_values can evaluate the expression
+            # on zeros (e.g., exp(0)=1, a+b=0).
             if arm_name == sq_name:
+                sq_rel_rows: list[dict[str, Any]] = []
+                status_quo_trial_index = int(arm_df["trial_index"].iloc[0])
+                for metric_name in self._input_metric_names:
+                    sq_rel_rows.append(
+                        {
+                            "trial_index": status_quo_trial_index,
+                            "arm_name": sq_name,
+                            "metric_name": metric_name,
+                            "metric_signature": metric_name,
+                            "mean": 0.0,
+                            "sem": 0.0,
+                        }
+                    )
+                relativized[sq_name] = pd.DataFrame(sq_rel_rows)
                 continue
 
             # Determine this arm's source trial_index from its data.
@@ -467,8 +518,8 @@ class DerivedMetric(Metric):
         if isinstance(arm_data_result, MetricFetchE):
             return Err(arm_data_result)
 
-        # After relativization, arm_data may be empty (e.g., a SQ-only trial
-        # where all arms were excluded).  Return empty data, not an error.
+        # After relativization, arm_data may be empty (e.g., a trial with
+        # no arms).  Return empty data, not an error.
         if not arm_data_result:
             return Ok(value=Data())
 
@@ -651,7 +702,8 @@ class ExpressionDerivedMetric(DerivedMetric):
         """Evaluate the expression for each arm using pre-collected data.
 
         When ``relativize_inputs`` is ``True``, the base class has already
-        relativized the ``mean`` values and excluded the status quo arm.
+        relativized the ``mean`` values.  The status quo arm is included
+        with zero-valued inputs.
         """
         result_rows: list[dict[str, Any]] = []
 

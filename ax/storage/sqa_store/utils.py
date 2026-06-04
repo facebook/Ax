@@ -45,6 +45,7 @@ COPY_DB_IDS_ATTRS_TO_SKIP = {
     # don't need to recur into them during `copy_db_ids`.
     "auxiliary_experiments_by_purpose",
     "_metric_fetching_errors",
+    "_metric_name_to_signature",
     "_data_rows",
 }
 SKIP_ATTRS_ERROR_SUFFIX = (
@@ -80,7 +81,10 @@ def copy_db_ids(source: Any, target: Any, path: list[str] | None = None) -> None
         raise SQADecodeError(error_message_prefix + "Encountered path of length > 15.")
 
     if type(source) is not type(target):
-        if not issubclass(type(target), type(source)):
+        if not (
+            issubclass(type(target), type(source))
+            or issubclass(type(source), type(target))
+        ):
             if source is None and isinstance(target, SearchSpace):
                 warnings.warn(
                     error_message_prefix + "Encountered two objects of different "

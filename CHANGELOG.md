@@ -1,6 +1,83 @@
 # Changelog
 
 The release log for Ax.
+
+## [1.3.0] -- Jun 4, 2026
+
+### Compatibility
+
+* Require BoTorch==0.18.0 (#5216)
+  * Requires PyTorch>=2.4.0
+  * Utilizes NumPyro for faster fully-Bayesian model fitting, requiring JAX as a dependency
+
+### API Changes (`ax/api`)
+
+* `Client.attach_data` (and therefore `Client.complete_trial`) now auto-registers metrics in `raw_data` that are not part of
+  the optimization config as tracking metrics, matching the documented contract. Previously this raised `UserInputError` (#5135)
+* `Client.configure_optimization` / objective and outcome-constraint strings now support linear equality constraints (`w^T x == b`) (#5174)
+
+**Docs**
+* New example starting an Ax experiment from dataframe data (#5098)
+
+### Core (`ax/core`)
+
+* `Objective` and `OutcomeConstraint` are now expression-based and no longer hold `Metric` instances;
+  metrics live only on the `Experiment`. Construct them with an expression string, e.g.
+  `Objective(expression="ne1 + 2*ne2")` or `OutcomeConstraint(expression="qps >= 7000")`
+  (single, scalarized, and multi-objective are all expressed this way). Old-style constructors still
+  work but discard the `Metric` after init. `Objective.metric` is removed -- get a metric's name from
+  the expression and look it up via `Experiment.get_metric(name)`. This is a step toward deprecating
+  `ScalarizedObjective`, `MultiObjective`, `ScalarizedOutcomeConstraint`, and `ObjectiveThreshold` (#5000, #5122, #5045, #5041)
+  Note: We are aware of some edge-case bugs in this setup and we may be iterating on this in future releases.
+* `ParameterConstraint` gains a new `equality=` kwarg for linear equality constraints (`w^T x == b`); equality constraints are honored in `SearchSpace` membership checks (#5173, #5175)
+* Make all `mark_*` methods on `BaseTrial` no-op when the status is unchanged, and avoid rewriting timestamps when the status is unchanged (#5097, #5074)
+* Runner lifecycle for search space editing: new `Runner.update` and `Runner.on_search_space_update` methods, a typed `RunnerConfig` infrastructure, and an `UNSET` sentinel (#5131, #5132, #5133, #5130)
+* Support for Language-in-the-Loop labeling trials, with data-freshness hashing/stamping and stale-data handling (#4986, #4992, #5144)
+* `AddExecutionViability` transform (lives in adapter; relies on core trial/metric plumbing) (#4547)
+
+### Generation (`ax/generators`, `ax/adapter`, `ax/generation_strategy`)
+
+* Replace Pyro with NumPyro (JAX-backed) for fully Bayesian NUTS inference -- roughly 25x faster fit on CPU with equivalent model quality (#5087)
+* Threaded equality constraints from `ParameterConstraint` all the way down to BoTorch (#5176, #5177, #5179, #5178, #5182)
+* Open-sourced the Transfer Learning stack: `TransferLearningAdapter` (registered as `Generators.BOTL`) (#5052, #5048, #5096, #5047)
+* Heterogeneous TL now defaults to `MultiTaskGP` + `LearnedFeatureImputation` (`ImputedMultiTaskGP`) (#5106, #5183, #5193, #5192)
+* Dispatch `qEUBO` for preferential BO (#5093) and support `PairwiseGP` in `ModelList` pipelines (#5092)
+* `GenerationStrategy.fit(experiment, data)` public method encapsulating the transition-then-fit pattern (#4922)
+* New `InSampleUniformGenerator` for model-free in-sample candidate selection (#4987)
+* `FreshLILOLabelCheck` transition criterion and hash-based filtering of stale LILO data in the adapter (#4994, #4993)
+* Expand the model space for numeric ordered `ChoiceParameter`s (#5210)
+
+**Breaking**
+* Removed the deprecated `steps=` kwarg from `GenerationStrategy.__init__` (use `nodes=`) (#5142)
+* Removed the deprecated `use_update` argument to `GenerationStep` (#5187)
+* Removed the deprecated `generated_points` argument to `RandomGenerator` (#5186)
+* Re-index `TorchOptConfig.objective_thresholds` from `(n_outcomes,)` to `(n_objectives,)` (#5018)
+
+### Analysis (`ax/analysis`, `ax/plot`)
+
+* New `TransferLearningAnalysis` with paste/diff comparison links (#4918, #4980)
+* New `UtilityRankingPlot` for preference metrics; preference metrics handled across the analysis layer (#5166, #5165)
+* New `NotApplicableStateAnalysisCard` (#5035, #5036, #5051, #5163)
+* `SensitivityAnalysisPlot` aesthetic improvements; use total-order sensitivity for high-dimensional experiments (#5015, #5115)
+
+### Storage (`ax/storage`)**
+
+* Add `step_size` to `SQAParameter` class, and as a column to the `parameter_v2` table in the DB (#5212). This will be leveraged in the next version.
+* SQLAlchemy 2.0 migration: migrate SQA declarative classes to SA 2.0 `Mapped[T]`, make the SQA store SA 2.0-compatible (#5205, #5201, #5169, #5203, #5206)
+* Support equality constraints in JSON and SQA storage (#5181)
+
+### Legacy API (`ax/service`)**
+Note: These are deprecated and may be removed in a future release.
+* `optimize()` is rewritten as a thin wrapper over `ax.api.client.Client`; the `OptimizationLoop` class is removed. The `optimize()` signature and return type are preserved (#5143)
+* Removed `AxClient.get_optimization_trace` -- superseded by `UtilityProgressionAnalysis` (#5168)
+* Search space editing on `AxClient`: new `add_parameters`, `update_parameters`, and `disable_parameters` methods to mutate the search space after trials have started; parameter constraints can be added alongside new parameters (#4945, #5023)
+
+### Orchestration (`ax/orchestration`)**
+
+* Removed `Scheduler`, `SchedulerOptions`, and `SchedulerInternalError` -- deprecated since Ax 1.0.0; use the `Orchestrator` instead (#5188)
+
+
+
 ## [1.2.4] -- Mar 4, 2026
 
 #### Bug Fixes

@@ -13,6 +13,7 @@ import numpy.typing as npt
 from ax.adapter.transforms.base import Transform
 from ax.core.observation import ObservationData
 from ax.utils.common.logger import get_logger
+from pyre_extensions import assert_is_instance
 
 logger: Logger = get_logger(__name__)
 
@@ -64,9 +65,7 @@ def ivw_metric_merge(
         idx_noiseless = np.where(sigma2s == 0.0)[0]
         if len(idx_noiseless) == 0:
             # Weight is inverse of variance, normalized
-            # Expected `np.ndarray` for 3rd anonymous parameter to call
-            # `dict.__setitem__` but got `float`.
-            weights[metric_signature] = 1.0 / sigma2s
+            weights[metric_signature] = np.asarray(1.0 / sigma2s)
             weights[metric_signature] /= np.sum(weights[metric_signature])
         else:
             # Check if there are conflicting means for the noiseless observations
@@ -121,9 +120,9 @@ class IVW(Transform):
         self,
         observation_data: list[ObservationData],
     ) -> list[ObservationData]:
-        # pyre: conflicting_noiseless is declared to have type `str` but is
-        # pyre-fixme[9]: used as type `typing.Union[float, int, str]`.
-        conflicting_noiseless: str = self.config.get("conflicting_noiseless", "warn")
+        conflicting_noiseless = assert_is_instance(
+            self.config.get("conflicting_noiseless", "warn"), str
+        )
         return [
             ivw_metric_merge(obsd=obsd, conflicting_noiseless=conflicting_noiseless)
             for obsd in observation_data

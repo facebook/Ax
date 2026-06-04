@@ -7,7 +7,7 @@
 # pyre-strict
 
 import os
-from collections.abc import Callable, Sequence
+from collections.abc import Callable, Generator, Sequence
 from logging import Logger
 from typing import Any, cast, Type
 
@@ -29,9 +29,13 @@ from ax.generation_strategy.generation_strategy import GenerationStrategy
 from ax.storage.sqa_store import validation as _validation_listeners  # noqa: F401
 from ax.storage.sqa_store.db import session_scope, SQABase
 from ax.storage.sqa_store.decoder import Decoder
-from ax.storage.sqa_store.encoder import Encoder
+from ax.storage.sqa_store.encoder import (
+    Encoder,
+    prepare_experiment_properties_for_storage,
+)
 from ax.storage.sqa_store.sqa_classes import (
     SQAData,
+    SQAExperiment,
     SQAGeneratorRun,
     SQAMetric,
     SQARunner,
@@ -97,16 +101,20 @@ def _save_experiment(
         existing SQLAlchemy object, and then letting SQLAlchemy handle the
         actual DB updates.
     """
-    exp_sqa_class = encoder.config.class_to_sqa_class[Experiment]
+    exp_sqa_class = cast(
+        Type[SQAExperiment], encoder.config.class_to_sqa_class[Experiment]
+    )
     with session_scope() as session:
-        existing_sqa_experiment_id = (
-            # pyre-ignore Undefined attribute [16]: `SQABase` has no attribute `id`
+        existing_sqa_experiment_id_row = (
             session.query(exp_sqa_class.id)
             .filter_by(name=experiment.name)
             .one_or_none()
         )
-    if existing_sqa_experiment_id:
-        existing_sqa_experiment_id = existing_sqa_experiment_id[0]
+    existing_sqa_experiment_id: int | None = (
+        existing_sqa_experiment_id_row[0]
+        if existing_sqa_experiment_id_row is not None
+        else None
+    )
 
     encoder.validate_experiment_metadata(
         experiment,
@@ -422,9 +430,10 @@ def _update_generation_strategy(
     """Update generation strategy's current step and attach generator runs."""
     gs_sqa_class = encoder.config.class_to_sqa_class[GenerationStrategy]
 
-    gs_id = generation_strategy.db_id
-    if gs_id is None:
-        raise ValueError("GenerationStrategy must be saved before being updated.")
+    gs_id: int = none_throws(
+        generation_strategy.db_id,
+        "GenerationStrategy must be saved before being updated.",
+    )
 
     experiment_id = generation_strategy.experiment.db_id
     if experiment_id is None:
@@ -444,13 +453,12 @@ def _update_generation_strategy(
             }
         )
 
-    # pyre-fixme[53]: Captured variable `gs_id` is not annotated.
-    # pyre-fixme[3]: Return type must be annotated.
-    def add_generation_strategy_id(sqa: SQAGeneratorRun):
+    def add_generation_strategy_id(sqa: SQAGeneratorRun) -> None:
         sqa.generation_strategy_id = gs_id
 
-    # pyre-fixme[3]: Return type must be annotated.
-    def generator_run_to_sqa_encoder(gr: GeneratorRun, weight: float | None = None):
+    def generator_run_to_sqa_encoder(
+        gr: GeneratorRun, weight: float | None = None
+    ) -> SQAGeneratorRun:
         return encoder.generator_run_to_sqa(
             gr,
             weight=weight,
@@ -483,8 +491,7 @@ def update_runner_on_experiment(
     with session_scope() as session:
         session.query(runner_sqa_class).filter_by(experiment_id=exp_id).delete()
 
-    # pyre-fixme[3]: Return type must be annotated.
-    def add_experiment_id(sqa: SQARunner):
+    def add_experiment_id(sqa: SQARunner) -> None:
         sqa.experiment_id = exp_id
 
     _merge_into_session(
@@ -536,10 +543,14 @@ def update_properties_on_experiment(
 
     exp_id = _assert_experiment_saved(experiment_with_updated_properties)
 
+    properties = prepare_experiment_properties_for_storage(
+        experiment_with_updated_properties
+    )
+
     with session_scope() as session:
         session.query(exp_sqa_class).filter_by(id=exp_id).update(
             {
-                "properties": experiment_with_updated_properties._properties,
+                "properties": properties,
             }
         )
 
@@ -682,9 +693,9 @@ def _bulk_merge_into_session(
         sqas.append(sqa)
 
     # https://stackoverflow.com/a/312464
-    # pyre-fixme[3]: Return type must be annotated.
-    # pyre-fixme[2]: Parameter must be annotated.
-    def split_into_batches(lst, n):
+    def split_into_batches(
+        lst: list[SQABase], n: int
+    ) -> Generator[list[SQABase], None, None]:
         for i in range(0, len(lst), n):
             yield lst[i : i + n]
 

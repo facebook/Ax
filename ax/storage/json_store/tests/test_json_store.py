@@ -11,8 +11,10 @@ import json
 import os
 import tempfile
 from collections import OrderedDict
+from collections.abc import Callable
 from functools import partial
 from math import nan
+from typing import Any
 
 import numpy as np
 import pandas as pd
@@ -22,6 +24,10 @@ from ax.adapter.registry import Generators
 from ax.adapter.transforms.base import Transform
 from ax.adapter.transforms.log import Log
 from ax.adapter.transforms.one_hot import OneHot
+from ax.analysis.graphviz.graphviz_analysis import GraphvizAnalysisCard
+from ax.analysis.healthcheck.healthcheck_analysis import HealthcheckAnalysisCard
+from ax.analysis.markdown.markdown_analysis import MarkdownAnalysisCard
+from ax.analysis.plotly.plotly_analysis import PlotlyAnalysisCard
 from ax.benchmark.methods.sobol import get_sobol_benchmark_method
 from ax.benchmark.testing.benchmark_stubs import (
     get_aggregated_benchmark_result,
@@ -30,6 +36,12 @@ from ax.benchmark.testing.benchmark_stubs import (
     get_benchmark_metric,
     get_benchmark_result,
     get_benchmark_time_varying_metric,
+)
+from ax.core.analysis_card import (
+    AnalysisCard,
+    AnalysisCardGroup,
+    ErrorAnalysisCard,
+    NotApplicableStateAnalysisCard,
 )
 from ax.core.auxiliary import AuxiliaryExperimentPurpose
 from ax.core.data import Data
@@ -51,6 +63,11 @@ from ax.exceptions.storage import JSONDecodeError, JSONEncodeError
 from ax.generation_strategy.center_generation_node import CenterGenerationNode
 from ax.generation_strategy.generation_node import GenerationNode, GenerationStep
 from ax.generation_strategy.generator_spec import GeneratorSpec
+from ax.generation_strategy.transition_criterion import (
+    MaxGenerationParallelism,
+    MaxTrialsAwaitingData,
+    MinTrials,
+)
 from ax.generators.torch.botorch_modular.kernels import ScaleMaternKernel
 from ax.generators.torch.botorch_modular.surrogate import Surrogate, SurrogateSpec
 from ax.generators.torch.botorch_modular.utils import ModelConfig
@@ -106,6 +123,7 @@ from ax.utils.testing.core_stubs import (
     get_choice_parameter,
     get_default_orchestrator_options,
     get_derived_parameter,
+    get_equality_parameter_constraint,
     get_experiment_with_batch_and_single_trial,
     get_experiment_with_data,
     get_experiment_with_map_data,
@@ -141,6 +159,7 @@ from ax.utils.testing.core_stubs import (
     get_percentile_early_stopping_strategy_with_non_objective_metric_signature,
     get_range_parameter,
     get_scalarized_objective,
+    get_scalarized_outcome_constraint,
     get_search_space,
     get_sorted_choice_parameter,
     get_sum_constraint1,
@@ -181,11 +200,10 @@ from botorch.models.transforms.input import Normalize
 from botorch.models.transforms.outcome import Standardize
 from botorch.sampling.normal import SobolQMCNormalSampler
 from gpytorch.mlls.exact_marginal_log_likelihood import ExactMarginalLogLikelihood
-from pyre_extensions import none_throws
+from pyre_extensions import assert_is_instance, none_throws
 
 
-# pyre-fixme[5]: Global expression must be annotated.
-TEST_CASES = [
+TEST_CASES: list[tuple[str, Callable[..., Any]]] = [
     ("AbandonedArm", get_abandoned_arm),
     (
         "AdditiveMapSaasSingleTaskGP",
@@ -378,8 +396,10 @@ TEST_CASES = [
         get_percentile_early_stopping_strategy_with_non_objective_metric_signature,
     ),
     ("ParameterConstraint", get_parameter_constraint),
+    ("ParameterConstraint", get_equality_parameter_constraint),
     ("RangeParameter", get_range_parameter),
     ("ScalarizedObjective", get_scalarized_objective),
+    ("ScalarizedOutcomeConstraint", get_scalarized_outcome_constraint),
     ("OrchestratorOptions", get_default_orchestrator_options),
     ("OrchestratorOptions", get_orchestrator_options_batch_trial),
     ("SearchSpace", get_search_space),
@@ -400,6 +420,100 @@ TEST_CASES = [
     ("ThresholdEarlyStoppingStrategy", get_threshold_early_stopping_strategy),
     ("Trial", get_trial),
     ("WinsorizationConfig", get_winsorization_config),
+    (
+        "AnalysisCard",
+        lambda: AnalysisCard(
+            name="TestAnalysis",
+            title="Test",
+            subtitle="subtitle",
+            df=pd.DataFrame({"a": [1, 2]}),
+            blob="blob_str",
+        ),
+    ),
+    (
+        "ErrorAnalysisCard",
+        lambda: ErrorAnalysisCard(
+            name="TestError",
+            title="Error",
+            subtitle="err subtitle",
+            df=pd.DataFrame(),
+            blob="error details",
+        ),
+    ),
+    (
+        "PlotlyAnalysisCard",
+        lambda: PlotlyAnalysisCard(
+            name="TestPlotly",
+            title="Plot",
+            subtitle="plot subtitle",
+            df=pd.DataFrame({"x": [1]}),
+            blob="{}",
+        ),
+    ),
+    (
+        "MarkdownAnalysisCard",
+        lambda: MarkdownAnalysisCard(
+            name="TestMd",
+            title="MD",
+            subtitle="md subtitle",
+            df=pd.DataFrame(),
+            blob="# Hello",
+        ),
+    ),
+    (
+        "HealthcheckAnalysisCard",
+        lambda: HealthcheckAnalysisCard(
+            name="TestHC",
+            title="HC",
+            subtitle="hc subtitle",
+            df=pd.DataFrame(),
+            blob='{"status": 0}',
+        ),
+    ),
+    (
+        "GraphvizAnalysisCard",
+        lambda: GraphvizAnalysisCard(
+            name="TestGV",
+            title="GV",
+            subtitle="gv subtitle",
+            df=pd.DataFrame(),
+            blob="digraph {}",
+        ),
+    ),
+    (
+        "NotApplicableStateAnalysisCard",
+        lambda: NotApplicableStateAnalysisCard(
+            name="TestNA",
+            title="Not Applicable",
+            subtitle="na subtitle",
+            df=pd.DataFrame(),
+            blob="Not enough data.",
+        ),
+    ),
+    (
+        "AnalysisCardGroup",
+        lambda: AnalysisCardGroup(
+            name="TestGroup",
+            title="Group",
+            subtitle="group subtitle",
+            children=[
+                AnalysisCard(
+                    name="Child",
+                    title="C1",
+                    subtitle="s1",
+                    df=pd.DataFrame({"a": [1]}),
+                    blob="b1",
+                ),
+                MarkdownAnalysisCard(
+                    name="Child2",
+                    title="C2",
+                    subtitle="s2",
+                    df=pd.DataFrame(),
+                    blob="# md",
+                ),
+            ],
+        ),
+    ),
 ]
 
 
@@ -955,6 +1069,30 @@ class JSONStoreTest(TestCase):
             del expected_json["state_dict"]["lower_bound"]
             botorch_component_from_json(interval.__class__, expected_json)
 
+    def test_prior_roundtrip_serialization(self) -> None:
+        """Test encode/decode roundtrip for priors with buffered attributes.
+
+        Priors whose underlying distribution uses @property descriptors
+        (e.g. BetaPrior via Dirichlet, LogNormalPrior via TransformedDistribution)
+        store state_dict keys with BUFFERED_PREFIX. The decoder must strip
+        the prefix to match __init__ arg names.
+        """
+        from botorch.models.utils.priors import BetaPrior
+        from gpytorch.priors.torch_priors import GammaPrior, LogNormalPrior, NormalPrior
+
+        priors = [
+            ("BetaPrior", BetaPrior(concentration1=2.5, concentration0=1.5)),
+            ("GammaPrior", GammaPrior(concentration=2.0, rate=1.0)),
+            ("NormalPrior", NormalPrior(loc=0.0, scale=1.0)),
+            ("LogNormalPrior", LogNormalPrior(loc=0.0, scale=1.0)),
+        ]
+        for name, prior in priors:
+            with self.subTest(prior=name):
+                encoded = botorch_component_to_dict(prior)
+                decoded = botorch_component_from_json(prior.__class__, encoded)
+                self.assertIsInstance(decoded, prior.__class__)
+                self.assertEqual(decoded.state_dict(), prior.state_dict())
+
     def test_observation_features_backward_compatibility(self) -> None:
         json = {
             "__type": "ObservationFeatures",
@@ -1046,16 +1184,20 @@ class JSONStoreTest(TestCase):
     def test_objective_backwards_compatibility(self) -> None:
         # Test that we can load an objective that has conflicting
         # ``lower_is_better`` and ``minimize`` fields.
-        objective = get_objective(minimize=True)
-        objective.metric.lower_is_better = False  # for conflict!
-        objective_json = object_to_json(objective)
-        self.assertTrue(objective_json["minimize"])
-        self.assertFalse(objective_json["metric"]["lower_is_better"])
+        # In the old format, the metric had ``lower_is_better`` and the
+        # objective had ``minimize``. When they disagree, ``minimize`` wins.
+        objective_json = {
+            "__type": "Objective",
+            "metric": {
+                "__type": "Metric",
+                "name": "m1",
+                "lower_is_better": False,
+            },
+            "minimize": True,
+        }
         objective_loaded = object_from_json(objective_json)
         self.assertIsInstance(objective_loaded, Objective)
-        self.assertNotEqual(objective, objective_loaded)
         self.assertTrue(objective_loaded.minimize)
-        self.assertTrue(objective_loaded.metric.lower_is_better)
 
     def test_generation_step_backwards_compatibility(self) -> None:
         # Test that we can load a generation step with deprecated kwargs.
@@ -1119,6 +1261,7 @@ class JSONStoreTest(TestCase):
                 "deduplicate": False,
                 "seed": None,
                 "torch_dtype": None,
+                "generated_points": None,
             },
             "bridge_kwargs": {
                 "transforms": {},
@@ -1280,9 +1423,9 @@ class JSONStoreTest(TestCase):
             node = generation_node_from_json(json)
             self.assertEqual(len(node.transition_criteria), 0)
             self.assertEqual(len(node.pausing_criteria), 1)
-            blocking = node.pausing_criteria[0]
-            self.assertEqual(blocking.__class__.__name__, "MaxGenerationParallelism")
-            # pyre-ignore[16]: Attribute exists on MaxGenerationParallelism
+            blocking = assert_is_instance(
+                node.pausing_criteria[0], MaxGenerationParallelism
+            )
             self.assertEqual(blocking.threshold, 3)
 
         with self.subTest("MinTrials_with_block_gen_if_met_only"):
@@ -1319,8 +1462,9 @@ class JSONStoreTest(TestCase):
             node = generation_node_from_json(json)
             self.assertEqual(len(node.transition_criteria), 0)
             self.assertEqual(len(node.pausing_criteria), 1)
-            blocking = node.pausing_criteria[0]
-            self.assertEqual(blocking.__class__.__name__, "MaxTrialsAwaitingData")
+            blocking = assert_is_instance(
+                node.pausing_criteria[0], MaxTrialsAwaitingData
+            )
             self.assertEqual(blocking.threshold, 5)
 
         with self.subTest("MinTrials_with_block_gen_if_met_and_block_transition"):
@@ -1357,16 +1501,13 @@ class JSONStoreTest(TestCase):
             # Should have both
             self.assertEqual(len(node.transition_criteria), 1)
             self.assertEqual(len(node.pausing_criteria), 1)
-            tc = node.transition_criteria[0]
-            self.assertEqual(tc.__class__.__name__, "MinTrials")
-            # pyre-ignore[16]: Attribute exists on MinTrials
+            tc = assert_is_instance(node.transition_criteria[0], MinTrials)
             self.assertEqual(tc.threshold, 5)
             self.assertEqual(tc.transition_to, "next_node")
-            blocking = node.pausing_criteria[0]
-            self.assertEqual(blocking.__class__.__name__, "MaxTrialsAwaitingData")
-            # pyre-ignore[16]: threshold exists on MaxTrialsAwaitingData
+            blocking = assert_is_instance(
+                node.pausing_criteria[0], MaxTrialsAwaitingData
+            )
             self.assertEqual(blocking.threshold, 5)
-            # pyre-ignore[16]: use_all_trials_in_exp exists on MaxTrialsAwaitingData
             self.assertTrue(blocking.use_all_trials_in_exp)
 
     def test_SobolQMCNormalSampler(self) -> None:
