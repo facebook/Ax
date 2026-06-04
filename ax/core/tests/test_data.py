@@ -837,3 +837,68 @@ class RelativizeDataTest(TestCase):
         self.assertEqual(
             expected_relativized_data_with_sq, actual_relativized_data_with_sq
         )
+
+    def test_relativize_with_metric_names_preserves_unscoped_sem(self) -> None:
+        """When metric_names scoping is used with include_sq=True,
+        non-relativized metrics should retain their original SEM values."""
+        df = pd.DataFrame(
+            [
+                {
+                    "trial_index": 0,
+                    "mean": 2.0,
+                    "sem": 0.5,
+                    "metric_name": "to_relativize",
+                    "metric_signature": "to_relativize",
+                    "arm_name": "status_quo",
+                },
+                {
+                    "trial_index": 0,
+                    "mean": 4.0,
+                    "sem": 1.0,
+                    "metric_name": "to_relativize",
+                    "metric_signature": "to_relativize",
+                    "arm_name": "0_0",
+                },
+                {
+                    "trial_index": 0,
+                    "mean": 3.0,
+                    "sem": 0.8,
+                    "metric_name": "not_relativized",
+                    "metric_signature": "not_relativized",
+                    "arm_name": "status_quo",
+                },
+                {
+                    "trial_index": 0,
+                    "mean": 6.0,
+                    "sem": 1.2,
+                    "metric_name": "not_relativized",
+                    "metric_signature": "not_relativized",
+                    "arm_name": "0_0",
+                },
+            ]
+        )
+        data = Data(df=df)
+        result = data.relativize(include_sq=True, metric_names=["to_relativize"])
+        result_df = result.df
+
+        with self.subTest("relativized metric SQ SEM is zero"):
+            sq_rel = result_df[
+                (result_df["arm_name"] == "status_quo")
+                & (result_df["metric_name"] == "to_relativize")
+            ]
+            self.assertEqual(sq_rel["sem"].iloc[0], 0.0)
+
+        with self.subTest("non-relativized metric SQ SEM is preserved"):
+            sq_raw = result_df[
+                (result_df["arm_name"] == "status_quo")
+                & (result_df["metric_name"] == "not_relativized")
+            ]
+            self.assertEqual(sq_raw["sem"].iloc[0], 0.8)
+
+        with self.subTest("non-relativized metric values are raw"):
+            raw_arm = result_df[
+                (result_df["arm_name"] == "0_0")
+                & (result_df["metric_name"] == "not_relativized")
+            ]
+            self.assertEqual(raw_arm["mean"].iloc[0], 6.0)
+            self.assertEqual(raw_arm["sem"].iloc[0], 1.2)

@@ -84,20 +84,43 @@ class Summary(Analysis):
         # (3) experiment data does not have has_step_column=True (data with a
         # progression doesn't support relativization due to time-series step
         # alignment complexities.)
-        # (4) no preference metric objectives -- preference metrics (e.g.,
-        # pairwise_pref_query) have binary 0/1 labels with SQ mean near zero,
-        # causing relativization to crash with "mean_control too small."
         data = experiment.lookup_data(trial_indices=self.trial_indices)
-        has_preference_objective = experiment.optimization_config is not None and any(
-            is_preference_metric(n)
-            for n in experiment.optimization_config.objective.metric_names
-        )
         should_relativize = (
             len(experiment.metrics) > 0
             and experiment.status_quo is not None
             and not data.has_step_column
-            and not has_preference_objective
         )
+
+        # When relativizing, scope to non-preference metrics only. Preference
+        # metrics (e.g., pairwise_pref_query) have binary 0/1 labels with SQ
+        # mean near zero, causing relativization to crash with "mean_control
+        # too small." Non-preference tracking metrics are relativized normally.
+        non_preference_metric_names: list[str] | None = None
+        if should_relativize:
+            non_preference_metric_names = [
+                name for name in experiment.metrics if not is_preference_metric(name)
+            ]
+
+        df = experiment.to_df(
+            trial_indices=self.trial_indices,
+            omit_empty_columns=self.omit_empty_columns,
+            trial_statuses=self.trial_statuses,
+            relativize=should_relativize,
+            metric_names_to_relativize=non_preference_metric_names,
+        )
+
+        # Drop preference metric columns (e.g., pairwise_pref_query) -- their
+        # binary 0/1 values are not informative in a summary table. Then drop
+        # rows where all remaining metric columns are empty, which removes
+        # labeling-only trials that have no tracking metric data.
+        preference_cols = [col for col in df.columns if is_preference_metric(col)]
+        if preference_cols:
+            df = df.drop(columns=preference_cols)
+            remaining_metric_cols = [
+                col for col in df.columns if col in experiment.metrics
+            ]
+            if remaining_metric_cols:
+                df = df.dropna(subset=remaining_metric_cols, how="all")
 
         return self._create_analysis_card(
             title=(
@@ -112,10 +135,5 @@ class Summary(Analysis):
                     "Metric results are relativized against status quo."
                 )
             ),
-            df=experiment.to_df(
-                trial_indices=self.trial_indices,
-                omit_empty_columns=self.omit_empty_columns,
-                trial_statuses=self.trial_statuses,
-                relativize=should_relativize,
-            ),
+            df=df,
         )
