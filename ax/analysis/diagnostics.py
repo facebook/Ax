@@ -83,11 +83,11 @@ class DiagnosticAnalysis(Analysis):
             # Extract all metric names from the OptimizationConfig.
             metric_names = [*none_throws(experiment.optimization_config).metric_names]
 
-        # Preference metrics (e.g., pairwise_pref_query) use comparison-pair data
-        # and latent utility models. Standard regression CV (predicted vs. observed
-        # scatter, R²) is meaningless for them — observed values are binary 0/1
-        # while predictions are latent utilities on an incommensurate scale.
-        metric_names = [m for m in metric_names if not is_preference_metric(m)]
+        # Identify preference metrics so CrossValidationPlot can switch to
+        # pair-aware accuracy evaluation (instead of scatter + R^2). If CV
+        # fails for a preference model (e.g., PairwiseGP NotPSDError), it
+        # surfaces as an ErrorAnalysisCard -- same as any other model failure.
+        preference_metrics = {m for m in metric_names if is_preference_metric(m)}
 
         is_bandit = generation_strategy and is_bandit_experiment(
             generation_strategy_name=generation_strategy.name
@@ -109,7 +109,11 @@ class DiagnosticAnalysis(Analysis):
         cross_validation_plots = (
             [
                 CrossValidationPlot(
-                    metric_names=metric_names, test_trial_index=self.test_trial_index
+                    metric_names=metric_names,
+                    test_trial_index=self.test_trial_index,
+                    preference_metrics=preference_metrics
+                    if preference_metrics
+                    else None,
                 ).compute_or_error_card(
                     experiment=experiment,
                     generation_strategy=generation_strategy,
