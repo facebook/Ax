@@ -234,6 +234,36 @@ class TestAxOrchestrator(TestCase):
             ]
         )
         self.orchestrator_options_kwargs = {}
+        self._mock_orchestrator_poll_sleep()
+
+    def _mock_orchestrator_poll_sleep(self) -> None:
+        """Patch out wall-clock sleeps that only slow tests down.
+
+        Two sources of pure idle time are removed:
+
+        1. The orchestrator's polling loop (``ax.orchestration.orchestrator.sleep``).
+           Many tests leave ``init_seconds_between_polls`` / ``min_seconds_before_poll``
+           at their (non-zero) defaults, so the loop spends most of its wall-clock time
+           sleeping. Loop termination depends on ``total_seconds_elapsed`` (which
+           accumulates the configured interval regardless of actual sleeping), so
+           removing the wait is behavior-preserving.
+        2. The exponential backoff between DB-save retries in
+           ``retry_on_exception`` (``initial_wait_seconds=5`` → 5s + 10s = 15s for
+           ``test_suppress_all_storage_errors``). Only the ``sleep`` is mocked; the
+           retry count and all other ``time`` functions are untouched, so retry
+           assertions still hold. A ``wraps``-ed copy of the ``time`` module is used so
+           that tests relying on real elapsed time (e.g. trial-TTL expiry via
+           ``time.sleep``) are unaffected.
+        """
+        poll_patcher = patch("ax.orchestration.orchestrator.sleep")
+        self.addCleanup(poll_patcher.stop)
+        poll_patcher.start()
+
+        fake_time = Mock(wraps=time)
+        fake_time.sleep = Mock()
+        retry_patcher = patch("ax.utils.common.executils.time", fake_time)
+        self.addCleanup(retry_patcher.stop)
+        retry_patcher.start()
 
     @property
     def runner_registry(self) -> dict[type[Runner], int]:
@@ -3120,6 +3150,7 @@ class TestAxOrchestratorMultiTypeExperiment(TestAxOrchestrator):
         self.orchestrator_options_kwargs: dict[str, str | None] = {
             "mt_experiment_trial_type": "type1"
         }
+        self._mock_orchestrator_poll_sleep()
 
     def test_init_with_no_impl_with_runner(self) -> None:
         self.branin_experiment_no_impl_runner_or_metrics.update_runner(
