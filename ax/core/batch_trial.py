@@ -26,7 +26,12 @@ from ax.core.types import (
     TEvaluationOutcome,
     validate_evaluation_outcome,
 )
-from ax.exceptions.core import AxError, UnsupportedError, UserInputError
+from ax.exceptions.core import (
+    AxError,
+    DeprecationError,
+    UnsupportedError,
+    UserInputError,
+)
 from ax.utils.common.base import SortableBase
 from ax.utils.common.docutils import copy_doc
 from ax.utils.common.equality import datetime_equals, equality_typechecker
@@ -183,7 +188,7 @@ class BatchTrial(BaseTrial):
 
     @property
     def _status_quo_weight_override(self) -> None:
-        raise DeprecationWarning(
+        raise DeprecationError(
             "Status quo weight override is no longer supported. Please "
             "contact the Ax developers for help adjusting your application."
         )
