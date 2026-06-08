@@ -41,6 +41,22 @@ class UnsupportedError(AxError):
     """
 
 
+class DeprecationError(AxError):
+    """Raised when deprecated functionality is accessed as a hard break.
+
+    Use this for deprecations that have reached the point of removal, where
+    accessing the deprecated API (e.g. reading a removed property) should fail
+    immediately with an actionable message rather than silently returning a
+    wrong value. Prefer this over ``raise DeprecationWarning(...)``:
+    ``DeprecationWarning`` is a warning *category*, not an exception type, so
+    raising it is semantically incorrect and is not suppressible via
+    ``warnings.simplefilter("ignore", DeprecationWarning)``.
+
+    For *soft* deprecations that should still work (just with a notice), use
+    ``warnings.warn(..., DeprecationWarning)`` instead of this error.
+    """
+
+
 class UnsupportedPlotError(AxError):
     """Raised when plotting functionality is not supported for the
     given configurations.
