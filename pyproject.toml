@@ -20,7 +20,7 @@ classifiers = [
 dynamic = ["version"]
 
 dependencies = [
-    "botorch[pymoo]>=0.18.0,<0.18.1dev9999",
+    "botorch[pymoo]>=0.18.1,<0.18.2dev9999",
     "jinja2",  # also a Plotly dep
     "pandas",
     "scipy",
@@ -56,6 +56,14 @@ notebook = [
     "jupyter",
 ]
 
+# Optional backend for fully Bayesian (SAAS) models. As of BoTorch 0.18.1 the
+# JAX / NumPyro NUTS backend is no longer a required dependency; install this
+# extra (`pip install "ax-platform[fully_bayesian]"`) to use SAASBO / SAAS_MTGP
+# or the API's `method="quality"` generation strategy.
+fully_bayesian = [
+    "botorch[fully_bayesian]",
+]
+
 unittest_minimal = [
     # For tensorboard unit tests (min req: numpy 2.0 compatibility).
     "tensorboard>=2.18.0",
@@ -67,7 +75,9 @@ unittest_minimal = [
 ]
 
 unittest = [
-    "ax-platform[dev,mysql,notebook,unittest_minimal]",
+    # `fully_bayesian` pulls in the JAX/NumPyro backend so SAAS model tests
+    # still run now that it is no longer a required dependency.
+    "ax-platform[dev,mysql,notebook,unittest_minimal,fully_bayesian]",
 ]
 
 tutorial = [
