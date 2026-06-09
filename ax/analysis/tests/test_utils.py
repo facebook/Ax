@@ -721,6 +721,59 @@ class TestUtils(TestCase):
             decimal=1,
         )
 
+    def test_relativize_df_with_sq_skips_metrics_missing_from_sq(self) -> None:
+        """When model predictions include metrics not in the status quo df
+        (e.g., pairwise_pref_query from a preference model), relativization
+        should skip those metrics and leave their columns untouched."""
+        df = pd.DataFrame(
+            {
+                "trial_index": [0, 0],
+                "arm_name": ["status_quo", "arm1"],
+                "foo_mean": [10.0, 12.0],
+                "foo_sem": [1.0, 1.2],
+                "pairwise_pref_query_mean": [0.5, 0.8],
+                "pairwise_pref_query_sem": [0.1, 0.2],
+            }
+        )
+        # Status quo df only has foo, not pairwise_pref_query
+        status_quo_df = pd.DataFrame(
+            {
+                "trial_index": [0],
+                "arm_name": ["status_quo"],
+                "foo_mean": [10.0],
+                "foo_sem": [1.0],
+            }
+        )
+
+        rel_df = _relativize_df_with_sq(
+            df=df,
+            status_quo_df=status_quo_df,
+            status_quo_name="status_quo",
+        )
+
+        with self.subTest("foo is relativized"):
+            np.testing.assert_almost_equal(
+                rel_df.loc[rel_df["arm_name"] == "arm1", "foo_mean"].iloc[0],
+                0.2,
+                decimal=1,
+            )
+
+        with self.subTest("pairwise_pref_query is untouched"):
+            np.testing.assert_almost_equal(
+                rel_df.loc[
+                    rel_df["arm_name"] == "arm1", "pairwise_pref_query_mean"
+                ].iloc[0],
+                0.8,
+                decimal=5,
+            )
+            np.testing.assert_almost_equal(
+                rel_df.loc[
+                    rel_df["arm_name"] == "arm1", "pairwise_pref_query_sem"
+                ].iloc[0],
+                0.2,
+                decimal=5,
+            )
+
     def test_is_preference_metric(self) -> None:
         self.assertTrue(is_preference_metric("pairwise_pref_query"))
         self.assertFalse(is_preference_metric("branin"))

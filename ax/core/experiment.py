@@ -2303,6 +2303,7 @@ class Experiment(Base):
         trial_statuses: Sequence[TrialStatus] | None = None,
         omit_empty_columns: bool = True,
         relativize: bool = False,
+        metric_names_to_relativize: Sequence[str] | None = None,
     ) -> pd.DataFrame:
         """
         High-level summary of the Experiment with one row per arm. Any values missing at
@@ -2329,6 +2330,9 @@ class Experiment(Base):
                 * experiment has a status quo on all of its ``BatchTrial``-s
                 * OR a status quo trial among its ``Trial``-s,
                 , relativize metrics against the status quo.
+            metric_names_to_relativize: If provided alongside ``relativize=True``,
+                only relativize these specific metrics. Other metrics are passed
+                through with raw values. If None, all metrics are relativized.
         """
 
         records = []
@@ -2347,6 +2351,7 @@ class Experiment(Base):
                 status_quo_name=self.status_quo.name,
                 as_percent=True,
                 include_sq=True,
+                metric_names=metric_names_to_relativize,
             ).df
         else:
             data_df = data.df
@@ -2410,9 +2415,14 @@ class Experiment(Base):
             df = df.loc[:, df.notnull().any()]
 
         # Format metric columns as percentages with 4 significant figures when
-        # relativized
+        # relativized. Only format metrics that were actually relativized.
         if relativize:
-            for metric_name in self.metrics.keys():
+            metrics_to_format = (
+                metric_names_to_relativize
+                if metric_names_to_relativize is not None
+                else list(self.metrics.keys())
+            )
+            for metric_name in metrics_to_format:
                 if metric_name in df.columns:
                     df[metric_name] = df[metric_name].apply(
                         lambda x: (

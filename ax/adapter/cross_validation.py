@@ -656,6 +656,145 @@ def _kfold_train_test_split(
         )
 
 
+def _pairwise_kfold_train_test_split(
+    folds: int,
+    training_data: ExperimentData,
+    preference_metric_name: str | None = None,
+) -> Iterable[CVData]:
+    """Return train/test CV splits based on trial indices.
+
+    For pairwise/preference data, each comparison trial contains exactly two
+    arms forming a pair. Splitting by trial_index (instead of arm_name) keeps
+    comparison pairs intact -- both arms of a pair are always together in
+    the same fold.
+
+    When ``preference_metric_name`` is provided, only trials with observations
+    for that metric are used as fold boundaries. This prevents holding out
+    trials that have no pairwise data (e.g., a BO trial with only tracking
+    metrics), which would remove all data for those metrics and cause
+    downstream model-fitting failures.
+
+    Args:
+        folds: Number of folds. Use -1 for leave-one-out CV (one trial per fold).
+        training_data: Training data to split.
+        preference_metric_name: If provided, only split on trials that have
+            non-NaN observations for this metric.
+
+    Returns:
+        Yields CVData with train/test splits.
+    """
+    if preference_metric_name is not None:
+        obs_mean = training_data.observation_data["mean"]
+        if preference_metric_name in obs_mean.columns:
+            non_null = obs_mean[preference_metric_name].dropna()
+            trial_indices = sorted(set(non_null.index.get_level_values("trial_index")))
+        else:
+            trial_indices = sorted(
+                set(training_data.arm_data.index.get_level_values("trial_index"))
+            )
+    else:
+        trial_indices = sorted(
+            set(training_data.arm_data.index.get_level_values("trial_index"))
+        )
+    n = len(trial_indices)
+    if n < 2:
+        raise UnsupportedError(
+            "Pairwise cross validation requires at least two trials in the "
+            f"training data. Only {n} trials were found."
+        )
+    elif folds > n:
+        raise ValueError(
+            f"Training data only has {n} trials, which is less than {folds} folds."
+        )
+    elif folds < 2 and folds != -1:
+        raise ValueError("Folds must be -1 for LOO, or > 1.")
+    elif folds == -1:
+        folds = n
+
+    trial_arr = np.array(trial_indices)
+    if folds != n:
+        np.random.shuffle(trial_arr)
+    test_size = n // folds
+    final_size = test_size + (n - folds * test_size)
+    for fold in range(folds):
+        trial_arr = np.roll(trial_arr, test_size)
+        n_test = test_size if fold < folds - 1 else final_size
+        train_trials = set(trial_arr[:-n_test].tolist())
+        test_trials_set = set(trial_arr[-n_test:].tolist())
+        # Non-split trials (e.g., BO trials with only tracking metrics)
+        # must stay in every training fold so the full ModelList can be
+        # refitted (all metrics need data).
+        # TODO(D94970662): Once Experiment._trial_type_to_metric_names
+        # lands, use experiment.trials_for_type() instead of data-driven
+        # inference to determine split-eligible vs always-train trials.
+        all_trials = set(training_data.arm_data.index.get_level_values("trial_index"))
+        train_trials = train_trials | (all_trials - set(trial_indices))
+        yield CVData(
+            training_data=training_data.filter_by_trial_index(
+                trial_indices=train_trials
+            ),
+            test_data=training_data.filter_by_trial_index(
+                trial_indices=test_trials_set
+            ),
+        )
+
+
+def compute_pairwise_accuracy(
+    cv_results: list[CVResult],
+    metric_name: str,
+) -> float:
+    """Compute classification accuracy for pairwise preference CV.
+
+    For each held-out comparison pair (two arms from the same trial), checks
+    whether the model correctly predicts which arm is preferred (i.e., the arm
+    with higher predicted utility matches the arm with observed label = 1).
+
+    Args:
+        cv_results: Cross-validation results from cross_validate().
+        metric_name: The preference metric name to evaluate.
+
+    Returns:
+        Fraction of correctly predicted comparisons (random baseline = 0.5).
+    """
+    # Group CV results by trial_index to find comparison pairs.
+    trial_groups: dict[int | None, list[CVResult]] = defaultdict(list)
+    for result in cv_results:
+        trial_groups[result.observed.features.trial_index].append(result)
+
+    correct = 0
+    total = 0
+    for _trial_idx, results in trial_groups.items():
+        if len(results) != 2:
+            continue
+        r0, r1 = results
+
+        # Find the metric index in the observation data.
+        try:
+            idx0 = list(r0.observed.data.metric_signatures).index(metric_name)
+            idx1 = list(r1.observed.data.metric_signatures).index(metric_name)
+            pred_idx0 = list(r0.predicted.metric_signatures).index(metric_name)
+            pred_idx1 = list(r1.predicted.metric_signatures).index(metric_name)
+        except ValueError:
+            continue
+
+        obs0 = r0.observed.data.means[idx0]
+        obs1 = r1.observed.data.means[idx1]
+        pred0 = r0.predicted.means[pred_idx0]
+        pred1 = r1.predicted.means[pred_idx1]
+
+        # The arm with observed label = 1 is preferred. Check if the model
+        # predicts higher utility for the preferred arm.
+        if obs0 == obs1:
+            continue  # Skip ties in observed labels
+        preferred_is_0 = obs0 > obs1
+        model_predicts_0 = pred0 > pred1
+        if preferred_is_0 == model_predicts_0:
+            correct += 1
+        total += 1
+
+    return correct / total if total > 0 else 0.0
+
+
 def gen_trial_split(
     training_data: ExperimentData,
     test_trials: list[int],

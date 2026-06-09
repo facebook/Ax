@@ -9,6 +9,7 @@
 from collections import OrderedDict
 from collections.abc import Iterable, Mapping
 from copy import deepcopy
+from functools import partial
 from logging import Logger
 
 import numpy as np
@@ -22,6 +23,7 @@ from ax.adapter.adapter_utils import (
 )
 from ax.adapter.base import Adapter
 from ax.adapter.cross_validation import (
+    _pairwise_kfold_train_test_split,
     assess_model_fit,
     compute_diagnostics,
     cross_validate,
@@ -49,7 +51,7 @@ from ax.core.utils import compute_metric_availability, MetricAvailability
 from ax.exceptions.core import DataRequiredError, UnsupportedError, UserInputError
 from ax.generation_strategy.generation_strategy import GenerationStrategy
 from ax.generators.torch_base import TorchGenerator
-from ax.utils.common.constants import Keys
+from ax.utils.common.constants import is_preference_metric, Keys
 from ax.utils.common.logger import get_logger
 from ax.utils.preference.preference_utils import get_preference_adapter
 from botorch.utils.multi_objective.box_decompositions import DominatedPartitioning
@@ -320,7 +322,20 @@ def get_best_parameters_from_model_predictions_with_trial_index(
         return _extract_best_arm_from_gr(gr=gr, trials=experiment.trials)
 
     # Check to see if the adapter is worth using.
-    cv_results = cross_validate(adapter=adapter)
+    # Use pairwise-aware fold splitting when preference metrics are present,
+    # so CV folds keep comparison pairs intact (otherwise prep_pairwise_data
+    # crashes on odd-sized folds).
+    pref_metrics = [m for m in adapter.outcomes if is_preference_metric(m)]
+    fold_generator = (
+        partial(
+            _pairwise_kfold_train_test_split,
+            -1,
+            preference_metric_name=pref_metrics[0],
+        )
+        if pref_metrics
+        else None
+    )
+    cv_results = cross_validate(adapter=adapter, fold_generator=fold_generator)
     diagnostics = compute_diagnostics(result=cv_results)
     assess_model_fit_results = assess_model_fit(diagnostics=diagnostics)
 

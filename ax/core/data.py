@@ -11,7 +11,7 @@ from __future__ import annotations
 import itertools
 import math
 from bisect import bisect_right
-from collections.abc import Iterable
+from collections.abc import Iterable, Sequence
 from copy import deepcopy
 from functools import cached_property
 from io import StringIO
@@ -439,6 +439,7 @@ class Data(Base, SerializationMixin):
         include_sq: bool = False,
         bias_correction: bool = True,
         control_as_constant: bool = False,
+        metric_names: Sequence[str] | None = None,
     ) -> Data:
         """Relativize a data object w.r.t. a status_quo arm.
 
@@ -453,6 +454,9 @@ class Data(Base, SerializationMixin):
                 ax.utils.stats.math_utils.relativize for more details.
             control_as_constant: If true, control is treated as a constant.
                 bias_correction is ignored when this is true.
+            metric_names: If provided, only relativize these metrics. Other
+                metrics are passed through with raw values. If None, all
+                metrics are relativized.
 
         Returns:
             The new data object with the relativized metrics (excluding the
@@ -471,6 +475,7 @@ class Data(Base, SerializationMixin):
             include_sq=include_sq,
             bias_correction=bias_correction,
             control_as_constant=control_as_constant,
+            metric_names=metric_names,
         )
         return self.__class__(df=df_rel)
 
@@ -698,6 +703,7 @@ def relativize_dataframe(
     include_sq: bool = False,
     bias_correction: bool = True,
     control_as_constant: bool = False,
+    metric_names: Sequence[str] | None = None,
 ) -> pd.DataFrame:
     """Relativize a dataframe w.r.t. a status_quo arm.
 
@@ -712,6 +718,9 @@ def relativize_dataframe(
             ax.utils.stats.math_utils.relativize for more details.
         control_as_constant: If true, control is treated as a constant.
             bias_correction is ignored when this is true.
+        metric_names: If provided, only relativize these metrics. Other
+            metrics are passed through with raw values. If None, all
+            metrics are relativized.
 
     Returns:
         The new dataframe with the relativized metrics (excluding the
@@ -721,11 +730,26 @@ def relativize_dataframe(
     grp_cols = list(
         {"trial_index", "metric_name", "random_split"}.intersection(df.columns.values)
     )
+    metric_names_set = set(metric_names) if metric_names is not None else None
 
     grouped_df = df.groupby(grp_cols)
     dfs = []
     for grp in grouped_df.groups.keys():
         subgroup_df = grouped_df.get_group(grp)
+
+        # If metric scoping is requested, skip relativization for excluded
+        # metrics and pass through raw data (with or without SQ row).
+        if metric_names_set is not None and "metric_name" in grp_cols:
+            grp_metric = (
+                grp if isinstance(grp, str) else grp[grp_cols.index("metric_name")]
+            )
+            if grp_metric not in metric_names_set:
+                if include_sq:
+                    dfs.append(subgroup_df)
+                else:
+                    dfs.append(subgroup_df[subgroup_df["arm_name"] != status_quo_name])
+                continue
+
         is_sq = subgroup_df["arm_name"] == status_quo_name
 
         # Check if status quo exists in this subgroup (trial)
@@ -758,7 +782,13 @@ def relativize_dataframe(
         dfs.append(subgroup_df.assign(mean=means_rel, sem=sems_rel))
     df_rel = pd.concat(dfs, axis=0)
     if include_sq:
-        df_rel.loc[df_rel["arm_name"] == status_quo_name, "sem"] = 0.0
+        # Zero SEM only for metrics that were actually relativized.
+        # Non-relativized metrics (excluded via metric_names scoping)
+        # should retain their original SEM values.
+        sq_mask = df_rel["arm_name"] == status_quo_name
+        if metric_names_set is not None and "metric_name" in df_rel.columns:
+            sq_mask = sq_mask & df_rel["metric_name"].isin(metric_names_set)
+        df_rel.loc[sq_mask, "sem"] = 0.0
     df_rel.reset_index(inplace=True, drop=True)
     # Reorder columns to match expected order (reuses Data class logic)
     df_rel = Data._get_df_with_cols_in_expected_order(df_rel)

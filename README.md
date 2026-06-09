@@ -116,6 +116,14 @@ Extras for using Ax with MySQL storage (`mysql`), for running Ax's tutorial's
 locally (`tutorials`), and for installing all dependencies necessary for
 developing Ax (`dev`) are also available.
 
+To use fully Bayesian (SAAS) models -- e.g. `SAASBO` / `SAAS_MTGP`, or the API's
+`method="quality"` generation strategy -- install the `fully_bayesian` extra,
+which pulls in the optional JAX / NumPyro backend:
+
+```shell
+pip install "ax-platform[fully_bayesian]"
+```
+
 ## Install Ax from source
 
 You can install the latest (bleeding edge) version from GitHub using `pip`.

@@ -36,7 +36,7 @@ from ax.generation_strategy.transition_criterion import MinTrials
 from ax.utils.common.constants import Keys
 from ax.utils.common.testutils import TestCase
 from ax.utils.testing.mock import mock_botorch_optimize
-from pyre_extensions import none_throws
+from pyre_extensions import assert_is_instance, none_throws
 
 
 class DiagnosticAnalysisTest(TestCase):
@@ -258,12 +258,15 @@ class DiagnosticAnalysisTest(TestCase):
         self.assertEqual(card_group.title, DIAGNOSTICS_CARDGROUP_TITLE)
         self.assertEqual(card_group.subtitle, DIAGNOSTICS_CARDGROUP_SUBTITLE)
 
-    def test_compute_filters_preference_metrics(self) -> None:
-        """Preference metrics should be excluded from cross-validation since
-        regression CV (binary 0/1 vs. latent utilities) is meaningless.
+    def test_compute_passes_preference_metrics_to_cv(self) -> None:
+        """Preference metrics should be included in CrossValidationPlot with
+        the preference_metrics flag set, so CV uses pair-aware accuracy
+        evaluation. If the model fails (e.g., NotPSDError), it surfaces as
+        an ErrorAnalysisCard -- same as any other model failure.
 
         Uses include_tracking_metrics=True so that pairwise_pref_query (added
-        as a tracking metric) appears in the metric list and gets filtered.
+        as a tracking metric) appears in the metric list and is forwarded to
+        CrossValidationPlot via the preference_metrics flag (not filtered out).
         """
         client = Client()
         client.configure_experiment(
@@ -289,23 +292,27 @@ class DiagnosticAnalysisTest(TestCase):
                 },
             )
 
-        # Verify pairwise metric is filtered from CrossValidationPlot
+        # Capture what CrossValidationPlot receives
         original_cv_init: Callable[..., None] = CrossValidationPlot.__init__
-        captured_metric_names: list[Sequence[str] | None] = []
+        captured_kwargs: list[dict[str, object]] = []
 
         def capturing_init(self: CrossValidationPlot, **kwargs: object) -> None:
-            # pyre-ignore[6]: metric_names is Sequence[str] | None
-            captured_metric_names.append(kwargs.get("metric_names"))
+            captured_kwargs.append(kwargs)
             original_cv_init(self, **kwargs)
 
-        # include_tracking_metrics=True pulls pairwise into the metric list
         with patch.object(CrossValidationPlot, "__init__", capturing_init):
             DiagnosticAnalysis(include_tracking_metrics=True).compute(
                 experiment=client._experiment,
                 generation_strategy=client._generation_strategy,
             )
 
-        self.assertEqual(len(captured_metric_names), 1)
-        cv_metrics = none_throws(captured_metric_names[0])
+        self.assertEqual(len(captured_kwargs), 1)
+        cv_metrics = assert_is_instance(captured_kwargs[0].get("metric_names"), list)
+        # Both metrics should be included
         self.assertIn("booth", cv_metrics)
-        self.assertNotIn(pairwise_name, cv_metrics)
+        self.assertIn(pairwise_name, cv_metrics)
+        # preference_metrics flag should identify pairwise
+        pref_metrics = assert_is_instance(
+            captured_kwargs[0].get("preference_metrics"), set
+        )
+        self.assertIn(pairwise_name, pref_metrics)

@@ -9,12 +9,13 @@
 from typing import Any
 
 from ax.adapter.torch import TorchAdapter
+from ax.exceptions.core import DeprecationError
 
 
 # PairwiseAdapter was deprecated in Ax 1.1.0, so it should be reaped in Ax
 # 1.2.0+
 class PairwiseAdapter(TorchAdapter):
     def __init__(self, **kwargs: Any) -> None:
-        raise DeprecationWarning(
+        raise DeprecationError(
             "PairwiseAdapter is deprecated. Use TorchAdapter instead."
         )

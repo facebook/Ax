@@ -74,6 +74,21 @@ module.exports={
         ]
       }
     ],
+    // Workaround for webpack's RealContentHashPlugin crashing the production
+    // build with "Circular hash dependency ..." (thrown from
+    // RealContentHashPlugin.js). The cycle is sensitive to chunk-hash ordering,
+    // so it surfaces non-deterministically as docs content changes. Disabling
+    // `realContentHash` skips that optimization pass -- the only code path that
+    // raises this error -- while leaving normal content-based chunk hashing
+    // (and therefore cache busting) intact.
+    function disableRealContentHash() {
+      return {
+        name: 'disable-real-content-hash',
+        configureWebpack() {
+          return {optimization: {realContentHash: false}};
+        },
+      };
+    },
   ],
   "themeConfig": {
     prism: {

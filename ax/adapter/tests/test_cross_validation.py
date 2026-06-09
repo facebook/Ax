@@ -8,17 +8,21 @@
 
 import warnings
 from collections.abc import Iterable
+from functools import partial
 from itertools import product
 from typing import cast
 from unittest import mock
 
 import numpy as np
+import pandas as pd
 import torch
 from ax.adapter.cross_validation import (
     _efficient_loo_cross_validate,
     _fold_cross_validate,
+    _pairwise_kfold_train_test_split,
     assess_model_fit,
     compute_diagnostics,
+    compute_pairwise_accuracy,
     cross_validate,
     CVData,
     CVDiagnostics,
@@ -51,6 +55,8 @@ from ax.exceptions.model import CrossValidationError
 from ax.generators.torch.botorch_modular.generator import BoTorchGenerator
 from ax.generators.torch.botorch_modular.surrogate import Surrogate, SurrogateSpec
 from ax.generators.torch.botorch_modular.utils import ModelConfig
+from ax.generators.torch.utils import predict_from_model
+from ax.utils.common.constants import Keys
 from ax.utils.common.testutils import TestCase
 from ax.utils.testing.core_stubs import (
     get_branin_experiment,
@@ -61,13 +67,19 @@ from ax.utils.testing.mock import (
     mock_botorch_optimize,
     mock_botorch_optimize_context_manager,
 )
+from ax.utils.testing.preference_stubs import get_pbo_experiment
 from botorch.cross_validation import CVResults, efficient_loo_cv, ensemble_loo_cv
 from botorch.exceptions.warnings import InputDataWarning
 from botorch.models.fully_bayesian import SaasFullyBayesianSingleTaskGP
+from botorch.models.model import ModelList
+from botorch.models.pairwise_gp import PairwiseGP, PairwiseLaplaceMarginalLogLikelihood
 from botorch.models.robust_relevance_pursuit_model import (
     RobustRelevancePursuitSingleTaskGP,
 )
+from botorch.models.transforms.input import Normalize
+from botorch.models.transforms.outcome import Standardize
 from botorch.posteriors.gpytorch import GPyTorchPosterior
+from botorch.posteriors.posterior_list import PosteriorList
 from gpytorch.distributions import MultivariateNormal
 from linear_operator.operators import DiagLinearOperator
 from pandas import DataFrame
@@ -1105,3 +1117,277 @@ def _create_adapter_with_out_of_design_points() -> TorchAdapter:
         transforms=[UnitX, StandardizeY],
         expand_model_space=False,
     )
+
+
+class PairwiseCVTest(TestCase):
+    """Tests for pairwise/preference cross-validation utilities."""
+
+    def _make_pairwise_experiment_data(
+        self,
+        n_pairwise_trials: int = 4,
+        include_tracking_trial: bool = False,
+    ) -> ExperimentData:
+        """Create ExperimentData with pairwise observations and optionally
+        a non-pairwise trial with tracking metrics only."""
+        arm_rows = []
+        obs_rows = []
+
+        start_trial = 0
+        if include_tracking_trial:
+            # Trial 0: tracking-only (no pairwise data)
+            for arm_idx in range(3):
+                arm_rows.append(
+                    {
+                        "trial_index": 0,
+                        "arm_name": f"0_{arm_idx}",
+                        "x1": float(arm_idx) * 0.5,
+                        "x2": float(arm_idx) * 0.3,
+                    }
+                )
+                obs_rows.append(
+                    {
+                        "trial_index": 0,
+                        "arm_name": f"0_{arm_idx}",
+                        "tracking_m": float(arm_idx) + 1.0,
+                        "pairwise_pref_query": float("nan"),
+                    }
+                )
+            start_trial = 1
+
+        # Pairwise trials: 2 arms each with binary preference labels
+        for t in range(start_trial, start_trial + n_pairwise_trials):
+            for arm_idx in range(2):
+                arm_rows.append(
+                    {
+                        "trial_index": t,
+                        "arm_name": f"{t}_{arm_idx}",
+                        "x1": float(t) * 0.1 + arm_idx * 0.5,
+                        "x2": float(t) * 0.2 + arm_idx * 0.3,
+                    }
+                )
+                obs_rows.append(
+                    {
+                        "trial_index": t,
+                        "arm_name": f"{t}_{arm_idx}",
+                        "tracking_m": float("nan") if include_tracking_trial else 0.0,
+                        "pairwise_pref_query": float(arm_idx),
+                    }
+                )
+
+        arm_df = DataFrame(arm_rows).set_index(["trial_index", "arm_name"])
+        obs_df = DataFrame(obs_rows).set_index(["trial_index", "arm_name"])
+        # Build multi-level columns for observation_data
+        mean_df = obs_df.copy()
+        sem_df = obs_df.copy()
+        sem_df[:] = 0.0
+        mean_df.columns = pd.MultiIndex.from_product([["mean"], mean_df.columns])
+        sem_df.columns = pd.MultiIndex.from_product([["sem"], sem_df.columns])
+        observation_data = pd.concat([mean_df, sem_df], axis=1)
+
+        return ExperimentData(arm_data=arm_df, observation_data=observation_data)
+
+    def test_pairwise_kfold_split_basic(self) -> None:
+        """Basic trial-based splitting produces correct folds."""
+        td = self._make_pairwise_experiment_data(n_pairwise_trials=4)
+        folds = list(_pairwise_kfold_train_test_split(folds=-1, training_data=td))
+        self.assertEqual(len(folds), 4)  # LOO: one fold per trial
+        for fold in folds:
+            train_trials = set(
+                fold.training_data.arm_data.index.get_level_values("trial_index")
+            )
+            test_trials = set(
+                fold.test_data.arm_data.index.get_level_values("trial_index")
+            )
+            self.assertEqual(len(test_trials), 1)
+            self.assertEqual(len(train_trials), 3)
+            self.assertTrue(train_trials.isdisjoint(test_trials))
+
+    def test_pairwise_kfold_split_filters_non_pairwise_trials(self) -> None:
+        """When preference_metric_name is set, non-pairwise trials are excluded
+        from fold boundaries."""
+        td = self._make_pairwise_experiment_data(
+            n_pairwise_trials=4, include_tracking_trial=True
+        )
+        # Without filter: 5 trials (0-4), including tracking-only trial 0
+        all_trials = set(td.arm_data.index.get_level_values("trial_index"))
+        self.assertEqual(len(all_trials), 5)
+
+        # With filter: only 4 pairwise trials used as fold boundaries
+        folds = list(
+            _pairwise_kfold_train_test_split(
+                folds=-1,
+                training_data=td,
+                preference_metric_name="pairwise_pref_query",
+            )
+        )
+        self.assertEqual(len(folds), 4)  # Trial 0 excluded from splitting
+        for fold in folds:
+            test_trials = set(
+                fold.test_data.arm_data.index.get_level_values("trial_index")
+            )
+            # Trial 0 (tracking-only) should never be in the test set
+            self.assertNotIn(0, test_trials)
+            # Test set should only contain pairwise trials
+            self.assertTrue(all(t >= 1 for t in test_trials))
+            # Trial 0 must be in every training fold so tracking metrics
+            # have data for the full ModelList refit
+            train_trials = set(
+                fold.training_data.arm_data.index.get_level_values("trial_index")
+            )
+            self.assertIn(0, train_trials)
+
+    def test_compute_pairwise_accuracy(self) -> None:
+        """Accuracy correctly identifies whether the model predicts the
+        preferred arm in each comparison pair."""
+        metric = "pref"
+        # Two comparison pairs from trial 1 and trial 2
+        results = [
+            # Trial 1: arm A (obs=1, pred=0.8) vs arm B (obs=0, pred=0.2)
+            # Model correctly predicts A > B -> correct
+            CVResult(
+                observed=Observation(
+                    features=ObservationFeatures(parameters={"x": 0}, trial_index=1),
+                    data=ObservationData(
+                        means=np.array([1.0]),
+                        covariance=np.array([[0.0]]),
+                        metric_signatures=[metric],
+                    ),
+                ),
+                predicted=ObservationData(
+                    means=np.array([0.8]),
+                    covariance=np.array([[0.1]]),
+                    metric_signatures=[metric],
+                ),
+            ),
+            CVResult(
+                observed=Observation(
+                    features=ObservationFeatures(parameters={"x": 1}, trial_index=1),
+                    data=ObservationData(
+                        means=np.array([0.0]),
+                        covariance=np.array([[0.0]]),
+                        metric_signatures=[metric],
+                    ),
+                ),
+                predicted=ObservationData(
+                    means=np.array([0.2]),
+                    covariance=np.array([[0.1]]),
+                    metric_signatures=[metric],
+                ),
+            ),
+            # Trial 2: arm C (obs=0, pred=0.9) vs arm D (obs=1, pred=0.1)
+            # Model incorrectly predicts C > D -> wrong
+            CVResult(
+                observed=Observation(
+                    features=ObservationFeatures(parameters={"x": 2}, trial_index=2),
+                    data=ObservationData(
+                        means=np.array([0.0]),
+                        covariance=np.array([[0.0]]),
+                        metric_signatures=[metric],
+                    ),
+                ),
+                predicted=ObservationData(
+                    means=np.array([0.9]),
+                    covariance=np.array([[0.1]]),
+                    metric_signatures=[metric],
+                ),
+            ),
+            CVResult(
+                observed=Observation(
+                    features=ObservationFeatures(parameters={"x": 3}, trial_index=2),
+                    data=ObservationData(
+                        means=np.array([1.0]),
+                        covariance=np.array([[0.0]]),
+                        metric_signatures=[metric],
+                    ),
+                ),
+                predicted=ObservationData(
+                    means=np.array([0.1]),
+                    covariance=np.array([[0.1]]),
+                    metric_signatures=[metric],
+                ),
+            ),
+        ]
+        accuracy = compute_pairwise_accuracy(cv_results=results, metric_name=metric)
+        self.assertEqual(accuracy, 0.5)  # 1 correct out of 2 pairs
+
+    def test_compute_pairwise_accuracy_empty(self) -> None:
+        """Empty CV results return 0.0 accuracy."""
+        self.assertEqual(compute_pairwise_accuracy(cv_results=[], metric_name="m"), 0.0)
+
+    @mock_botorch_optimize
+    def test_pairwise_cv_with_saas_pairwise_modellist(self) -> None:
+        """End-to-end preference-aware CV of a ModelList that combines a
+        fully-Bayesian SAAS GP (regular metric) and a PairwiseGP (preference
+        metric). The SAAS ensemble adds a leading MCMC batch dimension to the
+        ModelList posterior; ``predict_from_model`` must average it out so that
+        ``array_to_observation_data`` receives ``(n, num_outcomes)`` predictions.
+        Without that reduction, CV of a SAAS + PairwiseGP model would produce
+        malformed predictions. This is the only test that exercises the full
+        SAAS + PairwiseGP CV path."""
+        pref = Keys.PAIRWISE_PREFERENCE_QUERY.value
+        experiment = get_pbo_experiment(
+            num_parameters=2,
+            num_experimental_metrics=1,
+            num_experimental_trials=4,
+            num_preference_trials=4,
+            num_preference_trials_w_repeated_arm=0,
+        )
+        # Route the regular metric to a fully-Bayesian SAAS GP and the
+        # preference metric to a PairwiseGP, yielding a mixed ModelList.
+        surrogate_spec = SurrogateSpec(
+            model_configs=[
+                ModelConfig(
+                    botorch_model_class=SaasFullyBayesianSingleTaskGP,
+                    outcome_transform_classes=[Standardize],
+                )
+            ],
+            metric_to_model_configs={
+                pref: [
+                    ModelConfig(
+                        botorch_model_class=PairwiseGP,
+                        mll_class=PairwiseLaplaceMarginalLogLikelihood,
+                        input_transform_classes=[Normalize],
+                    )
+                ]
+            },
+        )
+        adapter = TorchAdapter(
+            experiment=experiment,
+            data=experiment.lookup_data(),
+            generator=BoTorchGenerator(surrogate_spec=surrogate_spec),
+            fit_tracking_metrics=True,
+        )
+        generator = assert_is_instance(adapter.generator, BoTorchGenerator)
+        model = assert_is_instance(generator.surrogate.model, ModelList)
+        submodels = list(model.models)
+
+        with self.subTest("ModelList combines SAAS and PairwiseGP submodels"):
+            self.assertTrue(
+                any(isinstance(m, SaasFullyBayesianSingleTaskGP) for m in submodels)
+            )
+            self.assertTrue(any(isinstance(m, PairwiseGP) for m in submodels))
+
+        with self.subTest("predict_from_model averages out the SAAS batch dim"):
+            test_x = torch.rand(5, 2, dtype=torch.double) * 20.0 + 10.0
+            # The raw ModelList posterior carries a leading MCMC-sample dim...
+            raw_posterior = assert_is_instance(model.posterior(test_x), PosteriorList)
+            self.assertGreater(raw_posterior.mean.ndim, 2)
+            # ...which predict_from_model reduces to (n, num_outcomes).
+            predicted_mean, _ = predict_from_model(model, test_x)
+            self.assertEqual(predicted_mean.shape, (5, len(adapter.outcomes)))
+
+        with self.subTest("preference-aware CV runs and yields valid accuracy"):
+            cv_results = cross_validate(
+                adapter=adapter,
+                fold_generator=partial(
+                    _pairwise_kfold_train_test_split,
+                    -1,
+                    preference_metric_name=pref,
+                ),
+            )
+            self.assertGreater(len(cv_results), 0)
+            accuracy = compute_pairwise_accuracy(
+                cv_results=cv_results, metric_name=pref
+            )
+            self.assertGreaterEqual(accuracy, 0.0)
+            self.assertLessEqual(accuracy, 1.0)
