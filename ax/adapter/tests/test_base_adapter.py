@@ -31,6 +31,7 @@ from ax.adapter.factory import get_sobol
 from ax.adapter.registry import Generators, MBM_X_trans, MBM_X_trans_base, Y_trans
 from ax.adapter.transforms.cast import Cast
 from ax.adapter.transforms.fill_missing_parameters import FillMissingParameters
+from ax.adapter.transforms.objective_as_constraint import ObjectiveAsConstraint
 from ax.adapter.transforms.standardize_y import StandardizeY
 from ax.adapter.transforms.unit_x import UnitX
 from ax.core.arm import Arm
@@ -338,6 +339,75 @@ class BaseAdapterTest(TestCase):
         gr = adapter.gen(1)
         self.assertIsNone(gr.optimization_config)
         self.assertIsNone(gr.search_space)
+
+    @mock.patch(
+        "ax.adapter.base.gen_arms",
+        autospec=True,
+        return_value=([Arm(parameters={"x": 1.0, "y": 1.0})], None),
+    )
+    def test_gen_stores_untransformed_opt_config_with_objective_as_constraint(
+        self, _mock_gen_arms: Mock
+    ) -> None:
+        """Regression test: when ``ObjectiveAsConstraint`` fires (status quo
+        present, data present, an outcome constraint, and no feasible points),
+        it appends a constraint on the objective metric for the model. The
+        GeneratorRun must still store the *untransformed* optimization config,
+        which does not constrain the objective -- otherwise the storage clone
+        re-validates and raises ``"Cannot constrain on objective metric."``
+        """
+        # Single-objective on m1, absolute constraint m2 >= 10.0. Neither the
+        # status quo ([1.0, 0.5]) nor the other arm ([2.0, 5.0]) satisfies it,
+        # so no point is feasible and the transform fires.
+        optimization_config = OptimizationConfig(
+            objective=Objective(metric=Metric("m1", lower_is_better=False)),
+            outcome_constraints=[
+                OutcomeConstraint(
+                    metric=Metric("m2", lower_is_better=True),
+                    op=ComparisonOp.GEQ,
+                    bound=10.0,
+                    relative=False,
+                ),
+            ],
+        )
+        sq_params = {"x": 0.0, "y": 0.0}
+        experiment = get_experiment_with_observations(
+            observations=[[1.0, 0.5], [2.0, 5.0]],
+            optimization_config=optimization_config,
+            parameterizations=[sq_params, {"x": 1.0, "y": 1.0}],
+            search_space=SearchSpace(
+                parameters=[
+                    RangeParameter("x", ParameterType.FLOAT, 0.0, 10.0),
+                    RangeParameter("y", ParameterType.FLOAT, 0.0, 10.0),
+                ]
+            ),
+            status_quo=Arm(parameters=sq_params, name="0_0"),
+        )
+        adapter = Adapter(
+            experiment=experiment,
+            generator=Generator(),
+            transforms=[ObjectiveAsConstraint],
+        )
+        # Confirm the transform is primed to add the objective-as-constraint.
+        obj_as_constraint = assert_is_instance(
+            adapter.transforms["ObjectiveAsConstraint"], ObjectiveAsConstraint
+        )
+        self.assertTrue(obj_as_constraint._should_add_constraint)
+
+        mock_return_value = GenResults(
+            observation_features=[ObservationFeatures(parameters={"x": 1.0, "y": 1.0})],
+            weights=[1.0],
+        )
+        with mock.patch(ADAPTER__GEN_PATH, return_value=mock_return_value):
+            gr = adapter.gen(n=1)
+
+        # The stored config is user-space: objective on m1, single constraint on
+        # m2. The objective metric m1 must NOT appear among constraint metrics.
+        stored_oc = none_throws(gr.optimization_config)
+        constraint_metrics = {
+            name for c in stored_oc.outcome_constraints for name in c.metric_names
+        }
+        self.assertEqual(constraint_metrics, {"m2"})
+        self.assertNotIn("m1", constraint_metrics)
 
     def test_cross_validate_base(self) -> None:
         exp = get_branin_experiment(with_completed_batch=True)

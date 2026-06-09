@@ -898,6 +898,11 @@ class Adapter:
         if search_space is None:
             search_space = self._search_space
         orig_search_space = search_space.clone()
+        orig_optimization_config = (
+            optimization_config
+            if optimization_config is not None
+            else self._optimization_config
+        )
         base_gen_args = self._get_transformed_gen_args(
             search_space=search_space,
             optimization_config=optimization_config,
@@ -969,8 +974,8 @@ class Adapter:
         # on generator runs, as part of the upcoming storage refactor.
         optimization_config = (
             None
-            if (immutable or (base_gen_args.optimization_config is None))
-            else base_gen_args.optimization_config.clone_with_args(
+            if (immutable or (orig_optimization_config is None))
+            else orig_optimization_config.clone_with_args(
                 pruning_target_parameterization=None
             )
         )
