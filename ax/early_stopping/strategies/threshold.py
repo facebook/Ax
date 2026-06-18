@@ -48,16 +48,17 @@ class ThresholdEarlyStoppingStrategy(BaseEarlyStoppingStrategy):
                 to make a decision.
             max_progression: Do not stop trials that have passed `max_progression`.
                 Useful if we prefer finishing a trial that are already near completion.
-            min_curves: Trials will not be stopped until a number of trials
-                `min_curves` have completed with curve data attached. That is, if
-                `min_curves` trials are completed but their curve data was not
-                successfully retrieved, further trials may not be early-stopped.
+            min_curves: Trials will not be stopped until at least `min_curves`
+                trials have curve data reaching `min_progression`. Eligibility is
+                based on observed curve depth rather than trial status, so a
+                sufficiently deep curve from a still-running trial counts toward
+                `min_curves`.
             normalize_progressions: Normalizes the progression column of the Data df
                 by dividing by the max. If the values were originally in [0, `prog_max`]
                 (as we would expect), the transformed values will be in [0, 1]. Useful
                 for inferring the max progression and allows `min_progression` to be
                 specified in the transformed space. IMPORTANT: Typically, `min_curves`
-                should be > 0 to ensure that at least one trial has completed and that
+                should be > 0 to ensure that at least one trial has curve data and that
                 we have a reliable approximation for `prog_max`.
             check_safe: If True, applies the relevant safety checks to gate
                 early-stopping when it is likely to be harmful. If False (default),

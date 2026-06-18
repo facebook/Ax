@@ -1281,7 +1281,7 @@ class TestBenchmark(TestCase):
                 problem=problem, method=es_method, seed=0
             )
             new_opt_trace = get_opt_trace_by_steps(experiment=experiment)
-            self.assertEqual(list(new_opt_trace), [0.0, 0.0, 1.0, 1.0, 2.0, 3.0])
+            self.assertEqual(list(new_opt_trace), [0.0, 0.0, 1.0, 2.0, 3.0])
 
         with self.subTest("Multi-objective"):
             # Multi-objective problem with step data

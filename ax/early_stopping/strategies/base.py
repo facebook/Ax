@@ -17,7 +17,6 @@ from ax.adapter.data_utils import _maybe_normalize_map_key
 from ax.core.batch_trial import BatchTrial
 from ax.core.data import Data, MAP_KEY
 from ax.core.experiment import Experiment
-from ax.core.trial_status import TrialStatus
 from ax.early_stopping.utils import (
     _interval_boundary,
     align_partial_results,
@@ -62,10 +61,11 @@ class BaseEarlyStoppingStrategy(ABC, Base):
                 to make a decision.
             max_progression: Do not stop trials that have passed `max_progression`.
                 Useful if we prefer finishing a trial that are already near completion.
-            min_curves: Trials will not be stopped until a number of trials
-                `min_curves` have completed with curve data attached. That is, if
-                `min_curves` trials are completed but their curve data was not
-                successfully retrieved, further trials may not be early-stopped.
+            min_curves: Trials will not be stopped until at least `min_curves`
+                trials have curve data reaching `min_progression`. Eligibility is
+                based on observed curve depth rather than trial status, so a
+                sufficiently deep curve from a still-running trial counts toward
+                `min_curves`.
             normalize_progressions: If True, normalizes the progression values
                 for each metric to the [0, 1] range using the observed minimum and
                 maximum progression values for that metric. This transformation maps
@@ -332,7 +332,8 @@ class BaseEarlyStoppingStrategy(ABC, Base):
     ) -> bool:
         """Perform a series of default checks for a set of trials `trial_indices` and
         determine if at least one of them is eligible for further stopping logic:
-            1. Check that at least `self.min_curves` trials have completed`
+            1. Check that at least `self.min_curves` trials have curve data reaching
+               `self.min_progression` (i.e. enough comparable curves exist)
             2. Check that at least one trial has reached `self.min_progression`
         Returns a boolean indicating if all checks are passed.
 
@@ -351,19 +352,26 @@ class BaseEarlyStoppingStrategy(ABC, Base):
                     "early stopping strategies."
                 )
 
-        # check that there are sufficient completed trials
-        num_completed = len(experiment.trial_indices_by_status[TrialStatus.COMPLETED])
-        if self.min_curves is not None and num_completed < self.min_curves:
+        df_with_data = df.dropna(subset=["mean"])
+        min_progression = 0.0 if self.min_progression is None else self.min_progression
+
+        # Trials whose latest progression has reached `min_progression`, i.e. trials
+        # with curve data deep enough to be comparable.
+        trials_at_min_progression = set(
+            df_with_data.loc[df_with_data[MAP_KEY] >= min_progression, "trial_index"]
+        )
+
+        # check that there are sufficiently many trials with comparable curve data
+        min_curves = self.min_curves
+        if min_curves is not None and len(trials_at_min_progression) < min_curves:
             return False
 
-        # check that at least one trial has reached `self.min_progression`
-        df_trials = df[df["trial_index"].isin(trial_indices)].dropna(subset=["mean"])
-        any_last_prog = 0
-        if not df_trials[MAP_KEY].empty:
-            any_last_prog = df_trials[MAP_KEY].max()
-
-        if self.min_progression is not None and any_last_prog < self.min_progression:
-            # No trials have reached `self.min_progression`, not stopping any trials
+        # check that at least one trial in `trial_indices` has reached
+        # `self.min_progression`
+        if self.min_progression is not None and trials_at_min_progression.isdisjoint(
+            trial_indices
+        ):
+            # No candidate trials have reached `self.min_progression`, not stopping any
             return False
 
         return True
@@ -611,10 +619,11 @@ class ModelBasedEarlyStoppingStrategy(BaseEarlyStoppingStrategy):
                 to make a decision.
             max_progression: Do not stop trials that have passed `max_progression`.
                 Useful if we prefer finishing a trial that are already near completion.
-            min_curves: Trials will not be stopped until a number of trials
-                `min_curves` have completed with curve data attached. That is, if
-                `min_curves` trials are completed but their curve data was not
-                successfully retrieved, further trials may not be early-stopped.
+            min_curves: Trials will not be stopped until at least `min_curves`
+                trials have curve data reaching `min_progression`. Eligibility is
+                based on observed curve depth rather than trial status, so a
+                sufficiently deep curve from a still-running trial counts toward
+                `min_curves`.
             normalize_progressions: If True, normalizes the progression values
                 for each metric to the [0, 1] range using the observed minimum and
                 maximum progression values for that metric. This transformation maps

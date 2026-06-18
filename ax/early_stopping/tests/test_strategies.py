@@ -934,12 +934,45 @@ class TestPercentileEarlyStoppingStrategy(TestCase):
         )
         self.assertEqual(set(should_stop), {0, 3, 1})
 
-        # not enough completed trials
+        # Not enough comparable curves: all 5 trials have curve data reaching
+        # `min_progression`, but `min_curves=6` exceeds the number of available
+        # curves. Eligibility is based on observed curve depth (not COMPLETED
+        # status), so even though 4 trials are completed, no trial is stopped.
+        early_stopping_strategy = PercentileEarlyStoppingStrategy(
+            metric_signatures=metric_signatures,
+            percentile_threshold=75,
+            min_curves=6,
+            min_progression=0.1,
+        )
+        should_stop = early_stopping_strategy.should_stop_trials_early(
+            trial_indices=idcs, experiment=exp
+        )
+        self.assertEqual(should_stop, {})
+
+        # Curve depth, not trial status, drives the `min_curves` gate: with
+        # `min_curves=5` and all 5 trials reporting curve data reaching
+        # `min_progression`, the gate is satisfied even though only 4 trials are
+        # in the COMPLETED status, so the worst trial is stopped.
         early_stopping_strategy = PercentileEarlyStoppingStrategy(
             metric_signatures=metric_signatures,
             percentile_threshold=75,
             min_curves=5,
             min_progression=0.1,
+        )
+        should_stop = early_stopping_strategy.should_stop_trials_early(
+            trial_indices=idcs, experiment=exp
+        )
+        self.assertEqual(set(should_stop), {0, 3, 1})
+
+        # Curves that have not reached `min_progression` do not count toward
+        # `min_curves`. With `min_progression=2`, only the trials whose latest
+        # progression is >= 2 are comparable; requiring `min_curves=6` then
+        # exceeds the available curves and no trial is stopped.
+        early_stopping_strategy = PercentileEarlyStoppingStrategy(
+            metric_signatures=metric_signatures,
+            percentile_threshold=75,
+            min_curves=6,
+            min_progression=2,
         )
         should_stop = early_stopping_strategy.should_stop_trials_early(
             trial_indices=idcs, experiment=exp
