@@ -77,7 +77,7 @@ class TestCrossValidationPlot(TestCase):
         )
         self.assertEqual(
             card.title,
-            "Cross Validation for bar (R\u00b2 = 0.85)",
+            "Cross Validation for bar (R^2 = 0.85)",
         )
         self.assertEqual(
             card.subtitle,
@@ -190,8 +190,8 @@ class TestCrossValidationPlot(TestCase):
         ).flatten()
         self.assertEqual(len(cards), 3)
         titles = {
-            "Cross Validation for spunky (R\u00b2 = 0.85)",
-            "Cross Validation for foo2 (R\u00b2 = 0.85)",
+            "Cross Validation for spunky (R^2 = 0.85)",
+            "Cross Validation for foo2 (R^2 = 0.85)",
         }
         for card in cards[:2]:
             self.assertEqual(card.name, "CrossValidationPlot")
@@ -230,9 +230,11 @@ class TestCrossValidationPlot(TestCase):
                         else None,
                     )
 
-                    _ = analysis.compute(
+                    cards = analysis.compute(
                         experiment=experiment, generation_strategy=generation_strategy
-                    )
+                    ).flatten()
+                    self.assertGreater(len(cards), 0)
+                    self.assertEqual(cards[0].name, "CrossValidationPlot")
 
     @TestCase.ax_long_test(
         reason=(
@@ -264,6 +266,8 @@ class TestCrossValidationPlot(TestCase):
                         else None,
                     )
 
-                    _ = analysis.compute(
+                    cards = analysis.compute(
                         experiment=experiment, generation_strategy=generation_strategy
-                    )
+                    ).flatten()
+                    self.assertGreater(len(cards), 0)
+                    self.assertEqual(cards[0].name, "CrossValidationPlot")

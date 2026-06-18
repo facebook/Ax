@@ -261,8 +261,7 @@ class CrossValidationPlot(Analysis):
                 card = create_plotly_analysis_card(
                     name=self.__class__.__name__,
                     title=(
-                        f"Cross Validation for {metric_title}"
-                        f" (R\u00b2 = {r_squared:.2f})"
+                        f"Cross Validation for {metric_title} (R^2 = {r_squared:.2f})"
                     ),
                     subtitle=(
                         "The cross-validation plot displays the model fit for "
@@ -300,7 +299,7 @@ class CrossValidationPlot(Analysis):
                     go.Table(
                         columnwidth=[4, 1],
                         header={
-                            "values": ["Metric", "R\u00b2"],
+                            "values": ["Metric", "R<sup>2</sup>"],
                             "align": "left",
                         },
                         cells={
@@ -315,15 +314,15 @@ class CrossValidationPlot(Analysis):
                 name=self.__class__.__name__,
                 title="Summary of model fits",
                 subtitle=(
-                    "R\u00b2 (coefficient of determination) measures how well"
-                    " the model predicts each metric. Higher values indicate"
-                    " better model fit. Metrics with R\u00b2 >="
+                    "R<sup>2</sup> (coefficient of determination) measures how"
+                    " well the model predicts each metric. Higher values"
+                    " indicate better model fit. Metrics with R<sup>2</sup> >="
                     f" {threshold} are highlighted in green."
                 ),
                 df=pd.DataFrame(
                     {
                         "Metric": metric_names_list,
-                        "R\u00b2": list(self._r2s.values()),
+                        "R^2": list(self._r2s.values()),
                     }
                 ),
                 fig=r2_fig,
