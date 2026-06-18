@@ -267,7 +267,15 @@ class Objective(SortableBase):
 
     def get_unconstrainable_metric_names(self) -> list[str]:
         """Return metric names that are incompatible with
-        OutcomeConstraints."""
+        OutcomeConstraints.
+
+        For multi-objective problems, all objective metrics are
+        constrainable because outcome constraints on objectives are
+        useful for bounding objectives against their optimization
+        direction (e.g., FLOPs >= threshold while minimizing FLOPs).
+        """
+        if self.is_multi_objective:
+            return []
         return self.metric_names
 
     def clone(self) -> Self:

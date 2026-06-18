@@ -164,10 +164,14 @@ class OptimizationConfigTest(TestCase):
         # Three outcome_constraints on the same metric should raise.
         with warnings.catch_warnings():
             warnings.simplefilter("ignore", DeprecationWarning)
+            opposite_op = (
+                ComparisonOp.LEQ
+                if self.outcome_constraint.op == ComparisonOp.GEQ
+                else ComparisonOp.GEQ
+            )
             opposing_constraint = OutcomeConstraint(
                 metric=self.metrics["m3"],
-                # pyre-fixme[6]: For 2nd param expected `ComparisonOp` but got `bool`.
-                op=not self.outcome_constraint.op,
+                op=opposite_op,
                 bound=self.outcome_constraint.bound,
             )
         with self.assertRaises(ValueError):
@@ -181,10 +185,14 @@ class OptimizationConfigTest(TestCase):
         add_bound = 1 if self.outcome_constraint.op == ComparisonOp.LEQ else -1
         with warnings.catch_warnings():
             warnings.simplefilter("ignore", DeprecationWarning)
+            opposite_op = (
+                ComparisonOp.LEQ
+                if self.outcome_constraint.op == ComparisonOp.GEQ
+                else ComparisonOp.GEQ
+            )
             opposing_constraint = OutcomeConstraint(
                 metric=self.metrics["m3"],
-                # pyre-fixme[6]: For 2nd param expected `ComparisonOp` but got `bool`.
-                op=not self.outcome_constraint.op,
+                op=opposite_op,
                 bound=self.outcome_constraint.bound + add_bound,
             )
         with self.assertRaises(ValueError):
@@ -197,10 +205,14 @@ class OptimizationConfigTest(TestCase):
         # bounds should not raise.
         with warnings.catch_warnings():
             warnings.simplefilter("ignore", DeprecationWarning)
+            opposite_op = (
+                ComparisonOp.LEQ
+                if self.outcome_constraint.op == ComparisonOp.GEQ
+                else ComparisonOp.GEQ
+            )
             opposing_constraint = OutcomeConstraint(
                 metric=self.metrics["m3"],
-                # pyre-fixme[6]: For 2nd param expected `ComparisonOp` but got `bool`.
-                op=not self.outcome_constraint.op,
+                op=opposite_op,
                 bound=self.outcome_constraint.bound + 1,
             )
         config = OptimizationConfig(
@@ -343,7 +355,7 @@ class MultiObjectiveOptimizationConfigTest(TestCase):
             "`MultiObjectiveOptimizationConfig` requires an objective of type "
             "`MultiObjective` or `ScalarizedObjective`.",
         ):
-            # pyre-fixme [8]: Incompatible attribute type
+            # pyre-ignore[8]: Intentionally testing wrong type for error path.
             config1.objective = self.objective  # Wrong objective type
         # updating constraints is fine.
         config1.outcome_constraints = [self.outcome_constraint]
@@ -391,9 +403,7 @@ class MultiObjectiveOptimizationConfigTest(TestCase):
         with self.assertRaises(UserInputError):
             MultiObjectiveOptimizationConfig(
                 objective=self.multi_objective,
-                # pyre-fixme[6]: For 2nd param expected
-                #  `Optional[List[ObjectiveThreshold]]` but got
-                #  `List[OutcomeConstraint]`.
+                # pyre-ignore[6]: Intentionally testing wrong type for error path.
                 objective_thresholds=[self.additional_outcome_constraint],
             )
 
@@ -424,25 +434,9 @@ class MultiObjectiveOptimizationConfigTest(TestCase):
             "`MultiObjectiveOptimizationConfig` requires an objective of type "
             "`MultiObjective` or `ScalarizedObjective`.",
         ):
-            # pyre-fixme [6]: Incompatible parameter type
+            # pyre-ignore[6]: Intentionally testing wrong type for error path.
             MultiObjectiveOptimizationConfig(objective=self.objective)
 
-        # Using an outcome constraint for an objective should raise
-        with warnings.catch_warnings():
-            warnings.simplefilter("ignore", DeprecationWarning)
-            outcome_constraint_m1 = OutcomeConstraint(
-                metric=self.metrics["m1"],
-                op=ComparisonOp.LEQ,
-                bound=1234,
-                relative=False,
-            )
-        with self.assertRaisesRegex(
-            ValueError, "Cannot constrain on objective metric."
-        ):
-            MultiObjectiveOptimizationConfig(
-                objective=self.multi_objective,
-                outcome_constraints=[outcome_constraint_m1],
-            )
         # Two outcome_constraints on the same metric with the same op
         # should raise.
         with warnings.catch_warnings():
@@ -461,10 +455,14 @@ class MultiObjectiveOptimizationConfigTest(TestCase):
         # Three outcome_constraints on the same metric should raise.
         with warnings.catch_warnings():
             warnings.simplefilter("ignore", DeprecationWarning)
+            opposite_op = (
+                ComparisonOp.LEQ
+                if self.outcome_constraint.op == ComparisonOp.GEQ
+                else ComparisonOp.GEQ
+            )
             opposing_constraint = OutcomeConstraint(
                 metric=self.metrics["m3"],
-                # pyre-fixme[6]: For 2nd param expected `ComparisonOp` but got `bool`.
-                op=not self.outcome_constraint.op,
+                op=opposite_op,
                 bound=self.outcome_constraint.bound,
             )
         with self.assertRaises(ValueError):
@@ -480,8 +478,7 @@ class MultiObjectiveOptimizationConfigTest(TestCase):
             warnings.simplefilter("ignore", DeprecationWarning)
             opposing_constraint = OutcomeConstraint(
                 metric=self.metrics["m3"],
-                # pyre-fixme[6]: For 2nd param expected `ComparisonOp` but got `bool`.
-                op=not self.outcome_constraint.op,
+                op=opposite_op,
                 bound=self.outcome_constraint.bound + add_bound,
             )
         with self.assertRaises(ValueError):
@@ -496,8 +493,7 @@ class MultiObjectiveOptimizationConfigTest(TestCase):
             warnings.simplefilter("ignore", DeprecationWarning)
             opposing_constraint = OutcomeConstraint(
                 metric=self.metrics["m3"],
-                # pyre-fixme[6]: For 2nd param expected `ComparisonOp` but got `bool`.
-                op=not self.outcome_constraint.op,
+                op=opposite_op,
                 bound=self.outcome_constraint.bound + 1,
             )
         config = MultiObjectiveOptimizationConfig(
@@ -524,8 +520,8 @@ class MultiObjectiveOptimizationConfigTest(TestCase):
         )
         self.assertEqual(len(config_with_scalarized.outcome_constraints), 1)
 
-        # Can't constrain on metric in ScalarizedOutcomeConstraint
-        # that overlaps with objective
+        # ScalarizedOutcomeConstraint that overlaps with objective is also
+        # allowed in MOO.
         with warnings.catch_warnings():
             warnings.simplefilter("ignore", DeprecationWarning)
             scalarized_with_objective_metric = ScalarizedOutcomeConstraint(
@@ -537,13 +533,41 @@ class MultiObjectiveOptimizationConfigTest(TestCase):
                 op=ComparisonOp.GEQ,
                 bound=0.0,
             )
-        with self.assertRaisesRegex(
-            ValueError, "Cannot constrain on objective metric."
-        ):
-            MultiObjectiveOptimizationConfig(
-                objective=self.multi_objective,
-                outcome_constraints=[scalarized_with_objective_metric],
+        config_scalarized_obj = MultiObjectiveOptimizationConfig(
+            objective=self.multi_objective,
+            outcome_constraints=[scalarized_with_objective_metric],
+        )
+        self.assertEqual(
+            config_scalarized_obj.outcome_constraints,
+            [scalarized_with_objective_metric],
+        )
+
+    def test_ConstraintAgainstOptimizationDirection(self) -> None:
+        """Verify that an objective can be constrained against its optimization
+        direction, e.g. FLOPs >= threshold while minimizing FLOPs. This is
+        useful in MOO to prevent the acquisition function from exploring
+        regions of the objective space that are known to be uninteresting.
+        """
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore", DeprecationWarning)
+            # m1 is minimized, m2 is maximized in self.multi_objective
+            # Constraint m1 from below (against minimize direction)
+            lower_bound_on_m1 = OutcomeConstraint(
+                metric=self.metrics["m1"],
+                op=ComparisonOp.GEQ,
+                bound=100.0,
+                relative=False,
             )
+        config = MultiObjectiveOptimizationConfig(
+            objective=self.multi_objective,
+            outcome_constraints=[lower_bound_on_m1],
+            objective_thresholds=self.objective_thresholds,
+        )
+        self.assertEqual(config.outcome_constraints, [lower_bound_on_m1])
+        self.assertEqual(config.objective_thresholds, self.objective_thresholds)
+        self.assertEqual(
+            config.all_constraints, [lower_bound_on_m1] + self.objective_thresholds
+        )
 
     def test_Clone(self) -> None:
         config1 = MultiObjectiveOptimizationConfig(
