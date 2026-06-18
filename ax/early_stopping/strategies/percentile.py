@@ -58,10 +58,11 @@ class PercentileEarlyStoppingStrategy(BaseEarlyStoppingStrategy):
                 become negative.
             max_progression: Do not stop trials that have passed `max_progression`.
                 Useful if we prefer finishing a trial that are already near completion.
-            min_curves: Trials will not be stopped until a number of trials
-                `min_curves` have completed with curve data attached. That is, if
-                `min_curves` trials are completed but their curve data was not
-                successfully retrieved, further trials may not be early-stopped.
+            min_curves: Trials will not be stopped until at least `min_curves`
+                trials have curve data reaching `min_progression`. Eligibility is
+                based on observed curve depth rather than trial status, so a
+                sufficiently deep curve from a still-running trial counts toward
+                `min_curves`.
             normalize_progressions: If True, normalizes the progression values
                 for each metric to the [0, 1] range using the observed minimum and
                 maximum progression values for that metric. This transformation maps
