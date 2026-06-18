@@ -40,6 +40,7 @@ class ChoiceParameterConfig:
     values: list[float] | list[int] | list[str] | list[bool]
     parameter_type: Literal["float", "int", "str", "bool"]
     is_ordered: bool | None = None
+    log_scale: bool | None = None
     dependent_parameters: Mapping[TParameterValue, Sequence[str]] | None = None
 
 

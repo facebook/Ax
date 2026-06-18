@@ -26,6 +26,7 @@ from ax.core.parameter_constraint import ParameterConstraint
 from ax.core.search_space import SearchSpace
 from ax.exceptions.core import UserInputError
 from ax.utils.common.testutils import TestCase
+from pyre_extensions import assert_is_instance
 
 
 class TestFromConfig(TestCase):
@@ -222,6 +223,46 @@ class TestFromConfig(TestCase):
                 value="a",
             ),
         )
+
+        choice_config_with_log_scale = ChoiceParameterConfig(
+            name="choice_param_with_log_scale",
+            parameter_type="float",
+            values=[1.0, 2.0, 3.0],
+            log_scale=True,
+        )
+        self.assertEqual(
+            parameter_from_config(config=choice_config_with_log_scale),
+            ChoiceParameter(
+                name="choice_param_with_log_scale",
+                parameter_type=CoreParameterType.FLOAT,
+                values=[1.0, 2.0, 3.0],
+                log_scale=True,
+            ),
+        )
+
+        # log_scale=False should override the auto-detection default.
+        choice_config_without_log_scale = ChoiceParameterConfig(
+            name="choice_param_without_log_scale",
+            parameter_type="int",
+            values=[1, 10, 100],
+            log_scale=False,
+        )
+        parameter = parameter_from_config(config=choice_config_without_log_scale)
+        self.assertFalse(assert_is_instance(parameter, ChoiceParameter).log_scale)
+
+        # log_scale is only supported for numeric parameters.
+        with self.assertRaisesRegex(
+            UserInputError, "log_scale is only supported for numerical parameters"
+        ):
+            parameter_from_config(
+                config=ChoiceParameterConfig(
+                    name="str_choice_param_with_log_scale",
+                    parameter_type="str",
+                    values=["a", "b", "c"],
+                    log_scale=True,
+                )
+            )
+
         self.assertFalse(any("sort_values" in str(w.message) for w in ws))
 
     def test_experiment_from_config(self) -> None:
