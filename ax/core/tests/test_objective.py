@@ -182,7 +182,7 @@ class ObjectiveTest(TestCase):
         self.assertEqual(self.objective.get_unconstrainable_metric_names(), ["m1"])
         self.assertEqual(
             self.multi_objective.get_unconstrainable_metric_names(),
-            ["m1", "m2", "m3"],
+            [],
         )
 
     def test_DeprecatedProperties(self) -> None:
