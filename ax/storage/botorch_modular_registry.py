@@ -16,6 +16,7 @@ from ax.generators.torch.botorch_modular.kernels import (
     DefaultMaternKernel,
     DefaultRBFKernel,
     ScaleMaternKernel,
+    ScaleRBFLinearKernel,
 )
 from ax.generators.torch.botorch_modular.multi_acquisition import MultiAcquisition
 
@@ -193,6 +194,7 @@ MLL_REGISTRY: dict[type[MarginalLogLikelihood], str] = {
 KERNEL_REGISTRY: dict[type[Kernel], str] = {
     LinearKernel: "LinearKernel",
     ScaleMaternKernel: "ScaleMaternKernel",
+    ScaleRBFLinearKernel: "ScaleRBFLinearKernel",
     RBFKernel: "RBFKernel",
     DefaultRBFKernel: "DefaultRBFKernel",
     DefaultMaternKernel: "DefaultMaternKernel",

@@ -19,11 +19,12 @@ from ax.generators.torch.botorch_modular.kernels import (
     DefaultMaternKernel,
     DefaultRBFKernel,
     ScaleMaternKernel,
+    ScaleRBFLinearKernel,
 )
 from ax.utils.common.testutils import TestCase
 from botorch.models.gp_regression import SingleTaskGP
 from botorch.models.multitask import MultiTaskGP
-from botorch.utils.datasets import SupervisedDataset
+from botorch.utils.datasets import MultiTaskDataset, SupervisedDataset
 from gpytorch.kernels.kernel import Kernel
 from gpytorch.kernels.linear_kernel import LinearKernel
 from gpytorch.priors import GammaPrior
@@ -158,6 +159,95 @@ class CovarModuleArgparseTest(TestCase):
         )
 
         self.assertEqual(covar_module_kwargs["batch_shape"], torch.Size([]))
+
+    def test_argparse_scale_rbf_linear_kernel(self) -> None:
+        # SingleTaskGP infers ard_num_dims from the 10 features; the
+        # multi-output dataset (Y has 2 columns) yields a batch shape of [2].
+        # MultiTaskGP drops the task feature, so ard_num_dims is 9 and the
+        # batch shape is empty.
+        expected = [
+            {"ard_num_dims": 10, "batch_shape": torch.Size([2])},
+            {"ard_num_dims": 9, "batch_shape": torch.Size([])},
+        ]
+        for i, botorch_model_class in enumerate([SingleTaskGP, MultiTaskGP]):
+            covar_module_kwargs = covar_module_argparse(
+                ScaleRBFLinearKernel,
+                botorch_model_class=botorch_model_class,
+                dataset=self.dataset,
+                lengthscale_prior=GammaPrior(6.0, 3.0),
+                outputscale_prior=GammaPrior(2.0, 0.15),
+                variance_prior=GammaPrior(1.0, 1.0),
+            )
+            self.assertEqual(
+                covar_module_kwargs["ard_num_dims"], expected[i]["ard_num_dims"]
+            )
+            self.assertEqual(
+                covar_module_kwargs["batch_shape"], expected[i]["batch_shape"]
+            )
+            # No active_dims requested, so none is set.
+            self.assertIsNone(covar_module_kwargs["active_dims"])
+            # Priors are passed straight through.
+            self.assertAlmostEqual(
+                covar_module_kwargs["lengthscale_prior"].concentration.item(),
+                6.0,
+                places=4,
+            )
+            self.assertAlmostEqual(
+                covar_module_kwargs["outputscale_prior"].rate.item(), 0.15, places=4
+            )
+            self.assertAlmostEqual(
+                covar_module_kwargs["variance_prior"].concentration.item(),
+                1.0,
+                places=4,
+            )
+            # The resulting kwargs can construct the kernel.
+            kernel = ScaleRBFLinearKernel(**covar_module_kwargs)
+            self.assertIsInstance(kernel, ScaleRBFLinearKernel)
+
+    def test_argparse_scale_rbf_linear_kernel_active_dims(self) -> None:
+        # Explicit active_dims is passed through and normalized; ard_num_dims is
+        # set to the number of active dims.
+        covar_module_kwargs = covar_module_argparse(
+            ScaleRBFLinearKernel,
+            botorch_model_class=SingleTaskGP,
+            dataset=self.dataset,
+            active_dims=[0, 2, 4],
+        )
+        self.assertEqual(covar_module_kwargs["active_dims"], [0, 2, 4])
+        self.assertEqual(covar_module_kwargs["ard_num_dims"], 3)
+        kernel = ScaleRBFLinearKernel(**covar_module_kwargs)
+        self.assertIsInstance(kernel, ScaleRBFLinearKernel)
+
+    def test_argparse_scale_rbf_linear_kernel_remove_task_features(self) -> None:
+        # A SingleTaskGP on a MultiTaskDataset with remove_task_features=True
+        # excludes the task feature from the kernel: active_dims drops the task
+        # column and ard_num_dims shrinks accordingly.
+        n, d = 10, 5
+        task_feature_index = d - 1
+        X = torch.cat([torch.randn((n, d - 1)), torch.randint(0, 2, (n, 1))], dim=-1)
+        Y = torch.randn((n, 1))
+        joint_dataset = SupervisedDataset(
+            X=X,
+            Y=Y,
+            feature_names=[f"x{j}" for j in range(d - 1)] + ["task"],
+            outcome_names=["y"],
+        )
+        dataset = MultiTaskDataset.from_joint_dataset(
+            dataset=joint_dataset,
+            task_feature_index=task_feature_index,
+            target_task_value=1,
+        )
+        covar_module_kwargs = covar_module_argparse(
+            ScaleRBFLinearKernel,
+            botorch_model_class=SingleTaskGP,
+            dataset=dataset,
+            remove_task_features=True,
+        )
+        # The task feature (last column, index d - 1) is excluded.
+        self.assertEqual(covar_module_kwargs["active_dims"], list(range(d - 1)))
+        self.assertEqual(covar_module_kwargs["ard_num_dims"], d - 1)
+        kernel = ScaleRBFLinearKernel(**covar_module_kwargs)
+        self.assertIsInstance(kernel, ScaleRBFLinearKernel)
 
     def test_argparse_default(self) -> None:
         for kernel_class in (DefaultRBFKernel, DefaultMaternKernel):

@@ -25,7 +25,8 @@ from ax.exceptions.core import AxError
 from botorch.models.utils.gpytorch_modules import SQRT2, SQRT3
 from gpytorch.constraints import Interval
 from gpytorch.constraints.constraints import GreaterThan
-from gpytorch.kernels import PeriodicKernel
+from gpytorch.kernels import AdditiveKernel, PeriodicKernel
+from gpytorch.kernels.linear_kernel import LinearKernel
 from gpytorch.kernels.matern_kernel import MaternKernel
 from gpytorch.kernels.rbf_kernel import RBFKernel
 from gpytorch.kernels.scale_kernel import ScaleKernel
@@ -36,6 +37,7 @@ class ScaleMaternKernel(ScaleKernel):
     def __init__(
         self,
         ard_num_dims: int | None = None,
+        active_dims: Sequence[int] | None = None,
         batch_shape: torch.Size | None = None,
         lengthscale_prior: Prior | None = None,
         outputscale_prior: Prior | None = None,
@@ -46,6 +48,9 @@ class ScaleMaternKernel(ScaleKernel):
         r"""
         Args:
             ard_num_dims: The number of lengthscales.
+            active_dims: The active input dimensions. The ``ScaleKernel``
+                inherits its ``active_dims`` from the wrapped ``MaternKernel``,
+                so the input is subset exactly once (at the wrapper level).
             batch_shape: The batch shape.
             lengthscale_prior: The prior over the lengthscale parameter.
             outputscale_prior: The prior over the scaling parameter.
@@ -57,6 +62,7 @@ class ScaleMaternKernel(ScaleKernel):
         base_kernel = MaternKernel(
             nu=2.5,
             ard_num_dims=ard_num_dims,
+            active_dims=tuple(active_dims) if active_dims is not None else None,
             lengthscale_constraint=lengthscale_constraint,
             lengthscale_prior=lengthscale_prior,
             batch_shape=batch_shape,
@@ -67,6 +73,74 @@ class ScaleMaternKernel(ScaleKernel):
             outputscale_constraint=outputscale_constraint,
             **kwargs,
         )
+
+
+class ScaleRBFLinearKernel(AdditiveKernel):
+    r"""A sum of ``ScaleKernel(RBF-ARD)`` and ``LinearKernel``.
+
+    Combines the local flexibility of an ARD RBF kernel with a global linear
+    covariance structure. The ``ScaleKernel`` wraps the RBF so the model can
+    learn the relative amplitude of the local (RBF) vs. global (linear) signal.
+
+    The ``LinearKernel`` models linear-in-input correlations (e.g. a linear
+    scaling-law trend) through the kernel rather than the mean -- the kernel-side
+    analog of a linear mean.
+    """
+
+    def __init__(
+        self,
+        ard_num_dims: int | None = None,
+        active_dims: Sequence[int] | None = None,
+        batch_shape: torch.Size | None = None,
+        lengthscale_prior: Prior | None = None,
+        outputscale_prior: Prior | None = None,
+        variance_prior: Prior | None = None,
+        lengthscale_constraint: Interval | None = None,
+        outputscale_constraint: Interval | None = None,
+        **kwargs: Any,
+    ) -> None:
+        r"""
+        Args:
+            ard_num_dims: The number of lengthscales for the RBF kernel. When
+                ``active_dims`` is provided, this must equal the number of active
+                dimensions.
+            active_dims: The active input dimensions. The same subset is applied
+                to both component kernels. The ``ScaleKernel`` inherits its
+                ``active_dims`` from the wrapped ``RBFKernel``, so the input is
+                subset exactly once (at the wrapper level) rather than twice.
+            batch_shape: The batch shape, shared by both component kernels.
+            lengthscale_prior: The prior over the RBF lengthscale parameter.
+            outputscale_prior: The prior over the RBF output scale parameter.
+            variance_prior: The prior over the linear kernel variance parameter.
+            lengthscale_constraint: Optionally provide a lengthscale constraint
+                for the RBF kernel.
+            outputscale_constraint: Optionally provide an output scale constraint
+                for the ``ScaleKernel`` wrapping the RBF kernel.
+            kwargs: Additional keyword arguments passed to the ``LinearKernel``.
+
+        Returns: None
+        """
+        active_dims = tuple(active_dims) if active_dims is not None else None
+        scale_rbf_kernel = ScaleKernel(
+            RBFKernel(
+                ard_num_dims=ard_num_dims,
+                active_dims=active_dims,
+                lengthscale_constraint=lengthscale_constraint,
+                lengthscale_prior=lengthscale_prior,
+                batch_shape=batch_shape,
+            ),
+            outputscale_prior=outputscale_prior,
+            outputscale_constraint=outputscale_constraint,
+            batch_shape=batch_shape,
+        )
+        linear_kernel = LinearKernel(
+            ard_num_dims=ard_num_dims,
+            active_dims=active_dims,
+            variance_prior=variance_prior,
+            batch_shape=batch_shape,
+            **kwargs,
+        )
+        super().__init__(scale_rbf_kernel, linear_kernel)
 
 
 class TemporalKernel(ScaleKernel):
