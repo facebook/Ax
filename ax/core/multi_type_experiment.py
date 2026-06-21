@@ -96,15 +96,16 @@ class MultiTypeExperiment(Experiment):
             default_data_type=default_data_type,
         )
 
-        # Ensure tracking metrics are registered in _metric_to_trial_type.
+        # Ensure tracking metrics are registered in _metric_to_trial_type
+        # and _trial_type_to_metric_names.
         # super().__init__ sets self._metrics directly, bypassing
         # add_tracking_metric, so tracking metrics won't be in
         # _metric_to_trial_type yet.
         for m in tracking_metrics or []:
             if m.name not in self._metric_to_trial_type:
-                self._metric_to_trial_type[m.name] = none_throws(
-                    self._default_trial_type
-                )
+                tt = none_throws(self._default_trial_type)
+                self._metric_to_trial_type[m.name] = tt
+                self._trial_type_to_metric_names.setdefault(tt, set()).add(m.name)
 
     def add_trial_type(self, trial_type: str, runner: Runner) -> Self:
         """Add a new trial_type to be supported by this experiment.
@@ -129,9 +130,9 @@ class MultiTypeExperiment(Experiment):
         for metric_name in optimization_config.metric_names:
             # Optimization config metrics are required to be the default trial type
             # currently. TODO: remove that restriction (T202797235)
-            self._metric_to_trial_type[metric_name] = none_throws(
-                self.default_trial_type
-            )
+            tt = none_throws(self.default_trial_type)
+            self._metric_to_trial_type[metric_name] = tt
+            self._trial_type_to_metric_names.setdefault(tt, set()).add(metric_name)
 
     def update_runner(self, trial_type: str, runner: Runner) -> Self:
         """Update the default runner for an existing trial_type.
@@ -166,7 +167,9 @@ class MultiTypeExperiment(Experiment):
             raise ValueError(f"`{trial_type}` is not a supported trial type.")
 
         super().add_tracking_metric(metric)
-        self._metric_to_trial_type[metric.name] = none_throws(trial_type)
+        tt = none_throws(trial_type)
+        self._metric_to_trial_type[metric.name] = tt
+        self._trial_type_to_metric_names.setdefault(tt, set()).add(metric.name)
         if canonical_name is not None:
             self._metric_to_canonical_name[metric.name] = canonical_name
         return self
@@ -242,7 +245,14 @@ class MultiTypeExperiment(Experiment):
             raise ValueError(f"`{trial_type}` is not a supported trial type.")
 
         super().update_tracking_metric(metric)
-        self._metric_to_trial_type[metric.name] = none_throws(trial_type)
+        # Remove from old trial type set
+        old_tt = self._metric_to_trial_type.get(metric.name)
+        if old_tt is not None and old_tt in self._trial_type_to_metric_names:
+            self._trial_type_to_metric_names[old_tt].discard(metric.name)
+        # Add to new trial type set
+        tt = none_throws(trial_type)
+        self._metric_to_trial_type[metric.name] = tt
+        self._trial_type_to_metric_names.setdefault(tt, set()).add(metric.name)
         if canonical_name is not None:
             self._metric_to_canonical_name[metric.name] = canonical_name
         return self
@@ -251,6 +261,11 @@ class MultiTypeExperiment(Experiment):
     def remove_tracking_metric(self, metric_name: str) -> Self:
         if metric_name not in self._metrics:
             raise ValueError(f"Metric `{metric_name}` doesn't exist on experiment.")
+
+        # Clean up _trial_type_to_metric_names
+        old_tt = self._metric_to_trial_type.get(metric_name)
+        if old_tt is not None and old_tt in self._trial_type_to_metric_names:
+            self._trial_type_to_metric_names[old_tt].discard(metric_name)
 
         # Required fields
         del self._metrics[metric_name]
@@ -294,46 +309,6 @@ class MultiTypeExperiment(Experiment):
         ]
         # Invoke parent's fetch method using only metrics for this trial_type
         return super()._fetch_trial_data(trial.index, metrics=metrics, **kwargs)
-
-    @property
-    def default_trials(self) -> set[int]:
-        """Return the indicies for trials of the default type."""
-        return {
-            idx
-            for idx, trial in self.trials.items()
-            if trial.trial_type == self.default_trial_type
-        }
-
-    @property
-    def metric_to_trial_type(self) -> dict[str, str]:
-        """Map metrics to trial types.
-
-        Adds in default trial type for OC metrics to custom defined trial types..
-        """
-        opt_config_types = {
-            metric_name: self.default_trial_type
-            for metric_name in self.optimization_config.metric_names
-        }
-        return {**opt_config_types, **self._metric_to_trial_type}
-
-    # -- Overridden functions from Base Experiment Class --
-    @property
-    def default_trial_type(self) -> str | None:
-        """Default trial type assigned to trials in this experiment."""
-        return self._default_trial_type
-
-    def metrics_for_trial_type(self, trial_type: str) -> list[Metric]:
-        """The default runner to use for a given trial type.
-
-        Looks up the appropriate runner for this trial type in the trial_type_to_runner.
-        """
-        if not self.supports_trial_type(trial_type):
-            raise ValueError(f"Trial type `{trial_type}` is not supported.")
-        return [
-            self.metrics[metric_name]
-            for metric_name, metric_trial_type in self._metric_to_trial_type.items()
-            if metric_trial_type == trial_type
-        ]
 
     def supports_trial_type(self, trial_type: str | None) -> bool:
         """Whether this experiment allows trials of the given type.
