@@ -1128,6 +1128,17 @@ class DerivedParameterTest(TestCase):
                 name="x", parameter_type=ParameterType.FLOAT, expression_str="y ** 2"
             )
 
+        # test unparseable expression
+        with self.assertRaisesRegex(
+            UserInputError,
+            "Unable to parse derived parameter expression",
+        ):
+            DerivedParameter(
+                name="x",
+                parameter_type=ParameterType.FLOAT,
+                expression_str="a +* b",
+            )
+
     def test_eq(self) -> None:
         param2 = DerivedParameter(
             name="x", parameter_type=ParameterType.FLOAT, expression_str="2.0 * a + 1.0"
