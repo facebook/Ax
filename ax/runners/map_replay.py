@@ -12,18 +12,21 @@ from typing import Any
 
 from ax.core.base_trial import BaseTrial, TrialStatus
 from ax.core.runner import Runner
-from ax.metrics.map_replay import MapDataReplayMetric
+from ax.metrics.map_replay import MapDataReplayState
 
 
 STARTED_KEY = "replay_started"
 
 
 class MapDataReplayRunner(Runner):
-    """A runner that uses a `MapDataReplayMetric` to determine trial statuses.
-    This runner does not actually 'run' anything."""
+    """A runner that determines trial statuses from a shared
+    ``MapDataReplayState`` and advances replay progression on each poll.
 
-    def __init__(self, replay_metric: MapDataReplayMetric) -> None:
-        self.replay_metric: MapDataReplayMetric = replay_metric
+    This runner does not actually 'run' anything.
+    """
+
+    def __init__(self, replay_state: MapDataReplayState) -> None:
+        self._replay_state: MapDataReplayState = replay_state
 
     def run(self, trial: BaseTrial) -> dict[str, Any]:
         return {STARTED_KEY: True}
@@ -35,17 +38,13 @@ class MapDataReplayRunner(Runner):
         self, trials: Iterable[BaseTrial]
     ) -> dict[TrialStatus, set[int]]:
         result = defaultdict(set)
-        # For each trial, if it hasn't been started yet by this runner,
-        # then mark is as a CANDIDATE. If there is no replay data
-        # associated with that trial at all, mark is FAILED. Otherwise,
-        # depending on whether or not there is more data available,
-        # mark it either RUNNING or COMPLETED.
         for t in trials:
             if not t.run_metadata.get(STARTED_KEY, False):
                 result[TrialStatus.CANDIDATE].add(t.index)
-            elif not self.replay_metric.has_trial_data(t.index):
+            elif not self._replay_state.has_trial_data(trial_index=t.index):
                 result[TrialStatus.ABANDONED].add(t.index)
-            elif self.replay_metric.more_replay_available(t.index):
+            elif not self._replay_state.is_trial_complete(trial_index=t.index):
+                self._replay_state.advance_trial(trial_index=t.index)
                 result[TrialStatus.RUNNING].add(t.index)
             else:
                 result[TrialStatus.COMPLETED].add(t.index)
