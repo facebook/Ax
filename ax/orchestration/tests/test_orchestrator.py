@@ -38,12 +38,7 @@ from ax.core.utils import (
     get_pending_observation_features_based_on_trial_status,
 )
 from ax.early_stopping.strategies import BaseEarlyStoppingStrategy
-from ax.exceptions.core import (
-    AxError,
-    OptimizationComplete,
-    UnsupportedError,
-    UserInputError,
-)
+from ax.exceptions.core import OptimizationComplete, UnsupportedError, UserInputError
 from ax.exceptions.generation_strategy import AxGenerationException
 from ax.generation_strategy.dispatch_utils import choose_generation_strategy_legacy
 from ax.generation_strategy.generation_strategy import (
@@ -1977,6 +1972,12 @@ class TestAxOrchestrator(TestCase):
             )
 
     def test_fetch_and_process_trials_data_results_failed_objective(self) -> None:
+        """Metric fetch errors on objective metrics do NOT change trial status.
+
+        The trial remains COMPLETED, and MetricAvailability reflects the missing
+        data. The failure rate check uses MetricAvailability to detect persistent
+        metric issues.
+        """
         gs = self.two_sobol_steps_GS
         orchestrator = Orchestrator(
             experiment=self.branin_experiment,
@@ -1997,97 +1998,44 @@ class TestAxOrchestrator(TestCase):
             ),
             self.assertLogs(logger="ax.orchestration.orchestrator") as lg,
         ):
-            # This trial will fail
+            # The trial completes but has incomplete metrics, triggering
+            # the failure rate check.
             with self.assertRaises(FailureRateExceededError):
                 orchestrator.run_n_trials(max_trials=1)
-        self.assertTrue(
-            any(
-                re.search(r"Failed to fetch (branin|m1) for trial 0", warning)
-                is not None
-                for warning in lg.output
-            )
-        )
+        # Verify the error was logged (not the old "marking trial as ABANDONED").
         self.assertTrue(
             any(
                 re.search(
-                    r"Because (branin|m1) is an objective, marking trial 0 as "
-                    "TrialStatus.ABANDONED",
+                    r"Failed to fetch (branin|m1) for trial 0",
                     warning,
                 )
                 is not None
                 for warning in lg.output
             )
         )
-        self.assertEqual(
-            orchestrator.experiment.trials[0].status, TrialStatus.ABANDONED
-        )
-
-    def test_fetch_and_process_trials_data_results_failed_objective_but_recoverable(
-        self,
-    ) -> None:
-        gs = self.two_sobol_steps_GS
-        orchestrator = Orchestrator(
-            experiment=self.branin_experiment,
-            generation_strategy=gs,
-            options=OrchestratorOptions(
-                enforce_immutable_search_space_and_opt_config=False,
-                **self.orchestrator_options_kwargs,
-            ),
-            db_settings=self.db_settings_if_always_needed,
-        )
-        BraninMetric.recoverable_exceptions = {AxError, TypeError}
-        # we're throwing a recoverable exception because UserInputError
-        # is a subclass of AxError
-        with (
-            patch(
-                f"{BraninMetric.__module__}.BraninMetric.f",
-                side_effect=UserInputError("yikes!"),
-            ),
-            patch(
-                f"{BraninMetric.__module__}.BraninMetric.is_available_while_running",
-                return_value=False,
-            ),
-            self.assertLogs(logger="ax.orchestration.orchestrator") as lg,
-        ):
-            orchestrator.run_n_trials(max_trials=1)
-        self.assertTrue(
-            any(
-                re.search(r"Failed to fetch (branin|m1) for trial 0", warning)
-                is not None
-                for warning in lg.output
-            ),
-            lg.output,
-        )
-        self.assertTrue(
-            any(
-                re.search(
-                    "MetricFetchE INFO: Continuing optimization even though "
-                    "MetricFetchE encountered",
-                    warning,
-                )
-                is not None
-                for warning in lg.output
-            )
-        )
+        # Trial stays COMPLETED -- not ABANDONED.
         self.assertEqual(
             orchestrator.experiment.trials[0].status, TrialStatus.COMPLETED
         )
 
-    def test_fetch_and_process_trials_data_results_failed_objective_not_recoverable(
-        self,
-    ) -> None:
+    def test_failure_rate_metric_incomplete(self) -> None:
+        """Failure rate check uses MetricAvailability to count metric-incomplete
+        trials and raises FailureRateExceededError with an actionable message
+        listing missing metrics and affected trials.
+        """
         gs = self.two_sobol_steps_GS
+        tolerated_failure_rate = 0.5
+        min_failed = 1
         orchestrator = Orchestrator(
             experiment=self.branin_experiment,
             generation_strategy=gs,
             options=OrchestratorOptions(
+                tolerated_trial_failure_rate=tolerated_failure_rate,
+                min_failed_trials_for_failure_rate_check=min_failed,
                 **self.orchestrator_options_kwargs,
             ),
             db_settings=self.db_settings_if_always_needed,
         )
-        # we're throwing a unrecoverable exception because Exception is not subclass
-        # of either error type in recoverable_exceptions
-        BraninMetric.recoverable_exceptions = {AxError, TypeError}
         with (
             patch(
                 f"{BraninMetric.__module__}.BraninMetric.f",
@@ -2097,32 +2045,38 @@ class TestAxOrchestrator(TestCase):
                 f"{BraninMetric.__module__}.BraninMetric.is_available_while_running",
                 return_value=False,
             ),
-            self.assertLogs(logger="ax.orchestration.orchestrator") as lg,
         ):
-            # This trial will fail
-            with self.assertRaises(FailureRateExceededError):
+            with self.assertRaises(FailureRateExceededError) as cm:
                 orchestrator.run_n_trials(max_trials=1)
-        self.assertTrue(
-            any(
-                re.search(r"Failed to fetch (branin|m1) for trial 0", warning)
-                is not None
-                for warning in lg.output
-            )
-        )
-        self.assertTrue(
-            any(
-                re.search(
-                    r"Because (branin|m1) is an objective, marking trial 0 as "
-                    "TrialStatus.ABANDONED",
-                    warning,
-                )
-                is not None
-                for warning in lg.output
-            )
-        )
+
+        # Trial stays COMPLETED -- metric fetch errors do not change status.
         self.assertEqual(
-            orchestrator.experiment.trials[0].status, TrialStatus.ABANDONED
+            orchestrator.experiment.trials[0].status, TrialStatus.COMPLETED
         )
+
+        # Build the expected error message from orchestrator config values.
+        # 1 trial ran, 0 execution failures, 1 metric-incomplete trial.
+        opt_config = none_throws(orchestrator.experiment.optimization_config)
+        opt_metric_names = sorted(opt_config.metric_names)
+        expected_parts = [
+            (
+                f"Failure rate exceeded: 1 of 1 trials were unsuccessful "
+                f"(observed rate: 100%, tolerance: "
+                f"{tolerated_failure_rate:.0%}). "
+                f"Checks are triggered when at least "
+                f"{min_failed} trials "
+                f"are unsuccessful or at the end of the optimization."
+            ),
+            (
+                f"1 trial(s) have incomplete metric data. "
+                f"Missing metrics: {opt_metric_names}. "
+                f"Affected trials: [0]. "
+                f"Check that your metric fetching infrastructure is healthy "
+                f"and that the metrics are being logged correctly."
+            ),
+        ]
+        expected_msg = "\n".join(expected_parts)
+        self.assertEqual(str(cm.exception), expected_msg)
 
     def test_should_consider_optimization_complete(self) -> None:
         # Tests non-GSS parts of the completion criterion.
