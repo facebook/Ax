@@ -93,6 +93,7 @@ def parameter_from_config(
             parameter_type=_parameter_type_converter(config.parameter_type),
             values=cast(list[TParamValue], config.values),
             is_ordered=config.is_ordered,
+            log_scale=config.log_scale,
             dependents=cast(
                 dict[TParamValue, list[str]] | None,
                 config.dependent_parameters,
