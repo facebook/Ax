@@ -17,13 +17,21 @@ from ax.generators.torch.botorch_modular.kernels import (
     DefaultMaternKernel,
     DefaultRBFKernel,
     ScaleMaternKernel,
+    ScaleRBFLinearKernel,
     TemporalKernel,
 )
 from ax.utils.common.testutils import TestCase
 from botorch.models.utils.gpytorch_modules import get_covar_module_with_dim_scaled_prior
 from gpytorch.constraints import Positive
-from gpytorch.kernels import MaternKernel, PeriodicKernel
+from gpytorch.kernels import (
+    LinearKernel,
+    MaternKernel,
+    PeriodicKernel,
+    RBFKernel,
+    ScaleKernel,
+)
 from gpytorch.priors import GammaPrior
+from pyre_extensions import assert_is_instance
 
 
 class KernelsTest(TestCase):
@@ -48,6 +56,86 @@ class KernelsTest(TestCase):
         #  `concentration`.
         self.assertEqual(covar.outputscale_prior.concentration, 2.0)
         self.assertEqual(covar.base_kernel.batch_shape[0], 2)
+        self.assertIsNone(covar.active_dims)
+
+    def test_scalematern_kernel_active_dims(self) -> None:
+        active_dims = [0, 2]
+        covar = ScaleMaternKernel(
+            ard_num_dims=len(active_dims), active_dims=active_dims
+        )
+        base_kernel = assert_is_instance(covar.base_kernel, MaternKernel)
+        # active_dims lands on the inner MaternKernel, and the ScaleKernel
+        # inherits it (so subsetting happens exactly once at the wrapper level).
+        self.assertEqual(covar.active_dims.tolist(), active_dims)
+        self.assertEqual(base_kernel.active_dims.tolist(), active_dims)
+        self.assertEqual(base_kernel.ard_num_dims, len(active_dims))
+        # The kernel only consumes the active columns: perturbing an inactive
+        # column leaves the covariance unchanged.
+        X = torch.randn(5, 3)
+        X_perturbed = X.clone()
+        X_perturbed[:, 1] = torch.randn(5)  # column 1 is inactive
+        self.assertTrue(
+            torch.allclose(covar(X).to_dense(), covar(X_perturbed).to_dense())
+        )
+
+    def test_scale_rbf_linear_kernel(self) -> None:
+        covar = ScaleRBFLinearKernel(
+            ard_num_dims=10,
+            lengthscale_prior=GammaPrior(6.0, 3.0),
+            outputscale_prior=GammaPrior(2.0, 0.15),
+            variance_prior=GammaPrior(1.0, 1.0),
+            batch_shape=torch.Size([2]),
+        )
+        # The kernel is a sum of a ScaleKernel(RBF) and a LinearKernel.
+        scale_rbf = assert_is_instance(covar.kernels[0], ScaleKernel)
+        linear = assert_is_instance(covar.kernels[1], LinearKernel)
+        rbf = assert_is_instance(scale_rbf.base_kernel, RBFKernel)
+        # RBF lengthscale prior and ard_num_dims.
+        self.assertEqual(rbf.ard_num_dims, 10)
+        lengthscale_prior = assert_is_instance(rbf.lengthscale_prior, GammaPrior)
+        self.assertEqual(lengthscale_prior.rate, 3.0)
+        self.assertEqual(lengthscale_prior.concentration, 6.0)
+        # Outputscale prior on the ScaleKernel.
+        outputscale_prior = assert_is_instance(scale_rbf.outputscale_prior, GammaPrior)
+        self.assertEqual(outputscale_prior.rate, 0.15)
+        self.assertEqual(outputscale_prior.concentration, 2.0)
+        # Variance prior on the LinearKernel.
+        variance_prior = assert_is_instance(linear.variance_prior, GammaPrior)
+        self.assertEqual(variance_prior.rate, 1.0)
+        self.assertEqual(variance_prior.concentration, 1.0)
+        # Batch shape is shared by both components.
+        self.assertEqual(rbf.batch_shape, torch.Size([2]))
+        self.assertEqual(linear.batch_shape, torch.Size([2]))
+        # The kernel evaluates and produces a PSD covariance.
+        X = torch.randn(2, 5, 10)
+        covar_matrix = covar(X).to_dense()
+        self.assertEqual(covar_matrix.shape, torch.Size([2, 5, 5]))
+
+    def test_scale_rbf_linear_kernel_active_dims(self) -> None:
+        active_dims = [0, 2]
+        covar = ScaleRBFLinearKernel(
+            ard_num_dims=len(active_dims),
+            active_dims=active_dims,
+        )
+        scale_rbf = assert_is_instance(covar.kernels[0], ScaleKernel)
+        linear = assert_is_instance(covar.kernels[1], LinearKernel)
+        rbf = assert_is_instance(scale_rbf.base_kernel, RBFKernel)
+        # active_dims lands on both leaves, and the ScaleKernel inherits it
+        # from the wrapped RBF kernel (so subsetting happens exactly once).
+        self.assertEqual(scale_rbf.active_dims.tolist(), active_dims)
+        self.assertEqual(rbf.active_dims.tolist(), active_dims)
+        self.assertEqual(linear.active_dims.tolist(), active_dims)
+        # ard_num_dims matches the number of active dims.
+        self.assertEqual(rbf.ard_num_dims, len(active_dims))
+        # The kernel only consumes the active columns: it produces the same
+        # covariance regardless of the values in the inactive column.
+        X = torch.randn(5, 3)
+        X_perturbed = X.clone()
+        X_perturbed[:, 1] = torch.randn(5)  # column 1 is inactive
+        covar_matrix = covar(X).to_dense()
+        covar_matrix_perturbed = covar(X_perturbed).to_dense()
+        self.assertTrue(torch.allclose(covar_matrix, covar_matrix_perturbed))
+        self.assertEqual(covar_matrix.shape, torch.Size([5, 5]))
 
     def test_temporal_kernel(self) -> None:
         ls_prior = GammaPrior(6.0, 3.0)

@@ -19,6 +19,7 @@ from ax.generators.torch.botorch_modular.kernels import (
     DefaultMaternKernel,
     DefaultRBFKernel,
     ScaleMaternKernel,
+    ScaleRBFLinearKernel,
 )
 from ax.utils.common.logger import get_logger
 from ax.utils.common.typeutils import _argparse_type_encoder
@@ -64,19 +65,26 @@ def _covar_module_argparse_base(
     return {**kwargs}
 
 
-@covar_module_argparse.register(ScaleMaternKernel)
-def _covar_module_argparse_scale_matern(
-    covar_module_class: type[ScaleMaternKernel],
+@covar_module_argparse.register((ScaleMaternKernel, ScaleRBFLinearKernel))
+def _covar_module_argparse_scale_kernel(
+    covar_module_class: type[ScaleMaternKernel] | type[ScaleRBFLinearKernel],
     botorch_model_class: type[Model],
     dataset: SupervisedDataset,
     ard_num_dims: int | _DefaultType = DEFAULT,
+    active_dims: Sequence[int] | None = None,
     batch_shape: torch.Size | _DefaultType = DEFAULT,
     lengthscale_prior: Prior | None = None,
     outputscale_prior: Prior | None = None,
     remove_task_features: bool = False,
     **kwargs: Any,
 ) -> dict[str, Any]:
-    """Extract the base covar module kwargs form the given arguments.
+    """Extract the covar module kwargs for ``ScaleMaternKernel`` and
+    ``ScaleRBFLinearKernel``.
+
+    Both kernels share the same configurable inputs: an ARD lengthscale prior and
+    an output scale prior for the (scaled) base kernel. For
+    ``ScaleRBFLinearKernel``, the ``LinearKernel`` summand uses its default
+    variance prior.
 
     NOTE: This setup does not allow for setting multi-dimensional priors,
         with different priors over lengthscales.
@@ -87,8 +95,9 @@ def _covar_module_argparse_scale_matern(
             BoTorch model.
         dataset: Dataset containing feature matrix and the response.
         ard_num_dims: Number of lengthscales per feature.
+        active_dims: The active dimensions of the kernel.
         batch_shape: The number of lengthscales per batch.
-        lengthscale_prior: Lenthscale prior.
+        lengthscale_prior: Lengthscale prior.
         outputscale_prior: Outputscale prior.
         remove_task_features: A boolean indicating whether to remove the task
             features (e.g. when using a SingleTask model on a MultiTaskDataset).
@@ -102,16 +111,17 @@ def _covar_module_argparse_scale_matern(
         botorch_model_class=botorch_model_class,
         dataset=dataset,
         remove_task_features=remove_task_features,
+        active_dims=active_dims,
     )
     return _covar_module_argparse_base(
         covar_module_class=covar_module_class,
         dataset=dataset,
         botorch_model_class=botorch_model_class,
         ard_num_dims=ard_num_dims,
+        active_dims=active_dims,
         lengthscale_prior=lengthscale_prior,
         outputscale_prior=outputscale_prior,
         batch_shape=batch_shape,
-        active_dims=active_dims,
         **kwargs,
     )
 
