@@ -34,6 +34,7 @@ class TestRegressionAnalysis(TestCase):
         )
 
         experiment.attach_data(Data(df=df))
+        # pyrefly: ignore [bad-instantiation]
         ra = RegressionAnalysis(prob_threshold=0.90)
         card = ra.compute(experiment=experiment, generation_strategy=None)
         self.assertEqual(card.name, "RegressionAnalysis")
@@ -54,6 +55,7 @@ class TestRegressionAnalysis(TestCase):
             }
         )
         experiment.attach_data(Data(df=df))
+        # pyrefly: ignore [bad-instantiation]
         ra = RegressionAnalysis(prob_threshold=0.90)
         card = ra.compute(experiment=experiment, generation_strategy=None)
         self.assertEqual(card.name, "RegressionAnalysis")

@@ -1279,8 +1279,10 @@ class Client(WithDBSettingsBase):
             and self._storage_config.registry_bundle is not None
         ):
             encoder_registry = (
+                # pyrefly: ignore [missing-attribute]
                 self._storage_config.registry_bundle.sqa_config.json_encoder_registry
             )
+            # pyrefly: ignore [missing-attribute]
             class_encoder_registry = self._storage_config.registry_bundle.sqa_config.json_class_encoder_registry  # noqa: E501
         else:
             encoder_registry = CORE_ENCODER_REGISTRY
@@ -1312,9 +1314,11 @@ class Client(WithDBSettingsBase):
         # the core encoder registries.
         if storage_config is not None and storage_config.registry_bundle is not None:
             decoder_registry = (
+                # pyrefly: ignore [missing-attribute]
                 storage_config.registry_bundle.sqa_config.json_decoder_registry
             )
             class_decoder_registry = (
+                # pyrefly: ignore [missing-attribute]
                 storage_config.registry_bundle.sqa_config.json_class_decoder_registry
             )
         else:

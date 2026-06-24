@@ -285,14 +285,18 @@ class ModelRegistryTest(TestCase):
                         model,
                         SaasFullyBayesianMultiTaskGP if use_saas else MultiTaskGP,
                     )
+                    # pyrefly: ignore [not-iterable]
                     data_covar_module, _ = model.covar_module.kernels
                     if use_saas is False and default_model is False:
                         self.assertIsInstance(data_covar_module, ScaleKernel)
                         base_kernel = data_covar_module.base_kernel
                         self.assertIsInstance(base_kernel, MaternKernel)
                         self.assertEqual(
-                            base_kernel.lengthscale_prior.concentration, 6.0
+                            # pyrefly: ignore [missing-attribute]
+                            base_kernel.lengthscale_prior.concentration,
+                            6.0,
                         )
+                        # pyrefly: ignore [missing-attribute]
                         self.assertEqual(base_kernel.lengthscale_prior.rate, 3.0)
                     elif use_saas is False:
                         self.assertIsInstance(data_covar_module, RBFKernel)

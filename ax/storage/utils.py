@@ -82,6 +82,7 @@ def data_to_data_by_trial(data: Data) -> dict[int, OrderedDict[int, Data]]:
     """
     if len(data.full_df) == 0:
         return {}
+    # pyrefly: ignore [bad-return]
     return {
         trial_index: OrderedDict([(0, Data(df=df))])
         for trial_index, df in data.full_df.groupby("trial_index")

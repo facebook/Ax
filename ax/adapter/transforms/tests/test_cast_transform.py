@@ -490,6 +490,7 @@ class CastTransformTest(TestCase):
             .astype({"x": float, "y": float})
         )
         expected_arm_data["z"] = None
+        # pyrefly: ignore [missing-attribute]
         expected_arm_data["z"] = expected_arm_data["z"].astype("Int64")
         expected_arm_data = expected_arm_data[["x", "y", "z", "metadata"]]
         assert_frame_equal(transformed.arm_data, expected_arm_data)

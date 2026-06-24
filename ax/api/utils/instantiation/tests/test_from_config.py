@@ -263,6 +263,7 @@ class TestFromConfig(TestCase):
                 )
             )
 
+        # pyrefly: ignore [not-iterable]
         self.assertFalse(any("sort_values" in str(w.message) for w in ws))
 
     def test_experiment_from_config(self) -> None:

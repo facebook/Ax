@@ -64,6 +64,7 @@ def experimental_metric_eval(
             )
             for metric_name in metric_names
         }
+    # pyrefly: ignore [bad-return]
     return result_dict
 
 

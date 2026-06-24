@@ -336,6 +336,7 @@ class AxClient(AnalysisBase, BestPointMixin, InstantiationBase):
             }
             if len(objectives.keys()) > 1:
                 objective_kwargs["objective_thresholds"] = (
+                    # pyrefly: ignore [unsupported-operation]
                     self.build_objective_thresholds(objectives)
                 )
 
@@ -355,6 +356,7 @@ class AxClient(AnalysisBase, BestPointMixin, InstantiationBase):
             is_test=is_test,
             default_trial_type=default_trial_type,
             default_runner=default_runner,
+            # pyrefly: ignore [bad-argument-type]
             **objective_kwargs,
         )
         self._set_runner(experiment=experiment)
@@ -711,6 +713,7 @@ class AxClient(AnalysisBase, BestPointMixin, InstantiationBase):
             return None
         return self.experiment.runner.config_type
 
+    # pyrefly: ignore [not-callable]
     @retry_on_exception(
         logger=logger,
         exception_types=(RuntimeError,),
@@ -1541,6 +1544,7 @@ class AxClient(AnalysisBase, BestPointMixin, InstantiationBase):
     # ---------------------- Private helper methods. ---------------------
 
     @property
+    # pyrefly: ignore [bad-override]
     def experiment(self) -> Experiment:
         """Returns the experiment set on this Ax client."""
         return none_throws(
@@ -1556,6 +1560,7 @@ class AxClient(AnalysisBase, BestPointMixin, InstantiationBase):
         return assert_is_instance(self.experiment.trials[trial_index], Trial)
 
     @property
+    # pyrefly: ignore [bad-override]
     def generation_strategy(self) -> GenerationStrategy:
         """Returns the generation strategy, set on this experiment."""
         return none_throws(

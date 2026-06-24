@@ -214,6 +214,7 @@ class UtilsTest(TestCase):
             # 1. (0.6, 0.6): sum=1.2 satisfies, but rounds to (1,1): sum=2 violates
             # 2. (0.4, 0.4): sum=0.8 satisfies, rounds to (0,0): sum=0 satisfies
             call_count = 0
+            # pyrefly: ignore [bad-specialization]
             values_to_return: list[npt.NDArray[np.floating[Any]]] = [
                 np.array([[0.6, 0.6]]),
                 np.array([[0.4, 0.4]]),
@@ -223,15 +224,22 @@ class UtilsTest(TestCase):
                 n: int,
                 d: int,
                 tunable_feature_indices: npt.NDArray[np.intp],
+                # pyrefly: ignore [bad-specialization]
                 fixed_features: dict[int, float] | None,
+                # pyrefly: ignore [bad-specialization]
             ) -> npt.NDArray[np.floating[Any]]:
                 nonlocal call_count
                 result = values_to_return[min(call_count, len(values_to_return) - 1)]
                 call_count += 1
                 return result
 
+            # pyrefly: ignore [bad-specialization]
+
+            # pyrefly: ignore [bad-specialization]
             def rounding_func(
+                # pyrefly: ignore [bad-specialization]
                 point: npt.NDArray[np.floating[Any]],
+                # pyrefly: ignore [bad-specialization]
             ) -> npt.NDArray[np.floating[Any]]:
                 return np.round(point)
 

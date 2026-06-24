@@ -468,6 +468,7 @@ class TestBestPointUtils(TestCase):
         # It works even when there are no predictions already stored on the
         # GeneratorRun
         for trial in exp.trials.values():
+            # pyrefly: ignore [missing-attribute]
             trial.generator_run._best_arm_predictions = None
         res = get_best_parameters_from_model_predictions_with_trial_index(
             experiment=exp, adapter=gs.adapter
@@ -1040,6 +1041,7 @@ class TestBestPointUtils(TestCase):
         metric1 = get_branin_metric(name="branin")
         metric2 = GenericNoisyFunctionMetric(
             name="distance_from_origin",
+            # pyrefly: ignore [unsupported-operation]
             f=lambda params: (params["x1"] ** 2 + params["x2"] ** 2) ** 0.5,
             noise_sd=0.01,
             lower_is_better=True,
@@ -1184,6 +1186,7 @@ class TestBestPointUtils(TestCase):
         metric1 = get_branin_metric(name="branin")
         metric2 = GenericNoisyFunctionMetric(
             name="distance",
+            # pyrefly: ignore [unsupported-operation]
             f=lambda params: (params["x1"] ** 2 + params["x2"] ** 2) ** 0.5,
             noise_sd=0.01,
             lower_is_better=True,

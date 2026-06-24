@@ -120,6 +120,7 @@ class AbstractParquetDataLoader(ABC):
             pd.DataFrame: The downloaded parquet data.
         """
         # Download the data from the URL
+        # pyrefly: ignore [bad-argument-type]
         data = pd.read_parquet(self.url, engine="pyarrow")
         # Create the cache directory if needed
         self.cache_path.parent.mkdir(parents=True, exist_ok=True)

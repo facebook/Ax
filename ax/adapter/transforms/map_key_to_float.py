@@ -106,6 +106,7 @@ class MapKeyToFloat(MetadataToParameterMixin, Transform):
             parameters = {MAP_KEY: {}}
 
         self.parameters: dict[str, dict[str, Any]] = parameters
+        # pyrefly: ignore [bad-override-mutable-attribute]
         self._parameter_list: list[RangeParameter] = []
         # Construct the parameter if needed.
         if is_map_data:

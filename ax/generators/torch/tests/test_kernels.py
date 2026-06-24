@@ -66,7 +66,9 @@ class KernelsTest(TestCase):
         base_kernel = assert_is_instance(covar.base_kernel, MaternKernel)
         # active_dims lands on the inner MaternKernel, and the ScaleKernel
         # inherits it (so subsetting happens exactly once at the wrapper level).
+        # pyrefly: ignore [not-callable]
         self.assertEqual(covar.active_dims.tolist(), active_dims)
+        # pyrefly: ignore [not-callable]
         self.assertEqual(base_kernel.active_dims.tolist(), active_dims)
         self.assertEqual(base_kernel.ard_num_dims, len(active_dims))
         # The kernel only consumes the active columns: perturbing an inactive
@@ -122,8 +124,11 @@ class KernelsTest(TestCase):
         rbf = assert_is_instance(scale_rbf.base_kernel, RBFKernel)
         # active_dims lands on both leaves, and the ScaleKernel inherits it
         # from the wrapped RBF kernel (so subsetting happens exactly once).
+        # pyrefly: ignore [not-callable]
         self.assertEqual(scale_rbf.active_dims.tolist(), active_dims)
+        # pyrefly: ignore [not-callable]
         self.assertEqual(rbf.active_dims.tolist(), active_dims)
+        # pyrefly: ignore [not-callable]
         self.assertEqual(linear.active_dims.tolist(), active_dims)
         # ard_num_dims matches the number of active dims.
         self.assertEqual(rbf.ard_num_dims, len(active_dims))
@@ -281,7 +286,10 @@ class KernelsTest(TestCase):
                 self.assertIsNone(botorch_kernel.active_dims)
             else:
                 self.assertEqual(
-                    ax_kernel.active_dims.tolist(), botorch_kernel.active_dims.tolist()
+                    # pyrefly: ignore [not-callable]
+                    ax_kernel.active_dims.tolist(),
+                    # pyrefly: ignore [not-callable]
+                    botorch_kernel.active_dims.tolist(),
                 )
 
     def test_default_mle(self) -> None:
@@ -293,7 +301,9 @@ class KernelsTest(TestCase):
                 batch_shape=torch.Size([3]),
                 mle=True,
             )
+            # pyrefly: ignore [not-callable]
             self.assertTrue((kernel.lengthscale == sqrt(2) / 10).all())
             self.assertEqual(kernel.lengthscale.shape, torch.Size([3, 1, 2]))
             self.assertFalse(hasattr(kernel, "lengthscale_prior"))
+            # pyrefly: ignore [not-callable]
             self.assertEqual(kernel.active_dims.tolist(), active_dims)

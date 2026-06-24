@@ -566,6 +566,7 @@ class JSONStoreTest(TestCase):
     def test_SaveValidation(self) -> None:
         with self.assertRaises(ValueError):
             save_experiment(
+                # pyrefly: ignore [bad-argument-type]
                 self.experiment.trials[0],
                 "test.json",
                 encoder_registry=CORE_ENCODER_REGISTRY,
@@ -657,7 +658,9 @@ class JSONStoreTest(TestCase):
             a_field: int
             not_a_field: dataclasses.InitVar[int | None] = None
 
+            # pyrefly: ignore [bad-function-definition]
             def __post_init__(self, doesnt_serialize: None) -> None:
+                # pyrefly: ignore [missing-attribute]
                 self.not_a_field = 1
 
         obj = TestDataclass(a_field=-1)
@@ -952,9 +955,11 @@ class JSONStoreTest(TestCase):
 
     def test_RegistryAdditions(self) -> None:
         class MyRunner(Runner):
+            # pyrefly: ignore [bad-override]
             def run():
                 pass
 
+            # pyrefly: ignore [bad-override]
             def staging_required():
                 return False
 
@@ -995,9 +1000,11 @@ class JSONStoreTest(TestCase):
             pass
 
         class MyRunner(Runner):
+            # pyrefly: ignore [bad-override]
             def run():
                 pass
 
+            # pyrefly: ignore [bad-override]
             def staging_required():
                 return False
 
@@ -1571,12 +1578,15 @@ class JSONStoreTest(TestCase):
             "warm_start_refit": True,
         }
         expected_object = get_botorch_model_with_surrogate_spec(with_covar_module=False)
+        # pyrefly: ignore [missing-attribute]
         expected_object.surrogate_spec.model_configs[0].input_transform_classes = None
+        # pyrefly: ignore [missing-attribute]
         expected_object.surrogate_spec.model_configs[0].name = "from deprecated args"
         # The new default value is None; we need to manually set it to the old value
         self.assertIsNone(
             none_throws(expected_object.surrogate_spec).model_configs[0].mll_class
         )
+        # pyrefly: ignore [missing-attribute]
         expected_object.surrogate_spec.model_configs[
             0
         ].mll_class = ExactMarginalLogLikelihood
@@ -1628,6 +1638,7 @@ class JSONStoreTest(TestCase):
             extra_args = {}
             if legacy_input_transform:
                 extra_args["input_transform_classes"] = [Normalize]
+                # pyrefly: ignore [unsupported-operation]
                 extra_args["input_transform_options"] = {
                     "Normalize": {
                         "d": 7,
@@ -1643,6 +1654,7 @@ class JSONStoreTest(TestCase):
                     }
                 }
             else:
+                # pyrefly: ignore [unsupported-operation]
                 extra_args["input_transform_classes"] = None
             new_object = SurrogateSpec(
                 model_configs=[
@@ -1650,6 +1662,7 @@ class JSONStoreTest(TestCase):
                         botorch_model_class=SingleTaskGP,
                         mll_class=ExactMarginalLogLikelihood,
                         name="from deprecated args",
+                        # pyrefly: ignore [bad-argument-type]
                         **extra_args,
                     )
                 ],

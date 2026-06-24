@@ -280,6 +280,7 @@ class SurrogateInputConstructorsTest(TestCase):
                 dataset=dataset,
             )
             transform = assert_is_instance(transform, Normalize)
+            # pyrefly: ignore [not-callable]
             self.assertEqual(transform.indices.tolist(), [0])
             self.assertEqual(transform.bounds.tolist(), [[1.0], [5.0]])
 
@@ -435,7 +436,9 @@ class SurrogateTest(TestCase):
         if use_outcome_transform:
             outcome_transform_classes: list[type[OutcomeTransform]] = [Standardize]
             outcome_transform_options = {"Standardize": {"m": n_outcomes}}
+        # pyrefly: ignore [bad-assignment]
         else:
+            # pyrefly: ignore [bad-assignment]
             outcome_transform_classes = None
             outcome_transform_options = {}
 
@@ -529,41 +532,61 @@ class SurrogateTest(TestCase):
             refit=True,
         )
         models = assert_is_instance(surrogate.model.models, ModuleList)
+        # pyrefly: ignore [missing-attribute]
 
         model1_old_lengtscale = (
+            # pyrefly: ignore [missing-attribute]
             models[1].covar_module.base_kernel.lengthscale.detach().clone()
         )
         # Change the lengthscales of one model and make sure the other isn't changed
+        # pyrefly: ignore [missing-attribute]
         models[0].covar_module.base_kernel.lengthscale += 1
         self.assertAllClose(
+            # pyrefly: ignore [missing-attribute]
             model1_old_lengtscale,
+            # pyrefly: ignore [missing-attribute]
             models[1].covar_module.base_kernel.lengthscale,
         )
         # Test the same thing with the likelihood noise constraint
+        # pyrefly: ignore [missing-attribute]
         models[0].likelihood.noise_covar.raw_noise_constraint.lower_bound.fill_(1e-4)
         self.assertEqual(
-            models[0].likelihood.noise_covar.raw_noise_constraint.lower_bound, 1e-4
+            # pyrefly: ignore [missing-attribute]
+            models[0].likelihood.noise_covar.raw_noise_constraint.lower_bound,
+            1e-4,
+            # pyrefly: ignore [missing-attribute]
         )
         self.assertEqual(
-            models[1].likelihood.noise_covar.raw_noise_constraint.lower_bound, 1e-3
+            # pyrefly: ignore [missing-attribute]
+            models[1].likelihood.noise_covar.raw_noise_constraint.lower_bound,
+            # pyrefly: ignore [missing-attribute]
+            1e-3,
         )
         # Check input transform
 
         # bounds will be taken from the search space digest
+        # pyrefly: ignore [missing-attribute]
         self.assertAllClose(
+            # pyrefly: ignore [missing-attribute]
             models[0].input_transform.offset,
+            # pyrefly: ignore [missing-attribute]
             torch.tensor([[0, 1, 2]], **self.tkwargs),
         )
         self.assertAllClose(
+            # pyrefly: ignore [missing-attribute]
             models[1].input_transform.offset,
             torch.tensor([[0, 1, 2]], **self.tkwargs),
         )
         # Check outcome transform
         self.assertAllClose(
-            models[0].outcome_transform.means, torch.tensor([[3.5]], **self.tkwargs)
+            # pyrefly: ignore [missing-attribute]
+            models[0].outcome_transform.means,
+            torch.tensor([[3.5]], **self.tkwargs),
         )
         self.assertAllClose(
-            models[1].outcome_transform.means, torch.tensor([[7]], **self.tkwargs)
+            # pyrefly: ignore [missing-attribute]
+            models[1].outcome_transform.means,
+            torch.tensor([[7]], **self.tkwargs),
         )
 
     def test_botorch_transforms(self) -> None:
@@ -645,7 +668,9 @@ class SurrogateTest(TestCase):
         f"{SURROGATE_PATH}.submodel_input_constructor",
         wraps=submodel_input_constructor,
     )
+    # pyrefly: ignore [bad-index]
     @patch(f"{SURROGATE_PATH}.fit_botorch_model", wraps=fit_botorch_model)
+    # pyrefly: ignore [bad-index]
     def test_fit_model_reuse(self, mock_fit: Mock, mock_constructor: Mock) -> None:
         surrogate, _ = self._get_surrogate(
             botorch_model_class=SingleTaskGP, use_outcome_transform=False
@@ -658,10 +683,13 @@ class SurrogateTest(TestCase):
             datasets=self.training_data,
             search_space_digest=search_space_digest,
         )
+        # pyrefly: ignore [bad-index]
         mock_fit.assert_called_once()
         mock_constructor.assert_called_once()
         key = tuple(self.training_data[0].outcome_names)
+        # pyrefly: ignore [bad-index]
         submodel = surrogate._submodels[key]
+        # pyrefly: ignore [bad-index]
         self.assertIs(surrogate._last_datasets[key], self.training_data[0])
         self.assertIs(surrogate._last_search_space_digest, search_space_digest)
 
@@ -674,6 +702,7 @@ class SurrogateTest(TestCase):
         mock_fit.assert_called_once()
         mock_constructor.assert_called_once()
         # Model is still the same object.
+        # pyrefly: ignore [bad-index]
         self.assertIs(submodel, surrogate._submodels[key])
 
         # Change the search space digest.
@@ -692,6 +721,7 @@ class SurrogateTest(TestCase):
         self.assertIn(
             "Discarding all previously trained models", mock_log.call_args[0][0]
         )
+        # pyrefly: ignore [bad-index]
         self.assertIsNot(submodel, surrogate._submodels[key])
         self.assertIs(surrogate._last_search_space_digest, search_space_digest)
 
@@ -738,7 +768,9 @@ class SurrogateTest(TestCase):
                     len(call_kwargs),
                     6 if botorch_model_class is SaasFullyBayesianSingleTaskGP else 4,
                 )
+                # pyrefly: ignore [unsupported-operation]
 
+                # pyrefly: ignore [unsupported-operation]
                 mock_construct_inputs.assert_called_with(
                     training_data=self.training_data[0],
                 )
@@ -758,7 +790,9 @@ class SurrogateTest(TestCase):
             # Cache the model & dataset as we would in `Surrogate.fit``.
             outcomes = self.training_data[0].outcome_names
             key = tuple(outcomes)
+            # pyrefly: ignore [unsupported-operation]
             surrogate._submodels[key] = model
+            # pyrefly: ignore [unsupported-operation]
             surrogate._last_datasets[key] = self.training_data[0]
             surrogate.metric_to_best_model_config[outcomes[0]] = (
                 surrogate.surrogate_spec.model_configs[0]
@@ -987,6 +1021,7 @@ class SurrogateTest(TestCase):
                 patch.object(
                     botorch_model_class, "__init__", return_value=None, autospec=True
                 ) as mock_init,
+                # pyrefly: ignore [bad-argument-type]
                 patch(f"{SURROGATE_PATH}.fit_botorch_model") as mock_fit,
             ):
                 surrogate._construct_model(
@@ -1009,6 +1044,7 @@ class SurrogateTest(TestCase):
             # check that active_dims is set to omit task feature
             if remove_task_features:
                 self.assertTrue(
+                    # pyrefly: ignore [bad-argument-type]
                     torch.equal(covar_module.active_dims, torch.tensor([0, 1, 2]))
                 )
             else:
@@ -1032,6 +1068,7 @@ class SurrogateTest(TestCase):
         self, mock_diag_dict: Mock, mock_in_sample_metric: Mock
     ) -> None:
         # These mocks are used because we control which kernel is selected by
+        # pyrefly: ignore [unbound-name]
         # changing the values of model diagnostics
         side_effect_dict = {
             "MSE": [0.2, 0.1],
@@ -1055,6 +1092,7 @@ class SurrogateTest(TestCase):
 
             elif eval_criterion == "Log likelihood":
                 mock_diag_fn = mock_ll
+            # pyrefly: ignore [unbound-name]
             mock_diag_fn.side_effect = side_effect_dict[eval_criterion]
             mock_diag_fn.reset_mock()
             mock_in_sample_metric.reset_mock()
@@ -1152,6 +1190,7 @@ class SurrogateTest(TestCase):
                     warnings.filterwarnings("always")
                     surrogate.fit(
                         [dataset],
+                        # pyrefly: ignore [bad-index]
                         search_space_digest=search_space_digest,
                     )
 
@@ -1176,7 +1215,7 @@ class SurrogateTest(TestCase):
                 covar_module = (
                     model.covar_module
                     if not isinstance(model, MultiTaskGP)
-                    else model.covar_module.kernels[0]
+                    else model.covar_module.kernels[0]  # pyrefly: ignore [bad-index]
                 )
 
                 self.assertIsInstance(
@@ -2249,16 +2288,21 @@ class SurrogateWithModelListTest(TestCase):
                 model_configs=[
                     ModelConfig(
                         botorch_model_class=SingleTaskGP,
+                        # pyrefly: ignore [missing-attribute]
                         mll_class=ExactMarginalLogLikelihood,
+                        # pyrefly: ignore [missing-attribute]
                         input_transform_classes=[Normalize],
                         input_transform_options={
+                            # pyrefly: ignore [missing-attribute]
                             "Normalize": {"d": 3, "bounds": None, "indices": None}
                         },
                         outcome_transform_classes=[Standardize],
+                        # pyrefly: ignore [missing-attribute]
                         outcome_transform_options={"Standardize": {"m": 1}},
                     )
                 ]
             )
+            # pyrefly: ignore [missing-attribute]
         )
         surrogate.fit(
             datasets=self.supervised_training_data,
@@ -2273,16 +2317,23 @@ class SurrogateWithModelListTest(TestCase):
         for i in range(2):
             self.assertIsInstance(models[i].outcome_transform, Standardize)
             self.assertIsInstance(models[i].input_transform, Normalize)
+        # pyrefly: ignore [missing-attribute]
         self.assertEqual(models[0].outcome_transform.means.item(), 4.5)
+        # pyrefly: ignore [missing-attribute]
         self.assertEqual(models[1].outcome_transform.means.item(), 3.5)
         self.assertAlmostEqual(
-            models[0].outcome_transform.stdvs.item(), 1 / math.sqrt(2)
+            # pyrefly: ignore [missing-attribute]
+            models[0].outcome_transform.stdvs.item(),
+            1 / math.sqrt(2),
         )
         self.assertAlmostEqual(
-            models[1].outcome_transform.stdvs.item(), 1 / math.sqrt(2)
+            # pyrefly: ignore [missing-attribute]
+            models[1].outcome_transform.stdvs.item(),
+            1 / math.sqrt(2),
         )
         self.assertTrue(
             torch.allclose(
+                # pyrefly: ignore [missing-attribute]
                 models[0].input_transform.bounds,
                 models[1].input_transform.bounds + 1.0,  # pyre-ignore
             )

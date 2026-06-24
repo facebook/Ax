@@ -1051,6 +1051,7 @@ def _get_status_quo_df(
             col for col in df.columns if col.endswith("_mean") or col.endswith("_sem")
         ]
         status_quo_df = pd.DataFrame(status_quo_rows)[["trial_index", *all_metric_cols]]
+    # pyrefly: ignore [bad-return]
     return status_quo_df
 
 

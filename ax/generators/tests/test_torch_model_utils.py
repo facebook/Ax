@@ -71,6 +71,7 @@ class SubsetModelTest(TestCase):
         self.assertTrue(torch.equal(obj_weights_sub, torch.tensor([[1.0]])))
         # pyre-fixme[16]: Optional type has no attribute `__getitem__`.
         self.assertTrue(torch.equal(ocs_sub[0], torch.tensor([[1.0]])))
+        # pyrefly: ignore [unsupported-operation]
         self.assertTrue(torch.equal(ocs_sub[1], torch.tensor([1.0])))
         self.assertTrue(torch.equal(subset_model_results.indices, torch.tensor([0])))
 

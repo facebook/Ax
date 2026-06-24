@@ -105,6 +105,7 @@ class ThompsonSamplerTest(TestCase):
             )
 
     def test_TopTwo_alters_weights_vs_TopOne(self) -> None:
+        # pyrefly: ignore [bad-argument-type]
         np.random.seed(0)
 
         # Compare TTTS results to the vanilla TS
@@ -157,6 +158,7 @@ class ThompsonSamplerTest(TestCase):
         self.assertTrue(full_w2[3] > full_w2[2] > full_w2[1] > full_w2[0])
 
     def test_ThompsonSamplerMinWeight(self) -> None:
+        # pyrefly: ignore [bad-argument-type]
         np.random.seed(0)
         generator = ThompsonSampler(min_weight=0.01)
         generator.fit(

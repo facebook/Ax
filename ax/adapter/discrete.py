@@ -73,6 +73,7 @@ class DiscreteAdapter(Adapter):
             fit_on_init=fit_on_init,
         )
         # Re-assign for more precise typing.
+        # pyrefly: ignore [bad-override-mutable-attribute]
         self.generator: DiscreteGenerator = generator
 
     def _fit(
@@ -137,6 +138,7 @@ class DiscreteAdapter(Adapter):
                 "must be either a positive integer or -1."
             )
 
+    # pyrefly: ignore [bad-override-param-name]
     def _gen(
         self,
         n: int,

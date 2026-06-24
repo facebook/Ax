@@ -340,6 +340,7 @@ def _set_sqa_metric_to_base_type(
     if sqa_metric.intent in composite_metric_intents:
         if sqa_metric.properties is None:
             sqa_metric.properties = {}
+        # pyrefly: ignore [unsupported-operation]
         sqa_metric.properties["skip_runners_and_metrics"] = True
 
 
@@ -708,9 +709,11 @@ def load_analysis_cards_by_experiment_name(
 
     # Create query options which will recursively load all children of the
     # SQAAnalysisCard up to depth 20
+    # pyrefly: ignore [bad-argument-type]
     card_query_options = joinedload(analysis_card_sqa_class.children)
     for _ in range(19):
         card_query_options = card_query_options.joinedload(
+            # pyrefly: ignore [bad-argument-type]
             analysis_card_sqa_class.children
         )
 
@@ -720,6 +723,7 @@ def load_analysis_cards_by_experiment_name(
 
     with session_scope() as session:
         query = (
+            # pyrefly: ignore [no-matching-overload]
             session.query(analysis_card_sqa_class)
             .join(exp_sqa_class.analysis_cards)
             .filter(exp_sqa_class.name == experiment_name)

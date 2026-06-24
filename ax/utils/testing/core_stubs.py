@@ -255,6 +255,7 @@ def get_experiment_with_custom_runner_and_metric(
 
         optimization_config = OptimizationConfig(
             objective=custom_scalarized_objective,
+            # pyrefly: ignore [bad-argument-type]
             outcome_constraints=outcome_constraints,
         )
     else:
@@ -557,8 +558,11 @@ def get_branin_experiment_with_timestamp_map_metric(
         ]
         # Add objective metrics so the Experiment owns the real metric types.
         # pyre-ignore[6]: Covariance issue with list[T]
+        # pyrefly: ignore [bad-argument-type]
         tracking_metrics.extend(
-            local_get_map_metric(f"branin_map_{m}") for m in range(num_objectives)
+            # pyrefly: ignore [bad-argument-type]
+            local_get_map_metric(f"branin_map_{m}")
+            for m in range(num_objectives)
         )
         if with_outcome_constraint:
             tracking_metrics.append(
@@ -1890,9 +1894,11 @@ class TestTrial(BaseTrial):
 
     def _get_candidate_metadata_from_all_generator_runs(
         self,
+        # pyrefly: ignore [bad-override]
     ) -> dict[str, dict[str, Any] | None]:
         return {"test": None}
 
+    # pyrefly: ignore [bad-override]
     def abandoned_arms(self) -> str:
         return "test"
 
@@ -1900,13 +1906,18 @@ class TestTrial(BaseTrial):
     def arms(self) -> list[Arm]:
         return self._arms
 
+    # pyrefly: ignore [bad-override]
     @arms.setter
     def arms(self, val: list[Arm]) -> None:
         self._arms = val
 
+    # pyrefly: ignore [bad-override]
+
+    # pyrefly: ignore [bad-override]
     def arms_by_name(self) -> str:
         return "test"
 
+    # pyrefly: ignore [bad-override]
     def generator_runs(self) -> str:
         return "test"
 
@@ -2386,12 +2397,14 @@ def get_branin_multi_objective_optimization_config(
             objective_thresholds.append(
                 ObjectiveThreshold(
                     metric=get_branin_metric(name="branin_c"),
+                    # pyrefly: ignore [bad-assignment]
                     bound=5.0,
                     op=ComparisonOp.LEQ,
                     relative=False,
                 )
             )
     else:
+        # pyrefly: ignore [bad-assignment]
         objective_thresholds = None
     outcome_constraints = []
     if with_relative_constraint:
@@ -2470,11 +2483,15 @@ def get_arms() -> list[Arm]:
     return list(get_arm_weights1().keys())
 
 
+# pyrefly: ignore [bad-argument-type]
+
+
 def get_weights() -> list[float]:
     return list(get_arm_weights1().values())
 
 
 def get_branin_arms(n: int, seed: int) -> list[Arm]:
+    # pyrefly: ignore [bad-argument-type]
     np.random.seed(seed)
     x1_raw = np.random.rand(n)
     x2_raw = np.random.rand(n)
@@ -2690,6 +2707,7 @@ def get_branin_data_batch(
     fill_vals = fill_vals or {}
     metrics = metrics or ["branin"]
     for arm in batch.arms:
+        # pyrefly: ignore [bad-argument-type]
         params = arm.parameters
         for k, v in fill_vals.items():
             if params.get(k, None) is None:
@@ -2698,6 +2716,7 @@ def get_branin_data_batch(
             means.append(5.0)
         else:
             means.append(
+                # pyrefly: ignore [bad-argument-type]
                 branin(
                     float(none_throws(params["x1"])),
                     float(none_throws(params["x2"])),

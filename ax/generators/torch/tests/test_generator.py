@@ -183,13 +183,16 @@ class BoTorchGeneratorTest(TestCase):
             linear_constraints=self.linear_constraints,
             fixed_features=self.fixed_features,
             pending_observations=self.pending_observations,
+            # pyrefly: ignore [bad-argument-type]
             model_gen_options=self.model_gen_options,
         )
         self.moo_torch_opt_config = dataclasses.replace(
             self.torch_opt_config,
             objective_weights=self.moo_objective_weights,
             objective_thresholds=self.moo_objective_thresholds,
+            # pyrefly: ignore [bad-argument-type]
             outcome_constraints=self.moo_outcome_constraints,
+            # pyrefly: ignore [bad-argument-type]
             model_gen_options={
                 Keys.OPTIMIZER_KWARGS: self.optimizer_options,
                 Keys.ACQF_KWARGS: {"eta": 3.0},
@@ -814,8 +817,10 @@ class BoTorchGeneratorTest(TestCase):
                 ),
             )
         )
+        # pyrefly: ignore [bad-argument-type]
         self.assertEqual(importances.shape, (2, 1, 3))
         # Add model we don't support
+        # pyrefly: ignore [bad-argument-type]
         vanilla_model.covar_module = None
         model.surrogate._model = vanilla_model  # pyre-ignore
         with self.assertRaisesRegex(
@@ -1101,9 +1106,11 @@ class BoTorchGeneratorTest(TestCase):
                 torch.cat([ds.Y for ds in self.moo_training_data], dim=-1),
             )
         )
+        # pyrefly: ignore [bad-argument-type]
         self.assertTrue(
             torch.equal(
                 training_data.Yvar,
+                # pyrefly: ignore [bad-argument-type]
                 torch.cat([ds.Yvar for ds in self.moo_training_data], dim=-1),
             )
         )
@@ -1119,10 +1126,12 @@ class BoTorchGeneratorTest(TestCase):
         # gen_metadata stores maximization-aligned thresholds.
         obj_t = gen_results.gen_metadata["objective_thresholds"]
         self.assertTrue(torch.equal(obj_t, self.moo_objective_thresholds))
+        # pyrefly: ignore [bad-argument-type]
 
         self.assertIsInstance(ckwargs["objective"], WeightedMCMultiOutputObjective)
         self.assertTrue(
             torch.equal(
+                # pyrefly: ignore [bad-argument-type]
                 ckwargs["objective"].weights,
                 extract_objectives(self.moo_objective_weights)[1],
             )
@@ -1213,11 +1222,13 @@ class BoTorchGeneratorTest(TestCase):
         botorch_acqf_classes_with_options = [
             (PosteriorMean, {}),
             (qLogNoisyExpectedImprovement, self.botorch_acqf_options),
+            # pyrefly: ignore [bad-argument-type]
         ]
         surrogate = Surrogate()
         model = BoTorchGenerator(
             surrogate=surrogate,
             acquisition_class=MultiAcquisition,
+            # pyrefly: ignore [bad-argument-type]
             botorch_acqf_classes_with_options=botorch_acqf_classes_with_options,
         )
 

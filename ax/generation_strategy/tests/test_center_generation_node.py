@@ -167,6 +167,7 @@ class TestCenterGenerationNode(TestCase):
         # logit(0.9) = log(0.9 / 0.1) ≈ 2.197
         # center in logit space = 0
         # inverse_logit(0) = 1 / (1 + exp(0)) = 0.5
+        # pyrefly: ignore [bad-argument-type]
         self.assertAlmostEqual(float(params["x1"]), 0.5, places=5)
         self.assertEqual(params["x2"], 0.5)
 
@@ -194,6 +195,7 @@ class TestCenterGenerationNode(TestCase):
         # logit(0.999) = log(0.999) - log(0.001) ≈ 6.906
         # center in logit space = (-9.210 + 6.906) / 2 ≈ -1.152
         # expit(-1.152) ≈ 0.240
+        # pyrefly: ignore [bad-argument-type]
         center = float(params["x1"])
         self.assertGreater(center, 0.0001)  # Above lower bound
         self.assertLess(center, 0.999)  # Below upper bound

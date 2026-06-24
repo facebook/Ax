@@ -55,6 +55,7 @@ def _make_sobol_step(
     should_deduplicate: bool = False,
 ) -> GenerationStep:
     """Shortcut for creating a Sobol generation step."""
+    # pyrefly: ignore [bad-return]
     return GenerationStep(
         generator=Generators.SOBOL,
         num_trials=num_trials,
@@ -102,6 +103,7 @@ def _make_botorch_step(
         generator_kwargs["transform_configs"].setdefault("Winsorize", {})
         # Add manually specified winsorization config.
         generator_kwargs["transform_configs"]["Winsorize"]["winsorization_config"] = (
+            # pyrefly: ignore [unsupported-operation]
             winsorization_config
         )
 
@@ -124,6 +126,7 @@ def _make_botorch_step(
             "`disable_progbar`, and `jit_compile` are only supported with"
             " fully Bayesian models. These are being ignored."
         )
+    # pyrefly: ignore [bad-return]
     return GenerationStep(
         generator=generator,
         num_trials=num_trials,
@@ -524,9 +527,11 @@ def choose_generation_strategy_legacy(
         )
         # set name for GS
         bo_step = nodes[-1]
+        # pyrefly: ignore [missing-attribute]
         surrogate_spec = bo_step.generator_spec.generator_kwargs.get("surrogate_spec")
         name = None
         if (
+            # pyrefly: ignore [missing-attribute]
             bo_step.generator_spec.generator_enum is Generators.BOTORCH_MODULAR
             and surrogate_spec is not None
             and (model_config := surrogate_spec.model_configs[0]).botorch_model_class

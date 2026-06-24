@@ -604,6 +604,7 @@ class TestBenchmark(TestCase):
         for trial_index, sub_df in grouped:
             self.assertEqual(
                 sub_df["step"].tolist(),
+                # pyrefly: ignore [bad-index]
                 list(range(expected_n_steps[trial_index])),
                 msg=f"Trial {trial_index}",
             )
@@ -673,6 +674,7 @@ class TestBenchmark(TestCase):
             with self.subTest(map_data=map_data):
                 problem = get_async_benchmark_problem(
                     map_data=map_data,
+                    # pyrefly: ignore [unsupported-operation]
                     step_runtime_fn=lambda params: params["x0"] + 1,
                 )
                 experiment = self.run_optimization_with_orchestrator(
@@ -1257,6 +1259,7 @@ class TestBenchmark(TestCase):
             n_steps=2,
             # Ensure we don't have two finishing at the same time, for
             # determinism
+            # pyrefly: ignore [unsupported-operation]
             step_runtime_fn=lambda params: params["x0"] * (1 - 0.01 * params["x0"]),
         )
         method = get_async_benchmark_method()
@@ -1291,6 +1294,7 @@ class TestBenchmark(TestCase):
                 num_objectives=2,
                 # Ensure we don't have two finishing at the same time, for
                 # determinism
+                # pyrefly: ignore [unsupported-operation]
                 step_runtime_fn=lambda params: params["x0"] * (1 - 0.01 * params["x0"]),
             )
             experiment = self.run_optimization_with_orchestrator(
@@ -1331,6 +1335,7 @@ class TestBenchmark(TestCase):
                 num_constraints=1,
                 # Ensure we don't have two finishing at the same time, for
                 # determinism
+                # pyrefly: ignore [unsupported-operation]
                 step_runtime_fn=lambda params: params["x0"] * (1 - 0.01 * params["x0"]),
             )
             experiment = self.run_optimization_with_orchestrator(
@@ -1370,6 +1375,7 @@ class TestBenchmark(TestCase):
             n_steps=2,
             # Ensure we don't have two finishing at the same time, for
             # determinism
+            # pyrefly: ignore [unsupported-operation]
             step_runtime_fn=lambda params: params["x0"] * (1 - 0.01 * params["x0"]),
         )
         method = get_async_benchmark_method()

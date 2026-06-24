@@ -492,6 +492,7 @@ def interact_contour_plotly(
             "ticksuffix": "%" if rel else "",
             "tickfont": {"size": 8},
         },
+        # pyrefly: ignore [bad-argument-type]
         "colorscale": [(i / (len(f_scale) - 1), rgb(v)) for i, v in enumerate(f_scale)],
         "xaxis": "x",
         "yaxis": "y",
@@ -679,7 +680,9 @@ def interact_contour_plotly(
 
     for yvar_idx, yvar in enumerate(param_names):
         cur_visible = yvar_idx == 1
+        # pyrefly: ignore [bad-index]
         f_start = xbuttons[0]["args"][0]["z"][trace_cnt * yvar_idx]
+        # pyrefly: ignore [bad-index]
         sd_start = xbuttons[0]["args"][0]["z"][trace_cnt * yvar_idx + 1]
 
         # create traces
@@ -731,7 +734,9 @@ def interact_contour_plotly(
         }
 
         for key in base_in_sample_arm_config.keys():
+            # pyrefly: ignore [bad-assignment]
             f_in_sample_arm_trace[key] = base_in_sample_arm_config[key]
+            # pyrefly: ignore [unsupported-operation]
             sd_in_sample_arm_trace[key] = base_in_sample_arm_config[key]
 
         traces += [f_trace, sd_trace, f_in_sample_arm_trace, sd_in_sample_arm_trace]

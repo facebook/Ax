@@ -106,6 +106,7 @@ def optimizer_argparse(
         "optimize_acqf_mixed",
         "optimize_acqf_mixed_alternating",
     ]:
+        # pyrefly: ignore [unsupported-operation]
         options["options"] = {
             "init_batch_limit": INIT_BATCH_LIMIT,
             "batch_limit": BATCH_LIMIT,
@@ -125,5 +126,6 @@ def optimizer_argparse(
     if optimizer == "optimize_acqf":
         options["sequential"] = True
 
+    # pyrefly: ignore [bad-argument-type]
     options.update(**{k: v for k, v in provided_options.items() if k != "options"})
     return options

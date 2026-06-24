@@ -203,6 +203,7 @@ def object_from_json(
         elif _type == "DataFrame":
             # Need dtype=False, otherwise infers arm_names like "4_1"
             # should be int 41
+            # pyrefly: ignore [no-matching-overload]
             return pd.read_json(StringIO(object_json["value"]), dtype=False)
         elif _type == "ndarray":
             return np.array(object_json["value"])
@@ -433,6 +434,7 @@ def generator_run_from_json(
         generator_run._best_arm_predictions = (arm, arm_prediction)
 
     if isinstance(generator_run._model_predictions, list):
+        # pyrefly: ignore [bad-assignment]
         generator_run._model_predictions = tuple(generator_run._model_predictions)
 
     # Remove deprecated kwargs from generator kwargs & adapter kwargs.
@@ -503,8 +505,10 @@ def transition_criterion_from_json(
             class_decoder_registry=class_decoder_registry,
         )
         return MinTrials(
+            # pyrefly: ignore [bad-argument-type]
             threshold=object_json.get("threshold"),
             only_in_statuses=[status],
+            # pyrefly: ignore [bad-argument-type]
             transition_to=object_json.get("transition_to"),
             use_all_trials_in_exp=True,
         )
@@ -659,6 +663,7 @@ def trials_from_json(
             if is_trial
             else batch_trial_from_json(experiment=experiment, **trial_json)
         )
+    # pyrefly: ignore [bad-return]
     return loaded_trials
 
 
@@ -810,6 +815,7 @@ def _load_experiment_info(
     )
     exp._trials = trials_from_json(
         exp,
+        # pyrefly: ignore [bad-argument-type]
         exp_info.get("trials_json"),
         decoder_registry=decoder_registry,
         class_decoder_registry=class_decoder_registry,
@@ -1176,6 +1182,7 @@ def generation_step_from_json(
         generator_name=generation_step_json.pop("generator_name", None),
         use_all_trials_in_exp=generation_step_json.pop("use_all_trials_in_exp", False),
     )
+    # pyrefly: ignore [bad-return]
     return generation_step
 
 
@@ -1338,12 +1345,14 @@ def surrogate_from_list_surrogate_json(
                         decoder_registry=decoder_registry,
                         class_decoder_registry=class_decoder_registry,
                     ),
+                    # pyrefly: ignore [bad-argument-type]
                     model_options=list_surrogate_json.get("submodel_options"),
                     mll_class=object_from_json(
                         object_json=list_surrogate_json.get("mll_class"),
                         decoder_registry=decoder_registry,
                         class_decoder_registry=class_decoder_registry,
                     ),
+                    # pyrefly: ignore [bad-argument-type]
                     mll_options=list_surrogate_json.get("mll_options"),
                     input_transform_classes=object_from_json(
                         object_json=list_surrogate_json.get(
@@ -1380,6 +1389,7 @@ def surrogate_from_list_surrogate_json(
                         decoder_registry=decoder_registry,
                         class_decoder_registry=class_decoder_registry,
                     ),
+                    # pyrefly: ignore [bad-argument-type]
                     covar_module_options=list_surrogate_json.get(
                         "submodel_covar_module_options"
                     ),
@@ -1390,6 +1400,7 @@ def surrogate_from_list_surrogate_json(
                         decoder_registry=decoder_registry,
                         class_decoder_registry=class_decoder_registry,
                     ),
+                    # pyrefly: ignore [bad-argument-type]
                     likelihood_options=list_surrogate_json.get(
                         "submodel_likelihood_options"
                     ),

@@ -27,6 +27,7 @@ logger: Logger = get_logger(__name__)
 
 
 @final
+# pyrefly: ignore [bad-class-definition]
 class MetricFetchingErrorsAnalysis(Analysis):
     """
     Analysis to check if any metric fetch errors occurred.
@@ -125,6 +126,7 @@ class MetricFetchingErrorsAnalysis(Analysis):
         # Escalate to FAIL if any metric on the optimization config has errors.
         status = HealthcheckStatus.WARNING
         if (opt_config := experiment.optimization_config) is not None:
+            # pyrefly: ignore [bad-assignment]
             errored_metric_names: set[str] = {
                 e["metric_name"] for e in metric_fetch_errors_for_card
             }
@@ -149,6 +151,7 @@ class MetricFetchingErrorsAnalysis(Analysis):
         return create_healthcheck_analysis_card(
             name=self.__class__.__name__,
             title="Metric Fetch Errors",
+            # pyrefly: ignore [unsupported-operation]
             subtitle=subtitle.to_markdown(index=False) + remediation,
             df=df,
             status=status,

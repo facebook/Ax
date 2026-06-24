@@ -197,6 +197,7 @@ def get_aggregated_benchmark_result() -> AggregatedBenchmarkResult:
 
 @dataclass(kw_only=True)
 class DummyTestFunction(BenchmarkTestFunction):
+    # pyrefly: ignore [bad-override-mutable-attribute]
     outcome_names: list[str] = field(default_factory=list)
     num_outcomes: int = 1
     dim: int = 6

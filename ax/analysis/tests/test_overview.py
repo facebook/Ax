@@ -230,6 +230,7 @@ class TestOverview(TestCase):
 
             # Generate data rows in same loop
             for arm in trial.arms:
+                # pyrefly: ignore [bad-argument-type]
                 x1, x2 = float(arm.parameters["x1"]), float(arm.parameters["x2"])
                 data_rows.append(
                     {

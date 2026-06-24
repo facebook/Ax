@@ -155,6 +155,7 @@ def scatter_plot_with_pareto_frontier_plotly(
                     y=[reference_point[1]],
                     mode="markers",
                     marker={
+                        # pyrefly: ignore [bad-argument-type]
                         "color": rgba(COLORS.STEELBLUE.value),
                         "size": 25,
                         "symbol": "star",
@@ -166,6 +167,7 @@ def scatter_plot_with_pareto_frontier_plotly(
                 x=[extra_point_x, reference_point[0]],
                 y=[reference_point[1], reference_point[1]],
                 mode="lines",
+                # pyrefly: ignore [bad-argument-type]
                 marker={"color": rgba(COLORS.STEELBLUE.value)},
             )
             extra_point_y = min(Y_pareto[:, 1]) if minimize[1] else max(Y_pareto[:, 1])
@@ -173,6 +175,7 @@ def scatter_plot_with_pareto_frontier_plotly(
                 x=[reference_point[0], reference_point[0]],
                 y=[extra_point_y, reference_point[1]],
                 mode="lines",
+                # pyrefly: ignore [bad-argument-type]
                 marker={"color": rgba(COLORS.STEELBLUE.value)},
             )
             reference_point_lines = [reference_point_line_1, reference_point_line_2]
@@ -190,6 +193,7 @@ def scatter_plot_with_pareto_frontier_plotly(
                     y=Y_pareto_with_extra[:, 1],
                     mode="lines",
                     line_shape="hv",
+                    # pyrefly: ignore [bad-argument-type]
                     marker={"color": rgba(COLORS.STEELBLUE.value)},
                 )
             ]
@@ -211,6 +215,7 @@ def scatter_plot_with_pareto_frontier_plotly(
                     y=Y_pareto[:, 1],
                     mode="lines",
                     line_shape="hv",
+                    # pyrefly: ignore [bad-argument-type]
                     marker={"color": rgba(COLORS.STEELBLUE.value)},
                 )
             ]
@@ -237,6 +242,7 @@ def _get_single_pareto_trace(
     frontier: ParetoFrontierResults,
     CI_level: float,
     legend_label: str = "mean",
+    # pyrefly: ignore [bad-function-definition]
     trace_color: tuple[int] = COLORS.STEELBLUE.value,
     show_parameterization_on_hover: bool = True,
 ) -> go.Scatter:
@@ -286,17 +292,20 @@ def _get_single_pareto_trace(
             "type": "data",
             "array": Z * np.array(secondary_sems),
             "thickness": 2,
+            # pyrefly: ignore [bad-argument-type]
             "color": rgba(trace_color, CI_OPACITY),
         },
         error_y={
             "type": "data",
             "array": Z * np.array(primary_sems),
             "thickness": 2,
+            # pyrefly: ignore [bad-argument-type]
             "color": rgba(trace_color, CI_OPACITY),
         },
         mode="markers",
         text=labels,
         hoverinfo="text",
+        # pyrefly: ignore [bad-argument-type]
         marker={"color": rgba(trace_color)},
     )
 
@@ -348,6 +357,7 @@ def plot_pareto_frontier(
                 "yref": "y",
                 "y0": primary_threshold,
                 "y1": primary_threshold,
+                # pyrefly: ignore [bad-argument-type]
                 "line": {"color": rgba(COLORS.CORAL.value), "width": 3},
             }
         )
@@ -361,6 +371,7 @@ def plot_pareto_frontier(
                 "xref": "x",
                 "x0": secondary_threshold,
                 "x1": secondary_threshold,
+                # pyrefly: ignore [bad-argument-type]
                 "line": {"color": rgba(COLORS.CORAL.value), "width": 3},
             }
         )
@@ -584,6 +595,7 @@ def _validate_and_maybe_get_default_metric_names(
             multi_objective = assert_is_instance(
                 none_throws(optimization_config).objective, MultiObjective
             )
+            # pyrefly: ignore [bad-assignment]
             metric_names = tuple(multi_objective.metric_names)
         else:
             raise UserInputError(
@@ -637,6 +649,7 @@ def _validate_experiment_and_maybe_get_objective_thresholds(
                 "objective threshold for each metric. Returning an empty list."
             )
 
+    # pyrefly: ignore [bad-return]
     return objective_thresholds
 
 
@@ -646,10 +659,12 @@ def _validate_and_maybe_get_default_reference_point(
     metric_names: tuple[str, str],
 ) -> tuple[float, float] | None:
     if reference_point is None:
+        # pyrefly: ignore [bad-assignment]
         reference_point = {
             objective_threshold.metric_names[0]: objective_threshold.bound
             for objective_threshold in objective_thresholds
         }
+        # pyrefly: ignore [bad-argument-type]
         missing_metric_names = set(metric_names) - set(reference_point)
         if missing_metric_names:
             warnings.warn(
@@ -660,7 +675,9 @@ def _validate_and_maybe_get_default_reference_point(
             )
             return None
         reference_point = tuple(
-            reference_point[metric_name] for metric_name in metric_names
+            # pyrefly: ignore [bad-index, unsupported-operation]
+            reference_point[metric_name]
+            for metric_name in metric_names
         )
     if len(reference_point) != 2:
         warnings.warn(
@@ -681,6 +698,7 @@ def _validate_and_maybe_get_default_minimize(
 ) -> tuple[bool, bool] | None:
     if minimize is None:
         # Determine `minimize` defaults
+        # pyrefly: ignore [bad-assignment]
         minimize = tuple(
             _maybe_get_default_minimize_single_metric(
                 metric_name=metric_name,
@@ -690,6 +708,7 @@ def _validate_and_maybe_get_default_minimize(
             for metric_name in metric_names
         )
         # If either value of minimize is missing, return `None`
+        # pyrefly: ignore [not-iterable]
         if any(i_min is None for i_min in minimize):
             warnings.warn(
                 "Extraction of default `minimize` failed. Please specify `minimize` "
@@ -697,12 +716,15 @@ def _validate_and_maybe_get_default_minimize(
                 "includes 2 objectives. Returning None."
             )
             return None
+        # pyrefly: ignore [bad-assignment, not-iterable]
         minimize = tuple(none_throws(i_min) for i_min in minimize)
     # If only one bool provided, use for both dimensions
     elif isinstance(minimize, bool):
         minimize = (minimize, minimize)
+    # pyrefly: ignore [bad-argument-type]
     if len(minimize) != 2:
         warnings.warn(
+            # pyrefly: ignore [bad-argument-type]
             f"Expected 2-dimensional `minimize` but got {len(minimize)} dimensions: "
             f"{minimize}. Please specify `minimize` of length 2 or provide an "
             "experiment whose `optimization_config` includes 2 objectives. Returning "
@@ -710,6 +732,7 @@ def _validate_and_maybe_get_default_minimize(
         )
         return None
 
+    # pyrefly: ignore [bad-return]
     return minimize
 
 

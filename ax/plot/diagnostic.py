@@ -147,6 +147,7 @@ def _obs_vs_pred_dropdown_plot(
                 )
             )
         else:
+            # pyrefly: ignore [bad-argument-type]
             layout_axis_range.append(None)
             traces.append(_diagonal_trace(min_, max_, visible=(i == 0)))
 

@@ -133,6 +133,7 @@ class TrialAsTask(Transform):
                 del self.trial_level_map[p_name]
                 continue
             if "target_trial" in self.config:
+                # pyrefly: ignore [bad-argument-type]
                 target_trial = int(self.config["target_trial"])
             else:
                 target_trial = none_throws(

@@ -200,6 +200,7 @@ class Decoder:
                     reduced_state=reduced_state,
                 )
                 auxiliary_experiments_by_purpose[purpose].append(aux_experiment)
+        # pyrefly: ignore [bad-return]
         return auxiliary_experiments_by_purpose
 
     # TODO[@mpolson64]: Stop storing target arm in experiment properties
@@ -419,6 +420,7 @@ class Decoder:
             data_by_trial[trial_index][timestamp] = self.data_from_sqa(
                 data_sqa=data_sqa
             )
+        # pyrefly: ignore [bad-argument-type]
         experiment.data = data_by_trial_to_data(data_by_trial=data_by_trial)
 
         trial_type_to_runner = {
@@ -767,6 +769,7 @@ class Decoder:
                     objective, Union[MultiObjective, ScalarizedObjective]
                 ),
                 outcome_constraints=outcome_constraints,
+                # pyrefly: ignore [bad-argument-type]
                 objective_thresholds=objective_thresholds,
                 pruning_target_parameterization=pruning_target_parameterization,
             )
@@ -870,6 +873,7 @@ class Decoder:
 
         generator_run = GeneratorRun(
             arms=arms,
+            # pyrefly: ignore [bad-argument-type]
             weights=weights,
             optimization_config=opt_config,
             search_space=search_space,
@@ -1143,6 +1147,7 @@ class Decoder:
         # Override df from deserialize_init_args with `data_json`.
         # NOTE: Need dtype=False, otherwise infers arm_names like
         # "4_1" should be int 41.
+        # pyrefly: ignore [no-matching-overload]
         df = pd.read_json(StringIO(data_sqa.data_json), dtype=False)
         # Ensure trial_index is int (dtype=False can leave it as string)
         if "trial_index" in df.columns:

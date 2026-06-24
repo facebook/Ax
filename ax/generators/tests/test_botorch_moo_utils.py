@@ -219,7 +219,9 @@ class BotorchMOOUtilsTest(TestCase):
         weighted_obj = get_weighted_mc_objective(
             objective_weights=objective_weights,
         )
+        # pyrefly: ignore [bad-argument-type, not-callable]
         self.assertTrue(torch.equal(weighted_obj.weights, torch.tensor([1.0, 1.0])))
+        # pyrefly: ignore [not-callable]
         self.assertEqual(weighted_obj.outcomes.tolist(), [1, 3])
 
     # test infer objective thresholds alone

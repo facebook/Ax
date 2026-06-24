@@ -251,6 +251,7 @@ def compute_metric_availability(
     if len(data.metric_names) > 0:
         df = data.full_df
         for trial_idx, group in df.groupby("trial_index")["metric_name"]:
+            # pyrefly: ignore [bad-argument-type]
             metrics_per_trial[int(trial_idx)] = set(group.unique())
 
     # Compute availability for each trial.

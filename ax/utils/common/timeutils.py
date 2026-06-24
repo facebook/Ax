@@ -28,6 +28,7 @@ def to_ts(ds: str) -> datetime:
 
 def _ts_to_pandas(ts: int) -> pd.Timestamp:
     """Convert int timestamp into pandas timestamp."""
+    # pyrefly: ignore [bad-return]
     return pd.Timestamp(datetime.fromtimestamp(ts))
 
 

@@ -114,6 +114,7 @@ class OptimizerArgparseTest(TestCase):
             expected_options = {k: v for k, v in default.items() if k != "options"}
             if "options" in default:
                 expected_options["options"] = {
+                    # pyrefly: ignore [invalid-argument]
                     **default["options"],
                     **inner_options,
                 }

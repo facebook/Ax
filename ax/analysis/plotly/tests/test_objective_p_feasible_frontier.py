@@ -37,6 +37,7 @@ class TestObjectivePFeasibleFrontierPlot(TestCase):
         )
         self.experiment.optimization_config = OptimizationConfig(
             objective=Objective(metric=self.experiment.metrics["branin_a"]),
+            # pyrefly: ignore [missing-attribute]
             outcome_constraints=self.experiment.optimization_config.outcome_constraints,
         )
         opt_config = none_throws(self.experiment.optimization_config)
@@ -136,6 +137,7 @@ class TestObjectivePFeasibleFrontierPlot(TestCase):
 
         for pruning in (False, True):
             target = Arm(parameters={"x1": 0.0, "x2": 0.0}) if pruning else None
+            # pyrefly: ignore [missing-attribute]
             self.experiment.optimization_config.pruning_target_parameterization = target
             adapter = Generators.BOTORCH_MODULAR(
                 experiment=self.experiment,
@@ -188,7 +190,9 @@ class TestObjectivePFeasibleFrontierPlot(TestCase):
             ),
         )
 
+        # pyrefly: ignore [bad-argument-type]
         self.experiment.optimization_config = opt_config
+        # pyrefly: ignore [missing-attribute]
         opt_config.outcome_constraints = []
         self.assertIn(
             "requires at least one outcome constraint.",
@@ -198,6 +202,7 @@ class TestObjectivePFeasibleFrontierPlot(TestCase):
                 )
             ),
         )
+        # pyrefly: ignore [missing-attribute]
         opt_config.outcome_constraints = [
             OutcomeConstraint(
                 expression="1.0*branin_b + 1.0*branin_c <= 10.0",
@@ -219,6 +224,7 @@ class TestObjectivePFeasibleFrontierPlot(TestCase):
         # Restore valid constraints and verify type().__name__ renders correctly
         # for the adapter/generator type check
         metric_name = self.experiment.metrics["branin_b"].name
+        # pyrefly: ignore [missing-attribute]
         opt_config.outcome_constraints = [
             OutcomeConstraint(
                 expression=f"{metric_name} <= 10.0",

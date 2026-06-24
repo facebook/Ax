@@ -63,6 +63,7 @@ __all__ = [
     "RangeParameter",
     "Runner",
     "SearchSpace",
+    # pyrefly: ignore [bad-dunder-all]
     "SimpleExperiment",
     "Trial",
 ]

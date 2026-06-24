@@ -123,6 +123,7 @@ class ObjectiveAsConstraintTest(TestCase):
 
         # transform_optimization_config should not modify the config
         opt_config = none_throws(deepcopy(adapter._experiment.optimization_config))
+        # pyrefly: ignore [bad-argument-type]
         transformed = t.transform_optimization_config(opt_config, adapter)
         self.assertEqual(len(transformed.outcome_constraints), 1)
 

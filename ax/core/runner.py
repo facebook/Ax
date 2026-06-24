@@ -287,6 +287,7 @@ class Runner(Base, SerializationMixin, ABC):
             **cls.deserialize_init_args(args=cls.serialize_init_args(obj=self)),
         )
 
+    # pyrefly: ignore [bad-override]
     def __eq__(self, other: Runner) -> bool:
         same_class = self.__class__ == other.__class__
         same_init_args = self.serialize_init_args(

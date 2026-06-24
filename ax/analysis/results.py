@@ -128,6 +128,7 @@ class ResultsAnalysis(Analysis):
         relativize = experiment.status_quo is not None and has_batch_trials
         # Compute both observed and modeled effects for each objective and constraint.
         arm_effect_pair_group = (
+            # pyrefly: ignore [bad-instantiation]
             ArmEffectsPair(
                 metric_names=[
                     *regression_objective_names,
@@ -342,6 +343,7 @@ class ResultsAnalysis(Analysis):
 
 
 @final
+# pyrefly: ignore [bad-class-definition]
 class ArmEffectsPair(Analysis):
     """
     Compute two ArmEffectsPlots in a single AnalysisCardGroup, one plotting model

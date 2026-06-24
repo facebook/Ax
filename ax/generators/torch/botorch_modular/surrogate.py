@@ -556,6 +556,7 @@ class Surrogate(Base):
         )
         botorch_model_class = none_throws(model_config.botorch_model_class)
         if self._dataset_matches_cache(dataset=dataset):
+            # pyrefly: ignore [bad-index]
             return self._submodels[outcome_names]
         formatted_model_inputs = submodel_input_constructor(
             botorch_model_class,  # Do not pass as kwarg since this is used to dispatch.
@@ -756,11 +757,14 @@ class Surrogate(Base):
                 self.metric_to_best_model_config[metric_signature] = none_throws(
                     best_model_config
                 )
+            # pyrefly: ignore [unsupported-operation]
             self._submodels[outcome_name_tuple] = model
+            # pyrefly: ignore [unsupported-operation]
             self._last_datasets[outcome_name_tuple] = dataset
 
         if should_use_model_list:
             if all(isinstance(model, GPyTorchModel) for model in models):
+                # pyrefly: ignore [bad-argument-type]
                 self._model = ModelListGP(*models)
             else:
                 self._model = ModelList(*models)
@@ -1173,8 +1177,10 @@ class Surrogate(Base):
                 models_i.append(self._model_name_to_model[outcome][model_name])
                 model_names_i[outcome] = model_name
             if isinstance(self._model, ModelListGP):
+                # pyrefly: ignore [bad-argument-type]
                 models.append(ModelListGP(*models_i))
             elif isinstance(self._model, ModelList):
+                # pyrefly: ignore [bad-argument-type]
                 models.append(ModelList(*models_i))
             elif len(models_i) > 1:
                 # If MBM supports ModelList in the future, this will need to be
@@ -1183,8 +1189,10 @@ class Surrogate(Base):
                     "Got multiple models but not a ModelListGP or ModelList."
                 )  # pragma: no cover
             else:
+                # pyrefly: ignore [bad-argument-type]
                 models.append(models_i[0])
             model_names.append(model_names_i)
+        # pyrefly: ignore [bad-return]
         return model_names, models
 
 

@@ -1603,6 +1603,7 @@ class Experiment(Base):
 
         return filtered_by_status
 
+    # pyrefly: ignore [not-callable]
     @retry_on_exception(retries=3, no_retry_on_exception_types=NO_RETRY_EXCEPTIONS)
     def stop_trial_runs(
         self, trials: list[BaseTrial], reasons: list[str | None] | None = None

@@ -383,12 +383,15 @@ class RangeParameter(Parameter):
         self._log_scale = log_scale
         self._logit_scale = logit_scale
         self._is_fidelity = is_fidelity
+        # pyrefly: ignore [bad-override-mutable-attribute]
         self._target_value: TNumeric | None = (
             self.cast(target_value) if target_value is not None else None
         )
+        # pyrefly: ignore [bad-override-mutable-attribute]
         self._backfill_value: TNumeric | None = (
             self.cast(backfill_value) if backfill_value is not None else None
         )
+        # pyrefly: ignore [bad-override-mutable-attribute]
         self._default_value: TNumeric | None = (
             self.cast(default_value) if default_value is not None else None
         )
@@ -656,6 +659,7 @@ class RangeParameter(Parameter):
     def cast(self, value: TParamValue) -> TNumeric:
         value = super().cast(value=value)
         if self.parameter_type is ParameterType.FLOAT and self._digits is not None:
+            # pyrefly: ignore [bad-argument-type]
             return round(float(value), none_throws(self._digits))
         return assert_is_instance(value, TNumeric)
 
@@ -822,6 +826,7 @@ class ChoiceParameter(Parameter):
                 )
             # Check that all values are positive
             for value in self._values:
+                # pyrefly: ignore [bad-argument-type]
                 if float(value) <= 0:
                     raise UserInputError(
                         f"log_scale requires all values to be positive. "
@@ -912,6 +917,7 @@ class ChoiceParameter(Parameter):
         if len(values) < 3:
             # Need at least 3 values to detect a pattern.
             return False
+        # pyrefly: ignore [bad-argument-type]
         vals = [float(v) for v in values]  # refine type.
         if any(v <= 0.0 for v in vals):
             # All values must be positive.
@@ -1450,7 +1456,9 @@ class DerivedParameter(Parameter):
             self._intercept
             + sum(
                 self._parameter_names_to_weights[parameter_name]
-                * float(parameters[parameter_name])
+                * float(
+                    parameters[parameter_name]  # pyrefly: ignore [bad-argument-type]
+                )  # pyrefly: ignore [bad-argument-type]
                 for parameter_name in self._parameter_names_to_weights
             )
         )

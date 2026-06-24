@@ -53,12 +53,16 @@ class TestWithDBSettingsBase(TestCase):
         )
         _save_experiment(
             self.experiment,
+            # pyrefly: ignore [missing-attribute]
             encoder=self.with_db_settings.db_settings.encoder,
+            # pyrefly: ignore [missing-attribute]
             decoder=self.with_db_settings.db_settings.decoder,
         )
         _save_generation_strategy(
             generation_strategy=self.generation_strategy,
+            # pyrefly: ignore [missing-attribute]
             encoder=self.with_db_settings.db_settings.encoder,
+            # pyrefly: ignore [missing-attribute]
             decoder=self.with_db_settings.db_settings.decoder,
         )
 
@@ -90,13 +94,17 @@ class TestWithDBSettingsBase(TestCase):
         if save_experiment:
             _save_experiment(
                 experiment,
+                # pyrefly: ignore [missing-attribute]
                 encoder=self.with_db_settings.db_settings.encoder,
+                # pyrefly: ignore [missing-attribute]
                 decoder=self.with_db_settings.db_settings.decoder,
             )
         if save_generation_strategy:
             _save_generation_strategy(
                 generation_strategy=generation_strategy,
+                # pyrefly: ignore [missing-attribute]
                 encoder=self.with_db_settings.db_settings.encoder,
+                # pyrefly: ignore [missing-attribute]
                 decoder=self.with_db_settings.db_settings.decoder,
             )
         return experiment, generation_strategy
@@ -116,7 +124,10 @@ class TestWithDBSettingsBase(TestCase):
         saved = self.with_db_settings._save_experiment_to_db_if_possible(experiment)
         self.assertTrue(saved)
         loaded_experiment = _load_experiment(
-            experiment.name, decoder=self.with_db_settings.db_settings.decoder
+            # pyrefly: ignore [missing-attribute]
+            experiment.name,
+            # pyrefly: ignore [missing-attribute]
+            decoder=self.with_db_settings.db_settings.decoder,
         )
         self.assertIsNotNone(loaded_experiment)
         self.assertEqual(experiment, loaded_experiment)
@@ -131,6 +142,7 @@ class TestWithDBSettingsBase(TestCase):
         self.assertTrue(saved)
         loaded_gs = _load_generation_strategy_by_experiment_name(
             experiment_name=experiment.name,
+            # pyrefly: ignore [missing-attribute]
             decoder=self.with_db_settings.db_settings.decoder,
         )
         self.assertIsNotNone(loaded_gs)
@@ -208,7 +220,10 @@ class TestWithDBSettingsBase(TestCase):
         )
 
         exp = _load_experiment(
-            experiment.name, decoder=self.with_db_settings.db_settings.decoder
+            # pyrefly: ignore [missing-attribute]
+            experiment.name,
+            # pyrefly: ignore [missing-attribute]
+            decoder=self.with_db_settings.db_settings.decoder,
         )
         trial = exp.new_trial()
         saved = self.with_db_settings._save_or_update_trial_in_db_if_possible(
@@ -216,7 +231,10 @@ class TestWithDBSettingsBase(TestCase):
         )
         self.assertTrue(saved)
         exp = _load_experiment(
-            experiment.name, decoder=self.with_db_settings.db_settings.decoder
+            # pyrefly: ignore [missing-attribute]
+            experiment.name,
+            # pyrefly: ignore [missing-attribute]
+            decoder=self.with_db_settings.db_settings.decoder,
         )
         self.assertEqual(len(exp.trials), 1)
         self.assertEqual(exp.trials[0].status, TrialStatus.CANDIDATE)
@@ -227,13 +245,18 @@ class TestWithDBSettingsBase(TestCase):
         )
 
         exp = _load_experiment(
-            experiment.name, decoder=self.with_db_settings.db_settings.decoder
+            # pyrefly: ignore [missing-attribute]
+            experiment.name,
+            # pyrefly: ignore [missing-attribute]
+            decoder=self.with_db_settings.db_settings.decoder,
         )
         trial = exp.new_trial()
         _save_or_update_trials(
             experiment=experiment,
             trials=[trial],
+            # pyrefly: ignore [missing-attribute]
             encoder=self.with_db_settings.db_settings.encoder,
+            # pyrefly: ignore [missing-attribute]
             decoder=self.with_db_settings.db_settings.decoder,
         )
         self.assertEqual(trial.status, TrialStatus.CANDIDATE)
@@ -244,7 +267,10 @@ class TestWithDBSettingsBase(TestCase):
         )
         self.assertTrue(saved)
         exp = _load_experiment(
-            experiment.name, decoder=self.with_db_settings.db_settings.decoder
+            # pyrefly: ignore [missing-attribute]
+            experiment.name,
+            # pyrefly: ignore [missing-attribute]
+            decoder=self.with_db_settings.db_settings.decoder,
         )
         self.assertEqual(len(exp.trials), 1)
         self.assertEqual(exp.trials[0].status, TrialStatus.RUNNING)
@@ -263,7 +289,10 @@ class TestWithDBSettingsBase(TestCase):
             trials=[trial],
         )
         loaded_experiment = _load_experiment(
-            experiment.name, decoder=self.with_db_settings.db_settings.decoder
+            # pyrefly: ignore [missing-attribute]
+            experiment.name,
+            # pyrefly: ignore [missing-attribute]
+            decoder=self.with_db_settings.db_settings.decoder,
         )
         self.assertEqual(
             loaded_experiment.trials[trial.index].status,
@@ -284,7 +313,10 @@ class TestWithDBSettingsBase(TestCase):
             trials=trials,
         )
         loaded_experiment = _load_experiment(
-            experiment.name, decoder=self.with_db_settings.db_settings.decoder
+            # pyrefly: ignore [missing-attribute]
+            experiment.name,
+            # pyrefly: ignore [missing-attribute]
+            decoder=self.with_db_settings.db_settings.decoder,
         )
         # All trials except for the one we marked as running should be candidates.
         for t in trials:
@@ -315,7 +347,10 @@ class TestWithDBSettingsBase(TestCase):
         )
 
         loaded_experiment = _load_experiment(
-            experiment.name, decoder=self.with_db_settings.db_settings.decoder
+            # pyrefly: ignore [missing-attribute]
+            experiment.name,
+            # pyrefly: ignore [missing-attribute]
+            decoder=self.with_db_settings.db_settings.decoder,
         )
 
         # Only the last trial's generator run should have large model attributes
@@ -330,7 +365,10 @@ class TestWithDBSettingsBase(TestCase):
                     self.assertIsNotNone(getattr(t.generator_run, python_attr_name))
 
         loaded_generation_strategy = _load_generation_strategy_by_experiment_name(
-            experiment.name, decoder=self.with_db_settings.db_settings.decoder
+            # pyrefly: ignore [missing-attribute]
+            experiment.name,
+            # pyrefly: ignore [missing-attribute]
+            decoder=self.with_db_settings.db_settings.decoder,
         )
 
         # Only the last generator run should have large model attributes
@@ -352,7 +390,10 @@ class TestWithDBSettingsBase(TestCase):
             experiment_with_updated_properties=experiment
         )
         loaded_experiment = _load_experiment(
-            experiment.name, decoder=self.with_db_settings.db_settings.decoder
+            # pyrefly: ignore [missing-attribute]
+            experiment.name,
+            # pyrefly: ignore [missing-attribute]
+            decoder=self.with_db_settings.db_settings.decoder,
         )
         self.assertEqual(
             loaded_experiment._properties,
@@ -369,6 +410,7 @@ class TestWithDBSettingsBase(TestCase):
         ) as lg:
             output = try_load_generation_strategy(
                 experiment_name=experiment.name,
+                # pyrefly: ignore [missing-attribute]
                 decoder=self.with_db_settings.db_settings.decoder,
                 experiment=experiment,
             )
@@ -391,6 +433,7 @@ class TestWithDBSettingsBase(TestCase):
         ) as lg:
             output = try_load_generation_strategy(
                 experiment_name=experiment.name,
+                # pyrefly: ignore [missing-attribute]
                 decoder=self.with_db_settings.db_settings.decoder,
                 experiment=experiment,
             )

@@ -33,6 +33,7 @@ class BilogYTest(TestCase):
             with_relative_constraint=True,
         )
         self.data = self.exp.fetch_data()
+        # pyrefly: ignore [missing-attribute]
         self.bound = self.exp.optimization_config.outcome_constraints[1].bound
 
     def get_adapter(self) -> Adapter:
@@ -85,6 +86,7 @@ class BilogYTest(TestCase):
         )
 
     def test_TransformUntransform(self) -> None:
+        # pyrefly: ignore [missing-attribute]
         bound = self.exp.optimization_config.outcome_constraints[0].bound
         observations = observations_from_data(
             experiment=self.exp, data=self.exp.lookup_data()
@@ -154,6 +156,7 @@ class BilogYTest(TestCase):
         )
         oc = self.exp.optimization_config
         # This should be a no-op
+        # pyrefly: ignore [bad-argument-type]
         new_oc = t.transform_optimization_config(optimization_config=oc)
         self.assertEqual(new_oc, oc)
 

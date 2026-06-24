@@ -18,6 +18,7 @@ from pyre_extensions import none_throws
 class GenericNoisyFunctionMetricTest(TestCase):
     def test_GenericNoisyFunctionMetric(self) -> None:
         def f(params: dict[str, TParamValue]) -> float:
+            # pyrefly: ignore [bad-argument-type]
             return float(params["x"]) + 1.0
 
         # noiseless
@@ -31,6 +32,7 @@ class GenericNoisyFunctionMetricTest(TestCase):
         self.assertEqual(df["metric_name"].tolist(), ["test_metric"])
         self.assertEqual(
             df["mean"].tolist(),
+            # pyrefly: ignore [bad-argument-type]
             [float(none_throws(trial.arm).parameters["x"]) + 1.0],
         )
         self.assertEqual(df["sem"].tolist(), [0.0])
@@ -47,6 +49,7 @@ class GenericNoisyFunctionMetricTest(TestCase):
         self.assertEqual(df["metric_name"].tolist(), ["test_metric"])
         self.assertNotEqual(
             df["mean"].tolist(),
+            # pyrefly: ignore [bad-argument-type]
             [float(none_throws(trial.arm).parameters["x"]) + 1.0],
         )
         self.assertEqual(df["sem"].tolist(), [1.0])
@@ -54,6 +57,7 @@ class GenericNoisyFunctionMetricTest(TestCase):
         self.assertEqual(df["arm_name"].tolist(), ["0_0"])
         self.assertEqual(df["metric_name"].tolist(), ["test_metric"])
         arm = none_throws(trial.arm)
+        # pyrefly: ignore [bad-argument-type]
         self.assertEqual(df["mean"].tolist(), [float(arm.parameters["x"]) + 1.0])
         self.assertEqual(df["sem"].tolist(), [0.0])
 
@@ -68,6 +72,8 @@ class GenericNoisyFunctionMetricTest(TestCase):
         self.assertEqual(df["arm_name"].tolist(), ["0_0"])
         self.assertEqual(df["metric_name"].tolist(), ["test_metric"])
         arm = none_throws(trial.arm)
+        # pyrefly: ignore [bad-argument-type]
         self.assertEqual(df["mean"].tolist(), [float(arm.parameters["x"]) + 1.0])
+        # pyrefly: ignore [bad-argument-type]
         self.assertEqual(df["mean"].tolist(), [float(arm.parameters["x"]) + 1.0])
         self.assertTrue(math.isnan(df["sem"].tolist()[0]))

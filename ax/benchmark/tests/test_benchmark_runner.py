@@ -50,6 +50,7 @@ class TestBenchmarkRunner(TestCase):
         # Initialize
         runner = BenchmarkRunner(
             test_function=Jenatton(outcome_names=["objective"]),
+            # pyrefly: ignore [unsupported-operation]
             step_runtime_function=lambda params: params["x1"] + 1,
             max_concurrency=2,
         )
@@ -238,7 +239,7 @@ class TestBenchmarkRunner(TestCase):
                     nullcontext()
                     if not isinstance(test_function, SurrogateTestFunction)
                     else patch.object(
-                        runner.test_function._surrogate,
+                        runner.test_function._surrogate,  # pyrefly: ignore [missing-attribute]
                         "predict",
                         return_value=({"branin": [4.2]}, None),
                     )
@@ -416,6 +417,7 @@ class TestBenchmarkRunner(TestCase):
         runner = BenchmarkRunner(
             test_function=test_function,
             noise=GaussianNoise(noise_std=0.0),
+            # pyrefly: ignore [bad-argument-type]
             step_runtime_function=lambda params: params["x0"],
         )
         experiment = Experiment(

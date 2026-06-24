@@ -323,6 +323,7 @@ class Data(Base, SerializationMixin):
         if "df" in args and not isinstance(args["df"], pd.DataFrame):
             # NOTE: Need dtype=False, otherwise infers arm_names like
             # "4_1" should be int 41.
+            # pyrefly: ignore [no-matching-overload]
             args["df"] = pd.read_json(StringIO(args["df"]["value"]), dtype=False)
         return extract_init_args(args=args, class_=cls)
 
@@ -379,7 +380,9 @@ class Data(Base, SerializationMixin):
     def __repr__(self) -> str:
         """String representation of the subclass, inheriting from this base."""
         df_markdown = self.df.to_markdown()
+        # pyrefly: ignore [bad-argument-type]
         if len(df_markdown) > DF_REPR_MAX_LENGTH:
+            # pyrefly: ignore [unsupported-operation]
             df_markdown = df_markdown[:DF_REPR_MAX_LENGTH] + "..."
         return f"{self.__class__.__name__}(df=\n{df_markdown})"
 
@@ -429,6 +432,7 @@ class Data(Base, SerializationMixin):
         """Returns a new Data object with the same underlying dataframe."""
         return self.__class__(df=deepcopy(self.full_df))
 
+    # pyrefly: ignore [bad-override]
     def __eq__(self, o: Data) -> bool:
         return type(self) is type(o) and dataframe_equals(self.full_df, o.full_df)
 
@@ -741,6 +745,7 @@ def relativize_dataframe(
         # metrics and pass through raw data (with or without SQ row).
         if metric_names_set is not None and "metric_name" in grp_cols:
             grp_metric = (
+                # pyrefly: ignore [bad-index]
                 grp if isinstance(grp, str) else grp[grp_cols.index("metric_name")]
             )
             if grp_metric not in metric_names_set:
@@ -791,6 +796,7 @@ def relativize_dataframe(
         df_rel.loc[sq_mask, "sem"] = 0.0
     df_rel.reset_index(inplace=True, drop=True)
     # Reorder columns to match expected order (reuses Data class logic)
+    # pyrefly: ignore [bad-argument-type]
     df_rel = Data._get_df_with_cols_in_expected_order(df_rel)
     return df_rel
 
@@ -865,6 +871,7 @@ def _subsample_one_metric(
         else:
             filtered_df = df_g.iloc[:: int(derived_keep_every)]
         filtered_dfs.append(filtered_df)
+    # pyrefly: ignore [bad-return]
     return pd.concat(filtered_dfs)
 
 

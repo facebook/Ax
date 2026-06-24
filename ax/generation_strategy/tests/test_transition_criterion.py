@@ -280,6 +280,7 @@ class TestTransitionCriterion(TestCase):
         # Attach data for both completed trials
         experiment.attach_data(
             get_branin_data(
+                # pyrefly: ignore [bad-argument-type]
                 trials=[experiment.trials[0], experiment.trials[1]],
                 metrics=["branin"],
             )
@@ -353,6 +354,7 @@ class TestTransitionCriterion(TestCase):
 
         # Attach data for "branin" (the opt config metric) to 1 trial only
         experiment.attach_data(
+            # pyrefly: ignore [bad-argument-type]
             get_branin_data(trials=[experiment.trials[0]], metrics=["branin"])
         )
         # Still not met — only 1 trial has data, need 2
@@ -367,6 +369,7 @@ class TestTransitionCriterion(TestCase):
                     [
                         {
                             "trial_index": 1,
+                            # pyrefly: ignore [missing-attribute]
                             "arm_name": experiment.trials[1].arm.name,
                             "metric_name": "not_branin",
                             "mean": 1.0,
@@ -384,6 +387,7 @@ class TestTransitionCriterion(TestCase):
 
         # Attach "branin" data to trial 1 too
         experiment.attach_data(
+            # pyrefly: ignore [bad-argument-type]
             get_branin_data(trials=[experiment.trials[1]], metrics=["branin"])
         )
         # Now 2 trials have "branin" data — criterion should be met

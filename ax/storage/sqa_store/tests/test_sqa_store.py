@@ -871,11 +871,17 @@ class SQAStoreTest(TestCase):
             self.assertNotEqual(loaded_experiment, exp)
             # Remove all fields that are not part of the reduced state and
             # check that everything else is equal as expected.
+            # pyrefly: ignore [missing-attribute]
             exp.trials.get(1).generator_run._generator_kwargs = None
+            # pyrefly: ignore [missing-attribute]
             exp.trials.get(1).generator_run._adapter_kwargs = None
+            # pyrefly: ignore [missing-attribute]
             exp.trials.get(1).generator_run._gen_metadata = None
+            # pyrefly: ignore [missing-attribute]
             exp.trials.get(1).generator_run._generator_state_after_gen = None
+            # pyrefly: ignore [missing-attribute]
             exp.trials.get(1).generator_run._search_space = None
+            # pyrefly: ignore [missing-attribute]
             exp.trials.get(1).generator_run._optimization_config = None
             self.assertEqual(loaded_experiment, exp)
             delete_experiment(exp_name=exp.name)
@@ -1062,6 +1068,7 @@ class SQAStoreTest(TestCase):
 
     def test_save_validation(self) -> None:
         with self.assertRaises(ValueError):
+            # pyrefly: ignore [bad-argument-type]
             save_experiment(self.experiment.trials[0])
 
         experiment = get_experiment_with_batch_trial()
@@ -1097,12 +1104,14 @@ class SQAStoreTest(TestCase):
                 with self.assertRaises(RuntimeError):
                     converted_object.evaluation_function(parameterization={})
 
+                # pyrefly: ignore [missing-attribute]
                 original_object.evaluation_function = None
                 converted_object.evaluation_function = None
                 # Experiment to SQA encoder stores the experiment subclass
                 # among its properties; we then remove the subclass when
                 # decoding. Removing subclass from original object here
                 # for parity with the expected decoded (converted) object.
+                # pyrefly: ignore [missing-attribute]
                 original_object._properties.pop(Keys.SUBCLASS)
 
             self.assertEqual(
@@ -1934,7 +1943,10 @@ class SQAStoreTest(TestCase):
         )
         with self.assertRaises(SQADecodeError):
             self.decoder.parameter_constraint_from_sqa(
-                sqa_parameter, self.dummy_parameters
+                # pyrefly: ignore [bad-argument-type]
+                sqa_parameter,
+                # pyrefly: ignore [bad-argument-type]
+                self.dummy_parameters,
             )
 
     def test_decode_sum_parameter_constraint_failure(self) -> None:
@@ -1945,7 +1957,10 @@ class SQAStoreTest(TestCase):
         )
         with self.assertRaises(SQADecodeError):
             self.decoder.parameter_constraint_from_sqa(
-                sqa_parameter, self.dummy_parameters
+                # pyrefly: ignore [bad-argument-type]
+                sqa_parameter,
+                # pyrefly: ignore [bad-argument-type]
+                self.dummy_parameters,
             )
 
     def test_metric_validation(self) -> None:
@@ -2137,9 +2152,11 @@ class SQAStoreTest(TestCase):
 
     def test_registry_additions(self) -> None:
         class MyRunner(Runner):
+            # pyrefly: ignore [bad-override]
             def run():
                 pass
 
+            # pyrefly: ignore [bad-override]
             def staging_required():
                 return False
 
@@ -2174,9 +2191,11 @@ class SQAStoreTest(TestCase):
 
     def test_registry_bundle(self) -> None:
         class MyRunner(Runner):
+            # pyrefly: ignore [bad-override]
             def run():
                 pass
 
+            # pyrefly: ignore [bad-override]
             def staging_required():
                 return False
 
@@ -2453,11 +2472,17 @@ class SQAStoreTest(TestCase):
         # state along with the generation strategy.
         self.assertNotEqual(new_generation_strategy.experiment, experiment)
         # Adjust experiment and GS to reduced state.
+        # pyrefly: ignore [missing-attribute]
         experiment.trials.get(0).generator_run._generator_kwargs = None
+        # pyrefly: ignore [missing-attribute]
         experiment.trials.get(0).generator_run._adapter_kwargs = None
+        # pyrefly: ignore [missing-attribute]
         experiment.trials.get(0).generator_run._gen_metadata = None
+        # pyrefly: ignore [missing-attribute]
         experiment.trials.get(0).generator_run._generator_state_after_gen = None
+        # pyrefly: ignore [missing-attribute]
         experiment.trials.get(0).generator_run._search_space = None
+        # pyrefly: ignore [missing-attribute]
         experiment.trials.get(0).generator_run._optimization_config = None
         generation_strategy._generator_runs[0]._generator_kwargs = None
         generation_strategy._generator_runs[0]._adapter_kwargs = None

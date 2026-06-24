@@ -96,6 +96,7 @@ class MetadataToTaskTransformTest(TestCase):
                     Keys.TASK_FEATURE_NAME.value: i,
                 }
             )
+            # pyrefly: ignore [unsupported-operation]
             del new_obs_ft.metadata[Keys.TASK_FEATURE_NAME]
             expected_obs_ft2.append(new_obs_ft)
         self.assertEqual(obs_ft2, expected_obs_ft2)

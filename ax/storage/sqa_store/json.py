@@ -24,6 +24,7 @@ class JSONEncodedObject(TypeDecorator):
 
     """
 
+    # pyrefly: ignore [bad-override-mutable-attribute]
     impl: VARCHAR = VARCHAR(JSON_FIELD_LENGTH)
 
     cache_ok = True

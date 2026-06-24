@@ -162,6 +162,7 @@ class Analysis(Protocol):
             title=title,
             subtitle=subtitle,
             df=df,
+            # pyrefly: ignore [bad-argument-type]
             blob=df.to_json(),
         )
 

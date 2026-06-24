@@ -153,6 +153,7 @@ class ExperimentTest(TestCase):
 
     def test_experiment_name(self) -> None:
         self.assertTrue(self.experiment.has_name)
+        # pyrefly: ignore [bad-argument-type]
         self.experiment.name = None
         self.assertFalse(self.experiment.has_name)
         with self.assertRaises(ValueError):
@@ -490,7 +491,9 @@ class ExperimentTest(TestCase):
             # Verify "w" exists in the arm parameters
             self.assertIn("w", arm.parameters)
             w_value = arm.parameters["w"]
+            # pyrefly: ignore [unsupported-operation]
             # Compute expected derived value
+            # pyrefly: ignore [unsupported-operation]
             expected_d_value = 2.0 * w_value + 1.0
             # The derived parameter value should be computed correctly
             self.assertEqual(
@@ -569,17 +572,25 @@ class ExperimentTest(TestCase):
         with self.assertRaisesRegex(ValueError, "not found on experiment"):
             self.experiment.optimization_config = new_opt_config
 
+    # pyrefly: ignore [missing-attribute]
+
     def test_status_quo_setter(self) -> None:
+        # pyrefly: ignore [missing-attribute]
         sq_parameters = self.experiment.status_quo.parameters
 
+        # pyrefly: ignore [missing-attribute]
         # Verify normal update when no trials exist
+        # pyrefly: ignore [missing-attribute]
         sq_parameters["w"] = 3.5
         self.experiment.status_quo = Arm(sq_parameters)
+        # pyrefly: ignore [missing-attribute]
         self.assertEqual(self.experiment.status_quo.parameters["w"], 3.5)
+        # pyrefly: ignore [missing-attribute]
         self.assertEqual(self.experiment.status_quo.name, "status_quo_e0")
 
         # Verify all None values
         self.experiment.status_quo = Arm(dict.fromkeys(sq_parameters))
+        # pyrefly: ignore [missing-attribute]
         self.assertIsNone(self.experiment.status_quo.parameters["w"])
 
         # Switch back to sq with values
@@ -611,16 +622,20 @@ class ExperimentTest(TestCase):
         sq_parameters["w"] = 3.7
         with self.assertRaises(UnsupportedError) as e:
             self.experiment.status_quo = Arm(sq_parameters)
+        # pyrefly: ignore [missing-attribute]
         self.assertIn(
             "Modifications of status_quo are disabled after trials have been created",
             str(e.exception),
         )
+        # pyrefly: ignore [missing-attribute]
 
         # Verify status_quo wasn't changed
+        # pyrefly: ignore [missing-attribute]
         self.assertEqual(self.experiment.status_quo.parameters["w"], 3.5)
 
     def test_register_arm(self) -> None:
         # Create a new arm, register on experiment
+        # pyrefly: ignore [missing-attribute]
         parameters = self.experiment.status_quo.parameters
         parameters["w"] = 3.5
         arm = Arm(name="my_arm_name", parameters=parameters)
@@ -1230,6 +1245,7 @@ class ExperimentTest(TestCase):
         _, trial_index = self.experiment.attach_trial(
             parameterizations=[{"w": 5.3, "x": 5, "y": "baz", "z": True, "d": 11.6}],
             arm_names=["arm1"],
+            # pyrefly: ignore [missing-attribute]
             ttl_seconds=3600,
             run_metadata={"test_metadata_field": 1},
         )
@@ -1238,6 +1254,7 @@ class ExperimentTest(TestCase):
         self.assertEqual(type(self.experiment.trials[trial_index]), Trial)
         self.assertEqual(
             "arm1",
+            # pyrefly: ignore [missing-attribute]
             self.experiment.trials[trial_index].arm.name,
         )
 
@@ -1282,6 +1299,7 @@ class ExperimentTest(TestCase):
             exp.fetch_data()
             # 1. No completed trials => no fetch case.
             mock_bulk_fetch_experiment_data.reset_mock()
+            # pyrefly: ignore [missing-attribute]
             dat = exp.fetch_data()
             mock_bulk_fetch_experiment_data.assert_not_called()
             # Data should be empty since there are no completed trials.
@@ -1291,6 +1309,7 @@ class ExperimentTest(TestCase):
             mock_bulk_fetch_experiment_data.reset_mock()
             # pyre-fixme[16]: Optional type has no attribute `mark_completed`.
             exp.trials.get(0).mark_completed()
+            # pyrefly: ignore [missing-attribute]
             exp.trials.get(1).mark_completed()
             dat = exp.fetch_data()
             # `bulk_fetch_experiment_data` should be called N=number of trials times.
@@ -1350,6 +1369,7 @@ class ExperimentTest(TestCase):
 
         # check that all non-failed trials are copied to new_experiment
         new_experiment = get_branin_experiment()
+        # pyrefly: ignore [missing-attribute]
         # make metric noiseless for exact reproducibility
         _obj_name = none_throws(
             new_experiment.optimization_config
@@ -1360,7 +1380,9 @@ class ExperimentTest(TestCase):
         for _, trial in old_experiment.trials.items():
             trial._run_metadata = DUMMY_RUN_METADATA
         # name one arm to test name-preserving logic.
+        # pyrefly: ignore [missing-attribute]
         old_experiment.trials[0].arm._name = DUMMY_ARM_NAME
+        # pyrefly: ignore [missing-attribute]
         new_experiment.warm_start_from_old_experiment(
             old_experiment=old_experiment,
         )
@@ -1372,8 +1394,10 @@ class ExperimentTest(TestCase):
             # pyre-fixme[16]: `BaseTrial` has no attribute `arm`.
             old_arm = old_experiment.trials[i_old_trial].arm
             self.assertEqual(
+                # pyrefly: ignore [missing-attribute]
                 trial.arm.parameters,
                 old_arm.parameters,
+                # pyrefly: ignore [missing-attribute]
             )
             self.assertRegex(
                 trial._properties["source"], "Warm start.*Experiment.*trial"
@@ -1383,10 +1407,13 @@ class ExperimentTest(TestCase):
 
             # Check naming logic.
             if idx == 0:
+                # pyrefly: ignore [missing-attribute]
                 self.assertEqual(trial.arm.name, DUMMY_ARM_NAME)
             else:
                 self.assertEqual(
-                    trial.arm.name, f"{old_arm.name}_{old_experiment.name}"
+                    # pyrefly: ignore [missing-attribute]
+                    trial.arm.name,
+                    f"{old_arm.name}_{old_experiment.name}",
                 )
 
         # Check that the data was attached for correct trials
@@ -1687,9 +1714,11 @@ class ExperimentTest(TestCase):
             tracking_metrics=[
                 Metric(name="metric_a", lower_is_better=False),
                 Metric(name="metric_b", lower_is_better=True),
+                # pyrefly: ignore [missing-attribute]
             ],
         )
         df = experiment.metric_config_summary_df
+        # pyrefly: ignore [missing-attribute]
         # metric_a has positive weight -> maximize
         # metric_b has negative weight -> minimize
         goal_by_name = dict(zip(df["Name"], df["Goal"]))
@@ -1702,9 +1731,11 @@ class ExperimentTest(TestCase):
         arm = Arm({"w": 1, "x": 2, "y": "foo", "z": True})
         trial.add_arm(arm)
         expected_with_failed = {
+            # pyrefly: ignore [missing-attribute]
             experiment.status_quo.signature: experiment.status_quo,
         }
         expected_with_other = {
+            # pyrefly: ignore [missing-attribute]
             experiment.status_quo.signature: experiment.status_quo,
             arm.signature: arm,
         }
@@ -2341,6 +2372,7 @@ class ExperimentWithMapDataTest(TestCase):
         # check that all non-failed trials are copied to new_experiment
         new_experiment = get_branin_experiment_with_timestamp_map_metric()
         # make metric noiseless for exact reproducibility
+        # pyrefly: ignore [missing-attribute]
         _obj_name = none_throws(
             new_experiment.optimization_config
         ).objective.metric_names[0]
@@ -2358,6 +2390,7 @@ class ExperimentWithMapDataTest(TestCase):
             self.assertEqual(
                 # pyre-fixme[16]: `BaseTrial` has no attribute `arm`.
                 trial.arm.parameters,
+                # pyrefly: ignore [missing-attribute]
                 old_experiment.trials[i_old_trial].arm.parameters,
             )
             self.assertRegex(

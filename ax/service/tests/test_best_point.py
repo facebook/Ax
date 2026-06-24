@@ -712,6 +712,7 @@ class InferReferencePointFromExperimentTest(TestCase):
         for experiment in experiments:
             # special case logs a warning message.
             data = experiment.fetch_data()
+            # pyrefly: ignore [missing-attribute]
             if experiment.optimization_config.outcome_constraints[0].bound == 1000.0:
                 with self.assertLogs(logger, "WARNING"):
                     inferred_reference_point = infer_reference_point_from_experiment(

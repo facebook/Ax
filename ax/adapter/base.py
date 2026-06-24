@@ -488,6 +488,7 @@ class Adapter:
                 # `sort_values=True` at construction time, so we can always
                 # sort here. Values are guaranteed numeric by the gate above,
                 # hence sortable.
+                # pyrefly: ignore [bad-argument-type]
                 p.set_values(sorted(cast(list[float], [*p.values, *extra_values])))
         # Remove parameter constraints from the model space.
         self._model_space.set_parameter_constraints([])
@@ -1237,6 +1238,7 @@ def gen_arms(
         arms.append(arm)
         if of.metadata:
             candidate_metadata[arm.signature] = of.metadata
+    # pyrefly: ignore [bad-return]
     return arms, candidate_metadata or None  # None if empty cand. metadata.
 
 

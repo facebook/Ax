@@ -44,6 +44,7 @@ class SlicesTest(TestCase):
         self.assertIsInstance(plot, go.Figure)
         plot = interact_slice_plotly(model)
         self.assertIsInstance(plot, go.Figure)
+        # pyrefly: ignore [missing-attribute]
         plot = plot_slice(model, model.parameters[0], model_metric_names[0])
         self.assertIsInstance(plot, AxPlotConfig)
         plot = interact_slice(model)

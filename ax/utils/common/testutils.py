@@ -343,7 +343,10 @@ class TestCase(fake_filesystem_unittest.TestCase):
         )
 
     def run(
-        self, result: unittest.result.TestResult | None = ...
+        # pyrefly: ignore [bad-function-definition]
+        self,
+        # pyrefly: ignore [bad-function-definition]
+        result: unittest.result.TestResult | None = ...,
     ) -> unittest.result.TestResult | None:
         # Arrange for a SIGALRM signal to be delivered to the calling process
         # in specified number of seconds.

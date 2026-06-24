@@ -22,6 +22,7 @@ def set_rng_seed(seed: int) -> None:
         seed: The random number generator seed.
     """
     random.seed(seed)
+    # pyrefly: ignore [bad-argument-type]
     np.random.seed(seed)
     torch.manual_seed(seed)
 

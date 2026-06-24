@@ -20,6 +20,7 @@ C = TypeVar("C")
 def mock_patch_method_original(
     mock_path: str,
     original_method: Callable[..., T],
+    # pyrefly: ignore [bad-return]
 ) -> MagicMock:
     """Context manager for patching a method returning type T on class C,
     to track calls to it while still executing the original method. There

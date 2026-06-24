@@ -243,7 +243,9 @@ class InstantiationBase:
             parameter_type=cls._to_parameter_type(
                 bounds, parameter_type, name, "bounds"
             ),
+            # pyrefly: ignore [bad-argument-type]
             lower=assert_is_instance_of_tuple(bounds[0], (float, int)),
+            # pyrefly: ignore [bad-argument-type]
             upper=assert_is_instance_of_tuple(bounds[1], (float, int)),
             log_scale=assert_is_instance(representation.get("log_scale", False), bool),
             digits=assert_is_instance_optional(representation.get("digits", None), int),

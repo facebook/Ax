@@ -50,6 +50,7 @@ def detect_regressions_by_trial(
             thresholds=thresholds,
         )
 
+    # pyrefly: ignore [bad-return]
     return regressing_arms_metrics_by_trial
 
 

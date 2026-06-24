@@ -350,6 +350,7 @@ def botorch_component_from_json(botorch_class: type[T], json: dict[str, Any]) ->
     `CLASS_DECODER_REGISTRY` from state dict."""
     state_dict = json.pop("state_dict")
     if issubclass(botorch_class, ChainedInputTransform):
+        # pyrefly: ignore [bad-return]
         return botorch_class(
             **{
                 k: botorch_component_from_json(
@@ -360,6 +361,7 @@ def botorch_component_from_json(botorch_class: type[T], json: dict[str, Any]) ->
             }
         )
     if issubclass(botorch_class, ChainedOutcomeTransform):
+        # pyrefly: ignore [bad-return]
         return botorch_class(
             **{
                 k: botorch_component_from_json(

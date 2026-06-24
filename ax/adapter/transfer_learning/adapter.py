@@ -599,6 +599,7 @@ class TransferLearningAdapter(TorchAdapter):
         )
         # This is a bit of a hack to ensure that only the data for the target task
         # is used in the X_baseline. It also avoids task feature in X_baseline.
+        # pyrefly: ignore [missing-attribute]
         self.generator.surrogate._training_data = [
             ds.datasets[ds.target_outcome_name] for ds in task_datasets
         ]

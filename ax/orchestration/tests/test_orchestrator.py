@@ -134,6 +134,7 @@ class TestAxOrchestrator(TestCase):
     PENDING_FEATURES_EXTRACTOR: tuple[  # pyre-ignore[8]
         str,
         Callable[
+            # pyrefly: ignore [invalid-argument]
             [...],
             dict[str, list[ObservationFeatures]] | None,
         ],
@@ -145,6 +146,7 @@ class TestAxOrchestrator(TestCase):
     PENDING_FEATURES_BATCH_EXTRACTOR: tuple[  # pyre-ignore[8]
         str,
         Callable[
+            # pyrefly: ignore [invalid-argument]
             [...],
             dict[str, list[ObservationFeatures]] | None,
         ],
@@ -345,6 +347,7 @@ class TestAxOrchestrator(TestCase):
         ):
             Orchestrator(
                 experiment=self.branin_experiment_no_impl_runner_or_metrics,
+                # pyrefly: ignore [bad-argument-type]
                 generation_strategy=generation_strategy,
                 options=OrchestratorOptions(
                     total_trials=10, **self.orchestrator_options_kwargs
@@ -359,6 +362,7 @@ class TestAxOrchestrator(TestCase):
         ):
             Orchestrator(
                 experiment=self.branin_experiment_no_impl_runner_or_metrics,
+                # pyrefly: ignore [bad-argument-type]
                 generation_strategy=generation_strategy,
                 options=OrchestratorOptions(
                     total_trials=10, **self.orchestrator_options_kwargs
@@ -387,6 +391,7 @@ class TestAxOrchestrator(TestCase):
         self.assertIsNone(orchestrator._latest_optimization_start_timestamp)
         orchestrator.run_all_trials()  # Runs no trials since total trials is 0.
         # `_latest_optimization_start_timestamp` should be set now.
+        # pyrefly: ignore [no-matching-overload]
         self.assertLessEqual(
             orchestrator._latest_optimization_start_timestamp,
             # pyre-fixme[6]: For 2nd param expected `SupportsDunderGT[Variable[_T]]`
@@ -555,7 +560,9 @@ class TestAxOrchestrator(TestCase):
 
         # pyre-fixme[53]: Captured variable `test_obj` is not annotated.
         def _callback(orchestrator: Orchestrator) -> None:
+            # pyrefly: ignore [unsupported-operation]
             test_obj[0] = orchestrator._latest_optimization_start_timestamp
+            # pyrefly: ignore [unsupported-operation]
             test_obj[1] = "apple"
             return
 
@@ -588,6 +595,7 @@ class TestAxOrchestrator(TestCase):
             experiment=self.branin_experiment,  # Has runner and metrics.
             generation_strategy=gs,
             options=OrchestratorOptions(
+                # pyrefly: ignore [bad-argument-type]
                 init_seconds_between_polls=0.1,  # Short between polls so test is fast.
                 wait_for_running_trials=False,
                 enforce_immutable_search_space_and_opt_config=False,
@@ -1665,6 +1673,7 @@ class TestAxOrchestrator(TestCase):
         )
         if status_quo_weight > 0:
             self.assertEqual(
+                # pyrefly: ignore [bad-index]
                 trial.arm_weights[self.branin_experiment.status_quo],
                 1.0,
             )
@@ -2470,6 +2479,7 @@ class TestAxOrchestrator(TestCase):
             generation_strategy=gs,
             options=OrchestratorOptions(
                 total_trials=3,
+                # pyrefly: ignore [bad-argument-type]
                 init_seconds_between_polls=0.1,  # Short between polls so test is fast.
                 **self.orchestrator_options_kwargs,
             ),
@@ -2479,6 +2489,7 @@ class TestAxOrchestrator(TestCase):
         # for the MTGP step.
         with patch(
             "ax.adapter.random.RandomAdapter.gen",
+            # pyrefly: ignore [bad-argument-type]
             return_value=GeneratorRun(arms=[experiment.status_quo]),
         ):
             orchestrator.run_n_trials(max_trials=3)
@@ -3153,64 +3164,77 @@ class TestAxOrchestratorMultiTypeExperiment(TestAxOrchestrator):
         self._mock_orchestrator_poll_sleep()
 
     def test_init_with_no_impl_with_runner(self) -> None:
+        # pyrefly: ignore [missing-attribute]
         self.branin_experiment_no_impl_runner_or_metrics.update_runner(
             trial_type="type1", runner=self.runner
         )
         super().test_init_with_no_impl_with_runner()
 
     def test_update_options_with_validate_metrics(self) -> None:
+        # pyrefly: ignore [missing-attribute]
         self.branin_experiment_no_impl_runner_or_metrics.update_runner(
             trial_type="type1", runner=self.runner
         )
         super().test_update_options_with_validate_metrics()
 
     def test_retries(self) -> None:
+        # pyrefly: ignore [missing-attribute]
         self.branin_experiment.update_runner("type1", BrokenRunnerRuntimeError())
         super().test_retries()
 
     def test_retries_nonretriable_error(self) -> None:
+        # pyrefly: ignore [missing-attribute]
         self.branin_experiment.update_runner("type1", BrokenRunnerValueError())
         super().test_retries_nonretriable_error()
 
     def test_failure_rate_some_failed(self) -> None:
+        # pyrefly: ignore [missing-attribute]
         self.branin_experiment.update_runner("type1", RunnerWithFrequentFailedTrials())
         super().test_failure_rate_some_failed()
 
     def test_failure_rate_all_failed(self) -> None:
+        # pyrefly: ignore [missing-attribute]
         self.branin_experiment.update_runner("type1", RunnerWithAllFailedTrials())
         super().test_failure_rate_all_failed()
 
     def test_run_trials_and_yield_results_with_early_stopper(self) -> None:
+        # pyrefly: ignore [missing-attribute]
         self.branin_experiment.update_runner("type1", InfinitePollRunner())
         super().test_run_trials_and_yield_results_with_early_stopper()
 
     def test_orchestrator_with_metric_with_new_data_after_completion(self) -> None:
+        # pyrefly: ignore [missing-attribute]
         self.branin_experiment.update_runner(
             "type1", SyntheticRunnerWithPredictableStatusPolling()
         )
         super().test_orchestrator_with_metric_with_new_data_after_completion()
 
     def test_poll_and_process_results_with_reasons(self) -> None:
+        # pyrefly: ignore [missing-attribute]
         self.branin_experiment.update_runner(
             "type1", RunnerWithFailedAndAbandonedTrials()
         )
         super().test_poll_and_process_results_with_reasons()
 
     def test_poll_trial_status_fallback_to_individual_polling(self) -> None:
+        # pyrefly: ignore [missing-attribute]
         self.branin_experiment.update_runner(
             "type1", RunnerWithFailingPollTrialStatus()
         )
         super().test_poll_trial_status_fallback_to_individual_polling()
 
     def test_poll_trial_status_abandons_trial_on_individual_failure(self) -> None:
+        # pyrefly: ignore [missing-attribute]
         self.branin_experiment.update_runner("type1", RunnerWithAllPollsFailing())
         super().test_poll_trial_status_abandons_trial_on_individual_failure()
 
     def test_generate_candidates_works_for_iteration(self) -> None:
+        # pyrefly: ignore [missing-attribute]
         self.branin_experiment.update_runner("type1", InfinitePollRunner())
         super().test_generate_candidates_works_for_iteration()
 
     def test_orchestrator_with_odd_index_early_stopping_strategy(self) -> None:
+        # pyrefly: ignore [missing-attribute]
         self.branin_timestamp_map_metric_experiment.update_runner(
             "type1", RunnerWithEarlyStoppingStrategy()
         )
@@ -3221,7 +3245,10 @@ class TestAxOrchestratorMultiTypeExperiment(TestAxOrchestrator):
     ) -> None:
         # add a tracking metric
         self.branin_timestamp_map_metric_experiment.add_tracking_metric(
-            BraninMetric("branin", ["x1", "x2"]), trial_type="type1"
+            # pyrefly: ignore [unexpected-keyword]
+            BraninMetric("branin", ["x1", "x2"]),
+            # pyrefly: ignore [unexpected-keyword]
+            trial_type="type1",
         )
         super().test_fetch_and_process_trials_data_results_failed_non_objective()
 
@@ -3237,6 +3264,7 @@ class TestAxOrchestratorMultiTypeExperiment(TestAxOrchestrator):
     def test_run_n_trials_single_step_existing_experiment(
         self, all_completed_trials: bool = False
     ) -> None:
+        # pyrefly: ignore [missing-attribute]
         self.branin_experiment.update_runner(
             "type1", SyntheticRunnerWithSingleRunningTrial()
         )
@@ -3249,12 +3277,17 @@ class TestAxOrchestratorMultiTypeExperiment(TestAxOrchestrator):
         self.assertEqual(metric_names, ["m1"])
 
     def test_generate_candidates_does_not_generate_if_missing_data(self) -> None:
+        # pyrefly: ignore [missing-attribute]
         self.branin_experiment.update_runner("type1", InfinitePollRunner())
         super().test_generate_candidates_does_not_generate_if_missing_data()
 
     def test_generate_candidates_does_not_generate_if_missing_opt_config(self) -> None:
+        # pyrefly: ignore [missing-attribute]
         self.branin_experiment.update_runner("type1", InfinitePollRunner())
         self.branin_experiment.add_tracking_metric(
-            get_branin_metric(), trial_type="type1"
+            # pyrefly: ignore [unexpected-keyword]
+            get_branin_metric(),
+            # pyrefly: ignore [unexpected-keyword]
+            trial_type="type1",
         )
         super().test_generate_candidates_does_not_generate_if_missing_opt_config()

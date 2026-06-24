@@ -54,6 +54,7 @@ class TestTransferLearningAnalysis(TestCase):
         """When no experiment_type is set and no experiment_types provided,
         return PASS."""
         experiment = _make_experiment(["x1", "x2"], experiment_type=None)
+        # pyrefly: ignore [bad-instantiation]
         analysis = TransferLearningAnalysis()
         card = analysis.compute(experiment=experiment)
         self.assertEqual(card.get_status(), HealthcheckStatus.PASS)
@@ -62,7 +63,9 @@ class TestTransferLearningAnalysis(TestCase):
 
     @patch(_MOCK_TARGET, return_value={})
     def test_no_candidates_returns_pass(self, mock_identify: object) -> None:
+        # pyrefly: ignore [bad-instantiation]
         experiment = _make_experiment(["x1", "x2"], experiment_type="my_type")
+        # pyrefly: ignore [bad-instantiation]
         analysis = TransferLearningAnalysis()
         card = analysis.compute(experiment=experiment)
         self.assertEqual(card.get_status(), HealthcheckStatus.PASS)
@@ -77,8 +80,10 @@ class TestTransferLearningAnalysis(TestCase):
         mock_identify.return_value = {  # pyre-ignore[16]
             "source_exp": TransferLearningMetadata(
                 overlap_parameters=["x1", "x2", "x3", "x4"],
+                # pyrefly: ignore [bad-instantiation]
             ),
         }
+        # pyrefly: ignore [bad-instantiation]
         analysis = TransferLearningAnalysis()
         card = analysis.compute(experiment=experiment)
         self.assertEqual(card.get_status(), HealthcheckStatus.WARNING)
@@ -107,9 +112,11 @@ class TestTransferLearningAnalysis(TestCase):
                 overlap_parameters=["x1", "x2", "x3"],
             ),
             "exp_low": TransferLearningMetadata(
+                # pyrefly: ignore [bad-instantiation]
                 overlap_parameters=["x1"],
             ),
         }
+        # pyrefly: ignore [bad-instantiation]
         analysis = TransferLearningAnalysis()
         card = analysis.compute(experiment=experiment)
         self.assertEqual(card.get_status(), HealthcheckStatus.WARNING)
@@ -132,10 +139,12 @@ class TestTransferLearningAnalysis(TestCase):
     def test_percentage_calculation(self, mock_identify: object) -> None:
         experiment = _make_experiment(["x1", "x2", "x3"], experiment_type="my_type")
         mock_identify.return_value = {  # pyre-ignore[16]
+            # pyrefly: ignore [bad-instantiation]
             "exp_a": TransferLearningMetadata(
                 overlap_parameters=["x1"],
             ),
         }
+        # pyrefly: ignore [bad-instantiation]
         analysis = TransferLearningAnalysis()
         card = analysis.compute(experiment=experiment)
         self.assertEqual(card.df.iloc[0]["Overlap (%)"], 33.3)
@@ -145,18 +154,22 @@ class TestTransferLearningAnalysis(TestCase):
         experiment = _make_experiment(
             ["alpha", "beta", "gamma", "delta"], experiment_type="my_type"
         )
+        # pyrefly: ignore [bad-instantiation]
         mock_identify.return_value = {  # pyre-ignore[16]
             "exp_a": TransferLearningMetadata(
                 overlap_parameters=["gamma", "alpha", "delta"],
             ),
         }
+        # pyrefly: ignore [bad-instantiation]
         analysis = TransferLearningAnalysis()
         card = analysis.compute(experiment=experiment)
         self.assertEqual(card.df.iloc[0]["Parameters"], "alpha, delta, gamma")
 
     def test_requires_experiment(self) -> None:
+        # pyrefly: ignore [bad-instantiation]
         analysis = TransferLearningAnalysis()
         with self.assertRaises(UserInputError):
+            # pyrefly: ignore [bad-instantiation]
             analysis.compute(experiment=None)
 
     @patch(_MOCK_TARGET, return_value={})
@@ -164,6 +177,7 @@ class TestTransferLearningAnalysis(TestCase):
         """Verify that experiment.name is forwarded to
         identify_transferable_experiments so it can filter the target out."""
         experiment = _make_experiment(["x1", "x2", "x3"], experiment_type="my_type")
+        # pyrefly: ignore [bad-instantiation]
         analysis = TransferLearningAnalysis()
         analysis.compute(experiment=experiment)
         mock_identify.assert_called_once()  # pyre-ignore[16]
@@ -176,6 +190,7 @@ class TestTransferLearningAnalysis(TestCase):
     ) -> None:
         """When create_diff_paste_callable is provided, a 'Comparison' column
         should be added alongside the existing 'Parameters' column."""
+        # pyrefly: ignore [bad-instantiation]
         experiment = _make_experiment(
             ["x1", "x2", "x3", "x4"], experiment_type="my_type"
         )
@@ -184,6 +199,7 @@ class TestTransferLearningAnalysis(TestCase):
                 overlap_parameters=["x1", "x2", "x3"],
             ),
         }
+        # pyrefly: ignore [bad-instantiation]
         analysis = TransferLearningAnalysis(
             create_diff_paste_callable=_dummy_create_diff_paste,
         )
@@ -204,6 +220,7 @@ class TestTransferLearningAnalysis(TestCase):
         )
         mock_identify.return_value = {  # pyre-ignore[16]
             "source_exp": TransferLearningMetadata(
+                # pyrefly: ignore [bad-instantiation]
                 overlap_parameters=["gamma", "alpha"],
             ),
         }
@@ -213,6 +230,7 @@ class TestTransferLearningAnalysis(TestCase):
             captured_args.append((before, after, title))
             return "https://example.com/diff"
 
+        # pyrefly: ignore [bad-instantiation]
         analysis = TransferLearningAnalysis(
             create_diff_paste_callable=_capture_callable,
         )
@@ -233,6 +251,7 @@ class TestTransferLearningAnalysis(TestCase):
         self.assertIn("source_exp", title)
         self.assertIn("test_experiment", title)
 
+    # pyrefly: ignore [bad-instantiation]
     @patch(_MOCK_TARGET)
     def test_no_callable_has_no_comparison_column(self, mock_identify: object) -> None:
         """Without callable, the 'Parameters' column should be present
@@ -243,6 +262,7 @@ class TestTransferLearningAnalysis(TestCase):
                 overlap_parameters=["x1", "x2"],
             ),
         }
+        # pyrefly: ignore [bad-instantiation]
         analysis = TransferLearningAnalysis()
         card = analysis.compute(experiment=experiment)
         self.assertIn("Parameters", card.df.columns)

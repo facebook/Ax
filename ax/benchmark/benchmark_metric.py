@@ -125,6 +125,7 @@ class BenchmarkMetricBase(Metric):
         """
         super().__init__(name=name, lower_is_better=lower_is_better)
         # Declare `lower_is_better` as bool (rather than optional as in the base class)
+        # pyrefly: ignore [bad-override-mutable-attribute]
         self.lower_is_better: bool = lower_is_better
         self.observe_noise_sd: bool = observe_noise_sd
 

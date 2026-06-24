@@ -252,7 +252,9 @@ def _get_in_sample_arms(
                         cov_dict=obs.data.covariance_matrix,
                         agg_metric_weight_dict=agg_metric["weight"],
                     )
+                    # pyrefly: ignore [unsupported-operation]
                     obs_y[agg_metric_name] = agg_mean
+                    # pyrefly: ignore [unsupported-operation]
                     obs_se[agg_metric_name] = np.sqrt(agg_var)
         if training_in_design[i]:
             # Update with the input fixed features
@@ -281,6 +283,7 @@ def _get_in_sample_arms(
             se_hat=pred_se,
             context_stratum=None,
         )
+    # pyrefly: ignore [bad-return]
     return in_sample_plot, raw_data, arm_name_to_parameters
 
 
@@ -596,6 +599,7 @@ def contour_config_to_trace(config) -> list[dict[str, Any]]:
             "ticksuffix": "%" if rel else "",
             "tickfont": {"size": 8},
         },
+        # pyrefly: ignore [bad-argument-type]
         "colorscale": [(i / (len(f_scale) - 1), rgb(v)) for i, v in enumerate(f_scale)],
         "xaxis": "x",
         "yaxis": "y",
@@ -622,6 +626,7 @@ def contour_config_to_trace(config) -> list[dict[str, Any]]:
     }
 
     f_trace.update(CONTOUR_CONFIG)
+    # pyrefly: ignore [no-matching-overload]
     sd_trace.update(CONTOUR_CONFIG)
 
     # get in-sample arms

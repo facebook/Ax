@@ -249,6 +249,7 @@ def best_trial_vulnerable(
         # Check if best trial should be stopped (against reference trials)
         stop_selector = _check_patience_window(
             wide_df=wide_df,
+            # pyrefly: ignore [bad-argument-type]
             trial_indices={best_trial_index},
             progression=progression,
             patience=patience,
@@ -262,6 +263,7 @@ def best_trial_vulnerable(
         if stop_best:
             return EarlyStoppingSimulationResult(
                 best_stopped=True,
+                # pyrefly: ignore [bad-argument-type]
                 best_trial_index=best_trial_index,
                 best_stop_progression=progression,
             )
@@ -283,5 +285,6 @@ def best_trial_vulnerable(
 
     return EarlyStoppingSimulationResult(
         best_stopped=False,
+        # pyrefly: ignore [bad-argument-type]
         best_trial_index=best_trial_index,
     )

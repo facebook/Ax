@@ -34,6 +34,7 @@ class DoubleParameterTransform(Transform):
     ) -> list[ObservationFeatures]:
         for obs_feat in observation_features:
             for param_name, param_value in obs_feat.parameters.items():
+                # pyrefly: ignore [bad-argument-type]
                 obs_feat.parameters[param_name] = float(param_value) * 2
         return observation_features
 
@@ -45,9 +46,13 @@ class TransformsTest(TestCase):
         x = MagicMock()
         ys = []
         ys.append(t.transform_search_space(x))
+        # pyrefly: ignore [bad-argument-type]
         ys.append(t.transform_observation_features(x))
+        # pyrefly: ignore [bad-argument-type]
         ys.append(t._transform_observation_data(x))
+        # pyrefly: ignore [bad-argument-type]
         ys.append(t.untransform_observation_features(x))
+        # pyrefly: ignore [bad-argument-type]
         ys.append(t._untransform_observation_data(x))
         self.assertEqual(len(x.mock_calls), 0)
         for y in ys:
