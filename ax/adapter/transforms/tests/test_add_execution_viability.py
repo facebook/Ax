@@ -56,9 +56,11 @@ class TestAddExecutionViability(TestCase):
             config={"feasibility_threshold": 0.8},
         )
         original_constraints_count = len(
+            # pyrefly: ignore [missing-attribute]
             self.experiment.optimization_config.outcome_constraints
         )
         new_opt_config = t.transform_optimization_config(
+            # pyrefly: ignore [bad-argument-type]
             self.experiment.optimization_config,
         )
         self.assertEqual(
@@ -81,6 +83,7 @@ class TestAddExecutionViability(TestCase):
             config={},
         )
         new_opt_config = t.transform_optimization_config(
+            # pyrefly: ignore [bad-argument-type]
             self.experiment.optimization_config,
         )
         feasibility_constraint = new_opt_config.outcome_constraints[-1]

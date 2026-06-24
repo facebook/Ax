@@ -64,6 +64,7 @@ def _observations_from_dataframe(
     # a feature column is filled with NaN / NaT values.
     for g, d in df.groupby(by=cols, dropna=False):
         obs_kwargs = {}
+        # pyrefly: ignore [bad-argument-type]
         features = dict(zip(cols, g, strict=True))
         arm_name = features["arm_name"]
         trial_index = features.get("trial_index", None)
@@ -93,9 +94,11 @@ def _observations_from_dataframe(
 
         obs_parameters = experiment.arms_by_name[arm_name].parameters.copy()
         if obs_parameters:
+            # pyrefly: ignore [unsupported-operation]
             obs_kwargs["parameters"] = obs_parameters
         for f, val in features.items():
             if f in OBS_KWARGS and not pd.isna(val):
+                # pyrefly: ignore [unsupported-operation]
                 obs_kwargs[f] = val
         # add start and end time of trial if the start and end time
         # is the same for all metrics and arms
@@ -103,6 +106,7 @@ def _observations_from_dataframe(
             if col in d.columns:
                 times = d[col]
                 if times.nunique() == 1 and not times.isnull().any():
+                    # pyrefly: ignore [unsupported-operation]
                     obs_kwargs[col] = times.iloc[0]
 
         if is_map_data:
@@ -119,6 +123,7 @@ def _observations_from_dataframe(
             continue
         observations.append(
             Observation(
+                # pyrefly: ignore [bad-argument-type]
                 features=ObservationFeatures(**obs_kwargs),
                 data=ObservationData(
                     metric_signatures=d["metric_signature"].tolist(),
@@ -179,6 +184,7 @@ def _filter_data_on_status(
                 f"metric {metric_signature}."
             )
             continue
+        # pyrefly: ignore [bad-index]
         metric = experiment.metrics[metric_signature_to_name[metric_signature]]
         statuses_to_include_metric = (
             statuses_to_include_map_metric

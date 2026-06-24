@@ -95,13 +95,17 @@ class TrialTest(TestCase):
         self.assertEqual(self.trial.arms[0].signature, self.arm.signature)
         self.assertEqual(self.trial.abandoned_arms, [])
         self.assertEqual(
-            self.trial.generator_run.generator_run_type, GeneratorRunType.MANUAL.name
+            # pyrefly: ignore [missing-attribute]
+            self.trial.generator_run.generator_run_type,
+            GeneratorRunType.MANUAL.name,
         )
         self.assertEqual(self.trial.generation_method_str, MANUAL_GENERATION_METHOD_STR)
 
         # Test empty arms
+        # pyrefly: ignore [missing-attribute]
         t = self.experiment.new_trial()
         with self.assertRaises(AttributeError):
+            # pyrefly: ignore [missing-attribute]
             t.arm_weights
         self.assertEqual(t.generation_method_str, UNKNOWN_GENERATION_METHOD_STR)
 
@@ -142,15 +146,19 @@ class TrialTest(TestCase):
 
     def test_add_trial_same_arm(self) -> None:
         # Check that adding new arm w/out name works correctly.
+        # pyrefly: ignore [missing-attribute]
         new_trial1 = self.experiment.new_trial(
             generator_run=GeneratorRun(arms=[self.arm.clone(clear_name=True)])
         )
+        # pyrefly: ignore [missing-attribute]
         self.assertEqual(new_trial1.arm.name, self.trial.arm.name)
         self.assertFalse(new_trial1.arm is self.trial.arm)
+        # pyrefly: ignore [missing-attribute]
         # Check that adding new arm with name works correctly.
         new_trial2 = self.experiment.new_trial(
             generator_run=GeneratorRun(arms=[self.arm.clone()])
         )
+        # pyrefly: ignore [missing-attribute]
         self.assertEqual(new_trial2.arm.name, self.trial.arm.name)
         self.assertFalse(new_trial2.arm is self.trial.arm)
         arm_wrong_name = self.arm.clone(clear_name=True)
@@ -242,13 +250,17 @@ class TrialTest(TestCase):
             else:
                 status_transition_sequence = (TrialStatus.RUNNING, terminal_status)
 
+            # pyrefly: ignore [unsupported-operation]
             for status in status_transition_sequence:
                 kwargs = {}
+                # pyrefly: ignore [unsupported-operation]
                 if status == TrialStatus.RUNNING:
                     kwargs["no_runner_required"] = True
                 if status == TrialStatus.ABANDONED:
+                    # pyrefly: ignore [unsupported-operation]
                     kwargs["reason"] = "test_reason_abandon"
                 if status == TrialStatus.FAILED:
+                    # pyrefly: ignore [unsupported-operation]
                     kwargs["reason"] = "test_reason_failed"
 
                 # Trial must have data before it can be marked EARLY_STOPPED
@@ -297,6 +309,7 @@ class TrialTest(TestCase):
         # test bad new status
         self.trial.mark_running(no_runner_required=True)
         with self.assertRaisesRegex(ValueError, "New status of a stopped trial must"):
+            # pyrefly: ignore [bad-override]
             self.trial.stop(new_status=TrialStatus.CANDIDATE)
 
         # dummy runner for testing stopping functionality
@@ -304,6 +317,7 @@ class TrialTest(TestCase):
             def run(self, trial):
                 pass
 
+            # pyrefly: ignore [bad-override]
             def stop(self, trial, reason):
                 return {"reason": reason} if reason else {}
 
@@ -369,6 +383,7 @@ class TrialTest(TestCase):
     def test_update_stop_metadata(self) -> None:
         self.assertEqual(len(self.trial.stop_metadata), 1)
         old_stop_metadata = deepcopy(self.trial.stop_metadata)
+        # pyrefly: ignore [missing-attribute]
         self.trial.update_stop_metadata({"something": "new"})
         self.assertEqual(
             self.trial.stop_metadata, {**old_stop_metadata, "something": "new"}
@@ -377,6 +392,7 @@ class TrialTest(TestCase):
     def test_update_trial_data(self) -> None:
         # Verify components before we attach trial data
         self.assertEqual(1, len(self.trial.arms))
+        # pyrefly: ignore [missing-attribute]
         arm_name = self.trial.arm.name
 
         self.assertEqual(

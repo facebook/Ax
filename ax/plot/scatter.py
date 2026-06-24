@@ -95,6 +95,7 @@ def _error_scatter_data(
             )
             x = x_rel.tolist()
             x_se = x_se_rel.tolist()
+    # pyrefly: ignore [bad-return]
     return x, x_se, y, y_se
 
 
@@ -243,15 +244,19 @@ def _error_scatter_trace(
         )
         i += 1
 
+    # pyrefly: ignore [bad-argument-type]
     if color_metric or color_parameter:
+        # pyrefly: ignore [bad-argument-type]
         rgba_blue_scale = [rgba(c) for c in BLUE_SCALE]
         marker = {
             "color": colors,
             "colorscale": rgba_blue_scale,
             "colorbar": {"title": color_metric or color_parameter},
             "showscale": True,
+            # pyrefly: ignore [bad-argument-type]
         }
     else:
+        # pyrefly: ignore [bad-argument-type]
         marker = {"color": rgba(color)}
 
     trace = go.Scatter(
@@ -267,17 +272,21 @@ def _error_scatter_trace(
     if show_CI:
         if x_se is not None:
             trace.update(
+                # pyrefly: ignore [bad-argument-type]
                 error_x={
                     "type": "data",
                     "array": np.multiply(x_se, Z),
+                    # pyrefly: ignore [bad-argument-type]
                     "color": rgba(color, CI_OPACITY),
                 }
             )
         if y_se is not None:
+            # pyrefly: ignore [bad-argument-type]
             trace.update(
                 error_y={
                     "type": "data",
                     "array": np.multiply(y_se, Z),
+                    # pyrefly: ignore [bad-argument-type]
                     "color": rgba(color, CI_OPACITY),
                 }
             )

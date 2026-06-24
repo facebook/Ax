@@ -65,9 +65,11 @@ class MergeRepeatedMeasurements(Transform):
                     raise NotImplementedError(
                         "All metrics must have noise observations."
                     )
+                # pyrefly: ignore [bad-index]
                 arm_to_multi_obs[arm_name][m]["means"].extend(
                     df_m[("mean", m)].tolist()
                 )
+                # pyrefly: ignore [bad-index]
                 arm_to_multi_obs[arm_name][m]["vars"].extend(
                     (df_m[("sem", m)] ** 2).tolist()
                 )

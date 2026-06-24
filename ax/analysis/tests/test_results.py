@@ -404,6 +404,7 @@ class TestResultsAnalysis(TestCase):
                     "arm_name": arm.name,
                     "metric_name": "foo",
                     "metric_signature": "foo",
+                    # pyrefly: ignore [bad-argument-type]
                     "mean": float(arm.parameters["x1"]),
                     "sem": 0.1,
                 }
@@ -633,6 +634,7 @@ class TestArmEffectsPair(TestCase):
         )
 
         with self.subTest("valid_experiment"):
+            # pyrefly: ignore [bad-instantiation]
             analysis = ArmEffectsPair(metric_names=["branin"])
             card_group = analysis.compute(
                 experiment=experiment,
@@ -651,6 +653,7 @@ class TestArmEffectsPair(TestCase):
                 )
 
         with self.subTest("requires_experiment"):
+            # pyrefly: ignore [bad-instantiation]
             analysis = ArmEffectsPair(metric_names=["test_metric"])
             with self.assertRaisesRegex(UserInputError, "requires an Experiment"):
                 analysis.compute()
@@ -684,6 +687,7 @@ class TestArmEffectsPair(TestCase):
         )
 
         with self.subTest("relativization"):
+            # pyrefly: ignore [bad-instantiation]
             analysis = ArmEffectsPair(metric_names=["branin"], relativize=True)
             card_group = analysis.compute(
                 experiment=experiment,
@@ -703,6 +707,7 @@ class TestArmEffectsPair(TestCase):
             experiment.attach_data(data2)
             trial2.mark_completed()
 
+            # pyrefly: ignore [bad-instantiation]
             analysis = ArmEffectsPair(metric_names=["branin"], trial_index=0)
             card_group = analysis.compute(
                 experiment=experiment,

@@ -52,6 +52,7 @@ def check_experiment_effects_per_metric(
 
     df_tone = pd.DataFrame(columns=cols)
 
+    # pyrefly: ignore [not-iterable]
     for metric_name, trial_index in df_grouped.groups.keys():
         dfm = df_grouped.get_group((metric_name, trial_index))
 
@@ -150,6 +151,7 @@ def check_experiment_effects(
     effective = np.min(ps) < no_effect_alpha
     bounds_df = pd.DataFrame(fx_bounds, columns=["metric_name", "min", "max", "p"])
     bounds_df.sort_values(by="p", inplace=True)
+    # pyrefly: ignore [bad-return]
     return effective, ineffective_on_objectives, bounds_df
 
 

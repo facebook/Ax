@@ -294,6 +294,7 @@ class AuxiliarySourceTest(unittest.TestCase):
                     arm_name="ood",
                 )
             )
+            # pyrefly: ignore [bad-argument-type]
             rval = float(observations[0].features.parameters["rp1"])
             self.assertEqual(
                 set(observations[0].features.parameters.keys()),

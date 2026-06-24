@@ -179,6 +179,7 @@ class AggregatedBenchmarkResult(Base):
         trace_stats = {}
         for name in ("optimization_trace", "score_trace"):
             step_data = zip(*(getattr(res, name) for res in results))
+            # pyrefly: ignore [bad-argument-type]
             stats = _get_stats(step_data=step_data, percentiles=PERCENTILES)
             trace_stats[name] = stats
 
@@ -218,5 +219,6 @@ def _get_stats(
         stats["mean"].append(nanmean(step_vals))
         stats["sem"].append(sem(step_vals, ddof=1, nan_policy="propagate"))
         quantiles.append(nanquantile(step_vals, q=percentiles))
+    # pyrefly: ignore [no-matching-overload]
     stats.update({f"P{100 * p:.0f}": q for p, q in zip(percentiles, zip(*quantiles))})
     return stats

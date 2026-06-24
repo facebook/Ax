@@ -357,4 +357,5 @@ def _compute_inverse_bounds(
         elif lambda_ > 2.0 + tol:
             bounds[0] = (1.0 / (2.0 - lambda_) - mu) / sigma
         inv_bounds[k] = tuple(assert_is_instance_list(bounds, float))
+    # pyrefly: ignore [bad-return]
     return inv_bounds

@@ -212,6 +212,7 @@ def use_model_list(
         # e.g. a contextual model, where we want to jointly model the metric
         # each context (and context-level metrics are different outcomes).
         return False
+    # pyrefly: ignore [bad-argument-type]
     elif issubclass(botorch_model_class, BatchedMultiOutputGPyTorchModel) and all(
         torch.equal(datasets[0].X, ds.X) for ds in datasets[1:]
     ):

@@ -107,7 +107,9 @@ class ObservationsTest(TestCase):
         new_obsf = ObservationFeatures(
             parameters=new_parameters,
             trial_index=4,
+            # pyrefly: ignore [bad-argument-type]
             start_time=pd.Timestamp("2005-02-25"),
+            # pyrefly: ignore [bad-argument-type]
             end_time=pd.Timestamp("2005-02-26"),
         )
         obsf.update_features(new_obsf)

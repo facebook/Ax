@@ -152,6 +152,7 @@ class RandomGenerator(Generator):
         has_continuous_parameters = len(continuous_indices) > 0
         if model_gen_options:
             max_draws = model_gen_options.get("max_rs_draws", DEFAULT_MAX_RS_DRAWS)
+            # pyrefly: ignore [bad-argument-type]
             max_draws = int(assert_is_instance_of_tuple(max_draws, (int, float)))
         try:
             # With equality constraints, unconstrained sampling has probability

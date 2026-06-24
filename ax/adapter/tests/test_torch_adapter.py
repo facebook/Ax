@@ -452,7 +452,10 @@ class TorchAdapterTest(TestCase):
         # UnitX removes 1 and divides by 5. Reversing here.
         self.assertEqual(arm.parameters.keys(), {"x"})
         self.assertAlmostEqual(
-            float(arm.parameters["x"]), (best_point_value * 5.0) + 1.0, places=5
+            # pyrefly: ignore [bad-argument-type]
+            float(arm.parameters["x"]),
+            (best_point_value * 5.0) + 1.0,
+            places=5,
         )
         # 1.0 in transformed space is 6.0 in original space.
         self.assertEqual(run.arms[0].parameters, {"x": 6.0})
@@ -524,15 +527,19 @@ class TorchAdapterTest(TestCase):
             [list(arm.parameters.values()) for arm in exp.trials[0].arms],
             dtype=torch.double,
         )
+        # pyrefly: ignore [not-iterable]
         for dataset in datasets:
             self.assertTrue(torch.equal(dataset.X, X_expected))
 
         candidate_metadata = mock_generator_fit.call_args.kwargs.get(
             "candidate_metadata"
         )
+        # pyrefly: ignore [bad-argument-type]
         self.assertEqual(len(candidate_metadata), 1)
+        # pyrefly: ignore [unsupported-operation]
         self.assertEqual(len(candidate_metadata[0]), len(exp.trials[0].arms))
         self.assertEqual(
+            # pyrefly: ignore [unsupported-operation]
             candidate_metadata[0][0],
             {
                 "preexisting_batch_cand_metadata": "some_value",

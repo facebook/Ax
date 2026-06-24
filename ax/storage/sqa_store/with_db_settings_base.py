@@ -99,7 +99,10 @@ class WithDBSettingsBase:
         self._suppress_all_errors = suppress_all_errors
         if self.db_settings_set:
             init_engine_and_session_factory(
-                creator=self.db_settings.creator, url=self.db_settings.url
+                # pyrefly: ignore [missing-attribute]
+                creator=self.db_settings.creator,
+                # pyrefly: ignore [missing-attribute]
+                url=self.db_settings.url,
             )
         logger.setLevel(logging_level)
 
@@ -133,12 +136,18 @@ class WithDBSettingsBase:
             return None, None
 
         exp_id = _get_experiment_id(
-            experiment_name=experiment_name, config=self.db_settings.decoder.config
+            # pyrefly: ignore [missing-attribute]
+            experiment_name=experiment_name,
+            # pyrefly: ignore [missing-attribute]
+            config=self.db_settings.decoder.config,
         )
         if not exp_id:
             return None, None
         gs_id = get_generation_strategy_id(
-            experiment_name=experiment_name, decoder=self.db_settings.decoder
+            # pyrefly: ignore [missing-attribute]
+            experiment_name=experiment_name,
+            # pyrefly: ignore [missing-attribute]
+            decoder=self.db_settings.decoder,
         )
         return exp_id, gs_id
 
@@ -236,6 +245,7 @@ class WithDBSettingsBase:
         start_time = time.time()
         experiment = _load_experiment(
             experiment_name,
+            # pyrefly: ignore [missing-attribute]
             decoder=self.db_settings.decoder,
             reduced_state=reduced_state,
             load_trials_in_batches_of_size=LOADING_MINI_BATCH_SIZE,
@@ -251,6 +261,7 @@ class WithDBSettingsBase:
         )
         generation_strategy = try_load_generation_strategy(
             experiment_name=experiment_name,
+            # pyrefly: ignore [missing-attribute]
             decoder=self.db_settings.decoder,
             experiment=experiment,
             reduced_state=reduced_state,
@@ -271,7 +282,9 @@ class WithDBSettingsBase:
         if self.db_settings_set:
             _save_experiment_to_db_if_possible(
                 experiment=experiment,
+                # pyrefly: ignore [missing-attribute]
                 encoder=self.db_settings.encoder,
+                # pyrefly: ignore [missing-attribute]
                 decoder=self.db_settings.decoder,
                 suppress_all_errors=self._suppress_all_errors,
             )
@@ -314,6 +327,7 @@ class WithDBSettingsBase:
         if experiment.status is not None and self.db_settings_set:
             update_experiment_status(
                 experiment=experiment,
+                # pyrefly: ignore [missing-attribute]
                 config=self.db_settings.encoder.config,
             )
         return
@@ -359,7 +373,9 @@ class WithDBSettingsBase:
             _save_or_update_trials_in_db_if_possible(
                 experiment=experiment,
                 trials=trials,
+                # pyrefly: ignore [missing-attribute]
                 encoder=self.db_settings.encoder,
+                # pyrefly: ignore [missing-attribute]
                 decoder=self.db_settings.decoder,
                 suppress_all_errors=self._suppress_all_errors,
                 reduce_state_generator_runs=reduce_state_generator_runs,
@@ -387,7 +403,9 @@ class WithDBSettingsBase:
             # the database because only they make changes locally
             _save_generation_strategy_to_db_if_possible(
                 generation_strategy=generation_strategy,
+                # pyrefly: ignore [missing-attribute]
                 encoder=self.db_settings.encoder,
+                # pyrefly: ignore [missing-attribute]
                 decoder=self.db_settings.decoder,
                 suppress_all_errors=self._suppress_all_errors,
             )
@@ -421,7 +439,9 @@ class WithDBSettingsBase:
             _update_generation_strategy_in_db_if_possible(
                 generation_strategy=generation_strategy,
                 new_generator_runs=new_generator_runs,
+                # pyrefly: ignore [missing-attribute]
                 encoder=self.db_settings.encoder,
+                # pyrefly: ignore [missing-attribute]
                 decoder=self.db_settings.decoder,
                 suppress_all_errors=self._suppress_all_errors,
                 reduce_state_generator_runs=reduce_state_generator_runs,
@@ -436,7 +456,9 @@ class WithDBSettingsBase:
             _update_runner_on_experiment_in_db_if_possible(
                 experiment=experiment,
                 runner=runner,
+                # pyrefly: ignore [missing-attribute]
                 encoder=self.db_settings.encoder,
+                # pyrefly: ignore [missing-attribute]
                 decoder=self.db_settings.decoder,
                 suppress_all_errors=self._suppress_all_errors,
             )
@@ -452,6 +474,7 @@ class WithDBSettingsBase:
         if self.db_settings_set:
             _update_experiment_properties_in_db(
                 experiment_with_updated_properties=exp,
+                # pyrefly: ignore [missing-attribute]
                 sqa_config=self.db_settings.encoder.config,
                 suppress_all_errors=self._suppress_all_errors,
             )
@@ -467,6 +490,7 @@ class WithDBSettingsBase:
             _save_analysis_card_to_db(
                 experiment=experiment,
                 analysis_card=analysis_card,
+                # pyrefly: ignore [missing-attribute]
                 sqa_config=self.db_settings.encoder.config,
                 suppress_all_errors=self._suppress_all_errors,
             )
@@ -478,6 +502,7 @@ class WithDBSettingsBase:
 # ------------- Utils for storage that assume `DBSettings` are provided --------
 
 
+# pyrefly: ignore [not-callable]
 @retry_on_exception(
     retries=3,
     default_return_on_suppression=False,
@@ -493,7 +518,9 @@ def _save_experiment_to_db_if_possible(
     start_time = time.time()
     _save_experiment(
         experiment,
+        # pyrefly: ignore [bad-argument-type]
         encoder=encoder,
+        # pyrefly: ignore [bad-argument-type]
         decoder=decoder,
     )
     logger.debug(
@@ -502,6 +529,7 @@ def _save_experiment_to_db_if_possible(
     )
 
 
+# pyrefly: ignore [not-callable]
 @retry_on_exception(
     retries=3,
     default_return_on_suppression=False,
@@ -520,7 +548,9 @@ def _save_or_update_trials_in_db_if_possible(
     _save_or_update_trials(
         experiment=experiment,
         trials=trials,
+        # pyrefly: ignore [bad-argument-type]
         encoder=encoder,
+        # pyrefly: ignore [bad-argument-type]
         decoder=decoder,
         batch_size=STORAGE_MINI_BATCH_SIZE,
         reduce_state_generator_runs=reduce_state_generator_runs,
@@ -532,6 +562,7 @@ def _save_or_update_trials_in_db_if_possible(
     )
 
 
+# pyrefly: ignore [not-callable]
 @retry_on_exception(
     retries=3,
     default_return_on_suppression=False,
@@ -547,7 +578,9 @@ def _save_generation_strategy_to_db_if_possible(
     start_time = time.time()
     _save_generation_strategy(
         generation_strategy=generation_strategy,
+        # pyrefly: ignore [bad-argument-type]
         encoder=encoder,
+        # pyrefly: ignore [bad-argument-type]
         decoder=decoder,
     )
     logger.debug(
@@ -556,6 +589,7 @@ def _save_generation_strategy_to_db_if_possible(
     )
 
 
+# pyrefly: ignore [not-callable]
 @retry_on_exception(
     retries=3,
     default_return_on_suppression=False,
@@ -574,7 +608,9 @@ def _update_generation_strategy_in_db_if_possible(
     _update_generation_strategy(
         generation_strategy=generation_strategy,
         generator_runs=new_generator_runs,
+        # pyrefly: ignore [bad-argument-type]
         encoder=encoder,
+        # pyrefly: ignore [bad-argument-type]
         decoder=decoder,
         batch_size=STORAGE_MINI_BATCH_SIZE,
         reduce_state_generator_runs=reduce_state_generator_runs,
@@ -586,6 +622,7 @@ def _update_generation_strategy_in_db_if_possible(
     )
 
 
+# pyrefly: ignore [not-callable]
 @retry_on_exception(
     retries=3,
     default_return_on_suppression=False,
@@ -600,10 +637,17 @@ def _update_runner_on_experiment_in_db_if_possible(
     suppress_all_errors: bool,  # Used by the decorator.
 ) -> None:
     update_runner_on_experiment(
-        experiment=experiment, runner=runner, encoder=encoder, decoder=decoder
+        # pyrefly: ignore [bad-argument-type]
+        experiment=experiment,
+        runner=runner,
+        # pyrefly: ignore [bad-argument-type]
+        encoder=encoder,
+        # pyrefly: ignore [bad-argument-type]
+        decoder=decoder,
     )
 
 
+# pyrefly: ignore [not-callable]
 @retry_on_exception(
     retries=3,
     default_return_on_suppression=False,
@@ -621,6 +665,7 @@ def _update_experiment_properties_in_db(
     )
 
 
+# pyrefly: ignore [not-callable]
 @retry_on_exception(
     retries=3,
     default_return_on_suppression=False,
@@ -651,6 +696,7 @@ def try_load_generation_strategy(
         start_time = time.time()
         generation_strategy = _load_generation_strategy_by_experiment_name(
             experiment_name=experiment_name,
+            # pyrefly: ignore [bad-argument-type]
             decoder=decoder,
             experiment=experiment,
             reduced_state=reduced_state,

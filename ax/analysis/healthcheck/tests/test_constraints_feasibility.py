@@ -54,6 +54,7 @@ class TestConstraintsFeasibilityAnalysis(TestCase):
             {
                 "arm_name": ["status_quo", "0_0", "0_1", "0_2", "0_3", "0_4"],
                 "metric_name": ["branin_a"] * 6,
+                # pyrefly: ignore [bad-argument-type]
                 "mean": list(np.random.normal(0, 1, 6)),
                 "sem": [0.1] * 6,
                 "trial_index": [0] * 6,
@@ -64,6 +65,7 @@ class TestConstraintsFeasibilityAnalysis(TestCase):
             {
                 "arm_name": ["status_quo", "0_0", "0_1", "0_2", "0_3", "0_4"],
                 "metric_name": ["branin_b"] * 6,
+                # pyrefly: ignore [bad-argument-type]
                 "mean": list(np.random.normal(0, 1, 6)),
                 "sem": [0.1] * 6,
                 "trial_index": [0] * 6,

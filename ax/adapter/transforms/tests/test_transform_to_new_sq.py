@@ -237,8 +237,10 @@ class TransformToNewSQSpecificTest(TestCase):
         assert_frame_equal(target_trial_data, transformed_target_trial_data)
 
         # Check that the data for trials 0 and 1 are transformed correctly.
+        # pyrefly: ignore [unsupported-operation]
         sq_data_target = self.adapter.status_quo_data_by_trial[2]
         for t_idx in (0, 1):
+            # pyrefly: ignore [unsupported-operation]
             sq_data = self.adapter.status_quo_data_by_trial[t_idx]
             # Get the data for the non-sq arms.
             trial_data = experiment_data.observation_data.loc[t_idx]
@@ -315,7 +317,9 @@ class TransformToNewSQSpecificTest(TestCase):
         assert_frame_equal(orig_trial_1, transformed_trial_1)
 
         # Trial 0's data should still be transformed (it has SQ data).
+        # pyrefly: ignore [unsupported-operation]
         sq_data_0 = self.adapter.status_quo_data_by_trial[0]
+        # pyrefly: ignore [unsupported-operation]
         sq_data_target = self.adapter.status_quo_data_by_trial[2]
         orig_trial_0 = experiment_data.observation_data.loc[0]
         orig_trial_0_non_sq = orig_trial_0[
@@ -397,7 +401,9 @@ class TransformToNewSQSpecificTest(TestCase):
         self.assertIn("status_quo", arms)
 
         # Trial 0 should still be transformed normally.
+        # pyrefly: ignore [unsupported-operation]
         sq_data_0 = self.adapter.status_quo_data_by_trial[0]
+        # pyrefly: ignore [unsupported-operation]
         sq_data_target = self.adapter.status_quo_data_by_trial[2]
         orig_trial_0 = experiment_data.observation_data.loc[0]
         orig_trial_0_non_sq = orig_trial_0[

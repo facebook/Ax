@@ -12,6 +12,7 @@ from graphviz import Digraph, Source
 
 class GraphvizAnalysisCard(AnalysisCard):
     def get_digraph(self) -> Digraph:
+        # pyrefly: ignore [bad-return]
         return Source(self.blob)
 
     def _body_html(self, depth: int) -> str:

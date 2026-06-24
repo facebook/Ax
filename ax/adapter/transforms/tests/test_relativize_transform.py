@@ -289,6 +289,7 @@ class RelativizeDataTest(TestCase):
 
         for abstract_cls in [BaseRelativize, BadRelativize]:
             with self.assertRaisesRegex(TypeError, "Can't instantiate abstract class"):
+                # pyrefly: ignore [bad-instantiation]
                 abstract_cls(search_space=None, adapter=None)
 
     def test_transform_status_quos_always_zero(self) -> None:

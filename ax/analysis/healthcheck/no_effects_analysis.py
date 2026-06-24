@@ -23,6 +23,7 @@ from pyre_extensions import override
 
 
 @final
+# pyrefly: ignore [bad-class-definition]
 class TestOfNoEffectAnalysis(Analysis):
     """
     Analysis for checking whether a randomization test can show that there are any

@@ -25,6 +25,7 @@ from pyre_extensions import none_throws, override
 
 
 @final
+# pyrefly: ignore [bad-class-definition]
 class RegressionAnalysis(Analysis):
     r"""
     Analysis for detecting the regressing arm, metric pairs across all trials with data.
@@ -46,7 +47,9 @@ class RegressionAnalysis(Analysis):
         """
         self.prob_threshold = prob_threshold
 
+    # pyrefly: ignore [bad-override]
     @override
+    # pyrefly: ignore [bad-override]
     def compute(
         self,
         experiment: Experiment | None,

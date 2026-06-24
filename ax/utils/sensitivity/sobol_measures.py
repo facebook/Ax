@@ -1022,6 +1022,7 @@ def _get_model_per_metric(
         if metric_model.num_outputs > 1:  # subset to relevant output
             metric_model = metric_model.subset_output([i])
         model_list.append(metric_model)
+    # pyrefly: ignore [bad-return]
     return model_list
 
 

@@ -137,6 +137,7 @@ class GenericNoisyFunctionMetric(NoisyFunctionMetric):
         Metric.__init__(self, name=name, lower_is_better=lower_is_better)
 
     @property
+    # pyrefly: ignore [bad-override]
     def param_names(self) -> list[str]:
         raise NotImplementedError(
             "GenericNoisyFunctionMetric does not implement a param_names attribute"

@@ -185,6 +185,7 @@ class GaussianNoise(Noise):
             sem = noise_std_ser
 
         noise = np.random.normal(loc=0, scale=sem)
+        # pyrefly: ignore [bad-return]
         return noise, sem.to_numpy()
 
 

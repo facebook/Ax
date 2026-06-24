@@ -28,6 +28,7 @@ class TestRetryDecorator(TestCase):
         """
 
         class DecoratorTester:
+            # pyrefly: ignore [not-callable]
             @retry_on_exception(
                 suppress_all_errors=True, default_return_on_suppression="SUCCESS"
             )
@@ -44,6 +45,7 @@ class TestRetryDecorator(TestCase):
         """
 
         class DecoratorTester:
+            # pyrefly: ignore [not-callable]
             @retry_on_exception(default_return_on_suppression="SUCCESS")
             def error_throwing_function(
                 self, suppress_all_errors=False, extra_kwarg="1234"
@@ -70,6 +72,7 @@ class TestRetryDecorator(TestCase):
         logger = getLogger("test_message_checking")
 
         class DecoratorTester:
+            # pyrefly: ignore [not-callable]
             @retry_on_exception(
                 default_return_on_suppression="SUCCESS",
                 check_message_contains=["Hello", "World"],
@@ -95,6 +98,7 @@ class TestRetryDecorator(TestCase):
         logger = getLogger("test_message_checking")
 
         class DecoratorTester:
+            # pyrefly: ignore [not-callable]
             @retry_on_exception(
                 default_return_on_suppression="SUCCESS",
                 exception_types=(),
@@ -117,6 +121,7 @@ class TestRetryDecorator(TestCase):
         """
 
         class DecoratorTester:
+            # pyrefly: ignore [not-callable]
             @retry_on_exception(
                 default_return_on_suppression="SUCCESS",
                 check_message_contains=["Hello", "World"],
@@ -140,6 +145,7 @@ class TestRetryDecorator(TestCase):
             def __init__(self) -> None:
                 self.retries_done = 0
 
+            # pyrefly: ignore [not-callable]
             @retry_on_exception(retries=4)
             def error_throwing_function(self) -> None:
                 # The call below will succeed only on the 3rd try
@@ -152,6 +158,7 @@ class TestRetryDecorator(TestCase):
                         "This error surfacing means enough retries were not done"
                     )
                 else:
+                    # pyrefly: ignore [bad-return]
                     return "SUCCESS"
 
         decorator_tester = DecoratorTester()
@@ -166,11 +173,13 @@ class TestRetryDecorator(TestCase):
             def __init__(self) -> None:
                 self.start_time = time.time()
 
+            # pyrefly: ignore [not-callable]
             @retry_on_exception(retries=4, initial_wait_seconds=1)
             def error_throwing_function(self) -> None:
                 # The call below will succeed only on the 3rd try
                 return self.succeed_after_five_seconds()
 
+            # pyrefly: ignore [not-callable]
             @retry_on_exception(retries=4)
             def no_wait_error_throwing_function(self) -> None:
                 # The call below will succeed only on the 3rd try
@@ -182,6 +191,7 @@ class TestRetryDecorator(TestCase):
                         "This error surfacing means enough retries were not done"
                     )
                 else:
+                    # pyrefly: ignore [bad-return]
                     return "SUCCESS"
 
         decorator_tester = DecoratorTester()
@@ -203,6 +213,7 @@ class TestRetryDecorator(TestCase):
             def __init__(self) -> None:
                 self.xyz = 0
 
+            # pyrefly: ignore [not-callable]
             @retry_on_exception(retries=2, logger=logger)
             def error_throwing_function(self) -> None:
                 # The call below will succeed only on the 3rd try
@@ -213,6 +224,7 @@ class TestRetryDecorator(TestCase):
                     self.xyz += 1
                     raise KeyError
                 else:
+                    # pyrefly: ignore [bad-return]
                     return "SUCCESS"
 
         decorator_tester = DecoratorTester()
@@ -226,6 +238,7 @@ class TestRetryDecorator(TestCase):
         class DecoratorTester:
             error_throwing_function_call_count = 0
 
+            # pyrefly: ignore [not-callable]
             @retry_on_exception(no_retry_on_exception_types=(MyRuntimeError,))
             def error_throwing_function(self) -> None:
                 self.error_throwing_function_call_count += 1
@@ -243,6 +256,7 @@ class TestRetryDecorator(TestCase):
         class DecoratorTester:
             error_throwing_function_call_count = 0
 
+            # pyrefly: ignore [not-callable]
             @retry_on_exception(
                 exception_types=(RuntimeError,),
                 no_retry_on_exception_types=(MyRuntimeError,),
@@ -264,6 +278,7 @@ class TestRetryDecorator(TestCase):
 
         mock: Mock = Mock()
 
+        # pyrefly: ignore [not-callable]
         @retry_on_exception(wrap_error_message_in="Wrapper error message")
         def error_throwing_function() -> None:
             mock()

@@ -37,6 +37,7 @@ class ContoursTest(TestCase):
             model,
             # pyre-fixme[16]: `Adapter` has no attribute `parameters`.
             model.parameters[0],
+            # pyrefly: ignore [missing-attribute]
             model.parameters[1],
             model_metric_names[0],
         )
@@ -45,7 +46,9 @@ class ContoursTest(TestCase):
         self.assertIsInstance(plot, go.Figure)
         plot = plot_contour(
             model,
+            # pyrefly: ignore [missing-attribute]
             model.parameters[0],
+            # pyrefly: ignore [missing-attribute]
             model.parameters[1],
             model_metric_names[0],
         )
@@ -80,6 +83,7 @@ class ContoursTest(TestCase):
                 parameters_to_use=["foo"],
             )
         for i in [2, 3]:
+            # pyrefly: ignore [missing-attribute]
             parameters_to_use = model.parameters[:i]
             plot = interact_contour_plotly(
                 model,

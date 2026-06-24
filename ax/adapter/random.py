@@ -68,6 +68,7 @@ class RandomAdapter(Adapter):
             fit_on_init=fit_on_init,
         )
         # Re-assign for more precise typing.
+        # pyrefly: ignore [bad-override-mutable-attribute]
         self.generator: RandomGenerator = generator
 
     def _fit(
@@ -78,6 +79,7 @@ class RandomAdapter(Adapter):
         """Extracts the list of parameters from the search space."""
         self.parameters = list(search_space.parameters.keys())
 
+    # pyrefly: ignore [bad-override-param-name]
     def _gen(
         self,
         n: int,

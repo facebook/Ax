@@ -374,13 +374,16 @@ class MultiObjectiveOptimizationConfigTest(TestCase):
         # construct constraints with objective_thresholds:
         config3 = MultiObjectiveOptimizationConfig(
             objective=self.multi_objective,
+            # pyrefly: ignore [bad-argument-type]
             objective_thresholds=self.objective_thresholds,
         )
         self.assertEqual(config3.all_constraints, self.objective_thresholds)
 
         # objective_thresholds and outcome constraints together.
         config4 = MultiObjectiveOptimizationConfig(
+            # pyrefly: ignore [bad-argument-type]
             objective=self.multi_objective,
+            # pyrefly: ignore [bad-argument-type]
             objective_thresholds=self.objective_thresholds,
             outcome_constraints=[self.m3_constraint],
         )
@@ -391,8 +394,10 @@ class MultiObjectiveOptimizationConfigTest(TestCase):
         self.assertEqual(config4.objective_thresholds, self.objective_thresholds)
 
         # verify relative_objective_thresholds works:
+        # pyrefly: ignore [bad-argument-type]
         config5 = MultiObjectiveOptimizationConfig(
             objective=self.multi_objective,
+            # pyrefly: ignore [bad-argument-type]
             objective_thresholds=self.relative_objective_thresholds,
         )
         threshold = config5.objective_thresholds[0]
@@ -558,9 +563,11 @@ class MultiObjectiveOptimizationConfigTest(TestCase):
                 bound=100.0,
                 relative=False,
             )
+        # pyrefly: ignore [bad-argument-type]
         config = MultiObjectiveOptimizationConfig(
             objective=self.multi_objective,
             outcome_constraints=[lower_bound_on_m1],
+            # pyrefly: ignore [bad-argument-type]
             objective_thresholds=self.objective_thresholds,
         )
         self.assertEqual(config.outcome_constraints, [lower_bound_on_m1])
@@ -580,9 +587,11 @@ class MultiObjectiveOptimizationConfigTest(TestCase):
         self.assertEqual(config1.outcome_constraints, cloned1.outcome_constraints)
         cloned1_moo = assert_is_instance(cloned1, MultiObjectiveOptimizationConfig)
         self.assertEqual(config1.objective_thresholds, cloned1_moo.objective_thresholds)
+        # pyrefly: ignore [bad-argument-type]
 
         config2 = MultiObjectiveOptimizationConfig(
             objective=self.multi_objective,
+            # pyrefly: ignore [bad-argument-type]
             objective_thresholds=self.objective_thresholds,
         )
         cloned2 = config2.clone()
@@ -591,9 +600,12 @@ class MultiObjectiveOptimizationConfigTest(TestCase):
         cloned2_moo = assert_is_instance(cloned2, MultiObjectiveOptimizationConfig)
         self.assertEqual(config2.objective_thresholds, cloned2_moo.objective_thresholds)
 
+    # pyrefly: ignore [bad-argument-type]
+
     def test_CloneWithArgs(self) -> None:
         config1 = MultiObjectiveOptimizationConfig(
             objective=self.multi_objective,
+            # pyrefly: ignore [bad-argument-type]
             objective_thresholds=self.objective_thresholds,
             outcome_constraints=self.outcome_constraints,
         )

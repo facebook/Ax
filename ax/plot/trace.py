@@ -58,6 +58,7 @@ def map_data_single_trace_scatters(
             x=x,
             y=y,
             mode="lines+markers",
+            # pyrefly: ignore [bad-argument-type]
             line={"color": rgba(trace_color)},
             opacity=opacity,
             hovertemplate=f"{legend_label}<br>"
@@ -159,6 +160,7 @@ def map_data_multiple_metrics_dropdown_plotly(
                 optimization_direction="minimize" if lower_is_better else "maximize",
             )
         else:
+            # pyrefly: ignore [unsupported-operation]
             layout_yaxis_ranges[metric_name] = None
 
     metric_dropdown = []
@@ -229,7 +231,9 @@ def mean_trace_scatter(
         x=np.arange(1, y.shape[1] + 1),
         y=np.mean(y, axis=0),
         mode="lines",
+        # pyrefly: ignore [bad-argument-type]
         line={"color": rgba(trace_color)},
+        # pyrefly: ignore [bad-argument-type]
         fillcolor=rgba(trace_color, 0.3),
         fill="tonexty",
         text=hover_labels,
@@ -271,6 +275,7 @@ def sem_range_scatter(
             legendgroup=legend_label,
             mode="lines",
             line={"width": 0},
+            # pyrefly: ignore [bad-argument-type]
             fillcolor=rgba(trace_color, 0.3),
             fill="tonexty",
             showlegend=False,
@@ -311,6 +316,7 @@ def mean_markers_scatter(
             "visible": True,
         },
         mode="markers",
+        # pyrefly: ignore [bad-argument-type]
         marker={"color": rgba(marker_color)},
         text=hover_labels,
     )
@@ -337,6 +343,7 @@ def optimum_objective_scatter(
         x=[1, num_iterations],
         y=[optimum] * 2,
         mode="lines",
+        # pyrefly: ignore [bad-argument-type]
         line={"dash": "dash", "color": rgba(optimum_color)},
         name="Optimum",
     )
@@ -656,6 +663,7 @@ def optimization_times(
                 textposition="auto",
                 error_y={"type": "data", "array": res["2sems"], "visible": True},
                 marker={
+                    # pyrefly: ignore [bad-argument-type]
                     "color": rgba(DISCRETE_COLOR_SCALE[i]),
                     "line": {"color": "rgb(0,0,0)", "width": 1.0},
                 },

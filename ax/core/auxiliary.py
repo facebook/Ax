@@ -42,6 +42,7 @@ class AuxiliaryExperiment(SortableBase):
         self.data: Data = data or experiment.lookup_data()
         self.is_active = is_active
 
+    # pyrefly: ignore [bad-override]
     def _unique_id(self) -> str:
         # While there can be multiple `AuxiliarySource`-s made from the same
         # experiment (and thus sharing the experiment name), the uniqueness

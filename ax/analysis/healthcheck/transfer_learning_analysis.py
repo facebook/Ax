@@ -40,6 +40,7 @@ class TransferLearningAnalysisCard(HealthcheckAnalysisCard):
 
 
 @final
+# pyrefly: ignore [bad-class-definition]
 class TransferLearningAnalysis(Analysis):
     def __init__(
         self,

@@ -183,6 +183,7 @@ class ThompsonSampler(DiscreteGenerator):
                         f"(X: {X[j]} - note that this is post-transform application)."
                     )
                 f[j, i], cov[j, i, i] = X_to_Y_and_Yvar[
+                    # pyrefly: ignore [bad-index]
                     assert_is_instance(x, TParamValue)
                 ]
         return f, cov
@@ -328,6 +329,7 @@ class ThompsonSampler(DiscreteGenerator):
         hashableX = [self._hash_TParamValueList(x) for x in X]
         for Y, Yvar in zip(Ys, Yvars):
             X_to_Ys_and_Yvars.append(dict(zip(hashableX, zip(Y, Yvar))))
+        # pyrefly: ignore [bad-return]
         return X_to_Ys_and_Yvars
 
     def _hash_TParamValueList(self, x: Iterable[TParamValue]) -> str:

@@ -134,6 +134,7 @@ def determine_optimizer(
             # the remaining parameters.
             cardinalities = [len(c) for c in discrete_choices.values()]
             max_cardinality = max(cardinalities)
+            # pyrefly: ignore [incompatible-overload-residual]
             total_discrete_choices = reduce(operator.mul, cardinalities)
             if total_discrete_choices > MAX_CHOICES_ENUMERATE:
                 if max_cardinality <= MAX_CARDINALITY_FOR_LOCAL_SEARCH:
@@ -864,12 +865,14 @@ class Acquisition(Base):
                     self.acqf, MultiOutputAcquisitionFunctionWrapper
                 )
                 candidates, acqf_values = optimize_with_nsgaii(
+                    # pyrefly: ignore [bad-argument-type]
                     acq_function=self.acqf,
                     bounds=bounds,
                     q=n,
                     fixed_features=fixed_features,
                     inequality_constraints=inequality_constraints,
                     num_objectives=len(acqf.acqfs),
+                    # pyrefly: ignore [bad-argument-type]
                     discrete_choices=discrete_choices if discrete_choices else None,
                     post_processing_func=rounding_func,
                     **optimizer_options_with_defaults,
@@ -913,6 +916,7 @@ class Acquisition(Base):
         )
 
         n_candidates = candidates.shape[0]
+        # pyrefly: ignore [bad-return]
         return candidates, acqf_values, arm_weights[:n_candidates] * n_candidates / n
 
     def evaluate(self, X: Tensor) -> Tensor:
@@ -928,6 +932,7 @@ class Acquisition(Base):
             model and input `X`.
         """
         if isinstance(self.acqf, qKnowledgeGradient):
+            # pyrefly: ignore [bad-argument-count, unexpected-keyword]
             return self.acqf.evaluate(X=X)
         else:
             # NOTE: `AcquisitionFunction.__call__` calls `forward`,

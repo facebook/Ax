@@ -411,6 +411,7 @@ class BaseEarlyStoppingStrategy(ABC, Base):
         # Check eligibility of each metric.
         for metric_signature, metric_df in df.groupby("metric_signature"):
             # check for no data
+            # pyrefly: ignore [bad-index]
             metric_name = experiment.signature_to_metric[metric_signature].name
             df_trial = metric_df[metric_df["trial_index"] == trial_index]
             df_trial = df_trial.dropna(subset=["mean"])

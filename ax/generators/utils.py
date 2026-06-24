@@ -121,9 +121,13 @@ def rejection_sample(
         # _gen_unconstrained returns points including fixed features.
         # pyre-ignore[28]: Unexpected keyword argument to anonymous call.
         point = gen_unconstrained(
+            # pyrefly: ignore [bad-argument-count, unexpected-keyword]
             n=1,
+            # pyrefly: ignore [unexpected-keyword]
             d=d,
+            # pyrefly: ignore [unexpected-keyword]
             tunable_feature_indices=tunable_feature_indices,
+            # pyrefly: ignore [unexpected-keyword]
             fixed_features=fixed_features,
         )[0]
 
@@ -378,10 +382,12 @@ def best_observed_point(
         bounds=bounds,
         objective_weights=objective_weights,
         outcome_constraints=outcome_constraints,
+        # pyrefly: ignore [bad-return]
         linear_constraints=linear_constraints,
         fixed_features=fixed_features,
         options=options,
     )
+    # pyrefly: ignore [bad-return]
     return None if best_point_and_value is None else best_point_and_value[0]
 
 
@@ -395,6 +401,7 @@ def best_in_sample_point(
     fixed_features: dict[int, float] | None = None,
     options: TConfig | None = None,
 ) -> tuple[TTensoray, float] | None:
+    # pyrefly: ignore [bad-assignment]
     """Select the best point that has been observed.
 
     Implements two approaches to selecting the best point.
@@ -446,12 +453,18 @@ def best_in_sample_point(
         - d-array of the best point,
         - utility at the best point.
     """
+    # pyrefly: ignore [bad-assignment]
     # Parse options
+    # pyrefly: ignore [bad-assignment]
     if options is None:
         options = {}
+    # pyrefly: ignore [bad-assignment]
     method: str = options.get("best_point_method", "max_utility")
+    # pyrefly: ignore [bad-assignment]
     B: float | None = options.get("utility_baseline", None)
+    # pyrefly: ignore [bad-assignment]
     threshold: float = options.get("probability_threshold", 0.95)
+    # pyrefly: ignore [bad-assignment]
     nsamp: int = options.get("feasibility_mc_samples", 10000)
     # Get points observed for all objective and constraint outcomes
     if objective_weights is None:
@@ -469,6 +482,7 @@ def best_in_sample_point(
         X=X_obs,
         bounds=bounds,
         linear_constraints=linear_constraints,
+        # pyrefly: ignore [bad-argument-type]
         fixed_features=fixed_features,
     )
     if len(X_obs) == 0:
@@ -478,6 +492,7 @@ def best_in_sample_point(
     if isinstance(Xs[0], torch.Tensor):
         X_obs = assert_is_instance(X_obs, torch.Tensor).detach().clone()
     # (n_feasible x n_outcomes), (n_feasible x n_outcomes x n_outcomes)
+    # pyrefly: ignore [bad-argument-type]
     f, cov = as_array(model.predict(X_obs))
     # (n_outcomes,) x (n_outcomes, n_feasible) => (n_feasible,)
     obj = objective_weights_np @ f.transpose()
@@ -498,6 +513,7 @@ def best_in_sample_point(
     if method == "feasible_threshold":
         utility = obj
         utility[pfeas < threshold] = -np.inf
+    # pyrefly: ignore [bad-return]
     elif method == "max_utility":
         if B is None:
             B = obj.min()
@@ -508,6 +524,7 @@ def best_in_sample_point(
     if utility[i] == -np.inf:
         return None
     else:
+        # pyrefly: ignore [bad-return]
         return X_obs[i, :], utility[i]
 
 

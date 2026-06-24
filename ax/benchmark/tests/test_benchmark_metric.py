@@ -278,6 +278,7 @@ class TestBenchmarkMetric(TestCase):
                 has_simulator=has_simulator,
             )
             data = metric.fetch_trial_data(trial=trial).value
+            # pyrefly: ignore [missing-attribute]
             df_or_map_df = data.full_df if isinstance(metric, MapMetric) else data.df
             returns_full_data = (not has_simulator) and isinstance(metric, MapMetric)
             self.assertEqual(
@@ -327,9 +328,11 @@ class TestBenchmarkMetric(TestCase):
             self.assertEqual(backend_simulator.time, 2)
             data = metric.fetch_trial_data(trial=trial).value
             if isinstance(metric, MapMetric):
+                # pyrefly: ignore [missing-attribute]
                 full_df = data.full_df
                 self.assertEqual(len(full_df), 2 * len(trial.arms))
                 self.assertEqual(set(full_df["step"].tolist()), {0, 1})
+            # pyrefly: ignore [missing-attribute]
             df = data.df
             self.assertEqual(len(df), len(trial.arms))
             expected_df = _get_one_step_df(

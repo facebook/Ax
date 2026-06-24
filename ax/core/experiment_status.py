@@ -69,6 +69,7 @@ class ExperimentStatus(int, Enum):
         """True if experiment has successfully completed."""
         return self == ExperimentStatus.COMPLETED
 
+    # pyrefly: ignore [bad-override-param-name]
     def __format__(self, fmt: str) -> str:
         """Define `__format__` to avoid pulling the `__format__` from the `int`
         mixin (since its better for statuses to show up as `DRAFT` than as

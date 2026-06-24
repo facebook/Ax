@@ -342,6 +342,7 @@ class TestDispatchUtils(TestCase):
             )
         with self.subTest("BO_MIXED (mixed multi-objective optimization)"):
             search_space = get_branin_search_space(with_choice_parameter=True)
+            # pyrefly: ignore [missing-attribute]
             search_space.parameters["x2"]._is_ordered = False
             optimization_config = MultiObjectiveOptimizationConfig(
                 objective=Objective(
@@ -486,7 +487,9 @@ class TestDispatchUtils(TestCase):
 
         with self.subTest("num_initialization_trials"):
             ss = get_large_factorial_search_space()
+            # pyrefly: ignore [missing-attribute]
             for _, param in ss.parameters.items():
+                # pyrefly: ignore [missing-attribute]
                 param._is_ordered = True
             # 2 * len(ss.parameters) init trials are performed if num_trials is large
             gs_12_init_trials = choose_generation_strategy_legacy(
@@ -576,16 +579,21 @@ class TestDispatchUtils(TestCase):
             #  Step.__new__` actually returns a `GenerationNode`.
             none_throws(bo_step.generator_spec.generator_kwargs)["transforms"],
             [LogY],
+            # pyrefly: ignore [missing-attribute]
         )
         self.assertEqual(
+            # pyrefly: ignore [missing-attribute]
             none_throws(bo_step.generator_spec.generator_kwargs)["transform_configs"],
             {},
         )
         # With derelativize_with_raw_status_quo.
         bo_step = _make_botorch_step(
-            generator_kwargs=generator_kwargs, derelativize_with_raw_status_quo=True
+            # pyrefly: ignore [missing-attribute]
+            generator_kwargs=generator_kwargs,
+            derelativize_with_raw_status_quo=True,
         )
         self.assertEqual(
+            # pyrefly: ignore [missing-attribute]
             none_throws(bo_step.generator_spec.generator_kwargs)["transform_configs"],
             {
                 "Derelativize": {"use_raw_status_quo": True},
@@ -737,12 +745,16 @@ class TestDispatchUtils(TestCase):
         winsorized = choose_generation_strategy_legacy(
             search_space=get_branin_search_space(),
             winsorization_config=WinsorizationConfig(upper_quantile_margin=2),
+            # pyrefly: ignore [bad-argument-type]
         )
         tc = none_throws(winsorized._nodes[1].generator_specs[0].generator_kwargs).get(
+            # pyrefly: ignore [unsupported-operation]
             "transform_configs"
         )
+        # pyrefly: ignore [bad-argument-type]
         self.assertIn("Winsorize", tc)
         self.assertDictEqual(
+            # pyrefly: ignore [unsupported-operation]
             tc["Winsorize"],
             {
                 "winsorization_config": WinsorizationConfig(
@@ -757,22 +769,29 @@ class TestDispatchUtils(TestCase):
         winsorized = choose_generation_strategy_legacy(
             search_space=get_branin_search_space(),
             derelativize_with_raw_status_quo=True,
+            # pyrefly: ignore [bad-argument-type]
         )
         tc = none_throws(winsorized._nodes[1].generator_specs[0].generator_kwargs).get(
             "transform_configs"
+            # pyrefly: ignore [unsupported-operation]
         )
         self.assertIn(
             "Winsorize",
+            # pyrefly: ignore [bad-argument-type]
             tc,
+            # pyrefly: ignore [bad-argument-type]
         )
         self.assertDictEqual(
+            # pyrefly: ignore [unsupported-operation]
             tc["Winsorize"],
             {"derelativize_with_raw_status_quo": True},
         )
         self.assertIn(
             "Derelativize",
+            # pyrefly: ignore [bad-argument-type]
             tc,
         )
+        # pyrefly: ignore [unsupported-operation]
         self.assertDictEqual(tc["Derelativize"], {"use_raw_status_quo": True})
 
     def test_num_trials(self) -> None:

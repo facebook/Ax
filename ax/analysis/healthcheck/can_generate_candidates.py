@@ -22,6 +22,7 @@ from pyre_extensions import none_throws, override
 
 
 @final
+# pyrefly: ignore [bad-class-definition]
 class CanGenerateCandidatesAnalysis(Analysis):
     REASON_PREFIX: str = "This experiment cannot generate candidates.\nREASON: "
     LAST_RUN_TEMPLATE: str = "\n\nLAST TRIAL RUN: {days} day(s) ago"

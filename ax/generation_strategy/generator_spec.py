@@ -376,6 +376,7 @@ class GeneratorSpec(SortableBase, SerializationMixin):
     def __hash__(self) -> int:
         return hash(repr(self))
 
+    # pyrefly: ignore [bad-override]
     def __eq__(self, other: GeneratorSpec) -> bool:
         return repr(self) == repr(other)
 

@@ -211,6 +211,7 @@ class TorchAdapter(Adapter):
         )
 
         # Re-assign self.generator for more precise typing.
+        # pyrefly: ignore [bad-override-mutable-attribute]
         self.generator: TorchGenerator = generator
 
     def feature_importances(self, metric_signature: str) -> dict[str, float]:
@@ -877,6 +878,7 @@ class TorchAdapter(Adapter):
             **kwargs,
         )
 
+    # pyrefly: ignore [bad-override-param-name]
     def _gen(
         self,
         n: int,
@@ -1017,6 +1019,7 @@ class TorchAdapter(Adapter):
         try:
             tobfs = np.array(
                 [
+                    # pyrefly: ignore [bad-argument-type]
                     [float(of.parameters[p]) for p in self.parameters]
                     for of in observation_features
                 ]
@@ -1201,10 +1204,12 @@ class TorchAdapter(Adapter):
                     [fixed_features_obs]
                 )[0]
             thresholds = t.untransform_outcome_constraints(
+                # pyrefly: ignore [bad-argument-type]
                 outcome_constraints=thresholds,
                 fixed_features=fixed_features_obs,
             )
 
+        # pyrefly: ignore [bad-return]
         return thresholds
 
     def _validate_preference_config(

@@ -109,6 +109,7 @@ class Log(Transform):
 
                     # Apply log10 transformation
                     transformed_values = [
+                        # pyrefly: ignore [bad-argument-type]
                         assert_is_instance(math.log10(float(v)), TParamValue)
                         for v in values
                     ]
@@ -119,6 +120,7 @@ class Log(Transform):
                     if dependents is not None:
                         dependents = {
                             math.log10(
+                                # pyrefly: ignore [bad-argument-type]
                                 float(assert_is_instance_of_tuple(k, (float, int)))
                             ): v
                             for k, v in dependents.items()

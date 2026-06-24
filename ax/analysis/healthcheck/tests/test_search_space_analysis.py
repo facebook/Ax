@@ -30,6 +30,7 @@ class TestSearchSpaceAnalysis(TestCase):
             Arm(name="1_2", parameters={"x1": -5.0, "x2": 1.0}),
         ]
         experiment.new_batch_trial(generator_run=GeneratorRun(arms=arms))
+        # pyrefly: ignore [bad-instantiation]
         ssa = SearchSpaceAnalysis(trial_index=0)
         card = ssa.compute(experiment=experiment)
 
@@ -55,6 +56,7 @@ class TestSearchSpaceAnalysis(TestCase):
             Arm(name="2_2", parameters={"x1": -5.0, "x2": 2.0}),
         ]
         experiment.new_batch_trial(generator_run=GeneratorRun(arms=arms))
+        # pyrefly: ignore [bad-instantiation]
         ssa = SearchSpaceAnalysis(trial_index=1)
         card = ssa.compute(experiment=experiment)
         self.assertEqual(card.name, "SearchSpaceAnalysis")
@@ -67,6 +69,7 @@ class TestSearchSpaceAnalysis(TestCase):
             Arm(name="2_2", parameters={"x1": -5.0, "x2": 2.0}),
         ]
         experiment.new_batch_trial(generator_run=GeneratorRun(arms=arms))
+        # pyrefly: ignore [bad-instantiation]
         ssa = SearchSpaceAnalysis(trial_index=2)
         card = ssa.compute(experiment=experiment)
         self.assertEqual(card.name, "SearchSpaceAnalysis")

@@ -47,14 +47,20 @@ class ResultTest(TestCase):
         def h() -> int:
             return -1
 
+        # pyrefly: ignore [bad-argument-type]
         self.assertEqual(self.ok.map(op=f), Ok(1))
         self.assertEqual(self.ok.map_err(op=g), Ok(0))
+        # pyrefly: ignore [bad-argument-type]
         self.assertEqual(self.ok.map_or(default="foo", op=f), 1)
+        # pyrefly: ignore [bad-argument-type]
         self.assertEqual(self.ok.map_or_else(default_op=h, op=f), 1)
 
+        # pyrefly: ignore [bad-argument-type]
         self.assertEqual(self.err.map(op=f), Err("yikes"))
         self.assertEqual(self.err.map_err(op=g), Err(5))
+        # pyrefly: ignore [bad-argument-type]
         self.assertEqual(self.err.map_or(default="foo", op=f), "foo")
+        # pyrefly: ignore [bad-argument-type]
         self.assertEqual(self.err.map_or_else(default_op=h, op=f), -1)
 
     def test_unwrap(self) -> None:
@@ -62,6 +68,7 @@ class ResultTest(TestCase):
         with self.assertRaises(RuntimeError):
             self.ok.unwrap_err()
         self.assertEqual(self.ok.unwrap_or(1), 0)
+        # pyrefly: ignore [bad-argument-type]
         self.assertEqual(self.ok.unwrap_or_else(1), 0)
 
         with self.assertRaises(RuntimeError):

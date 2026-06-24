@@ -41,6 +41,7 @@ class TracesTest(TestCase):
         # Assert that each type of plot can be constructed successfully
         plot = optimization_trace_single_method_plotly(
             np.array([[1.0, 2.0, 3.0], [4.0, 5.0, 6.0]]),
+            # pyrefly: ignore [bad-argument-type]
             self.model_metric_names[0],
             optimization_direction="minimize",
             autoset_axis_limits=False,
@@ -48,6 +49,7 @@ class TracesTest(TestCase):
         self.assertIsInstance(plot, go.Figure)
         plot = optimization_trace_single_method(
             np.array([[1.0, 2.0, 3.0], [4.0, 5.0, 6.0]]),
+            # pyrefly: ignore [bad-argument-type]
             self.model_metric_names[0],
             optimization_direction="minimize",
             autoset_axis_limits=False,
@@ -58,6 +60,7 @@ class TracesTest(TestCase):
         for optimization_direction in ["minimize", "maximize", "passthrough"]:
             plot = optimization_trace_single_method_plotly(
                 np.array([[1.0, 2.0, 3.0], [4.0, 5.0, 6.0]]),
+                # pyrefly: ignore [bad-argument-type]
                 self.model_metric_names[0],
                 optimization_direction=optimization_direction,
                 autoset_axis_limits=True,

@@ -120,6 +120,7 @@ class ExternalGenerationNode(GenerationNode, ABC):
         return None
 
     @property
+    # pyrefly: ignore [bad-override]
     def generator_spec_to_gen_from(self) -> GeneratorSpec | None:
         return self._generator_spec_to_gen_from
 
@@ -155,6 +156,7 @@ class ExternalGenerationNode(GenerationNode, ABC):
         )
         self.fit_time_since_gen += time.monotonic() - t_fit_start
 
+    # pyrefly: ignore [bad-override-param-name]
     def _gen(
         self,
         experiment: Experiment,

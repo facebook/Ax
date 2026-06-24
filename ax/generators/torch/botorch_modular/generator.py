@@ -527,6 +527,7 @@ class BoTorchGenerator(TorchGenerator, Base):
         return X_test_prediction
 
     @property
+    # pyrefly: ignore [bad-override]
     def dtype(self) -> torch.dtype:
         """Torch data type of the tensors in the training data used in the model,
         of which this ``Acquisition`` is a subcomponent.
@@ -534,6 +535,7 @@ class BoTorchGenerator(TorchGenerator, Base):
         return self.surrogate.dtype
 
     @property
+    # pyrefly: ignore [bad-override]
     def device(self) -> torch.device:
         """Torch device type of the tensors in the training data used in the model,
         of which this ``Acquisition`` is a subcomponent.

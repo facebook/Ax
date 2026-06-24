@@ -24,6 +24,7 @@ class TestTestOfNoEffectAnalysis(TestCase):
         self.moo_experiment = get_branin_experiment_with_multi_objective(
             with_trial=True
         )
+        # pyrefly: ignore [bad-instantiation]
         self.tone = TestOfNoEffectAnalysis()
 
     def test_effects_detected(self) -> None:

@@ -787,6 +787,7 @@ class BoTorchGeneratorUtilsTest(TestCase):
             construct_acquisition_and_optimizer_options(
                 acqf_options=acqf_options,
                 botorch_acqf_options=botorch_acqf_options,
+                # pyrefly: ignore [bad-argument-type]
                 model_gen_options={**model_gen_options, "extra": "key"},
             )
 

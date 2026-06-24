@@ -64,6 +64,7 @@ class UnitX(Transform):
         for obsf in observation_features:
             for p_name, (l, u) in self.bounds.items():
                 if p_name in obsf.parameters:
+                    # pyrefly: ignore [bad-argument-type]
                     param = float(obsf.parameters[p_name])
                     obsf.parameters[p_name] = self._normalize_value(param, (l, u))
         return observation_features
@@ -120,6 +121,7 @@ class UnitX(Transform):
         for obsf in observation_features:
             for p_name, (l, u) in self.bounds.items():
                 if p_name in obsf.parameters:
+                    # pyrefly: ignore [bad-argument-type]
                     param = float(obsf.parameters[p_name])
                     obsf.parameters[p_name] = param * (u - l) + l
         return observation_features

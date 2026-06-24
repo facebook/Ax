@@ -53,6 +53,7 @@ def plot_feature_importance_by_feature_plotly(
                 model._experiment.signature_to_metric[signature].name
                 for signature in model.metric_signatures
             ]
+            # pyrefly: ignore [bad-assignment]
             sensitivity_values = {
                 metric_name: model.feature_importances(metric_name)
                 for i, metric_name in enumerate(sorted(metric_names))
@@ -65,6 +66,7 @@ def plot_feature_importance_by_feature_plotly(
     if label_dict is not None:
         sensitivity_values = {  # pyre-ignore
             label_dict.get(metric_name, metric_name): v
+            # pyrefly: ignore [missing-attribute]
             for metric_name, v in sensitivity_values.items()
         }
     traces = []
@@ -77,7 +79,9 @@ def plot_feature_importance_by_feature_plotly(
             if isinstance(par, ChoiceParameter) and not par.is_ordered
         ]
 
+    # pyrefly: ignore [missing-attribute]
     for i, metric_name in enumerate(sorted(sensitivity_values.keys())):
+        # pyrefly: ignore [unsupported-operation]
         importances = sensitivity_values[metric_name]
         factor_col = "Factor"
         importance_col = "Importance"
@@ -154,6 +158,7 @@ def plot_feature_importance_by_feature_plotly(
             )
             legend_counter[row[sign_col]] += 1
 
+        # pyrefly: ignore [bad-argument-type]
         is_visible = [False] * (len(sensitivity_values) * len(df))
         for j in range(i * len(df), (i + 1) * len(df)):
             is_visible[j] = True
@@ -175,9 +180,11 @@ def plot_feature_importance_by_feature_plotly(
             },  # hack to put dropdown below title regardless of number of features
         }
     ]
+    # pyrefly: ignore [missing-attribute]
     features = list(list(sensitivity_values.values())[0].keys())
 
     longest_label = max(len(f) for f in features)
+    # pyrefly: ignore [missing-attribute]
     longest_metric = max(len(m) for m in sensitivity_values.keys())
 
     layout = go.Layout(

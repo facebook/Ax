@@ -93,6 +93,7 @@ class TestBaselineImprovementAnalysis(TestCase):
                 "branin_b": [(50.0, 0.1), (100.0, 0.1)],
             },
             arm_names=["status_quo", "0_0"],
+            # pyrefly: ignore [bad-argument-type]
             experiment=self.moo_experiment,
         )
 

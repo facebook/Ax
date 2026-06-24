@@ -156,6 +156,7 @@ def get_branin_currin_optimization_with_N_sobol_trials(
             "branin": ObjectiveProperties(
                 minimize=minimize,
                 threshold=(
+                    # pyrefly: ignore [bad-index]
                     float(branin_currin.ref_point[0])
                     if include_objective_thresholds
                     else None
@@ -164,6 +165,7 @@ def get_branin_currin_optimization_with_N_sobol_trials(
             "currin": ObjectiveProperties(
                 minimize=minimize,
                 threshold=(
+                    # pyrefly: ignore [bad-index]
                     float(branin_currin.ref_point[1])
                     if include_objective_thresholds
                     else None
@@ -184,6 +186,7 @@ def get_branin_currin_optimization_with_N_sobol_trials(
         currin = float(branin_currin(torch.tensor([x, y]))[1])
         raw_data: TTrialEvaluation = {"branin": branin, "currin": currin}
         if tracking_metric_names is not None:
+            # pyrefly: ignore [unsupported-operation]
             raw_data["c"] = branin + currin
         ax_client.complete_trial(trial_index, raw_data=raw_data)
     return ax_client, branin_currin
@@ -3061,7 +3064,9 @@ class TestAxClient(TestCase):
         for obs in observed_pareto.values():
             branin: float = obs[1][0]["branin"]
             currin: float = obs[1][0]["currin"]
+            # pyrefly: ignore [bad-index]
             self.assertGreater(branin, branin_currin.ref_point[0].item())
+            # pyrefly: ignore [bad-index]
             self.assertGreater(currin, branin_currin.ref_point[1].item())
             if outcome_constraints is not None:
                 self.assertEqual(branin + currin, obs[1][0]["c"])

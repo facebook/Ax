@@ -25,6 +25,7 @@ from ax.utils.testing.mock import mock_botorch_optimize
 def _branin_evaluation_function(
     parameterization: TParameterization,
 ) -> dict[str, tuple[float, float]]:
+    # pyrefly: ignore [bad-argument-type]
     x1, x2 = float(parameterization["x1"]), float(parameterization["x2"])
     return {
         "branin": (float(branin(x1, x2)), 0.0),
@@ -54,8 +55,10 @@ class TestOptimize(TestCase):
                     {"name": "x1", "type": "range", "bounds": [-10.0, 10.0]},
                     {"name": "x2", "type": "range", "bounds": [-10.0, 10.0]},
                 ],
+                # pyrefly: ignore [unsupported-operation]
                 evaluation_function=lambda p: (p["x1"] + 2 * p["x2"] - 7) ** 2
-                + (2 * p["x1"] + p["x2"] - 5) ** 2,
+                + (2 * p["x1"] + p["x2"] - 5)  # pyrefly: ignore [unsupported-operation]
+                ** 2,  # pyrefly: ignore [unsupported-operation]
                 minimize=True,
                 total_trials=5,
             )
@@ -67,8 +70,10 @@ class TestOptimize(TestCase):
                 {"name": "x1", "type": "range", "bounds": [-10.0, 10.0]},
                 {"name": "x2", "type": "range", "bounds": [-10.0, 10.0]},
             ],
+            # pyrefly: ignore [unsupported-operation]
             evaluation_function=lambda p: (p["x1"] + 2 * p["x2"] - 7) ** 2
-            + (2 * p["x1"] + p["x2"] - 5) ** 2,
+            + (2 * p["x1"] + p["x2"] - 5)  # pyrefly: ignore [unsupported-operation]
+            ** 2,  # pyrefly: ignore [unsupported-operation]
             minimize=True,
             total_trials=5,
         )
@@ -85,6 +90,7 @@ class TestOptimize(TestCase):
                 {"name": "x2", "type": "range", "bounds": [-10.0, 10.0]},
             ],
             evaluation_function=lambda p: (
+                # pyrefly: ignore [unsupported-operation]
                 (p["x1"] + 2 * p["x2"] - 7) ** 2 + (2 * p["x1"] + p["x2"] - 5) ** 2,
                 0.0,
             ),
@@ -102,6 +108,7 @@ class TestOptimize(TestCase):
                 {"name": "x2", "type": "range", "bounds": [-10.0, 10.0]},
             ],
             evaluation_function=lambda p: (
+                # pyrefly: ignore [unsupported-operation]
                 (p["x1"] + 2 * p["x2"] - 7) ** 2 + (2 * p["x1"] + p["x2"] - 5) ** 2,
                 None,
             ),
@@ -140,8 +147,10 @@ class TestOptimize(TestCase):
                 {"name": "x1", "type": "range", "bounds": [-10.0, 10.0]},
                 {"name": "x2", "type": "range", "bounds": [-10.0, 10.0]},
             ],
+            # pyrefly: ignore [unsupported-operation]
             evaluation_function=lambda p: (p["x1"] + 2 * p["x2"] - 7) ** 2
-            + (2 * p["x1"] + p["x2"] - 5) ** 2,
+            + (2 * p["x1"] + p["x2"] - 5)  # pyrefly: ignore [unsupported-operation]
+            ** 2,  # pyrefly: ignore [unsupported-operation]
             minimize=True,
             parameter_constraints=["x1 + x2 <= 5"],
             total_trials=5,
@@ -166,6 +175,7 @@ class TestOptimize(TestCase):
                     "value_type": "int",
                 },
             ],
+            # pyrefly: ignore [unsupported-operation]
             evaluation_function=lambda p: (p["x1"] - 3) ** 2 + (p["x2"] - 2) ** 2,
             minimize=True,
             total_trials=5,
@@ -190,6 +200,7 @@ class TestOptimize(TestCase):
                     "value_type": "int",
                 },
             ],
+            # pyrefly: ignore [unsupported-operation]
             evaluation_function=lambda p: (p["x1"] - 1) ** 2 + (p["x2"] - 1) ** 2,
             minimize=True,
             total_trials=10,
@@ -210,6 +221,7 @@ class TestOptimize(TestCase):
                     "value_type": "int",
                 },
             ],
+            # pyrefly: ignore [unsupported-operation]
             evaluation_function=lambda p: (p["k"] - 5) ** 2,
             minimize=True,
             total_trials=5,
@@ -228,6 +240,7 @@ class TestOptimize(TestCase):
                     "log_scale": True,
                 },
             ],
+            # pyrefly: ignore [unsupported-operation]
             evaluation_function=lambda p: (p["lr"] - 0.01) ** 2,
             minimize=True,
             total_trials=5,
@@ -241,6 +254,7 @@ class TestOptimize(TestCase):
                 parameters=[
                     {"name": "x1", "type": "range", "bounds": [-10.0, 10.0]},
                 ],
+                # pyrefly: ignore [unsupported-operation]
                 evaluation_function=lambda p: p["x1"] ** 2,
                 total_trials=5,
                 arms_per_trial=3,
@@ -261,8 +275,10 @@ class TestOptimize(TestCase):
                 {"name": "x1", "type": "range", "bounds": [-10.0, 10.0]},
                 {"name": "x2", "type": "range", "bounds": [-10.0, 10.0]},
             ],
+            # pyrefly: ignore [unsupported-operation]
             evaluation_function=lambda p: (p["x1"] + 2 * p["x2"] - 7) ** 2
-            + (2 * p["x1"] + p["x2"] - 5) ** 2,
+            + (2 * p["x1"] + p["x2"] - 5)  # pyrefly: ignore [unsupported-operation]
+            ** 2,  # pyrefly: ignore [unsupported-operation]
             minimize=True,
             total_trials=5,
             generation_strategy=gs,

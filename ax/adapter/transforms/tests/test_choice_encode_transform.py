@@ -157,11 +157,13 @@ class ChoiceToNumericChoiceTransformTest(TestCase):
 
         for param_name in ["b", "c"]:
             self.assertEqual(
+                # pyrefly: ignore [missing-attribute]
                 ss2.parameters[param_name].values,
                 assert_is_instance(
                     self.search_space[param_name], ChoiceParameter
                 ).values,
             )
+        # pyrefly: ignore [missing-attribute]
         self.assertEqual(ss2.parameters["d"].values, [0, 1, 2])
 
         # Fidelity parameter is transformed correctly.
@@ -365,9 +367,13 @@ class OrderedChoiceToIntegerRangeTransformTest(ChoiceToNumericChoiceTransformTes
             self.assertEqual(ss2.parameters[p].parameter_type, ParameterType.INT)
         self.assertEqual(ss2.parameters["d"].parameter_type, ParameterType.STRING)
 
+        # pyrefly: ignore [missing-attribute]
         self.assertEqual(ss2.parameters["b"].lower, 0)
+        # pyrefly: ignore [missing-attribute]
         self.assertEqual(ss2.parameters["b"].upper, 2)
+        # pyrefly: ignore [missing-attribute]
         self.assertEqual(ss2.parameters["c"].lower, 0)
+        # pyrefly: ignore [missing-attribute]
         self.assertEqual(ss2.parameters["c"].upper, 2)
         self.assertEqual(ss2.parameters["d"].values, ["q", "r", "z"])
 
@@ -419,5 +425,7 @@ class OrderedChoiceToIntegerRangeTransformTest(ChoiceToNumericChoiceTransformTes
             ]
         )
         t_ss = self.t.transform_search_space(ss)
+        # pyrefly: ignore [missing-attribute]
         self.assertEqual(t_ss.parameters["b"].lower, 1)
+        # pyrefly: ignore [missing-attribute]
         self.assertEqual(t_ss.parameters["b"].upper, 2)

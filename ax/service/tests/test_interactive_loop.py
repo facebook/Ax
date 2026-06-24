@@ -68,6 +68,7 @@ class TestInteractiveLoop(TestCase):
         parameterization, trial_index = parameterization_with_trial_index
         x = np.array([parameterization.get(f"x{i + 1}") for i in range(6)])
 
+        # pyrefly: ignore [bad-return]
         return (
             trial_index,
             {
@@ -140,6 +141,7 @@ class TestInteractiveLoop(TestCase):
 
             x = np.array([parameterization.get(f"x{i + 1}") for i in range(6)])
 
+            # pyrefly: ignore [bad-return]
             return (
                 trial_index,
                 {

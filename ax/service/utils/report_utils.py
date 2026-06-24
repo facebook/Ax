@@ -455,6 +455,7 @@ def get_standard_plots(
             for by_walltime in [False, True]:
                 logger.debug(f"Starting MapMetric plot {by_walltime=}.")
                 output_plot_list.append(
+                    # pyrefly: ignore [bad-argument-type]
                     _get_curve_plot_dropdown(
                         experiment=experiment,
                         map_metrics=map_metrics,

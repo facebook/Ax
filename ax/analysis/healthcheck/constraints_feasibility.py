@@ -221,6 +221,7 @@ class ConstraintsFeasibilityAnalysis(Analysis):
             if isinstance(oc, ScalarizedOutcomeConstraint):
                 constraint_map[str(oc)] = oc
             else:
+                # pyrefly: ignore [unsupported-operation]
                 constraint_map[oc.metric_names[0]] = oc
 
         for col in p_feasible_cols:

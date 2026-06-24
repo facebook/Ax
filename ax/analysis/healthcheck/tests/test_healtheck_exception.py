@@ -27,6 +27,7 @@ class TestHealtheckException(TestCase):
             raise ValueError(ERROR_MESSAGE)
 
     def test_error_analysis_card_on_exception(self) -> None:
+        # pyrefly: ignore [bad-instantiation]
         analysis = self.DummyAnalysis()
         with self.assertLogs("ax.analysis.analysis", "ERROR") as logs:
             analysis_cards = analysis.compute_or_error_card().flatten()

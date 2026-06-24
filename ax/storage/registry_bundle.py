@@ -190,6 +190,7 @@ class RegistryBundle(RegistryBundleBase):
             json_decoder_registry=json_decoder_registry,
             json_class_decoder_registry=json_class_decoder_registry,
         )
+        # pyrefly: ignore [not-callable]
         self._sqa_config = SQAConfig(
             json_encoder_registry={**self.encoder_registry, **CORE_ENCODER_REGISTRY},
             json_decoder_registry={**self.decoder_registry, **CORE_DECODER_REGISTRY},
@@ -199,7 +200,9 @@ class RegistryBundle(RegistryBundleBase):
             json_class_decoder_registry=self.class_decoder_registry,
         )
 
+        # pyrefly: ignore [not-callable]
         self._encoder = Encoder(self._sqa_config)
+        # pyrefly: ignore [not-callable]
         self._decoder = Decoder(self._sqa_config)
 
     @cached_property

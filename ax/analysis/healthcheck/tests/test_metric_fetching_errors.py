@@ -128,6 +128,7 @@ class TestMetricFetchingErrors(TestCase):
         orchestrator.poll_and_process_results()
         self.assertEqual(len(exp._metric_fetching_errors), 1)
         # WHEN we compute MetricFetchingErrorsAnalysis with a traceback creator
+        # pyrefly: ignore [bad-instantiation]
         card = MetricFetchingErrorsAnalysis(
             add_traceback_paste_callable=create_dummy_traceback_pastes
         ).compute(experiment=exp)
@@ -188,7 +189,9 @@ class TestMetricFetchingErrors(TestCase):
         )
         orchestrator.poll_and_process_results()
         self.assertEqual(len(exp._metric_fetching_errors), 1)
+        # pyrefly: ignore [bad-instantiation]
         # WHEN we compute MetricFetchingErrorsAnalysis without a traceback creator
+        # pyrefly: ignore [bad-instantiation]
         card = MetricFetchingErrorsAnalysis().compute(experiment=exp)
         # THEN we get a card with a dataframe of errors
         self.assertEqual(len(card.df), 1)
@@ -243,8 +246,10 @@ class TestMetricFetchingErrors(TestCase):
             options=OrchestratorOptions(),
         )
         orchestrator.poll_and_process_results()
+        # pyrefly: ignore [bad-instantiation]
         self.assertEqual(len(exp._metric_fetching_errors), 2)
         # WHEN we compute MetricFetchingErrorsAnalysis
+        # pyrefly: ignore [bad-instantiation]
         card = MetricFetchingErrorsAnalysis().compute(experiment=exp)
         # THEN we get a cards in descending ts order
         self.assertEqual(len(card.df), 2)
@@ -269,9 +274,11 @@ class TestMetricFetchingErrors(TestCase):
         orchestrator.poll_and_process_results()
         original_ts = exp._metric_fetching_errors[(0, "test_metric")]["timestamp"]
         exp.trials[0].mark_running(no_runner_required=True, unsafe=True)
+        # pyrefly: ignore [bad-instantiation]
         orchestrator.poll_and_process_results()
 
         self.assertEqual(len(exp._metric_fetching_errors), 1)
+        # pyrefly: ignore [bad-instantiation]
         card = MetricFetchingErrorsAnalysis().compute(experiment=exp)
         self.assertEqual(len(card.df), 1)
         self.assertGreater(card.df["timestamp"].iloc[0], original_ts)
@@ -335,9 +342,11 @@ class TestMetricFetchingErrors(TestCase):
         for case in cases:
             with self.subTest(case=case["label"]):
                 exp = get_branin_experiment(**case["exp_kwargs"])
+                # pyrefly: ignore [bad-instantiation]
                 for metric_name in case["error_metrics"]:
                     exp._metric_fetching_errors[(0, metric_name)] = (
                         self._make_metric_fetching_error(0, metric_name)
                     )
+                # pyrefly: ignore [bad-instantiation]
                 card = MetricFetchingErrorsAnalysis().compute(experiment=exp)
                 self.assertEqual(card.get_status(), HealthcheckStatus.FAIL)

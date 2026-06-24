@@ -208,6 +208,7 @@ try:
                     res[metric.signature] = Ok(Data(df=df))
 
                 except Exception as e:
+                    # pyrefly: ignore [unsupported-operation]
                     res[metric.signature] = Err(
                         MetricFetchE(
                             message=f"Failed to fetch data for {metric.name}",
@@ -217,6 +218,7 @@ try:
 
             self._clear_multiplexer_if_possible(multiplexer=mul)
 
+            # pyrefly: ignore [bad-return]
             return res
 
         def fetch_trial_data(

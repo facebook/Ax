@@ -56,11 +56,13 @@ class FillMissingParametersTransformTest(TestCase):
         with self.assertLogs(
             "ax.adapter.transforms.fill_missing_parameters", level="ERROR"
         ) as lg:
+            # pyrefly: ignore [bad-argument-type]
             t = FillMissingParameters(config=self.config)
         self.assertIn("deprecated", lg.output[0])
         self.assertEqual(t._fill_values, self.config_values)
 
     def test_init_with_both_config_and_search_space(self) -> None:
+        # pyrefly: ignore [bad-argument-type]
         t = FillMissingParameters(search_space=self.search_space, config=self.config)
         # Search space values should override config values
         self.assertEqual(t._fill_values, self.search_space_backfill_values)
@@ -166,6 +168,7 @@ class FillMissingParametersTransformTest(TestCase):
             ObservationFeatures(parameters={"x": None}),
             ObservationFeatures(parameters={"x": 0.0}),
         ]
+        # pyrefly: ignore [bad-argument-type]
         t = FillMissingParameters(config=self.config)
         expected = [
             ObservationFeatures(parameters={"x": 2.0, "y": 3.0}),

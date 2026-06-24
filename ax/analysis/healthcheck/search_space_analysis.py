@@ -26,6 +26,7 @@ from pyre_extensions import assert_is_instance, override
 
 
 @final
+# pyrefly: ignore [bad-class-definition]
 class SearchSpaceAnalysis(Analysis):
     r"""
     Analysis for checking wehther the search space of the experiment should be expanded.
@@ -155,6 +156,7 @@ def search_space_boundary_proportions(
         num_ub = 0  # counts how many parameters are equal to the boundary's upper bound
         for parameterization in parameterizations:
             value = parameterization[parameter_name]
+            # pyrefly: ignore [bad-argument-type]
             value = float(value)
             # for choice parameters, we check if the value is equal to the lower
             # or upper bound

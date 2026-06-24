@@ -639,7 +639,9 @@ def transform_callback(
                 observation_features
             )
         new_x: list[float] = [
-            float(observation_features[0].parameters[p]) for p in param_names
+            # pyrefly: ignore [bad-argument-type]
+            float(observation_features[0].parameters[p])
+            for p in param_names
         ]
         # turn it back into an array
         return np.array(new_x)

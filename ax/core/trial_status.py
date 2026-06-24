@@ -130,6 +130,7 @@ class TrialStatus(int, Enum):
         """True if this trial is a stale one."""
         return self == TrialStatus.STALE
 
+    # pyrefly: ignore [bad-override-param-name]
     def __format__(self, fmt: str) -> str:
         """Define `__format__` to avoid pulling the `__format__` from the `int`
         mixin (since its better for statuses to show up as `RUNNING` than as

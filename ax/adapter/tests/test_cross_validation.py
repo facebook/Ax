@@ -543,6 +543,7 @@ class CrossValidationTest(TestCase):
             mock_posterior = GPyTorchPosterior(distribution=mock_mvn)
 
             # Get the surrogate model from the adapter
+            # pyrefly: ignore [missing-attribute]
             surrogate = self.adapter.generator.surrogate
             model = surrogate.model
 
@@ -661,6 +662,7 @@ class CrossValidationTest(TestCase):
             mock_posterior = mock.MagicMock()
             mock_posterior.__class__.__name__ = "UnknownPosterior"
 
+            # pyrefly: ignore [missing-attribute]
             surrogate = self.adapter.generator.surrogate
             model = surrogate.model
 

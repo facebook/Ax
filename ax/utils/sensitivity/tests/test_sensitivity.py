@@ -131,6 +131,7 @@ class SensitivityAnalysisTest(TestCase):
         input_mc_samples.requires_grad = True
         posterior = self.model.posterior(input_mc_samples)
         torch.sum(posterior.mean).backward()
+        # pyrefly: ignore [missing-attribute]
         grad_unbatched_raw = input_mc_samples.grad.clone()
         # Aggregate the same way as gradient_measure(): mean per dimension
         grad_unbatched = torch.tensor(
@@ -155,6 +156,7 @@ class SensitivityAnalysisTest(TestCase):
         posterior_saas = self.saas_model.posterior(input_mc_samples_saas)
         torch.sum(posterior_saas.mean).backward()
         grad_unbatched_saas = torch.tensor(
+            # pyrefly: ignore [unsupported-operation]
             [torch.mean(input_mc_samples_saas.grad[:, i]) for i in range(2)]
         )
 

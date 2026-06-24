@@ -512,6 +512,7 @@ class SearchSpaceTest(TestCase):
         self.assertTrue(self.ss2.check_types(p_dict))
 
         # Invalid type
+        # pyrefly: ignore [bad-assignment]
         p_dict["b"] = 5.2
         # pyre-fixme[6]: For 1st param expected `Dict[str, Union[None, bool, float,
         #  int, str]]` but got `Dict[str, Union[float, str]]`.
@@ -1205,7 +1206,9 @@ class SearchSpaceDigestTest(TestCase):
         for arg in self.kwargs:
             if arg in {"feature_names", "bounds"}:
                 continue
+            # pyrefly: ignore [bad-argument-type]
             ssd = SearchSpaceDigest(
+                # pyrefly: ignore [bad-argument-type]
                 **{k: v for k, v in self.kwargs.items() if k != arg}
             )
 
@@ -1446,8 +1449,10 @@ class HierarchicalSearchSpaceTest(TestCase):
         self.assertEqual(  # Check one subtree.
             hss_1_obs_feats_1_cast.parameters,
             ObservationFeatures.from_arm(arm=self.hss_1_arm_1_cast).parameters,
+            # pyrefly: ignore [missing-attribute]
         )
         self.assertEqual(  # Check one subtree.
+            # pyrefly: ignore [missing-attribute]
             hss_1_obs_feats_1_cast.metadata.get(Keys.FULL_PARAMETERIZATION),
             hss_1_obs_feats_1.parameters,
         )
@@ -1493,10 +1498,14 @@ class HierarchicalSearchSpaceTest(TestCase):
             )
             self.assertEqual(  # Cast-flatten roundtrip.
                 hss_1_obs_feats_1.parameters,
+                # pyrefly: ignore [missing-attribute]
                 hss_1_obs_feats_1_flattened.parameters,
+                # pyrefly: ignore [missing-attribute]
             )
             self.assertEqual(  # Check that both cast and flattened have full params.
+                # pyrefly: ignore [missing-attribute]
                 hss_1_obs_feats_1_cast.metadata.get(Keys.FULL_PARAMETERIZATION),
+                # pyrefly: ignore [missing-attribute]
                 hss_1_obs_feats_1_flattened.metadata.get(Keys.FULL_PARAMETERIZATION),
             )
         # Check that flattening observation features without metadata does nothing.

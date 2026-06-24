@@ -193,6 +193,7 @@ class Hartmann6(SyntheticFunction):
     _required_dimensionality = 6
     _domain: list[tuple[float, float]] = [(0.0, 1.0) for i in range(6)]
     _minimums = [(0.20169, 0.150011, 0.476874, 0.275332, 0.311652, 0.6573)]
+    # pyrefly: ignore [bad-override-mutable-attribute]
     _fmin: float = -3.32237
     _fmax = 0.0
     _alpha: npt.NDArray = np.array([1.0, 1.2, 3.0, 3.2])
@@ -230,6 +231,7 @@ class Aug_Hartmann6(Hartmann6):
 
     _required_dimensionality = 7
     _domain: list[tuple[float, float]] = [(0.0, 1.0) for i in range(7)]
+    # pyrefly: ignore [bad-override-mutable-attribute]
     _minimums: list[tuple[float, ...]] = [
         (0.20169, 0.150011, 0.476874, 0.275332, 0.311652, 0.6573, 1.0)
     ]
@@ -257,6 +259,7 @@ class Branin(SyntheticFunction):
 
     _required_dimensionality = 2
     _domain: list[tuple[float, float]] = [(-5.0, 10.0), (0.0, 15.0)]
+    # pyrefly: ignore [bad-override-mutable-attribute]
     _minimums: list[tuple[float, float]] = [
         (-np.pi, 12.275),
         (np.pi, 2.275),
@@ -282,6 +285,7 @@ class Aug_Branin(SyntheticFunction):
 
     _required_dimensionality = 3
     _domain: list[tuple[float, float]] = [(-5.0, 10.0), (0.0, 15.0), (0.0, 1.0)]
+    # pyrefly: ignore [bad-override-mutable-attribute]
     _minimums: list[tuple[float, float, float]] = [
         (-np.pi, 12.275, 1.0),
         (np.pi, 2.275, 1.0),

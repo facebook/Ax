@@ -217,6 +217,7 @@ def create_problem_from_botorch(
 
     num_constraints = test_problem.num_constraints if is_constrained else 0
     if isinstance(test_problem, MultiObjectiveTestProblem):
+        # pyrefly: ignore [bad-argument-type]
         objective_names = [f"{name}_{i}" for i in range(n_obj)]
     else:
         objective_names = [name]

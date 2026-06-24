@@ -777,6 +777,7 @@ class Orchestrator(WithDBSettingsBase, BestPointMixin):
 
     # -------- II. Methods that are typically called within the `Orchestrator`. -------
 
+    # pyrefly: ignore [not-callable]
     @retry_on_exception(retries=3, no_retry_on_exception_types=NO_RETRY_EXCEPTIONS)
     def run_trials(
         self,
@@ -842,6 +843,9 @@ class Orchestrator(WithDBSettingsBase, BestPointMixin):
         self._log_next_no_trials_reason = True
         return metadata
 
+    # pyrefly: ignore [not-callable]
+
+    # pyrefly: ignore [not-callable]
     @retry_on_exception(retries=3, no_retry_on_exception_types=NO_RETRY_EXCEPTIONS)
     def poll_trial_status(
         self, poll_all_trial_statuses: bool = False
@@ -1835,8 +1839,10 @@ class Orchestrator(WithDBSettingsBase, BestPointMixin):
                     ttl_seconds=self.options.ttl_seconds_for_trials,
                     trial_type=self.trial_type,
                 )
+            # pyrefly: ignore [bad-return]
 
             trials.append(trial)
+        # pyrefly: ignore [bad-return]
         return trials, None
 
     def _gen_new_trials_from_generation_strategy(

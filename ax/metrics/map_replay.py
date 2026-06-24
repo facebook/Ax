@@ -56,6 +56,7 @@ class MapDataReplayMetric(MapMetric):
         )
         # Pre-group by trial_index for O(1) trial lookups instead of O(n) filtering
         self._trial_groups: dict[int, pd.DataFrame] = {
+            # pyrefly: ignore [bad-argument-type]
             int(trial_idx): group
             for trial_idx, group in self._replay_df.groupby("trial_index")
         }

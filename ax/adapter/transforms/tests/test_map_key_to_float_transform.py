@@ -383,6 +383,7 @@ class MapKeyToFloatTransformTest(TestCase):
             keep_indices = [
                 i
                 for i, obs in enumerate(self.observations)
+                # pyrefly: ignore [unsupported-operation]
                 if not isnan(obs.features.metadata["step"])
             ]
             observation_features = [self.observations[i].features for i in keep_indices]
@@ -393,6 +394,7 @@ class MapKeyToFloatTransformTest(TestCase):
             for i in keep_indices:
                 obs = self.observations[i]
                 obsf = obs.features.clone()
+                # pyrefly: ignore [missing-attribute]
                 obsf.parameters[self.map_key] = obsf.metadata.pop(self.map_key)
                 expected.append(obsf)
 
@@ -404,6 +406,7 @@ class MapKeyToFloatTransformTest(TestCase):
             keep_indices = [
                 i
                 for i, obs in enumerate(self.observations)
+                # pyrefly: ignore [unsupported-operation]
                 if isnan(obs.features.metadata["step"])
             ]
             observation_features = [self.observations[i].features for i in keep_indices]
@@ -423,6 +426,7 @@ class MapKeyToFloatTransformTest(TestCase):
             untransformed = self.t.untransform_observation_features(obs_ft2)
             expected = observation_features
             for obs in expected:
+                # pyrefly: ignore [unsupported-operation]
                 obs.metadata["step"] = 1.0
 
             self.assertEqual(untransformed, observation_features)
@@ -466,9 +470,11 @@ class MapKeyToFloatTransformTest(TestCase):
         obs_ft2 = deepcopy(observation_features)
         # remove the key from metadata dicts
         for obsf in obs_ft2:
+            # pyrefly: ignore [missing-attribute]
             obsf.metadata.pop(self.map_key)
             # To avoid this being treated as empty metadata.
             # In typical experiment, trial completion timestamp would be here.
+            # pyrefly: ignore [unsupported-operation]
             obsf.metadata["dummy"] = 1.0
         # should be exactly one parameter
         (p,) = self.t._parameter_list

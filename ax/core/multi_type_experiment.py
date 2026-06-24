@@ -312,8 +312,10 @@ class MultiTypeExperiment(Experiment):
         """
         opt_config_types = {
             metric_name: self.default_trial_type
+            # pyrefly: ignore [missing-attribute]
             for metric_name in self.optimization_config.metric_names
         }
+        # pyrefly: ignore [bad-return]
         return {**opt_config_types, **self._metric_to_trial_type}
 
     # -- Overridden functions from Base Experiment Class --

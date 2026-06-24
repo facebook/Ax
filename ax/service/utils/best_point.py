@@ -1355,6 +1355,7 @@ def get_trace(
         keep_order=False,  # sort by trial index
     )
 
+    # pyrefly: ignore [bad-argument-type]
     return {int(k): float(v) for k, v in cumulative_value.items()}
 
 

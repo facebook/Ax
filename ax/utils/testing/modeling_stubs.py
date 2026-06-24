@@ -564,6 +564,7 @@ def get_surrogate_generation_step() -> GenerationStep:
     Note: This is kept for backward compatibility testing. New code should use
     get_surrogate_generation_node() instead.
     """
+    # pyrefly: ignore [bad-return]
     return GenerationStep(
         generator=Generators.BOTORCH_MODULAR,
         num_trials=-1,

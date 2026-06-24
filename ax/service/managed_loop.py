@@ -174,11 +174,14 @@ def _outcome_to_dict(
         # (float, float) or (float, None)
         mean, sem = outcome
         if sem is None:
+            # pyrefly: ignore [bad-argument-type]
             return {objective_name: float(mean)}
         else:
+            # pyrefly: ignore [bad-argument-type]
             return {objective_name: (float(mean), float(sem))}
     else:
         # Single float
+        # pyrefly: ignore [bad-argument-type]
         return {objective_name: float(outcome)}
 
 

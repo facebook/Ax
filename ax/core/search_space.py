@@ -748,17 +748,21 @@ class SearchSpace(Base):
                     center = (float(p.lower) + float(p.upper)) / 2.0
                 parameters[name] = p.cast(center)
             elif isinstance(p, ChoiceParameter):
+                # pyrefly: ignore [unsupported-operation]
                 parameters[name] = p.values[int(len(p.values) / 2)]
             elif isinstance(p, FixedParameter):
+                # pyrefly: ignore [unsupported-operation]
                 parameters[name] = p.value
             elif isinstance(p, DerivedParameter):
                 derived_params.append(p)
             else:
                 raise NotImplementedError(f"Parameter type {type(p)} is not supported.")
         for p in derived_params:
+            # pyrefly: ignore [bad-argument-type, unsupported-operation]
             parameters[p.name] = p.compute(parameters=parameters)
         if self.is_hierarchical:
             parameters = self._cast_parameterization(parameters=parameters)
+        # pyrefly: ignore [bad-return]
         return parameters
 
     def compute_chebyshev_center(self) -> dict[str, float] | None:

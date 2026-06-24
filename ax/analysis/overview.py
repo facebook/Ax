@@ -189,6 +189,7 @@ class OverviewAnalysis(Analysis):
         )
 
         health_check_analyses = [
+            # pyrefly: ignore [bad-instantiation]
             MetricFetchingErrorsAnalysis(),
             (
                 EarlyStoppingAnalysis(
@@ -199,6 +200,7 @@ class OverviewAnalysis(Analysis):
                 if has_map_data and has_map_metrics and not has_batch_trials
                 else None
             ),
+            # pyrefly: ignore [bad-instantiation]
             CanGenerateCandidatesAnalysis(
                 can_generate_candidates=self.can_generate,
                 reason=self.can_generate_reason,
@@ -229,11 +231,13 @@ class OverviewAnalysis(Analysis):
             if not has_batch_trials
             else None,
             BaselineImprovementAnalysis() if not has_batch_trials else None,
+            # pyrefly: ignore [bad-instantiation]
             TransferLearningAnalysis(
                 config=self.sqa_config,
                 create_diff_paste_callable=self.create_diff_paste_callable,
             ),
             *[
+                # pyrefly: ignore [bad-instantiation]
                 SearchSpaceAnalysis(trial_index=trial.index)
                 for trial in candidate_trials
             ],

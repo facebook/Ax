@@ -202,6 +202,7 @@ class DiagnosticAnalysisTest(TestCase):
             trial.add_arms_and_weights(arms=arms).mark_running(no_runner_required=True)
 
             for arm in trial.arms:
+                # pyrefly: ignore [bad-argument-type]
                 x1, x2 = float(arm.parameters["x1"]), float(arm.parameters["x2"])
                 data_rows.append(
                     {

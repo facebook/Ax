@@ -53,6 +53,7 @@ class TestModelFitStats(TestCase):
         self.assertAlmostEqual(ax_result, -1.0)
 
     def test_entropy_of_observations(self) -> None:
+        # pyrefly: ignore [bad-argument-type]
         np.random.seed(1234)
         n = 16
         yc = np.ones(n)

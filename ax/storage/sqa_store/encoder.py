@@ -1058,7 +1058,9 @@ class Encoder:
 
     def runner_to_sqa(self, runner: Runner, trial_type: str | None = None) -> SQARunner:
         """Convert Ax Runner to SQLAlchemy."""
+        # pyrefly: ignore [bad-assignment]
         runner_class = type(runner)
+        # pyrefly: ignore [bad-argument-type]
         runner_type = self.config.runner_registry.get(runner_class)
         if runner_type is None:
             raise SQAEncodeError(
@@ -1067,6 +1069,7 @@ class Encoder:
                 "The runner registry currently contains the following: "
                 f"{','.join(map(str, self.config.runner_registry.keys()))} "
             )
+        # pyrefly: ignore [missing-attribute]
         properties = runner_class.serialize_init_args(obj=runner)
         # pyre-fixme: Expected `Base` for 1st...t `typing.Type[Runner]`.
         runner_class: SQARunner = self.config.class_to_sqa_class[Runner]
@@ -1158,6 +1161,7 @@ class Encoder:
         return [
             self.data_to_sqa(
                 data=Data(df=df),
+                # pyrefly: ignore [bad-argument-type]
                 trial_index=trial_index,
                 timestamp=0,
             )
@@ -1204,6 +1208,7 @@ class Encoder:
 
         # pyre-fixme: Expected `Base` for 1st...ot `typing.Type[AuxiliaryExperiment]`.
         auxiliary_experiment_class: SQAAuxiliaryExperiment = (
+            # pyrefly: ignore [bad-assignment]
             self.config.class_to_sqa_class[AuxiliaryExperiment]
         )
 

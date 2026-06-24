@@ -28,12 +28,17 @@ def db_settings_from_storage_config(
         encoder = bundle.encoder
         decoder = bundle.decoder
     else:
+        # pyrefly: ignore [not-callable]
         encoder = Encoder(config=SQAConfig())
+        # pyrefly: ignore [not-callable]
         decoder = Decoder(config=SQAConfig())
 
+    # pyrefly: ignore [not-callable]
     return DBSettings(
         creator=storage_config.creator,
         url=storage_config.url,
+        # pyrefly: ignore [bad-argument-type]
         encoder=encoder,
+        # pyrefly: ignore [bad-argument-type]
         decoder=decoder,
     )

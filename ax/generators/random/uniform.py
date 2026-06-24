@@ -34,6 +34,7 @@ class UniformGenerator(RandomGenerator):
             init_position=init_position,
             fallback_to_sample_polytope=fallback_to_sample_polytope,
         )
+        # pyrefly: ignore [bad-argument-type]
         self._rs = np.random.RandomState(seed=self.seed)
         if self.init_position > 0:
             # Fast-forward the random state by generating & discarding samples.
