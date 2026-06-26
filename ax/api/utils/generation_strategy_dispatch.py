@@ -112,6 +112,7 @@ def _get_mbm_node(
     method: str,
     torch_device: str | None,
     simplify_parameter_changes: bool,
+    fit_tracking_metrics: bool = True,
     model_config: ModelConfig | None = None,
     botorch_acqf_class: type[AcquisitionFunction] | None = None,
 ) -> tuple[GenerationNode, str]:
@@ -126,6 +127,9 @@ def _get_mbm_node(
         torch_device: The torch device to use for the MBM node.
         simplify_parameter_changes: Whether to use BONSAI [Daulton2026bonsai]_ to
             simplify parameter changes in the MBM node.
+        fit_tracking_metrics: Whether to fit a model to the tracking metrics. If
+            ``False``, only the metrics in the optimization config are modeled, and
+            model-dependent analyses will not be produced for the tracking metrics.
         model_config: Optional model config to use for the MBM node.
             This is only supported when ``method`` is "custom".
         botorch_acqf_class: An optional BoTorch ``AcquisitionFunction`` class
@@ -172,6 +176,7 @@ def _get_mbm_node(
         "acquisition_options": {
             "prune_irrelevant_parameters": simplify_parameter_changes
         },
+        "fit_tracking_metrics": fit_tracking_metrics,
     }
     if botorch_acqf_class is not None:
         generator_kwargs["botorch_acqf_class"] = botorch_acqf_class
@@ -245,6 +250,7 @@ def choose_generation_strategy(
             method=struct.method,
             torch_device=struct.torch_device,
             simplify_parameter_changes=struct.simplify_parameter_changes,
+            fit_tracking_metrics=struct.fit_tracking_metrics,
             model_config=model_config,
             botorch_acqf_class=botorch_acqf_class,
         )

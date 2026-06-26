@@ -245,6 +245,7 @@ class Client(WithDBSettingsBase):
         # Misc options
         torch_device: str | None = None,
         simplify_parameter_changes: bool = False,
+        fit_tracking_metrics: bool = True,
     ) -> None:
         """
         Optional method to configure the way candidate parameterizations are generated
@@ -276,6 +277,16 @@ class Client(WithDBSettingsBase):
                 [Daulton2026bonsai]_ to simplify parameter changes in arms
                 generated via Bayesian Optimization by pruning irrelevant
                 parameter changes.
+            fit_tracking_metrics: Whether to fit a model to the tracking metrics
+                (metrics that are not part of the optimization config). If ``False``,
+                only the metrics in the optimization config (objectives and outcome
+                constraints) are modeled; tracking metrics are still recorded but not
+                modeled by the Bayesian optimization model. This can speed up model
+                fitting when there are many tracking metrics kept only for
+                book-keeping. NOTE: When this is ``False``, any model-dependent
+                analyses (e.g. cross-validation, sensitivity analysis) will not be
+                produced for the tracking metrics. Requires an optimization config to
+                be set and has no effect when ``method="random_search"``.
         """
         generation_strategy = self._choose_generation_strategy(
             method=method,
@@ -287,6 +298,7 @@ class Client(WithDBSettingsBase):
             allow_exceeding_initialization_budget=allow_exceeding_initialization_budget,
             torch_device=torch_device,
             simplify_parameter_changes=simplify_parameter_changes,
+            fit_tracking_metrics=fit_tracking_metrics,
         )
         self.set_generation_strategy(generation_strategy=generation_strategy)
 
@@ -1187,6 +1199,7 @@ class Client(WithDBSettingsBase):
         # Misc options
         torch_device: str | None = None,
         simplify_parameter_changes: bool = False,
+        fit_tracking_metrics: bool = True,
     ) -> GenerationStrategy:
         """
         Choose a generation strategy based on the provided method and options.
@@ -1214,6 +1227,11 @@ class Client(WithDBSettingsBase):
                 [Daulton2026bonsai]_ to simplify parameter changes in arms
                 generated via Bayesian Optimization by pruning irrelevant
                 parameter changes.
+            fit_tracking_metrics: Whether to fit a model to the tracking metrics
+                (metrics that are not part of the optimization config). If ``False``,
+                only the metrics in the optimization config are modeled and tracking
+                metrics are recorded but not modeled. NOTE: When this is ``False``,
+                model-dependent analyses will not be produced for the tracking metrics.
 
 
         Returns:
@@ -1234,6 +1252,7 @@ class Client(WithDBSettingsBase):
                 ),
                 torch_device=torch_device,
                 simplify_parameter_changes=simplify_parameter_changes,
+                fit_tracking_metrics=fit_tracking_metrics,
             )
         )
 

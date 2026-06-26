@@ -1692,6 +1692,31 @@ class TestClient(TestCase):
             .generator_kwargs["acquisition_options"]["prune_irrelevant_parameters"]
         )
 
+    def test_configure_generation_strategy_with_fit_tracking_metrics(self) -> None:
+        client = Client()
+        client.configure_experiment(
+            parameters=[
+                RangeParameterConfig(name="x1", parameter_type="float", bounds=(-1, 1)),
+            ],
+            name="foo",
+        )
+        client.configure_optimization(objective="foo")
+
+        # Default is to fit tracking metrics.
+        client.configure_generation_strategy()
+        self.assertTrue(
+            client._generation_strategy._nodes[2]
+            .generator_specs[0]
+            .generator_kwargs["fit_tracking_metrics"]
+        )
+        # The option flows through to the MBM node's generator kwargs.
+        client.configure_generation_strategy(fit_tracking_metrics=False)
+        self.assertFalse(
+            client._generation_strategy._nodes[2]
+            .generator_specs[0]
+            .generator_kwargs["fit_tracking_metrics"]
+        )
+
     def test_configure_experiment_with_derived_parameter(self) -> None:
         # Setup: Create parameters including a derived parameter
 
