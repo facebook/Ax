@@ -239,7 +239,8 @@ class TestBenchmarkRunner(TestCase):
                     nullcontext()
                     if not isinstance(test_function, SurrogateTestFunction)
                     else patch.object(
-                        runner.test_function._surrogate,  # pyrefly: ignore [missing-attribute]
+                        # pyrefly: ignore [missing-attribute]
+                        runner.test_function._surrogate,
                         "predict",
                         return_value=({"branin": [4.2]}, None),
                     )

@@ -127,6 +127,7 @@ class TestDispatchUtils(TestCase):
                     derelativize_with_raw_status_quo=True
                 ),
                 "acquisition_options": {"prune_irrelevant_parameters": False},
+                "fit_tracking_metrics": True,
             },
         )
         self.assertEqual(mbm_node._transition_criteria, [])
@@ -195,9 +196,35 @@ class TestDispatchUtils(TestCase):
                     derelativize_with_raw_status_quo=True
                 ),
                 "acquisition_options": {"prune_irrelevant_parameters": False},
+                "fit_tracking_metrics": True,
             },
         )
         self.assertEqual(mbm_node._transition_criteria, [])
+
+    def test_gs_fit_tracking_metrics(self) -> None:
+        methods: list[Literal["fast", "quality"]] = ["fast", "quality"]
+        for fit_tracking_metrics, method in product((True, False), methods):
+            with self.subTest(method=method, fit_tracking_metrics=fit_tracking_metrics):
+                struct = GenerationStrategyDispatchStruct(
+                    method=method,
+                    fit_tracking_metrics=fit_tracking_metrics,
+                )
+                gs = choose_generation_strategy(struct=struct)
+                self.assertEqual(gs.name, f"Center+Sobol+MBM:{method}")
+                mbm_node = gs._nodes[2]
+                mbm_spec = mbm_node.generator_specs[0]
+                self.assertEqual(
+                    mbm_spec.generator_kwargs["fit_tracking_metrics"],
+                    fit_tracking_metrics,
+                )
+        # The Sobol node should not receive ``fit_tracking_metrics``, and the
+        # random_search method (Sobol only) should not either.
+        struct = GenerationStrategyDispatchStruct(
+            method="random_search", fit_tracking_metrics=False
+        )
+        gs = choose_generation_strategy(struct=struct)
+        sobol_spec = gs._nodes[-1].generator_specs[0]
+        self.assertNotIn("fit_tracking_metrics", sobol_spec.generator_kwargs)
 
     def test_choose_gs_no_initialization(self) -> None:
         struct = GenerationStrategyDispatchStruct(
