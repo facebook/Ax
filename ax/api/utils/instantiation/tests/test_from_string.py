@@ -70,6 +70,45 @@ class TestFromString(TestCase):
             ),
         )
 
+    def test_constraint_against_optimization_direction_on_objective(self) -> None:
+        # A constraint that bounds a minimized objective from below (against
+        # its optimization direction) cannot be an objective threshold, so it
+        # must be kept as a true outcome constraint. The aligned upper bound
+        # becomes an objective threshold.
+        config = optimization_config_from_string(
+            objective_str="-flops, -ne",
+            outcome_constraint_strs=[
+                "flops >= 42.50",
+                "flops <= 94.38",
+                "ne <= 0.62938",
+            ],
+        )
+        self.assertEqual(
+            config,
+            MultiObjectiveOptimizationConfig(
+                objective=Objective(
+                    expression="-flops, -ne",
+                    metric_name_to_signature={"flops": "flops", "ne": "ne"},
+                ),
+                outcome_constraints=[
+                    OutcomeConstraint(
+                        expression="flops >= 42.50",
+                        metric_name_to_signature={"flops": "flops"},
+                    ),
+                ],
+                objective_thresholds=[
+                    OutcomeConstraint(
+                        expression="flops <= 94.38",
+                        metric_name_to_signature={"flops": "flops"},
+                    ),
+                    OutcomeConstraint(
+                        expression="ne <= 0.62938",
+                        metric_name_to_signature={"ne": "ne"},
+                    ),
+                ],
+            ),
+        )
+
     def test_objective_constraint_on_single_objective_raises(self) -> None:
         with self.assertRaisesRegex(
             UserInputError, "Outcome constraints may not be placed"
