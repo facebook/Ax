@@ -13,6 +13,7 @@ from ax.core.optimization_config import (
     OptimizationConfig,
 )
 from ax.core.outcome_constraint import _parse_constraint_expression, OutcomeConstraint
+from ax.core.types import ComparisonOp
 from ax.exceptions.core import UserInputError
 from ax.utils.common.sympy import (
     extract_metric_names_from_objective_expr,
@@ -67,16 +68,33 @@ def optimization_config_from_string(
     )
 
     if objective.is_multi_objective:
-        # Convert OutcomeConstraints to ObjectiveThresholds if relevant
-        objective_metric_names = set(objective.metric_names)
+        # A single-metric constraint on an objective metric becomes an
+        # objective threshold only when it bounds the objective from its
+        # optimization direction (i.e. an upper bound on a minimized
+        # objective or a lower bound on a maximized one). A constraint that
+        # bounds against the optimization direction (e.g. ``flops >= 42``
+        # while minimizing ``flops``) cannot be expressed as a threshold, so
+        # it is kept as a true outcome constraint -- which MOO supports.
+        minimize_by_metric_name = {
+            name: weight < 0
+            for sub_nw in objective._parsed[1]
+            for name, weight in sub_nw
+        }
         true_outcome_constraints = []
         objective_thresholds: list[OutcomeConstraint] = []
         for outcome_constraint in outcome_constraints or []:
-            if (
-                len(outcome_constraint.metric_names) == 1
-                and outcome_constraint.metric_names[0] in objective_metric_names
-            ):
-                objective_thresholds.append(outcome_constraint)
+            metric_name = (
+                outcome_constraint.metric_names[0]
+                if len(outcome_constraint.metric_names) == 1
+                else None
+            )
+            if metric_name is not None and metric_name in minimize_by_metric_name:
+                minimize = minimize_by_metric_name[metric_name]
+                bounded_above = outcome_constraint.op == ComparisonOp.LEQ
+                if minimize == bounded_above:
+                    objective_thresholds.append(outcome_constraint)
+                else:
+                    true_outcome_constraints.append(outcome_constraint)
             else:
                 true_outcome_constraints.append(outcome_constraint)
 
