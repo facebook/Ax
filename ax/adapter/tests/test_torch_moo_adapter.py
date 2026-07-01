@@ -7,7 +7,7 @@
 # pyre-strict
 
 from contextlib import ExitStack
-from unittest.mock import patch
+from unittest.mock import Mock, patch
 
 import numpy as np
 import torch
@@ -67,7 +67,7 @@ class MultiObjectiveTorchAdapterTest(TestCase):
     )
     @skip_fit_gpytorch_mll
     def helper_test_pareto_frontier(
-        self, _, outcome_constraints: list[OutcomeConstraint] | None
+        self, _: Mock, outcome_constraints: list[OutcomeConstraint] | None
     ) -> None:
         """
         Make sure Pareto-related functions run.
@@ -324,7 +324,7 @@ class MultiObjectiveTorchAdapterTest(TestCase):
         f"{STUBS_PATH}.BraninMetric.is_available_while_running",
         return_value=False,
     )
-    def test_hypervolume(self, _, cuda: bool = False) -> None:
+    def test_hypervolume(self, _: Mock, cuda: bool = False) -> None:
         for num_objectives in (2, 3):
             exp = get_branin_experiment_with_multi_objective(
                 has_optimization_config=True,
@@ -442,7 +442,7 @@ class MultiObjectiveTorchAdapterTest(TestCase):
         return_value=False,
     )
     @mock_botorch_optimize
-    def test_infer_objective_thresholds(self, _, cuda: bool = False) -> None:
+    def test_infer_objective_thresholds(self, _: Mock, cuda: bool = False) -> None:
         exp = get_branin_experiment_with_multi_objective(
             has_optimization_config=True,
             with_completed_batch=True,
