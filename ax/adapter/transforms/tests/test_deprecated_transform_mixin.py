@@ -37,7 +37,7 @@ class DeprecatedTransformTest(TestCase):
 
     def test_deprecated_transform_equality(self) -> None:
         class DeprecatedTransform(DeprecatedTransformMixin, Transform):
-            def __init__(self, *args):
+            def __init__(self, *args: Any) -> None:
                 super().__init__(*args)
 
         t = Transform(MagicMock(), MagicMock())
