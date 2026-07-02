@@ -102,7 +102,7 @@ class TorchUtilsTest(TestCase):
         f"{get_botorch_objective_and_transform.__module__}.get_infeasible_cost",
         return_value=1.0,
     )
-    def test_get_botorch_objective(self, _) -> None:
+    def test_get_botorch_objective(self, _: MagicMock) -> None:
         # For KG with outcome constraints, use a ConstrainedMCObjective
         obj, tf = get_botorch_objective_and_transform(
             botorch_acqf_class=qKnowledgeGradient,
