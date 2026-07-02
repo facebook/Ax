@@ -101,6 +101,74 @@ class TestTestOfNoEffectAnalysis(TestCase):
         with self.assertRaises(AxError):
             self.tone.compute(experiment=self.experiment)
 
+    def test_raises_error_without_sample_sizes(self) -> None:
+        # GIVEN an experiment whose data has no `n` column (as produced by
+        # standard trial evaluation, e.g. `Client.complete_trial`)
+        self.experiment.attach_data(
+            data=Data(
+                df=pd.DataFrame(
+                    {
+                        "arm_name": ["0_0", "0_1", "0_2"],
+                        "metric_name": ["branin"] * 3,
+                        "mean": [0.0, 1.0, 2.0],
+                        "sem": [0.1] * 3,
+                        "trial_index": [0] * 3,
+                        "metric_signature": ["branin"] * 3,
+                    }
+                )
+            )
+        )
+        # WHEN we compute the healthcheck
+        # THEN it raises a UserInputError instead of a KeyError
+        with self.assertRaisesRegex(UserInputError, "per-arm sample sizes"):
+            self.tone.compute(experiment=self.experiment)
+
+    def test_deterministic_data_detects_effects(self) -> None:
+        # GIVEN an experiment with deterministic data (sem == 0) and
+        # clearly different means
+        self.experiment.attach_data(
+            data=Data(
+                df=pd.DataFrame(
+                    {
+                        "arm_name": ["0_0", "0_1", "0_2"],
+                        "metric_name": ["branin"] * 3,
+                        "mean": [0.0, 1.0, 2.0],
+                        "sem": [0.0] * 3,
+                        "trial_index": [0] * 3,
+                        "n": [1000] * 3,
+                        "metric_signature": ["branin"] * 3,
+                    }
+                )
+            )
+        )
+        # WHEN we compute the healthcheck
+        card = self.tone.compute(experiment=self.experiment)
+        # THEN it is a PASS (previously a NaN p-value silently read as
+        # "no effect" and produced a WARNING)
+        self.assertEqual(card.get_status(), HealthcheckStatus.PASS)
+
+    def test_raises_error_with_only_single_arm_trials(self) -> None:
+        # GIVEN an experiment whose trials all have a single arm
+        self.experiment.attach_data(
+            data=Data(
+                df=pd.DataFrame(
+                    {
+                        "arm_name": ["0_0"],
+                        "metric_name": ["branin"],
+                        "mean": [1.0],
+                        "sem": [0.1],
+                        "trial_index": [0],
+                        "n": [1000],
+                        "metric_signature": ["branin"],
+                    }
+                )
+            )
+        )
+        # WHEN we compute the healthcheck
+        # THEN it raises a UserInputError
+        with self.assertRaisesRegex(UserInputError, "two or more arms"):
+            self.tone.compute(experiment=self.experiment)
+
     def test_multi_objective_partial_no_effects(self) -> None:
         # GIVEN we have a multi-objective experiment with one metric with no effects
         self.moo_experiment.attach_data(

@@ -100,6 +100,11 @@ class TestOfNoEffectAnalysis(Analysis):
         df_tone = check_experiment_effects_per_metric(
             data=data, objective_names=set(objective_names)
         )
+        if df_tone.empty:
+            raise UserInputError(
+                "TestOfNoEffectAnalysis requires at least one trial with two "
+                "or more arms, since the test compares arms within a trial."
+            )
         metrics_tone = df_tone.groupby("metric_name")["has_effect"].sum() > 0
         metrics_with_effects = [i for i in metrics_tone.index if metrics_tone[i]]
         objectives_without_effects = set()
