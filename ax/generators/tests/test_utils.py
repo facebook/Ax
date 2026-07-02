@@ -64,7 +64,7 @@ class UtilsTest(TestCase):
         )
         X_obs = model.predict.mock_calls[0][1][0]
         self.assertEqual(X_obs.shape, (3, 2))
-        # pyre-fixme[6]: For 2nd argument expected `Union[_SupportsArray[dtype[typing...
+        self.assertIsNotNone(xbest)
         self.assertTrue(np.array_equal(X_obs[1, :], xbest))  # 1 should be best
 
         # Test with specified utility baseline
@@ -79,7 +79,7 @@ class UtilsTest(TestCase):
         )
         X_obs = model.predict.mock_calls[1][1][0]
         self.assertEqual(X_obs.shape, (3, 2))
-        # pyre-fixme[6]: For 2nd argument expected `Union[_SupportsArray[dtype[typing...
+        self.assertIsNotNone(xbest)
         self.assertTrue(np.array_equal(X_obs[2, :], xbest))  # 2 should be best
 
         # Test with feasibility threshold
@@ -94,7 +94,7 @@ class UtilsTest(TestCase):
         )
         X_obs = model.predict.mock_calls[2][1][0]
         self.assertEqual(X_obs.shape, (3, 2))
-        # pyre-fixme[6]: For 2nd argument expected `Union[_SupportsArray[dtype[typing...
+        self.assertIsNotNone(xbest)
         self.assertTrue(np.array_equal(X_obs[0, :], xbest))  # 0 should be best
 
         # Parameter infeasible
