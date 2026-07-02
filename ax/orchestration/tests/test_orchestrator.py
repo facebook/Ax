@@ -5,6 +5,8 @@
 
 # pyre-strict
 
+from __future__ import annotations
+
 import logging
 import os
 import re
@@ -514,9 +516,8 @@ class TestAxOrchestrator(TestCase):
             ),
             db_settings=self.db_settings_if_always_needed,
         )
-        trials_info = {"n_completed": 0}
+        trials_info: dict[str, int] = {"n_completed": 0}
 
-        # pyre-fixme[53]: Captured variable `trials_info` is not annotated.
         def write_n_trials(orchestrator: Orchestrator) -> None:
             trials_info["n_completed"] = len(orchestrator.experiment.trials)
 
@@ -556,9 +557,8 @@ class TestAxOrchestrator(TestCase):
         self.base_run_n_trials(None)
 
     def test_run_n_trials_callback(self) -> None:
-        test_obj = [0, 0]
+        test_obj: list[int | str | None] = [0, 0]
 
-        # pyre-fixme[53]: Captured variable `test_obj` is not annotated.
         def _callback(orchestrator: Orchestrator) -> None:
             # pyrefly: ignore [unsupported-operation]
             test_obj[0] = orchestrator._latest_optimization_start_timestamp
