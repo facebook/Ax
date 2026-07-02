@@ -47,6 +47,7 @@ from ax.generators.types import TConfig
 from ax.utils.common.constants import Keys
 from ax.utils.common.testutils import TestCase
 from ax.utils.testing.torch_stubs import get_torch_test_data
+from botorch.acquisition import AcquisitionFunction
 from botorch.acquisition.analytic import PosteriorMean
 from botorch.acquisition.input_constructors import get_acqf_input_constructor
 from botorch.acquisition.logei import (
@@ -747,10 +748,15 @@ class BoTorchGeneratorUtilsTest(TestCase):
         acqf_options = {}
         botorch_acqf_options: TConfig = {Keys.NUM_FANTASIES: 64}
 
-        acquisition_function_kwargs = {Keys.CURRENT_VALUE: torch.tensor([1.0])}
-        ax_acquisition_kwargs = {Keys.SUBSET_MODEL: False}
-        optimizer_kwargs = {Keys.NUM_RESTARTS: 40, Keys.RAW_SAMPLES: 1024}
-        model_gen_options = {
+        acquisition_function_kwargs: dict[str, Tensor] = {
+            Keys.CURRENT_VALUE: torch.tensor([1.0])
+        }
+        ax_acquisition_kwargs: dict[str, bool] = {Keys.SUBSET_MODEL: False}
+        optimizer_kwargs: dict[str, int] = {
+            Keys.NUM_RESTARTS: 40,
+            Keys.RAW_SAMPLES: 1024,
+        }
+        model_gen_options: TConfig = {
             Keys.AX_ACQUISITION_KWARGS: ax_acquisition_kwargs,
             Keys.ACQF_KWARGS: acquisition_function_kwargs,
             Keys.OPTIMIZER_KWARGS: optimizer_kwargs,
@@ -764,13 +770,6 @@ class BoTorchGeneratorUtilsTest(TestCase):
         ) = construct_acquisition_and_optimizer_options(
             acqf_options=acqf_options,
             botorch_acqf_options=botorch_acqf_options,
-            # pyre-fixme[6]: Incompatible parameter type [6]:
-            # In call `construct_acquisition_and_optimizer_options`, for
-            # argument `model_gen_options`, expected `Optional[Dict[str,
-            # Union[None, Dict[int, typing.Any], Dict[str, typing.Any],
-            # List[int], List[str], OptimizationConfig, WinsorizationConfig,
-            # AcquisitionFunction, float, int, str]]]` but got `Dict[Keys,
-            # Union[Dict[Keys, bool], Dict[Keys, int], Dict[Keys, Tensor]]]`.
             model_gen_options=model_gen_options,
         )
         self.assertEqual(final_acq_options, {Keys.SUBSET_MODEL: False})
@@ -792,7 +791,9 @@ class BoTorchGeneratorUtilsTest(TestCase):
             )
 
         # test with botorch_acqf_classes_with_options
-        botorch_acqf_classes_with_options = [
+        botorch_acqf_classes_with_options: list[
+            tuple[type[AcquisitionFunction], TConfig]
+        ] = [
             (PosteriorMean, {}),
             (qLogNoisyExpectedImprovement, {}),
         ]
@@ -805,22 +806,7 @@ class BoTorchGeneratorUtilsTest(TestCase):
             ) = construct_acquisition_and_optimizer_options(
                 acqf_options=acqf_options,
                 botorch_acqf_options=botorch_acqf_options,
-                # pyre-fixme[6]: Incompatible parameter type [6]:
-                # In call `construct_acquisition_and_optimizer_options`, for
-                # argument `model_gen_options`, expected `Optional[Dict[str,
-                # Union[None, Dict[int, typing.Any], Dict[str, typing.Any],
-                # List[int], List[str], OptimizationConfig, WinsorizationConfig,
-                # AcquisitionFunction, float, int, str]]]` but got `Dict[Keys,
-                # Union[Dict[Keys, bool], Dict[Keys, int], Dict[Keys, Tensor]]]`.
                 model_gen_options=model_gen_options,
-                # pyre-fixme[6]: Incompatible parameter type [6]: In call
-                # `construct_acquisition_and_optimizer_options`, for argument
-                # `botorch_acqf_classes_with_options`, expected `Optional[
-                # List[Tuple[Type[AcquisitionFunction], Dict[str, Union[None,
-                # Dict[int, typing.Any], Dict[str, typing.Any], List[int], List[str],
-                # OptimizationConfig, WinsorizationConfig, AcquisitionFunction,
-                # float, int, str]]]]]` but got `List[Tuple[Type[
-                # qLogNoisyExpectedImprovement], Dict[typing.Any, typing.Any]]]`.
                 botorch_acqf_classes_with_options=botorch_acqf_classes_with_options,
             )
             self.assertEqual(
@@ -841,7 +827,9 @@ class BoTorchGeneratorUtilsTest(TestCase):
             )
 
         # test that botorch_acqf_classes_with_options is updated
-        botorch_acqf_classes_with_options = [
+        botorch_acqf_classes_with_options: list[
+            tuple[type[AcquisitionFunction], TConfig]
+        ] = [
             (qLogNoisyExpectedImprovement, {Keys.NUM_FANTASIES: 64}),
         ]
         (
@@ -852,22 +840,7 @@ class BoTorchGeneratorUtilsTest(TestCase):
         ) = construct_acquisition_and_optimizer_options(
             acqf_options=acqf_options,
             botorch_acqf_options=botorch_acqf_options,
-            # pyre-fixme[6]: Incompatible parameter type [6]:
-            # In call `construct_acquisition_and_optimizer_options`, for
-            # argument `model_gen_options`, expected `Optional[Dict[str,
-            # Union[None, Dict[int, typing.Any], Dict[str, typing.Any],
-            # List[int], List[str], OptimizationConfig, WinsorizationConfig,
-            # AcquisitionFunction, float, int, str]]]` but got `Dict[Keys,
-            # Union[Dict[Keys, bool], Dict[Keys, int], Dict[Keys, Tensor]]]`.
             model_gen_options=model_gen_options,
-            # pyre-fixme[6]: Incompatible parameter type [6]: In call
-            # `construct_acquisition_and_optimizer_options`, for argument
-            # `botorch_acqf_classes_with_options`, expected `Optional[
-            # List[Tuple[Type[AcquisitionFunction], Dict[str, Union[None,
-            # Dict[int, typing.Any], Dict[str, typing.Any], List[int], List[str],
-            # OptimizationConfig, WinsorizationConfig, AcquisitionFunction,
-            # float, int, str]]]]]` but got `List[Tuple[Type[
-            # qLogNoisyExpectedImprovement], Dict[typing.Any, typing.Any]]]`.
             botorch_acqf_classes_with_options=botorch_acqf_classes_with_options,
         )
         self.assertEqual(
