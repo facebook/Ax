@@ -568,7 +568,9 @@ class TestAxClient(TestCase):
         autospec=True,
         return_value={"branin": Metric(name="branin")},
     )
-    def test_optimization_complete(self, _mock_gen, _mock_sig_to_metric) -> None:
+    def test_optimization_complete(
+        self, _mock_gen: Mock, _mock_sig_to_metric: Mock
+    ) -> None:
         ax_client = AxClient()
         ax_client.create_experiment(
             name="test",
@@ -645,7 +647,9 @@ class TestAxClient(TestCase):
         f"{AxClient.__module__}.AxClient._save_experiment_to_db_if_possible",
         side_effect=Exception("patched db exception"),
     )
-    def test_db_write_failure_on_create_experiment(self, _mock_save_experiment) -> None:
+    def test_db_write_failure_on_create_experiment(
+        self, _mock_save_experiment: Mock
+    ) -> None:
         init_test_engine_and_session_factory(force_init=True)
         config = SQAConfig()
         encoder = Encoder(config=config)
@@ -2806,7 +2810,7 @@ class TestAxClient(TestCase):
         autospec=True,
         return_value=[get_observation1trans(first_metric_signature="branin").data],
     )
-    def test_get_model_predictions(self, _predict) -> None:
+    def test_get_model_predictions(self, _predict: Mock) -> None:
         ax_client = get_branin_optimization()
         ax_client.get_next_trial()
         ax_client.complete_trial(0, {"branin": (5.0, 0.5)})
@@ -2979,7 +2983,7 @@ class TestAxClient(TestCase):
         "ax.core.experiment.Experiment.new_trial",
         side_effect=RuntimeError("cholesky_cpu error - bad matrix"),
     )
-    def test_annotate_exception(self, _) -> None:
+    def test_annotate_exception(self, _: Mock) -> None:
         ax_client = AxClient()
         ax_client.create_experiment(
             name="test_experiment",
