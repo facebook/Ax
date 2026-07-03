@@ -30,9 +30,7 @@ class TestNoEffects(TestCase):
             ]
         )
         # WHEN we run the test of no effect
-        df_tone = check_experiment_effects_per_metric(
-            data=data, objective_names={"m1"}
-        )
+        df_tone = check_experiment_effects_per_metric(data=data, objective_names={"m1"})
         # THEN an effect is detected
         self.assertTrue(df_tone["has_effect"].all())
 
@@ -72,9 +70,7 @@ class TestNoEffects(TestCase):
             ]
         )
         # WHEN we run the test of no effect
-        df_tone = check_experiment_effects_per_metric(
-            data=data, objective_names={"m1"}
-        )
+        df_tone = check_experiment_effects_per_metric(data=data, objective_names={"m1"})
         # THEN the exact effect is detected (previously a NaN p-value silently
         # read as "no effect")
         self.assertEqual(df_tone["p_value"].item(), 0.0)
@@ -89,9 +85,7 @@ class TestNoEffects(TestCase):
             ]
         )
         # WHEN we run the test of no effect
-        df_tone = check_experiment_effects_per_metric(
-            data=data, objective_names={"m1"}
-        )
+        df_tone = check_experiment_effects_per_metric(data=data, objective_names={"m1"})
         # THEN no effect is detected, with a well-defined p-value
         self.assertEqual(df_tone["p_value"].item(), 1.0)
         self.assertFalse(df_tone["has_effect"].item())
@@ -101,9 +95,7 @@ class TestNoEffects(TestCase):
         # WHEN we run Welch's test directly
         # THEN it raises a UserInputError since the test is undefined
         with self.assertRaisesRegex(UserInputError, "positive sem"):
-            no_effect_test_welch(
-                means=[1.0, 1.0], sems=[0.0, 0.1], ns=[1000, 1000]
-            )
+            no_effect_test_welch(means=[1.0, 1.0], sems=[0.0, 0.1], ns=[1000, 1000])
 
     def test_single_arm_groups_are_skipped(self) -> None:
         # GIVEN one single-arm trial and one two-arm trial
@@ -127,9 +119,7 @@ class TestNoEffects(TestCase):
             ]
         )
         # WHEN we run the test of no effect
-        df_tone = check_experiment_effects_per_metric(
-            data=data, objective_names={"m1"}
-        )
+        df_tone = check_experiment_effects_per_metric(data=data, objective_names={"m1"})
         # THEN the single-arm trial is skipped (previously it produced a NaN
         # p-value) and the two-arm trial is tested
         self.assertEqual(df_tone["trial_index"].tolist(), [1])

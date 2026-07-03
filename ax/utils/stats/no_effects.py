@@ -264,8 +264,7 @@ def no_effect_test_welch(
 
     if K < 2:
         raise UserInputError(
-            "Welch's test of no effect requires at least two arms, "
-            f"received {K}."
+            f"Welch's test of no effect requires at least two arms, received {K}."
         )
     if np.any(ns_arr <= 1):
         raise UserInputError(
