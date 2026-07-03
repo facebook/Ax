@@ -10,6 +10,7 @@ from ax.core.data import Data
 from ax.exceptions.core import UserInputError
 from ax.utils.common.testutils import TestCase
 from ax.utils.stats.no_effects import (
+    check_experiment_effects,
     check_experiment_effects_per_metric,
     no_effect_test_welch,
 )
@@ -47,6 +48,19 @@ class TestNoEffects(TestCase):
         # THEN it raises a UserInputError instead of a KeyError
         with self.assertRaisesRegex(UserInputError, "per-arm sample sizes"):
             check_experiment_effects_per_metric(data=data, objective_names={"m1"})
+
+    def test_check_experiment_effects_missing_sample_sizes(self) -> None:
+        # GIVEN data without the optional `n` column
+        data = _data(
+            [
+                {"arm_name": "status_quo", "mean": 1.0, "sem": 0.1},
+                {"arm_name": "0_0", "mean": 2.0, "sem": 0.1},
+            ]
+        )
+        # WHEN we run the overall (across-metric) test of no effect
+        # THEN it raises a UserInputError instead of a KeyError
+        with self.assertRaisesRegex(UserInputError, "per-arm sample sizes"):
+            check_experiment_effects(data=data, objective_names={"m1"})
 
     def test_null_sample_sizes(self) -> None:
         # GIVEN data where some rows are missing a sample size
