@@ -16,6 +16,9 @@ from ax.early_stopping.strategies.logical import (
     OrEarlyStoppingStrategy,
 )
 from ax.early_stopping.strategies.percentile import PercentileEarlyStoppingStrategy
+from ax.early_stopping.strategies.stability_gated import (
+    StabilityGatedEarlyStoppingStrategy,
+)
 from ax.early_stopping.strategies.threshold import ThresholdEarlyStoppingStrategy
 
 
@@ -23,6 +26,7 @@ __all__ = [
     "BaseEarlyStoppingStrategy",
     "ModelBasedEarlyStoppingStrategy",
     "PercentileEarlyStoppingStrategy",
+    "StabilityGatedEarlyStoppingStrategy",
     "ThresholdEarlyStoppingStrategy",
     "AndEarlyStoppingStrategy",
     "OrEarlyStoppingStrategy",
