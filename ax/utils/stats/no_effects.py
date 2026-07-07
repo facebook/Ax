@@ -12,8 +12,24 @@ import numpy.typing as npt
 import pandas as pd
 import scipy
 from ax.core.data import Data
+from ax.exceptions.core import UserInputError
 from ax.utils.stats.math_utils import relativize
 from scipy.stats import norm
+
+
+def _validate_sample_sizes(df: pd.DataFrame) -> None:
+    """Ensure per-arm sample sizes are available for the test of no effect.
+
+    The ``n`` column is optional on Ax ``Data`` and is not produced by
+    standard trial evaluation (e.g. ``Client.complete_trial``), so it must
+    be validated before use.
+    """
+    if "n" not in df.columns or df["n"].isnull().any():
+        raise UserInputError(
+            "The test of no effect requires per-arm sample sizes: every row "
+            "of the data must have a value in the `n` column. Attach data "
+            "that includes sample sizes to use this test."
+        )
 
 
 def check_experiment_effects_per_metric(
@@ -44,6 +60,7 @@ def check_experiment_effects_per_metric(
 
     """
     df = data.df
+    _validate_sample_sizes(df)
     df_grouped = df.groupby(["metric_name", "trial_index"])
     cols = ["metric_name", "trial_index", "p_value", "has_effect"]
 
@@ -55,6 +72,10 @@ def check_experiment_effects_per_metric(
     # pyrefly: ignore [not-iterable]
     for metric_name, trial_index in df_grouped.groups.keys():
         dfm = df_grouped.get_group((metric_name, trial_index))
+
+        if len(dfm) < 2:
+            # A single-arm group cannot show within-trial effects.
+            continue
 
         p_value, f_stat = no_effect_test_welch(
             means=list(dfm["mean"].values),
@@ -112,11 +133,12 @@ def check_experiment_effects(
     Returns:
         effective: True if the null of no treatment effects can be rejected.
         ineffective_on_objectives: List of objectives on which the
-            null of no treatment effects can be rejected.
+            null of no treatment effects could not be rejected.
         bounds_df: The minimum and maximum bounds on possible effects.
 
     """
     df = data.df
+    _validate_sample_sizes(df)
     df_grouped = df.groupby("metric_name")
     K = len(df_grouped)
     ps = []
@@ -228,6 +250,11 @@ def no_effect_test_welch(
     Returns: A tuple containing
         - the p-value and
         - the test-statistic value.
+
+    Raises:
+        UserInputError: If there are fewer than two arms, an arm has one or
+            fewer observations, or a mix of zero and positive sems makes the
+            test undefined.
     """
     means_arr = np.array(means)
     sems_arr = np.array(sems)
@@ -235,7 +262,36 @@ def no_effect_test_welch(
 
     K = len(means_arr)
 
+    if K < 2:
+        raise UserInputError(
+            f"Welch's test of no effect requires at least two arms, received {K}."
+        )
+    if np.any(ns_arr <= 1):
+        raise UserInputError(
+            "Welch's test of no effect requires more than one observation "
+            "(n > 1) in each arm."
+        )
+
     variances = np.multiply(sems_arr**2, ns_arr)
+
+    zero_variance = variances <= 0
+    if np.any(zero_variance):
+        # The mean of an arm with sem == 0 is known exactly, so Welch's F
+        # statistic is undefined (its weights divide by the variance).
+        # Previously this silently produced a NaN p-value, which read as
+        # "no effect" even when the exactly-known means clearly differed.
+        if np.unique(means_arr[zero_variance]).size > 1:
+            # Two exactly-known means differ: an exact effect.
+            return 0.0, float("inf")
+        if np.all(zero_variance):
+            # All means are known exactly and are identical: no effect.
+            return 1.0, 0.0
+        raise UserInputError(
+            "Welch's test of no effect requires a positive sem for each "
+            "arm; found a mix of zero and positive sems, for which the "
+            "test is undefined."
+        )
+
     ws = np.divide(ns_arr, variances)
 
     W = np.sum(ws)
