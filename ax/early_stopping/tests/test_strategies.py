@@ -10,6 +10,7 @@ from copy import deepcopy
 from typing import cast
 from unittest.mock import MagicMock, Mock, patch
 
+import pandas as pd
 from ax.core import OptimizationConfig
 from ax.core.data import Data, MAP_KEY
 from ax.core.experiment import Experiment
@@ -20,6 +21,7 @@ from ax.early_stopping.strategies import (
     BaseEarlyStoppingStrategy,
     ModelBasedEarlyStoppingStrategy,
     PercentileEarlyStoppingStrategy,
+    StabilityGatedEarlyStoppingStrategy,
     ThresholdEarlyStoppingStrategy,
 )
 from ax.early_stopping.strategies.base import logger
@@ -1717,6 +1719,454 @@ class TestPercentileEarlyStoppingStrategy(TestCase):
             "Trial 0 has multiple arm names",
         ):
             align_partial_results(df=df_with_single_trial_index, metrics=["branin_map"])
+
+
+class TestStabilityGatedEarlyStoppingStrategy(TestCase):
+    def _get_experiment_with_sges_data(
+        self,
+        values_by_trial: dict[int, list[tuple[float, float]]],
+    ) -> tuple[Experiment, str]:
+        experiment = get_test_map_data_experiment(
+            num_trials=len(values_by_trial),
+            num_fetches=1,
+            num_complete=len(values_by_trial),
+        )
+        metric_signature, _ = (
+            StabilityGatedEarlyStoppingStrategy()._default_objective_and_direction(
+                experiment=experiment
+            )
+        )
+        metric_name = experiment.signature_to_metric[metric_signature].name
+        rows: list[dict[str, object]] = []
+        for trial_index, values in values_by_trial.items():
+            arm = experiment.trials[trial_index].arms[0]
+            for progression, mean in values:
+                rows.append(
+                    {
+                        "arm_name": arm.name,
+                        "metric_name": metric_name,
+                        "metric_signature": metric_signature,
+                        "mean": mean,
+                        "sem": 0.0,
+                        "trial_index": trial_index,
+                        MAP_KEY: progression,
+                    }
+                )
+
+        experiment.attach_data(data=Data(df=pd.DataFrame(rows)))
+        return experiment, metric_signature
+
+    def test_stability_gated_stops_stably_worse_trial(self) -> None:
+        experiment, metric_signature = self._get_experiment_with_sges_data(
+            {
+                0: [
+                    (1e9, 0.1000),
+                    (2e9, 0.0999),
+                    (3e9, 0.0998),
+                    (4e9, 0.0997),
+                    (5e9, 0.0996),
+                ],
+                1: [
+                    (1e9, 0.1010),
+                    (2e9, 0.1011),
+                    (3e9, 0.1010),
+                    (4e9, 0.1011),
+                    (5e9, 0.1010),
+                ],
+            }
+        )
+
+        strategy = StabilityGatedEarlyStoppingStrategy(
+            metric_signatures=[metric_signature],
+            min_progression=1e9,
+            min_curves=0,
+            normalize_progressions=False,
+            check_interval=1e9,
+            window_size=2,
+            variance_threshold=1e-5,
+            gap_threshold=4e-4,
+            stability_count=2,
+            top_k_fraction=0.0,
+            min_top_k=0,
+            recent_best_lookback=0,
+        )
+
+        should_stop = strategy.should_stop_trials_early(
+            trial_indices={1}, experiment=experiment
+        )
+        self.assertEqual(set(should_stop), {1})
+        self.assertIn("SGES count", none_throws(should_stop[1]))
+
+    def test_stability_gated_does_not_stop_volatile_trial(self) -> None:
+        experiment, metric_signature = self._get_experiment_with_sges_data(
+            {
+                0: [
+                    (1e9, 0.1000),
+                    (2e9, 0.0999),
+                    (3e9, 0.0998),
+                    (4e9, 0.0997),
+                    (5e9, 0.0996),
+                ],
+                1: [
+                    (1e9, 0.1010),
+                    (2e9, 0.1200),
+                    (3e9, 0.1010),
+                    (4e9, 0.1200),
+                    (5e9, 0.1010),
+                ],
+            }
+        )
+
+        strategy = StabilityGatedEarlyStoppingStrategy(
+            metric_signatures=[metric_signature],
+            min_progression=1e9,
+            min_curves=0,
+            normalize_progressions=False,
+            check_interval=1e9,
+            window_size=2,
+            gap_threshold=4e-4,
+            stability_count=2,
+            top_k_fraction=0.0,
+            min_top_k=0,
+            recent_best_lookback=0,
+        )
+
+        self.assertEqual(
+            strategy.should_stop_trials_early(trial_indices={1}, experiment=experiment),
+            {},
+        )
+
+    def test_stability_gated_protects_top_k_trials(self) -> None:
+        experiment, metric_signature = self._get_experiment_with_sges_data(
+            {
+                0: [
+                    (1e9, 0.1000),
+                    (2e9, 0.0999),
+                    (3e9, 0.0998),
+                    (4e9, 0.0997),
+                ],
+                1: [
+                    (1e9, 0.1010),
+                    (2e9, 0.1011),
+                    (3e9, 0.1010),
+                    (4e9, 0.1011),
+                ],
+                2: [
+                    (1e9, 0.1100),
+                    (2e9, 0.1101),
+                    (3e9, 0.1100),
+                    (4e9, 0.1101),
+                ],
+            }
+        )
+
+        strategy = StabilityGatedEarlyStoppingStrategy(
+            metric_signatures=[metric_signature],
+            min_progression=1e9,
+            min_curves=0,
+            normalize_progressions=False,
+            check_interval=1e9,
+            window_size=2,
+            variance_threshold=1e-5,
+            gap_threshold=4e-4,
+            stability_count=2,
+            top_k_fraction=0.0,
+            min_top_k=2,
+            recent_best_lookback=0,
+        )
+
+        self.assertEqual(
+            strategy.should_stop_trials_early(trial_indices={1}, experiment=experiment),
+            {},
+        )
+
+    def test_stability_gated_protects_top_k_fraction_trials(self) -> None:
+        experiment, metric_signature = self._get_experiment_with_sges_data(
+            {
+                0: [(1e9, 0.1000), (2e9, 0.1000)],
+                1: [(1e9, 0.1010), (2e9, 0.1010)],
+                2: [(1e9, 0.1100), (2e9, 0.1100)],
+                3: [(1e9, 0.1200), (2e9, 0.1200)],
+            }
+        )
+
+        strategy = StabilityGatedEarlyStoppingStrategy(
+            metric_signatures=[metric_signature],
+            min_progression=1e9,
+            min_curves=0,
+            normalize_progressions=False,
+            check_interval=1e9,
+            window_size=1,
+            variance_threshold=0.0,
+            stability_count=1,
+            top_k_fraction=0.5,
+            min_top_k=0,
+            recent_best_lookback=0,
+        )
+
+        self.assertEqual(
+            strategy.should_stop_trials_early(trial_indices={1}, experiment=experiment),
+            {},
+        )
+
+    def test_stability_gated_respects_gap_threshold(self) -> None:
+        experiment, metric_signature = self._get_experiment_with_sges_data(
+            {
+                0: [(1e9, 0.1000), (2e9, 0.1000)],
+                1: [(1e9, 0.1002), (2e9, 0.1002)],
+            }
+        )
+
+        strategy_with_gap = StabilityGatedEarlyStoppingStrategy(
+            metric_signatures=[metric_signature],
+            min_progression=1e9,
+            min_curves=0,
+            normalize_progressions=False,
+            check_interval=1e9,
+            window_size=1,
+            variance_threshold=0.0,
+            gap_threshold=4e-4,
+            stability_count=1,
+            top_k_fraction=0.0,
+            min_top_k=0,
+            recent_best_lookback=0,
+        )
+        self.assertEqual(
+            strategy_with_gap.should_stop_trials_early(
+                trial_indices={1}, experiment=experiment
+            ),
+            {},
+        )
+
+        strategy_without_gap = StabilityGatedEarlyStoppingStrategy(
+            metric_signatures=[metric_signature],
+            min_progression=1e9,
+            min_curves=0,
+            normalize_progressions=False,
+            check_interval=1e9,
+            window_size=1,
+            variance_threshold=0.0,
+            stability_count=1,
+            top_k_fraction=0.0,
+            min_top_k=0,
+            recent_best_lookback=0,
+        )
+        self.assertEqual(
+            set(
+                strategy_without_gap.should_stop_trials_early(
+                    trial_indices={1}, experiment=experiment
+                )
+            ),
+            {1},
+        )
+
+    def test_stability_gated_protects_recent_best_trials(self) -> None:
+        experiment, metric_signature = self._get_experiment_with_sges_data(
+            {
+                0: [
+                    (1e9, 0.1000),
+                    (2e9, 0.0900),
+                    (3e9, 0.1300),
+                    (4e9, 0.1400),
+                    (5e9, 0.1500),
+                ],
+                1: [
+                    (1e9, 0.2000),
+                    (2e9, 0.2000),
+                    (3e9, 0.1000),
+                    (4e9, 0.1000),
+                    (5e9, 0.1000),
+                ],
+            }
+        )
+
+        strategy_without_recent_best = StabilityGatedEarlyStoppingStrategy(
+            metric_signatures=[metric_signature],
+            min_progression=1e9,
+            min_curves=0,
+            normalize_progressions=False,
+            check_interval=1e9,
+            window_size=1,
+            variance_threshold=0.0,
+            stability_count=2,
+            top_k_fraction=0.0,
+            min_top_k=0,
+            recent_best_lookback=0,
+        )
+        self.assertEqual(
+            set(
+                strategy_without_recent_best.should_stop_trials_early(
+                    trial_indices={0}, experiment=experiment
+                )
+            ),
+            {0},
+        )
+
+        strategy_with_recent_best = StabilityGatedEarlyStoppingStrategy(
+            metric_signatures=[metric_signature],
+            min_progression=1e9,
+            min_curves=0,
+            normalize_progressions=False,
+            check_interval=1e9,
+            window_size=1,
+            variance_threshold=0.0,
+            stability_count=2,
+            top_k_fraction=0.0,
+            min_top_k=0,
+            recent_best_lookback=3,
+        )
+        self.assertEqual(
+            strategy_with_recent_best.should_stop_trials_early(
+                trial_indices={0}, experiment=experiment
+            ),
+            {},
+        )
+
+    def test_stability_gated_defaults_use_normalized_progressions(self) -> None:
+        experiment, metric_signature = self._get_experiment_with_sges_data(
+            {
+                0: [(0.0, 0.1000), (0.5, 0.1000), (1.0, 0.1000)],
+                1: [(0.0, 0.1100), (0.5, 0.1100), (1.0, 0.1100)],
+                2: [(0.0, 0.1200), (0.5, 0.1200), (1.0, 0.1200)],
+                3: [(0.0, 0.1300), (0.5, 0.1300), (1.0, 0.1300)],
+                4: [(0.0, 0.1400), (0.5, 0.1400), (1.0, 0.1400)],
+            }
+        )
+
+        strategy = StabilityGatedEarlyStoppingStrategy(
+            metric_signatures=[metric_signature],
+            window_size=1,
+            stability_count=1,
+            top_k_fraction=0.0,
+            min_top_k=0,
+            recent_best_lookback=0,
+        )
+
+        self.assertEqual(
+            set(
+                strategy.should_stop_trials_early(
+                    trial_indices={4}, experiment=experiment
+                )
+            ),
+            {4},
+        )
+
+    def test_stability_gated_validation(self) -> None:
+        with self.assertRaisesRegex(UserInputError, "check_interval must be positive"):
+            StabilityGatedEarlyStoppingStrategy(check_interval=0)
+        with self.assertRaisesRegex(UserInputError, "window_size must be at least 1"):
+            StabilityGatedEarlyStoppingStrategy(window_size=0)
+        with self.assertRaisesRegex(
+            UserInputError, "variance_threshold must be non-negative"
+        ):
+            StabilityGatedEarlyStoppingStrategy(variance_threshold=-1.0)
+        with self.assertRaisesRegex(
+            UserInputError, "gap_threshold must be non-negative"
+        ):
+            StabilityGatedEarlyStoppingStrategy(gap_threshold=-1.0)
+        with self.assertRaisesRegex(
+            UserInputError, "stability_count must be at least 1"
+        ):
+            StabilityGatedEarlyStoppingStrategy(stability_count=0)
+        with self.assertRaisesRegex(
+            UserInputError,
+            "top_k_fraction must be in \\[0, 1\\]",
+        ):
+            StabilityGatedEarlyStoppingStrategy(top_k_fraction=-0.1)
+        with self.assertRaisesRegex(
+            UserInputError,
+            "top_k_fraction must be in \\[0, 1\\]",
+        ):
+            StabilityGatedEarlyStoppingStrategy(top_k_fraction=1.1)
+        with self.assertRaisesRegex(UserInputError, "min_top_k must be non-negative"):
+            StabilityGatedEarlyStoppingStrategy(min_top_k=-1)
+        with self.assertRaisesRegex(
+            UserInputError, "recent_best_lookback must be non-negative"
+        ):
+            StabilityGatedEarlyStoppingStrategy(recent_best_lookback=-1)
+        with self.assertRaisesRegex(
+            UnsupportedError,
+            "StabilityGatedEarlyStoppingStrategy only supports a single metric.",
+        ):
+            StabilityGatedEarlyStoppingStrategy(metric_signatures=["a", "b"])
+
+    def test_stability_gated_accepts_metric_signature_generators(self) -> None:
+        _, metric_signature = self._get_experiment_with_sges_data(
+            {
+                0: [(1e9, 0.1000), (2e9, 0.0999)],
+                1: [(1e9, 0.1010), (2e9, 0.1011)],
+            }
+        )
+        strategy = StabilityGatedEarlyStoppingStrategy(
+            metric_signatures=(signature for signature in [metric_signature])
+        )
+
+        self.assertEqual(strategy.metric_signatures, [metric_signature])
+
+    def test_stability_gated_early_returns(self) -> None:
+        empty_experiment = get_test_map_data_experiment(
+            num_trials=2, num_fetches=1, num_complete=2
+        )
+        self.assertEqual(
+            StabilityGatedEarlyStoppingStrategy(min_curves=0).should_stop_trials_early(
+                trial_indices={0}, experiment=empty_experiment
+            ),
+            {},
+        )
+
+        experiment, metric_signature = self._get_experiment_with_sges_data(
+            {
+                0: [(1e9, 0.1000), (2e9, 0.1000)],
+                1: [(1e9, 0.1100), (2e9, 0.1100)],
+            }
+        )
+        strategy = StabilityGatedEarlyStoppingStrategy(
+            metric_signatures=[metric_signature],
+            min_progression=3e9,
+            normalize_progressions=False,
+            check_interval=1e9,
+            min_curves=0,
+        )
+        self.assertEqual(
+            strategy.should_stop_trials_early(trial_indices={1}, experiment=experiment),
+            {},
+        )
+
+        self.assertTrue(
+            strategy._checkpoint_values(
+                wide_df=pd.DataFrame({0: [0.1]}, index=pd.Index([1.0])),
+                current_progression=1.0,
+            ).empty
+        )
+
+        strategy = StabilityGatedEarlyStoppingStrategy(
+            metric_signatures=[metric_signature],
+            min_progression=1e9,
+            normalize_progressions=False,
+            min_curves=0,
+        )
+        long_df, multilevel_wide_df = none_throws(
+            strategy._prepare_aligned_data(
+                experiment=experiment, metric_signatures=[metric_signature]
+            )
+        )
+        wide_df = multilevel_wide_df["mean"][metric_signature]
+        moving_avg_df = wide_df.rolling(window=1, min_periods=1).mean()
+        moving_var_df = wide_df.rolling(window=1, min_periods=1).var(ddof=0)
+        should_stop, reason = strategy._should_stop_trial_early(
+            trial_index=1,
+            experiment=experiment,
+            long_df=long_df,
+            current_progression=None,
+            moving_avg_df=moving_avg_df,
+            moving_var_df=moving_var_df,
+            context_by_checkpoint={},
+            minimize=True,
+        )
+        self.assertFalse(should_stop)
+        self.assertEqual(
+            reason, "No data available to make an early stopping decision."
+        )
 
 
 class TestThresholdEarlyStoppingStrategy(TestCase):
