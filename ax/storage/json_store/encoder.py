@@ -75,6 +75,8 @@ def object_to_json(
     if _type in encoder_registry:
         obj_dict = encoder_registry[_type](obj)
         return {k: _object_to_json(v) for k, v in obj_dict.items()}
+    if isinstance(obj, (float, np.floating)) and not np.isfinite(obj):
+        return {"__type": "float", "value": str(float(obj))}
     # Python built-in types + `typing` module types
     if _type in (str, int, float, bool, type(None)):
         return obj
@@ -115,11 +117,11 @@ def object_to_json(
     elif issubclass(_type, enum.Enum):
         return {"__type": _type.__name__, "name": obj.name}
     elif _type is np.ndarray or issubclass(_type, np.ndarray):
-        return {"__type": _type.__name__, "value": obj.tolist()}
+        return {"__type": _type.__name__, "value": _object_to_json(obj.tolist())}
     elif _type is set:
-        return {"__type": _type.__name__, "value": list(obj)}
+        return {"__type": _type.__name__, "value": _object_to_json(list(obj))}
     elif _type is torch.Tensor:
-        return tensor_to_dict(obj=obj)
+        return {k: _object_to_json(v) for k, v in tensor_to_dict(obj=obj).items()}
     elif _type.__module__ == "torch":
         # Torch does not support saving to string, so save to buffer first
         return {"__type": f"torch_{_type.__name__}", "value": torch_type_to_str(obj)}

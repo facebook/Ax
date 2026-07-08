@@ -192,7 +192,9 @@ def object_from_json(
 
         _type = object_json.pop("__type")
 
-        if _type == "datetime":
+        if _type == "float":
+            return float(object_json["value"])
+        elif _type == "datetime":
             return datetime.datetime.strptime(
                 object_json["value"], "%Y-%m-%d %H:%M:%S.%f"
             )
@@ -206,7 +208,7 @@ def object_from_json(
             # pyrefly: ignore [no-matching-overload]
             return pd.read_json(StringIO(object_json["value"]), dtype=False)
         elif _type == "ndarray":
-            return np.array(object_json["value"])
+            return np.array(_object_from_json(object_json["value"]))
         elif _type == "Tensor":
             return tensor_from_json(json=object_json)
         elif _type.startswith("torch"):
@@ -219,7 +221,7 @@ def object_from_json(
                 list_surrogate_json=object_json, **vars(registry_kwargs)
             )
         elif _type == "set":
-            return set(object_json["value"])
+            return set(_object_from_json(object_json["value"]))
         # Used for decoding classes (not objects).
         elif _type in class_decoder_registry:
             return class_decoder_registry[_type](object_json)
