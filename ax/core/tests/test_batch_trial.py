@@ -658,3 +658,43 @@ class BatchTrialTest(TestCase):
         self.assertEqual(2.0, data[(arm1_name, "m2")]["mean"])
         self.assertEqual(3.0, data[(arm2_name, "m1")]["mean"])
         self.assertEqual(4.0, data[(arm2_name, "m2")]["mean"])
+
+    def test_arm_name_prefix(self) -> None:
+        """Arms added with arm_name_prefix are named
+        ``{prefix}_{trial_index}_{arm_index}``, retaining the trial and arm
+        indices so names stay unique when the prefix is reused."""
+        experiment = get_experiment()
+        batch = experiment.new_batch_trial(arm_name_prefix="my_prefix")
+        arms = get_arms()
+        # Add unnamed arms via a generator run
+        gr = GeneratorRun(arms=arms[1:3], weights=[1.0, 1.0])
+        batch.add_generator_run(gr)
+        arm_names = [arm.name for arm in batch.arms]
+        self.assertEqual(
+            arm_names,
+            [f"my_prefix_{batch.index}_0", f"my_prefix_{batch.index}_1"],
+        )
+
+    def test_arm_name_prefix_preserves_existing_names(self) -> None:
+        """Arms that already have names keep them even with arm_name_prefix."""
+        experiment = get_experiment()
+        batch = experiment.new_batch_trial(arm_name_prefix="pfx")
+        named_arm = Arm(
+            parameters={"w": 0.5, "x": 5, "y": "bar", "z": False}, name="custom_name"
+        )
+        gr = GeneratorRun(arms=[named_arm], weights=[1.0])
+        batch.add_generator_run(gr)
+        arm_names = [arm.name for arm in batch.arms]
+        self.assertIn("custom_name", arm_names)
+
+    def test_arm_name_prefix_default_uses_trial_index(self) -> None:
+        """Without arm_name_prefix the default {trial_index}_{i} scheme is used."""
+        experiment = get_experiment()
+        batch = experiment.new_batch_trial()
+        gr = GeneratorRun(
+            arms=[Arm(parameters={"w": 0.1, "x": 1, "y": "foo", "z": True})],
+            weights=[1.0],
+        )
+        batch.add_generator_run(gr)
+        arm_names = [arm.name for arm in batch.arms]
+        self.assertTrue(all(name.startswith(f"{batch.index}_") for name in arm_names))

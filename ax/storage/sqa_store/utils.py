@@ -24,6 +24,7 @@ from sqlalchemy import inspect
 #   of that data, so the recursion could fail somewhere)
 # * baseline_workflow_inputs (plain JSON dict with no _db_id fields)
 COPY_DB_IDS_ATTRS_TO_SKIP = {
+    "_arm_name_prefix",
     "baseline_workflow_inputs",
     "_best_arm_predictions",
     "_adapter_kwargs",
