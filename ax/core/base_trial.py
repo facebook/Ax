@@ -83,11 +83,17 @@ class BaseTrial(ABC, SortableBase):
         trial_type: str | None = None,
         ttl_seconds: int | None = None,
         index: int | None = None,
+        arm_name_prefix: str | None = None,
     ) -> None:
         """Initialize trial.
 
         Args:
             experiment: The experiment this trial belongs to.
+            arm_name_prefix: If provided, arms added to this trial will be
+                named ``{arm_name_prefix}_{trial_index}_{i}`` instead of the
+                default ``{trial_index}_{i}`` scheme. Retaining the trial and
+                arm indices keeps arm names unique even when the same prefix is
+                reused across multiple trials.
         """
         self._experiment = experiment
         if ttl_seconds is not None and ttl_seconds <= 0:
@@ -123,6 +129,7 @@ class BaseTrial(ABC, SortableBase):
 
         # Counter to maintain how many arms have been named by this BatchTrial
         self._num_arms_created = 0
+        self._arm_name_prefix: str | None = arm_name_prefix
 
         # NOTE: Please do not store any data related to trial deployment or data-
         # fetching in properties. It is intended to only store properties related
@@ -476,6 +483,8 @@ class BaseTrial(ABC, SortableBase):
     def _get_default_name(self, arm_index: int | None = None) -> str:
         if arm_index is None:
             arm_index = self._num_arms_created
+        if self._arm_name_prefix is not None:
+            return f"{self._arm_name_prefix}_{self.index}_{arm_index}"
         return f"{self.index}_{arm_index}"
 
     @property

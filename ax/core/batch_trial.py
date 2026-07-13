@@ -115,6 +115,11 @@ class BatchTrial(BaseTrial):
             This should generally not be specified, as in the index will be
             automatically determined based on the number of existing trials.
             This is only used for the purpose of loading from storage.
+        arm_name_prefix: If provided, arms added to this trial will be
+            named ``{arm_name_prefix}_{trial_index}_{i}`` instead of the
+            default ``{trial_index}_{i}`` scheme. Retaining the trial and arm
+            indices keeps arm names unique even when the same prefix is reused
+            across multiple trials.
     """
 
     def __init__(
@@ -126,12 +131,14 @@ class BatchTrial(BaseTrial):
         should_add_status_quo_arm: bool | None = False,
         ttl_seconds: int | None = None,
         index: int | None = None,
+        arm_name_prefix: str | None = None,
     ) -> None:
         super().__init__(
             experiment=experiment,
             trial_type=trial_type,
             ttl_seconds=ttl_seconds,
             index=index,
+            arm_name_prefix=arm_name_prefix,
         )
         self._arms_by_name: dict[str, Arm] = {}
         self._generator_runs: list[GeneratorRun] = []

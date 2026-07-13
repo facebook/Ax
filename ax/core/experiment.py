@@ -1515,6 +1515,7 @@ class Experiment(Base):
         should_add_status_quo_arm: bool | None = False,
         trial_type: str | None = None,
         ttl_seconds: int | None = None,
+        arm_name_prefix: str | None = None,
     ) -> BatchTrial:
         """Create a new batch trial associated with this experiment.
 
@@ -1537,6 +1538,11 @@ class Experiment(Base):
                 'dead' trials, for which the evaluation process might have
                 crashed etc., and which should be considered stale after
                 their 'time to live' has passed.
+            arm_name_prefix: If provided, arms added to this trial will be
+                named ``{arm_name_prefix}_{trial_index}_{i}`` instead of the
+                default ``{trial_index}_{i}`` scheme. Retaining the trial and
+                arm indices keeps arm names unique even when the same prefix is
+                reused across multiple trials.
         """
         if ttl_seconds is not None:
             self._trials_have_ttl = True
@@ -1547,6 +1553,7 @@ class Experiment(Base):
             generator_runs=generator_runs,
             should_add_status_quo_arm=should_add_status_quo_arm,
             ttl_seconds=ttl_seconds,
+            arm_name_prefix=arm_name_prefix,
         )
 
     def get_batch_trial(self, trial_index: int) -> BatchTrial:
