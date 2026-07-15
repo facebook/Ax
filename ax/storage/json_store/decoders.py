@@ -305,10 +305,6 @@ def class_from_json(json: dict[str, Any]) -> type[Any]:
 def tensor_from_json(json: dict[str, Any]) -> torch.Tensor:
     try:
         value = json["value"]
-        if isinstance(value, list):
-            from ax.storage.json_store.decoder import object_from_json
-
-            value = object_from_json(object_json=value)
         device = (
             assert_is_instance(
                 torch_type_from_str(

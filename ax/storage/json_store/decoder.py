@@ -190,6 +190,12 @@ def object_from_json(
                 result[key] = _object_from_json(v)
             return result
 
+        if "value" in object_json:
+            object_json = {
+                **object_json,
+                "value": _object_from_json(object_json["value"]),
+            }
+
         _type = object_json.pop("__type")
 
         if _type == "float":
@@ -199,16 +205,14 @@ def object_from_json(
                 object_json["value"], "%Y-%m-%d %H:%M:%S.%f"
             )
         elif _type == "OrderedDict":
-            return OrderedDict(
-                [(k, _object_from_json(v)) for k, v in object_json["value"]]
-            )
+            return OrderedDict(object_json["value"])
         elif _type == "DataFrame":
             # Need dtype=False, otherwise infers arm_names like "4_1"
             # should be int 41
             # pyrefly: ignore [no-matching-overload]
             return pd.read_json(StringIO(object_json["value"]), dtype=False)
         elif _type == "ndarray":
-            return np.array(_object_from_json(object_json["value"]))
+            return np.array(object_json["value"])
         elif _type == "Tensor":
             return tensor_from_json(json=object_json)
         elif _type.startswith("torch"):
@@ -221,7 +225,7 @@ def object_from_json(
                 list_surrogate_json=object_json, **vars(registry_kwargs)
             )
         elif _type == "set":
-            return set(_object_from_json(object_json["value"]))
+            return set(object_json["value"])
         # Used for decoding classes (not objects).
         elif _type in class_decoder_registry:
             return class_decoder_registry[_type](object_json)
