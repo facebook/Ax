@@ -2193,7 +2193,7 @@ class Orchestrator(WithDBSettingsBase, BestPointMixin):
                 if self._num_trials_bad_due_to_err > num_bad_in_orchestrator / 2
                 else ""
             )
-            + " Orignal error message: "
+            + " Original error message: "
             + FAILURE_EXCEEDED_MSG.format(
                 f_rate=self.options.tolerated_trial_failure_rate,
                 n_failed=num_bad_in_orchestrator,
