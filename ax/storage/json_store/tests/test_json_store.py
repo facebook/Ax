@@ -55,7 +55,7 @@ from ax.core.optimization_config import (
     OptimizationConfig,
     PreferenceOptimizationConfig,
 )
-from ax.core.parameter import ChoiceParameter, ParameterType
+from ax.core.parameter import ChoiceParameter, ParameterType, RangeParameter
 from ax.core.parameter_constraint import ParameterConstraint
 from ax.core.runner import Runner
 from ax.exceptions.core import AxStorageWarning, UnsupportedError
@@ -398,6 +398,17 @@ TEST_CASES: list[tuple[str, Callable[..., Any]]] = [
     ("ParameterConstraint", get_parameter_constraint),
     ("ParameterConstraint", get_equality_parameter_constraint),
     ("RangeParameter", get_range_parameter),
+    (
+        "RangeParameter",
+        partial(
+            RangeParameter,
+            name="x",
+            parameter_type=ParameterType.FLOAT,
+            lower=0.0,
+            upper=1.0,
+            step_size=0.1,
+        ),
+    ),
     ("ScalarizedObjective", get_scalarized_objective),
     ("ScalarizedOutcomeConstraint", get_scalarized_outcome_constraint),
     ("OrchestratorOptions", get_default_orchestrator_options),
@@ -1954,6 +1965,32 @@ class JSONStoreTest(TestCase):
         self.assertTrue(
             any("Found unexpected kwargs" in warning for warning in cm.output)
         )
+
+    def test_range_parameter_legacy_digits_blob_decodes(self) -> None:
+        # A legacy blob has "digits" but no "step_size" key. It must still
+        # decode (the constructor accepts digits for back-compat).
+        legacy_blob = {
+            "__type": "RangeParameter",
+            "name": "x",
+            "parameter_type": {"__type": "ParameterType", "name": "FLOAT"},
+            "lower": 0.0,
+            "upper": 1.0,
+            "log_scale": False,
+            "logit_scale": False,
+            "digits": 2,
+            "is_fidelity": False,
+            "target_value": None,
+        }
+        decoded = object_from_json(
+            legacy_blob,
+            decoder_registry=CORE_DECODER_REGISTRY,
+            class_decoder_registry=CORE_CLASS_DECODER_REGISTRY,
+        )
+        self.assertIsInstance(decoded, RangeParameter)
+        self.assertEqual(decoded.digits, 2)
+        self.assertIsNone(decoded.step_size)
+        # Rounding behavior from digits=2 is preserved.
+        self.assertEqual(decoded.cast(0.123), 0.12)
 
     def test_choice_parameter_bypass_cardinality_check_encode_failure(self) -> None:
         choice_parameter = ChoiceParameter(
