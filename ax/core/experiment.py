@@ -31,6 +31,11 @@ from ax.core.base_trial import BaseTrial
 from ax.core.batch_trial import BatchTrial
 from ax.core.data import combine_data_rows_favoring_recent, Data
 from ax.core.derived_metric import DerivedMetric
+from ax.core.experiment_design import (
+    AutomationSettings,
+    EXPERIMENT_DESIGN_KEY,
+    ExperimentDesign,
+)
 from ax.core.experiment_status import ExperimentStatus
 from ax.core.generator_run import GeneratorRun
 from ax.core.llm_provider import LLMMessage
@@ -151,6 +156,13 @@ class Experiment(Base):
         self._status: ExperimentStatus | None = None
         self._trials: dict[int, BaseTrial] = {}
         self._properties: dict[str, Any] = properties or {}
+        # TODO[mpolson64]: Replace with proper storage as part of the refactor.
+        self._design: ExperimentDesign = (
+            ExperimentDesign.from_json(design_dict)
+            if (design_dict := self._properties.pop(EXPERIMENT_DESIGN_KEY, None))
+            is not None
+            else ExperimentDesign()
+        )
 
         # Initialize trial type to runner mapping
         self._default_trial_type = default_trial_type
@@ -308,6 +320,99 @@ class Experiment(Base):
             return None
 
         return suggested_statuses.pop()
+
+    @property
+    def design(self) -> ExperimentDesign:
+        """The experiment design configuration.
+
+        Holds a dictionary of ``AutomationSettings`` keyed by trial type.
+        Use the setter to replace the entire design; it validates that the
+        trial types in the new design match the experiment's supported
+        trial types.
+        """
+        return self._design
+
+    @design.setter
+    def design(self, design: ExperimentDesign) -> None:
+        """Set the experiment design, validating that all trial type keys
+        in ``design.automation_settings`` are supported by this experiment.
+        """
+        for trial_type in design.automation_settings:
+            if not self.supports_trial_type(trial_type):
+                raise ValueError(
+                    f"Trial type {trial_type!r} in automation_settings is not "
+                    f"supported by this experiment. Supported trial types: "
+                    f"{list(self._trial_type_to_runner.keys())}."
+                )
+        self._design = design
+
+    def get_concurrency_limit(
+        self,
+        trial_type: str | None = None,
+    ) -> int | None:
+        """Return the concurrency limit for the given trial type.
+
+        Args:
+            trial_type: The trial type to look up. Defaults to the
+                experiment's ``default_trial_type``.
+
+        Raises:
+            ValueError: If the resolved trial type has no
+                ``AutomationSettings`` entry.
+        """
+        if trial_type is None:
+            trial_type = self._default_trial_type
+        settings = self._design.automation_settings.get(trial_type)
+        if settings is None:
+            if not self._design.automation_settings:
+                return None
+            raise ValueError(
+                f"No AutomationSettings for trial type {trial_type!r}. "
+                f"Available trial types: "
+                f"{list(self._design.automation_settings.keys())}. "
+                f"Pass the trial_type argument explicitly."
+            )
+        return settings.concurrency_limit
+
+    def set_concurrency_limit(
+        self,
+        concurrency_limit: int | None,
+        trial_type: str | None = None,
+    ) -> None:
+        """Set the concurrency limit for the given trial type.
+
+        Creates an ``AutomationSettings`` entry if one does not exist for the
+        resolved trial type. Validates the trial type via the ``design``
+        setter.
+
+        Args:
+            concurrency_limit: The concurrency limit to set.
+            trial_type: The trial type to set for. Defaults to the
+                experiment's ``default_trial_type``.
+        """
+        if trial_type is None:
+            trial_type = self._default_trial_type
+        new_settings = dict(self._design.automation_settings)
+        if trial_type in new_settings:
+            # Copy existing settings and update concurrency_limit.
+            existing = new_settings[trial_type]
+            new_settings[trial_type] = AutomationSettings(
+                concurrency_limit=concurrency_limit,
+                generation_lookahead=existing.generation_lookahead,
+                budget=existing.budget,
+                stage_after_seconds=existing.stage_after_seconds,
+                run_after_seconds=existing.run_after_seconds,
+            )
+        else:
+            new_settings[trial_type] = AutomationSettings(
+                concurrency_limit=concurrency_limit,
+            )
+        # Use the design setter to validate trial types.
+        self.design = ExperimentDesign(
+            automation_settings=new_settings,
+            analysis_frequency_seconds=self._design.analysis_frequency_seconds,
+            generation_frequency_seconds=self._design.generation_frequency_seconds,
+        )
 
     @property
     def search_space(self) -> SearchSpace:
