@@ -412,6 +412,14 @@ class ObjectiveTest(TestCase):
             parsed = parse_objective_expression(names[0])
             self.assertNotEqual(str(parsed), names[0])
 
+    def test_parse_objective_expression_sympify_error(self) -> None:
+        """Test that unparseable expressions raise UserInputError."""
+        with self.assertRaisesRegex(
+            UserInputError,
+            "Unable to parse objective expression",
+        ):
+            parse_objective_expression("m1 +* m2")
+
     def test_UniqueId(self) -> None:
         """Test _unique_id used for sorting."""
         obj = Objective(expression="m1", metric_name_to_signature={"m1": "m1"})

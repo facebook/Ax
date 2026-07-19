@@ -100,7 +100,12 @@ def parse_objective_expression(expression_str: str) -> Expr | tuple[Expr, ...]:
         raise UserInputError("Objective expression string must not be empty.")
 
     sanitized = sanitize_name(expression_str, sanitize_parens=True)
-    parsed = sympify(sanitized)
+    try:
+        parsed = sympify(sanitized)
+    except SympifyError as e:
+        raise UserInputError(
+            f"Unable to parse objective expression: {expression_str}. Error: {e}"
+        ) from e
 
     if isinstance(parsed, tuple):
         if any(not isinstance(p, Expr) for p in parsed):

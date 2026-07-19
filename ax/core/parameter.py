@@ -31,7 +31,7 @@ from sympy.core.add import Add
 from sympy.core.mul import Mul
 from sympy.core.numbers import Float, Integer
 from sympy.core.symbol import Symbol
-from sympy.core.sympify import sympify
+from sympy.core.sympify import sympify, SympifyError
 
 logger: Logger = get_logger(__name__)
 
@@ -1348,7 +1348,13 @@ class DerivedParameter(Parameter):
 
         Currently only linear functions are supported.
         """
-        expression = sympify(sanitize_name(expression_str))
+        try:
+            expression = sympify(sanitize_name(expression_str))
+        except SympifyError as e:
+            raise UserInputError(
+                f"Unable to parse derived parameter expression: "
+                f"{expression_str}. Error: {e}"
+            ) from e
         if isinstance(expression, (Float, Integer)):
             raise UserInputError(
                 "Derived parameters must have at least one parameter in "
