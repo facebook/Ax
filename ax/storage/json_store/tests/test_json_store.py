@@ -8,6 +8,7 @@
 
 import dataclasses
 import json
+import math
 import os
 import tempfile
 from collections import OrderedDict
@@ -672,6 +673,112 @@ class JSONStoreTest(TestCase):
         self.assertEqual(recovered.a_field, -1)
         self.assertEqual(recovered.not_a_field, 1)
         self.assertEqual(obj, recovered)
+
+    def test_EncodeDecode_non_finite_floats(self) -> None:
+        obj = {
+            "python_nan": float("nan"),
+            "numpy_nan": np.float64(float("nan")),
+            "python_inf": float("inf"),
+            "python_negative_inf": float("-inf"),
+            "nested": [np.float32(float("nan")), {"inf": np.float64(float("inf"))}],
+            "ndarray": np.array([[1.0, np.nan], [np.inf, -np.inf]]),
+            "tensor": torch.tensor(
+                [[1.0, float("nan")], [float("inf"), -float("inf")]]
+            ),
+            "set": {float("inf"), float("-inf")},
+        }
+
+        obj_json = object_to_json(
+            obj,
+            encoder_registry=CORE_ENCODER_REGISTRY,
+            class_encoder_registry=CORE_CLASS_ENCODER_REGISTRY,
+        )
+        serialized = json.dumps(obj_json, allow_nan=False)
+        json.loads(
+            serialized,
+            parse_constant=lambda constant: self.fail(
+                f"Invalid JSON constant found: {constant}"
+            ),
+        )
+        self.assertNotIn("NaN", serialized)
+        self.assertNotIn("Infinity", serialized)
+        self.assertNotIn("-Infinity", serialized)
+
+        recovered = object_from_json(
+            obj_json,
+            decoder_registry=CORE_DECODER_REGISTRY,
+            class_decoder_registry=CORE_CLASS_DECODER_REGISTRY,
+        )
+        self.assertTrue(math.isnan(recovered["python_nan"]))
+        self.assertTrue(math.isnan(recovered["numpy_nan"]))
+        self.assertEqual(recovered["python_inf"], float("inf"))
+        self.assertEqual(recovered["python_negative_inf"], float("-inf"))
+        self.assertTrue(math.isnan(recovered["nested"][0]))
+        self.assertEqual(recovered["nested"][1]["inf"], float("inf"))
+        self.assertTrue(np.isnan(recovered["ndarray"][0, 1]))
+        self.assertEqual(recovered["ndarray"][1, 0], float("inf"))
+        self.assertEqual(recovered["ndarray"][1, 1], float("-inf"))
+        self.assertTrue(torch.isnan(recovered["tensor"][0, 1]))
+        self.assertTrue(torch.isinf(recovered["tensor"][1, 0]))
+        self.assertTrue(torch.isinf(recovered["tensor"][1, 1]))
+        self.assertLess(recovered["tensor"][1, 1].item(), 0)
+        self.assertEqual(recovered["set"], {float("inf"), float("-inf")})
+
+    def test_EncodeDecode_zero_dimensional_non_finite_arrays_and_tensors(self) -> None:
+        obj = {
+            "ndarray": np.array(np.nan),
+            "tensor": torch.tensor(float("nan")),
+        }
+
+        obj_json = object_to_json(
+            obj,
+            encoder_registry=CORE_ENCODER_REGISTRY,
+            class_encoder_registry=CORE_CLASS_ENCODER_REGISTRY,
+        )
+        serialized = json.dumps(obj_json, allow_nan=False)
+        json.loads(
+            serialized,
+            parse_constant=lambda constant: self.fail(
+                f"Invalid JSON constant found: {constant}"
+            ),
+        )
+        self.assertNotIn("NaN", serialized)
+
+        recovered = object_from_json(
+            obj_json,
+            decoder_registry=CORE_DECODER_REGISTRY,
+            class_decoder_registry=CORE_CLASS_DECODER_REGISTRY,
+        )
+        self.assertTrue(np.isnan(recovered["ndarray"]))
+        self.assertTrue(torch.isnan(recovered["tensor"]))
+
+    def test_Encode_finite_arrays_and_tensors_unchanged(self) -> None:
+        ndarray = np.array([[1.0, 2.0], [3.0, 4.0]])
+        tensor = torch.tensor(
+            [[1.0, 2.0], [3.0, 4.0]], dtype=torch.float64, device=torch.device("cpu")
+        )
+
+        self.assertEqual(
+            object_to_json(
+                ndarray,
+                encoder_registry=CORE_ENCODER_REGISTRY,
+                class_encoder_registry=CORE_CLASS_ENCODER_REGISTRY,
+            ),
+            {"__type": "ndarray", "value": [[1.0, 2.0], [3.0, 4.0]]},
+        )
+        self.assertEqual(
+            object_to_json(
+                tensor,
+                encoder_registry=CORE_ENCODER_REGISTRY,
+                class_encoder_registry=CORE_CLASS_ENCODER_REGISTRY,
+            ),
+            {
+                "__type": "Tensor",
+                "value": [[1.0, 2.0], [3.0, 4.0]],
+                "dtype": {"__type": "torch_dtype", "value": "torch.float64"},
+                "device": {"__type": "torch_device", "value": "cpu"},
+            },
+        )
 
     def test_EncodeDecodeTorchTensor(self) -> None:
         x = torch.tensor(

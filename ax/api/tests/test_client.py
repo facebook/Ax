@@ -5,8 +5,12 @@
 
 # pyre-strict
 
+import json
+import math
 import random
+import tempfile
 from collections.abc import Mapping
+from pathlib import Path
 from typing import Any
 from unittest import mock
 
@@ -1555,6 +1559,41 @@ class TestClient(TestCase):
         self.assertEqual(
             str(client._generation_strategy), str(other_client._generation_strategy)
         )
+
+    def test_json_file_storage_serializes_non_finite_floats(self) -> None:
+        client = Client()
+        client.configure_experiment(
+            parameters=[
+                RangeParameterConfig(name="x1", parameter_type="float", bounds=(-1, 1))
+            ],
+            name="foo",
+        )
+        client._experiment._properties["map_key_infos"] = [
+            {"key": "step", "default_value": np.float64(float("nan"))}
+        ]
+        client._experiment._properties["inf_property"] = float("inf")
+        client._experiment._properties["negative_inf_property"] = float("-inf")
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            filepath = Path(tmpdir) / "ax_client_snapshot.json"
+            client.save_to_json_file(filepath=str(filepath))
+            serialized = filepath.read_text()
+            json.loads(
+                serialized,
+                parse_constant=lambda constant: self.fail(
+                    f"Invalid JSON constant found: {constant}"
+                ),
+            )
+            self.assertNotIn("NaN", serialized)
+            self.assertNotIn("Infinity", serialized)
+            self.assertNotIn("-Infinity", serialized)
+
+            other_client = Client.load_from_json_file(filepath=str(filepath))
+
+        properties = other_client._experiment._properties
+        self.assertTrue(math.isnan(properties["map_key_infos"][0]["default_value"]))
+        self.assertEqual(properties["inf_property"], float("inf"))
+        self.assertEqual(properties["negative_inf_property"], float("-inf"))
 
     def test_sql_storage(self) -> None:
         init_test_engine_and_session_factory(force_init=True)

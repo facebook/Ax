@@ -1057,7 +1057,7 @@ class Client(WithDBSettingsBase):
         to a .json file by the given path.
         """
         with open(filepath, "w+") as file:
-            file.write(json.dumps(self._to_json_snapshot()))
+            file.write(json.dumps(self._to_json_snapshot(), allow_nan=False))
             logger.debug(
                 f"Saved JSON-serialized state of optimization to `{filepath}`."
             )

@@ -9,6 +9,7 @@
 import dataclasses
 import datetime
 import enum
+import math
 from collections import OrderedDict
 from collections.abc import Callable
 from functools import partial
@@ -75,6 +76,8 @@ def object_to_json(
     if _type in encoder_registry:
         obj_dict = encoder_registry[_type](obj)
         return {k: _object_to_json(v) for k, v in obj_dict.items()}
+    if isinstance(obj, (float, np.floating)) and not np.isfinite(obj):
+        return {"__type": "float", "value": str(float(obj))}
     # Python built-in types + `typing` module types
     if _type in (str, int, float, bool, type(None)):
         return obj
@@ -115,11 +118,23 @@ def object_to_json(
     elif issubclass(_type, enum.Enum):
         return {"__type": _type.__name__, "name": obj.name}
     elif _type is np.ndarray or issubclass(_type, np.ndarray):
-        return {"__type": _type.__name__, "value": obj.tolist()}
+        value = obj.tolist()
+        if np.issubdtype(obj.dtype, np.floating) and not np.isfinite(obj).all():
+            value = _object_to_json(value)
+        return {"__type": _type.__name__, "value": value}
     elif _type is set:
-        return {"__type": _type.__name__, "value": list(obj)}
+        raw_value = list(obj)
+        value = [numpy_type_to_python_type(x) for x in raw_value]
+        if any(
+            isinstance(x, (float, np.floating)) and not math.isfinite(x) for x in obj
+        ) or any(type(x) not in (str, int, float, bool, type(None)) for x in value):
+            value = _object_to_json(raw_value)
+        return {"__type": _type.__name__, "value": value}
     elif _type is torch.Tensor:
-        return tensor_to_dict(obj=obj)
+        obj_dict = tensor_to_dict(obj=obj)
+        if obj.is_floating_point() and not torch.isfinite(obj).all():
+            obj_dict["value"] = _object_to_json(obj_dict["value"])
+        return obj_dict
     elif _type.__module__ == "torch":
         # Torch does not support saving to string, so save to buffer first
         return {"__type": f"torch_{_type.__name__}", "value": torch_type_to_str(obj)}

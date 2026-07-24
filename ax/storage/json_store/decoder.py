@@ -190,16 +190,22 @@ def object_from_json(
                 result[key] = _object_from_json(v)
             return result
 
+        if "value" in object_json:
+            object_json = {
+                **object_json,
+                "value": _object_from_json(object_json["value"]),
+            }
+
         _type = object_json.pop("__type")
 
-        if _type == "datetime":
+        if _type == "float":
+            return float(object_json["value"])
+        elif _type == "datetime":
             return datetime.datetime.strptime(
                 object_json["value"], "%Y-%m-%d %H:%M:%S.%f"
             )
         elif _type == "OrderedDict":
-            return OrderedDict(
-                [(k, _object_from_json(v)) for k, v in object_json["value"]]
-            )
+            return OrderedDict(object_json["value"])
         elif _type == "DataFrame":
             # Need dtype=False, otherwise infers arm_names like "4_1"
             # should be int 41

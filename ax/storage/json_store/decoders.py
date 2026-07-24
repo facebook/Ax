@@ -304,6 +304,7 @@ def class_from_json(json: dict[str, Any]) -> type[Any]:
 
 def tensor_from_json(json: dict[str, Any]) -> torch.Tensor:
     try:
+        value = json["value"]
         device = (
             assert_is_instance(
                 torch_type_from_str(
@@ -315,7 +316,7 @@ def tensor_from_json(json: dict[str, Any]) -> torch.Tensor:
             else torch.device("cpu")
         )
         return torch.tensor(
-            json["value"],
+            value,
             dtype=assert_is_instance(
                 torch_type_from_str(
                     identifier=json["dtype"]["value"], type_name="dtype"
