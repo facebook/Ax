@@ -16,11 +16,11 @@ from ax.core.parameter import (
     ParameterType,
     RangeParameter,
 )
-from ax.core.types import TParamValue
+from ax.core.types import ComparisonOp, TParamValue
 from ax.runners.synthetic import SyntheticRunner
 from ax.service.utils.instantiation import InstantiationBase
 from ax.utils.common.testutils import TestCase
-from pyre_extensions import assert_is_instance
+from pyre_extensions import assert_is_instance, none_throws
 
 
 class TestInstantiationtUtils(TestCase):
@@ -258,6 +258,50 @@ class TestInstantiationtUtils(TestCase):
         self.assertCountEqual(
             [m.name for m in experiment.tracking_metrics],
             metrics_names,
+        )
+
+    def test_build_lower_is_better_map(self) -> None:
+        # A metric bounded on both sides (a two-sided band with both a >= and a
+        # <= constraint) has no single preferred direction and must map to None,
+        # not to whichever constraint was listed first. Objectives use their
+        # minimize direction; single-sided constraints imply a direction.
+        optimization_config = InstantiationBase.make_optimization_config(
+            objectives={"obj_max": "maximize"},
+            objective_thresholds=[],
+            outcome_constraints=[
+                "band >= 0.9",  # listed first: >= would previously win
+                "band <= 1.1",
+                "floor >= 0.5",
+                "ceil <= 2.0",
+            ],
+            status_quo_defined=False,
+        )
+        lower_is_better_map = InstantiationBase._build_lower_is_better_map(
+            optimization_config
+        )
+        self.assertFalse(lower_is_better_map["obj_max"])  # maximize
+        self.assertIsNone(lower_is_better_map["band"])  # two-sided band
+        self.assertFalse(lower_is_better_map["floor"])  # >= only: larger better
+        self.assertTrue(lower_is_better_map["ceil"])  # <= only: lower better
+
+    def test_make_experiment_two_sided_constraint_band(self) -> None:
+        # Regression: a metric with both a >= and a <= constraint previously had
+        # its lower_is_better derived from only the first (>=) constraint, so the
+        # metric rendered with a single "increase" direction and the upper bound
+        # was effectively ignored. Both constraint ops must survive and the band
+        # metric must have no preferred direction.
+        experiment = InstantiationBase.make_experiment(
+            name="two_sided_band",
+            parameters=[{"name": "x", "type": "range", "bounds": [0.0, 1.0]}],
+            objectives={"obj_max": "maximize"},
+            outcome_constraints=["band >= 0.9", "band <= 1.1"],
+        )
+        self.assertIsNone(experiment.metrics["band"].lower_is_better)
+        self.assertFalse(experiment.metrics["obj_max"].lower_is_better)
+        optimization_config = none_throws(experiment.optimization_config)
+        self.assertEqual(
+            {oc.op for oc in optimization_config.outcome_constraints},
+            {ComparisonOp.GEQ, ComparisonOp.LEQ},
         )
 
     def test_make_objectives(self) -> None:
