@@ -170,6 +170,9 @@ class TestOverview(TestCase):
                     self.assertIn("Relativized", card.title)
 
     @mock_botorch_optimize
+    @TestCase.ax_long_test(
+        reason="Expensive to compute Sobol indices across multiple offline experiments"
+    )
     def test_offline(self) -> None:
         # Test MetricSummary can be computed for a variety of experiments which
         # resemble those we see in an offline setting.
