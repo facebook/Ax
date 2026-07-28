@@ -5,6 +5,7 @@
 
 # pyre-strict
 
+import tempfile
 from io import BufferedReader
 from pathlib import Path
 from unittest.mock import patch
@@ -26,16 +27,16 @@ class ConcreteParquetDataLoader(AbstractParquetDataLoader):
 class TestParquetDataLoader(TestCase):
     def setUp(self) -> None:
         super().setUp()
+        # Each test gets an isolated temp cache dir so concurrent runs of these
+        # tests don't race on a shared cache file.
+        self._cache_tmpdir = tempfile.TemporaryDirectory()
+        self.addCleanup(self._cache_tmpdir.cleanup)
         self.test_data = ConcreteParquetDataLoader(
             benchmark_name="test_benchmark",
             dataset_name="test_dataset",
             stem="test_stem",
-            cache_dir=Path("/tmp/test_cache"),
+            cache_dir=Path(self._cache_tmpdir.name),
         )
-
-    def tearDown(self) -> None:
-        # Delete the cached file if it exists
-        self.test_data.cache_path.unlink(missing_ok=True)
 
     def test_read_cached(self) -> None:
         # Create a mock cached file
