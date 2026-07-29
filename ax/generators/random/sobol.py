@@ -66,7 +66,9 @@ class SobolGenerator(RandomGenerator):
         if not self._engine:
             self._engine = SobolEngine(
                 dimension=n_tunable_features, scramble=self.scramble, seed=self.seed
-            ).fast_forward(self.init_position)
+            )
+            if self.init_position > 0:
+                self._engine.fast_forward(self.init_position)
         return self._engine
 
     @property

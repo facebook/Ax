@@ -5,7 +5,6 @@
 
 # pyre-strict
 
-from itertools import product
 from unittest.mock import patch
 
 from ax.adapter.registry import Generators
