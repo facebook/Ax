@@ -143,13 +143,16 @@ class TestSensitivityAnalysisPlot(TestCase):
             metric_name = none_throws(
                 experiment.optimization_config
             ).objective.metric_names[0]
-            for order, top_k in product(["first", "second", "total"], [None, 1]):
+            # top_k only limits how many parameters the plot displays; it does
+            # not affect the (expensive) Sobol computation, so it is not varied
+            # in this loop.
+            for order in ["first", "second", "total"]:
                 analysis = SensitivityAnalysisPlot(
                     metric_name=metric_name,
                     # pyre-fixme: Incompatible parameter type [6]: It isn't sure
                     # if "order" has one of the values specified by the Literal
                     order=order,
-                    top_k=top_k,
+                    top_k=1,
                 )
 
                 _ = analysis.compute(
