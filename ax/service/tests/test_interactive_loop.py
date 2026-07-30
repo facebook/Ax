@@ -72,6 +72,7 @@ class TestInteractiveLoop(TestCase):
         return (
             trial_index,
             {
+                # pyrefly: ignore [bad-assignment]
                 "hartmann6": (hartmann6(x), 0.0),
                 "l2norm": (np.sqrt((x**2).sum()), 0.0),
             },
@@ -145,6 +146,7 @@ class TestInteractiveLoop(TestCase):
             return (
                 trial_index,
                 {
+                    # pyrefly: ignore [bad-assignment]
                     "hartmann6": (hartmann6(x), 0.0),
                     "l2norm": (np.sqrt((x**2).sum()), 0.0),
                 },

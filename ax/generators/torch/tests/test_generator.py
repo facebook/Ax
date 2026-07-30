@@ -194,8 +194,10 @@ class BoTorchGeneratorTest(TestCase):
             outcome_constraints=self.moo_outcome_constraints,
             # pyrefly: ignore [bad-argument-type]
             model_gen_options={
+                # pyrefly: ignore [bad-assignment]
                 Keys.OPTIMIZER_KWARGS: self.optimizer_options,
                 Keys.ACQF_KWARGS: {"eta": 3.0},
+                # pyrefly: ignore [bad-assignment]
                 Keys.AX_ACQUISITION_KWARGS: {Keys.SUBSET_MODEL: True},
             },
         )

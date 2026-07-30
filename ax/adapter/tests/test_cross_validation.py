@@ -958,6 +958,7 @@ class CrossValidationTest(TestCase):
         model = assert_is_instance(surrogate.model, SaasFullyBayesianSingleTaskGP)
 
         # Get training data shape info
+        # pyrefly: ignore [unsupported-operation]
         train_X = model.train_inputs[0]
         d = train_X.shape[-1]
         num_models = 4  # Number of MCMC samples

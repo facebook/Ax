@@ -68,6 +68,7 @@ class SQAConfig:
 
     EXPERIMENT_TYPES_WITH_NO_DATA_STORAGE: set[str] = field(default_factory=set)
 
+    # pyrefly: ignore [bad-function-definition]
     def _default_class_to_sqa_class(self=None) -> dict[type[Base], type[SQABase]]:
         ax_cls_to_sqa_cls = {
             AbandonedArm: SQAAbandonedArm,

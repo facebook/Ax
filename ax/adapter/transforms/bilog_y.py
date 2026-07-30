@@ -109,6 +109,7 @@ class BilogY(Transform):
                         mean=obsd.means[i],
                         sem=None,
                         variance=obsd.covariance[i, i],
+                        # pyrefly: ignore [bad-argument-type]
                         transform=lambda y, bound=bound: transform(y, bound),
                     )
         return observation_data
