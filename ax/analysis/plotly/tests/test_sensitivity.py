@@ -21,7 +21,10 @@ from ax.core.data import MAP_KEY
 from ax.exceptions.core import UserInputError
 from ax.service.ax_client import AxClient, ObjectiveProperties
 from ax.utils.common.testutils import TestCase
-from ax.utils.testing.core_stubs import get_offline_experiments, get_online_experiments
+from ax.utils.testing.core_stubs import (
+    get_offline_experiments,
+    get_online_experiments_subset,
+)
 from ax.utils.testing.mock import mock_botorch_optimize
 from ax.utils.testing.modeling_stubs import get_default_generation_strategy_at_MBM_node
 from pyre_extensions import assert_is_instance, none_throws
@@ -134,7 +137,10 @@ class TestSensitivityAnalysisPlot(TestCase):
     @mock_botorch_optimize
     @TestCase.ax_long_test(reason="Expensive to compute Sobol indicies")
     def test_online(self) -> None:
-        for experiment in get_online_experiments():
+        # Use the curated experiment subset to keep this Sobol-heavy smoke test
+        # within its runtime budget; the full matrix intermittently exceeds the
+        # timeout under concurrent CI execution.
+        for experiment in get_online_experiments_subset():
             generation_strategy = get_default_generation_strategy_at_MBM_node(
                 experiment=experiment
             )
