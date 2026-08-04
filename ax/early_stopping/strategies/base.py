@@ -249,6 +249,9 @@ class BaseEarlyStoppingStrategy(ABC, Base):
 
         full_df = data.full_df
         full_df = full_df[full_df["metric_signature"].isin(metric_signatures)]
+        full_df = self._augment_early_stopping_data(
+            df=full_df, metric_signatures=metric_signatures
+        )
 
         # Drop rows with NaN values in MAP_KEY column to prevent issues in
         # align_partial_results which uses MAP_KEY as the pivot index
@@ -265,6 +268,12 @@ class BaseEarlyStoppingStrategy(ABC, Base):
         if self.normalize_progressions:
             full_df = _maybe_normalize_map_key(df=full_df)
         return Data(df=full_df)
+
+    def _augment_early_stopping_data(
+        self, df: pd.DataFrame, metric_signatures: list[str]
+    ) -> pd.DataFrame:
+        """Allow strategies to add reference observations before normalization."""
+        return df
 
     @staticmethod
     def _log_and_return_no_data(

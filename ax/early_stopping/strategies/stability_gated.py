@@ -14,6 +14,7 @@ from typing import cast
 
 import numpy as np
 import pandas as pd
+from ax.core.data import MAP_KEY
 from ax.core.experiment import Experiment
 from ax.early_stopping.strategies.base import BaseEarlyStoppingStrategy
 from ax.exceptions.core import UnsupportedError, UserInputError
@@ -22,6 +23,9 @@ from ax.utils.common.logger import get_logger
 from pyre_extensions import override as overrides
 
 logger: Logger = get_logger(__name__)
+
+_BASELINE_REFERENCE_TRIAL_INDEX = -1
+_BASELINE_REFERENCE_ARM_NAME = "sges_baseline_reference"
 
 
 @dataclass(frozen=True)
@@ -192,6 +196,69 @@ class StabilityGatedEarlyStoppingStrategy(BaseEarlyStoppingStrategy):
         self.top_k_fraction = top_k_fraction
         self.min_top_k = min_top_k
         self.recent_best_lookback = recent_best_lookback
+        self._baseline_reference_curve: list[tuple[float, float]] | None = None
+
+    def set_baseline_reference_curve(
+        self, curve: list[tuple[float, float]] | None
+    ) -> None:
+        """Set the baseline progression and mean values for single-trial decisions."""
+        self._baseline_reference_curve = curve
+
+    def is_baseline_reference_curve_needed(self, experiment: Experiment) -> bool:
+        """Return whether attached data has one candidate and no cached reference."""
+        if self._baseline_reference_curve is not None:
+            return False
+
+        metric_signature, _ = self._default_objective_and_direction(
+            experiment=experiment
+        )
+        data = experiment.lookup_data()
+        if data.df.empty:
+            return False
+        metric_rows = data.full_df[data.full_df["metric_signature"] == metric_signature]
+        return self._has_single_candidate_curve(metric_rows)
+
+    @staticmethod
+    def _has_single_candidate_curve(df: pd.DataFrame) -> bool:
+        return df["trial_index"].nunique() == 1
+
+    @overrides
+    def _augment_early_stopping_data(
+        self, df: pd.DataFrame, metric_signatures: list[str]
+    ) -> pd.DataFrame:
+        """Inject baseline as a pseudo-trial when no peer candidate curve exists."""
+        if (
+            self._baseline_reference_curve is None
+            or not metric_signatures
+            or not self._has_single_candidate_curve(df)
+        ):
+            return df
+
+        metric_signature = metric_signatures[0]
+        metric_rows = df[df["metric_signature"] == metric_signature]
+        if metric_rows.empty:
+            return df
+
+        baseline_df = (
+            pd.DataFrame(
+                self._baseline_reference_curve,
+                columns=[MAP_KEY, "mean"],
+            )
+            .dropna()
+            .drop_duplicates(subset=MAP_KEY, keep="last")
+            .sort_values(MAP_KEY)
+        )
+        if len(baseline_df) < 2:
+            return df
+
+        reference_df = baseline_df.assign(
+            arm_name=_BASELINE_REFERENCE_ARM_NAME,
+            metric_name=metric_rows["metric_name"].iloc[0],
+            metric_signature=metric_signature,
+            sem=np.nan,
+            trial_index=_BASELINE_REFERENCE_TRIAL_INDEX,
+        )
+        return pd.concat([df, reference_df], ignore_index=True)
 
     @overrides
     def _is_harmful(
