@@ -21,6 +21,7 @@ from ax.adapter.adapter_utils import (
     extract_search_space_digest,
     feasible_hypervolume,
     is_unordered_choice,
+    prep_pairwise_data,
     process_contextual_datasets,
     transform_search_space,
     validate_and_apply_final_transform,
@@ -657,6 +658,100 @@ class TestAdapterUtils(TestCase):
             self.assertNotIn(0, result)
             self.assertNotIn(1, result)
             self.assertIn(2, result)
+
+    def test_prep_pairwise_data_drops_incomplete_groups(self) -> None:
+        """Comparison groups without exactly two arms are dropped so that an odd
+        number of pairwise observations does not crash the reshape into pairs."""
+        parameters = ["x1", "x2"]
+        # Groups 0 and 1 are complete pairs; group 2 has a single arm, so the
+        # total count is odd (5) -- this used to crash `.reshape(-1, 2)` with
+        # `shape '[-1, 2]' is invalid for input of size 5`.
+        X = torch.tensor(
+            [[0.0, 0.0], [1.0, 1.0], [2.0, 2.0], [3.0, 3.0], [4.0, 4.0]],
+            dtype=torch.double,
+        )
+        Y = torch.tensor([[0], [1], [1], [0], [1]], dtype=torch.long)
+        group_indices = torch.tensor([0, 0, 1, 1, 2])
+
+        with self.assertLogs("ax", level="WARNING") as logs:
+            dataset = prep_pairwise_data(
+                X=X,
+                Y=Y,
+                group_indices=group_indices,
+                outcome=Keys.PAIRWISE_PREFERENCE_QUERY.value,
+                parameters=parameters,
+            )
+        self.assertIn("do not contain exactly two arms", "\n".join(logs.output))
+        # Only the two complete comparison pairs remain.
+        self.assertEqual(dataset.Y.shape[0], 2)
+
+    def test_prep_pairwise_data_drops_degenerate_groups(self) -> None:
+        """Groups with two arms but identical labels (both 0 or both 1) are
+        dropped rather than being silently mispaired."""
+        parameters = ["x1", "x2"]
+        # Group 0 is a valid pair; group 1 has two arms both labeled 1.
+        X = torch.tensor(
+            [[0.0, 0.0], [1.0, 1.0], [2.0, 2.0], [3.0, 3.0]],
+            dtype=torch.double,
+        )
+        Y = torch.tensor([[0], [1], [1], [1]], dtype=torch.long)
+        group_indices = torch.tensor([0, 0, 1, 1])
+
+        with self.assertLogs("ax", level="WARNING") as logs:
+            dataset = prep_pairwise_data(
+                X=X,
+                Y=Y,
+                group_indices=group_indices,
+                outcome=Keys.PAIRWISE_PREFERENCE_QUERY.value,
+                parameters=parameters,
+            )
+        self.assertIn(
+            "one preferred (1) and one not-preferred (0)", "\n".join(logs.output)
+        )
+        # Only the single valid comparison pair remains.
+        self.assertEqual(dataset.Y.shape[0], 1)
+
+    def test_prep_pairwise_data_all_groups_invalid_raises(self) -> None:
+        """When no valid comparison group remains, a descriptive error is raised
+        instead of failing cryptically downstream on empty inputs."""
+        parameters = ["x1", "x2"]
+        X = torch.tensor([[0.0, 0.0], [1.0, 1.0], [2.0, 2.0]], dtype=torch.double)
+        Y = torch.tensor([[0], [1], [1]], dtype=torch.long)
+        # Every group has a single arm -- all groups are incomplete.
+        group_indices = torch.tensor([0, 1, 2])
+
+        with self.assertRaisesRegex(
+            UserInputError, "No valid pairwise comparison groups remain"
+        ):
+            with self.assertLogs("ax", level="WARNING"):
+                prep_pairwise_data(
+                    X=X,
+                    Y=Y,
+                    group_indices=group_indices,
+                    outcome=Keys.PAIRWISE_PREFERENCE_QUERY.value,
+                    parameters=parameters,
+                )
+
+    def test_prep_pairwise_data_all_complete_groups(self) -> None:
+        """When every group is a complete pair, no observations are dropped and
+        no warning is logged."""
+        parameters = ["x1", "x2"]
+        X = torch.tensor(
+            [[0.0, 0.0], [1.0, 1.0], [2.0, 2.0], [3.0, 3.0]],
+            dtype=torch.double,
+        )
+        Y = torch.tensor([[0], [1], [1], [0]], dtype=torch.long)
+        group_indices = torch.tensor([0, 0, 1, 1])
+
+        with self.assertNoLogs("ax", level="WARNING"):
+            dataset = prep_pairwise_data(
+                X=X,
+                Y=Y,
+                group_indices=group_indices,
+                outcome=Keys.PAIRWISE_PREFERENCE_QUERY.value,
+                parameters=parameters,
+            )
+        self.assertEqual(dataset.Y.shape[0], 2)
 
     def test_extract_inequality_constraints(self) -> None:
         param_names = ["x", "y"]

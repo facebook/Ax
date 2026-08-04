@@ -1420,17 +1420,60 @@ def prep_pairwise_data(
             the number of features.
         Y: Tensor of shape `(n, 1)` with binary 0 or 1 outcomes with 1 indicating
             that is the preferred arm in the trial.
-        group_indices: Indices of groups of each observation. We have exactly two
-            arms per group with exactly one 0 and one 1 in Y.
+        group_indices: Indices of groups of each observation. A valid comparison
+            group has exactly two arms with exactly one 0 and one 1 in Y. Groups
+            that do not satisfy this (e.g. a single arm, or two arms with the same
+            label) are dropped with a warning before pairing, so callers are not
+            required to guarantee this invariant.
         outcome: Name of the outcome.
         parameters: Names of the features.
 
     Returns:
         A `RankingDataset` for pairwise preference modeling.
+
+    Raises:
+        UserInputError: If no valid comparison group remains after dropping
+            incomplete groups.
     """
     sorted_indices = torch.argsort(group_indices)
     X = X[sorted_indices]
     Y = Y[sorted_indices]
+    group_indices = group_indices[sorted_indices]
+
+    # Each comparison group must contain exactly two arms with exactly one
+    # preferred (`1`) and one not (`0`) to form a valid pair. Upstream filtering
+    # -- e.g. dropping arms whose outcome is NaN or removing stale LILO labels --
+    # can leave a group with a single arm (yielding an odd number of observations
+    # that cannot be reshaped into pairs and would otherwise crash with a cryptic
+    # `shape '[-1, 2]' is invalid` error) or with two identically-labeled arms
+    # (which would be silently mispaired). Drop any such invalid group.
+    unique_groups, inverse, counts = torch.unique(
+        group_indices, return_inverse=True, return_counts=True
+    )
+    label_sums = torch.zeros(
+        unique_groups.shape[0], dtype=Y.dtype, device=Y.device
+    ).scatter_add_(0, inverse, Y.view(-1))
+    invalid_groups = unique_groups[(counts != 2) | (label_sums != 1)]
+    if invalid_groups.numel() > 0:
+        keep_mask = ~torch.isin(group_indices, invalid_groups)
+        logger.warning(
+            f"Dropping {int((~keep_mask).sum())} pairwise preference "
+            f"observation(s) from {int(invalid_groups.numel())} comparison "
+            "group(s) that do not contain exactly two arms with exactly one "
+            "preferred (1) and one not-preferred (0) label. Each pairwise "
+            "comparison requires exactly two such arms."
+        )
+        X = X[keep_mask]
+        Y = Y[keep_mask]
+        group_indices = group_indices[keep_mask]
+
+    if Y.numel() == 0:
+        raise UserInputError(
+            "No valid pairwise comparison groups remain for outcome "
+            f"'{outcome}' after dropping incomplete groups. Each pairwise "
+            "comparison requires exactly two arms with exactly one preferred "
+            "(1) and one not-preferred (0) label."
+        )
 
     # Update Xs and Ys shapes for PairwiseGP
     Y = _binary_pref_to_comp_pair(Y=Y)
