@@ -1797,6 +1797,104 @@ class TestStabilityGatedEarlyStoppingStrategy(TestCase):
         self.assertEqual(set(should_stop), {1})
         self.assertIn("SGES count", none_throws(should_stop[1]))
 
+    def test_stability_gated_compares_single_trial_to_baseline_curve(self) -> None:
+        experiment, metric_signature = self._get_experiment_with_sges_data(
+            {
+                0: [
+                    (1e9, 0.1010),
+                    (2e9, 0.1011),
+                    (3e9, 0.1010),
+                    (4e9, 0.1011),
+                    (5e9, 0.1010),
+                ],
+            }
+        )
+        strategy = StabilityGatedEarlyStoppingStrategy(
+            metric_signatures=[metric_signature],
+            min_progression=1e9,
+            min_curves=2,
+            normalize_progressions=False,
+            check_interval=1e9,
+            window_size=2,
+            variance_threshold=1e-5,
+            gap_threshold=4e-4,
+            stability_count=2,
+            top_k_fraction=0.0,
+            min_top_k=1,
+            recent_best_lookback=0,
+        )
+
+        self.assertEqual(
+            strategy.should_stop_trials_early(trial_indices={0}, experiment=experiment),
+            {},
+        )
+        self.assertTrue(strategy.is_baseline_reference_curve_needed(experiment))
+
+        strategy.set_baseline_reference_curve(
+            [
+                (0.5e9, 0.10005),
+                (2.5e9, 0.09985),
+                (4.5e9, 0.09965),
+                (5.5e9, 0.09955),
+            ]
+        )
+        self.assertFalse(strategy.is_baseline_reference_curve_needed(experiment))
+        should_stop = strategy.should_stop_trials_early(
+            trial_indices={0}, experiment=experiment
+        )
+
+        self.assertEqual(set(should_stop), {0})
+        self.assertIn("leader_trial=-1", none_throws(should_stop[0]))
+
+    def test_stability_gated_preserves_baseline_sampling_and_unknown_sem(self) -> None:
+        experiment, metric_signature = self._get_experiment_with_sges_data(
+            {
+                0: [
+                    (2.0, 0.1010),
+                    (5.0, 0.1011),
+                    (8.0, 0.1010),
+                ],
+            }
+        )
+        strategy = StabilityGatedEarlyStoppingStrategy(
+            metric_signatures=[metric_signature],
+            normalize_progressions=False,
+        )
+        strategy.set_baseline_reference_curve(
+            [
+                (float(progression), 0.100 - progression / 1000)
+                for progression in range(11)
+            ]
+        )
+
+        data = none_throws(
+            strategy._lookup_and_validate_data(
+                experiment=experiment,
+                metric_signatures=[metric_signature],
+            )
+        )
+        baseline_rows = data.full_df[data.full_df["trial_index"] == -1]
+
+        self.assertEqual(baseline_rows[MAP_KEY].tolist(), list(range(11)))
+        self.assertEqual(
+            baseline_rows["mean"].tolist(),
+            [0.100 - progression / 1000 for progression in range(11)],
+        )
+        self.assertTrue(baseline_rows["sem"].isna().all())
+
+    def test_stability_gated_does_not_need_baseline_with_peer_curve(self) -> None:
+        experiment, metric_signature = self._get_experiment_with_sges_data(
+            {
+                0: [(1.0, 0.1), (2.0, 0.09)],
+                1: [(1.0, 0.11), (2.0, 0.10)],
+            }
+        )
+        strategy = StabilityGatedEarlyStoppingStrategy(
+            metric_signatures=[metric_signature]
+        )
+
+        self.assertFalse(strategy.is_baseline_reference_curve_needed(experiment))
+
     def test_stability_gated_does_not_stop_volatile_trial(self) -> None:
         experiment, metric_signature = self._get_experiment_with_sges_data(
             {
