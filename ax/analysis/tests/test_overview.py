@@ -145,6 +145,9 @@ class TestOverview(TestCase):
             )
 
     @mock_botorch_optimize
+    @TestCase.ax_long_test(
+        reason="Expensive to compute Sobol indices across multiple online experiments"
+    )
     def test_online(self) -> None:
         # Test MetricSummary can be computed for a variety of experiments which
         # resemble those we see in an online setting.
