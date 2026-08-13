@@ -22,10 +22,12 @@ from ax.utils.testing.preference_stubs import get_pbo_experiment
 class TestGetPreferenceAdapter(TestCase):
     def setUp(self) -> None:
         super().setUp()
-        # Preference experiment with data for testing get_preference_adapter
+        # Preference experiment with data for testing get_preference_adapter.
         self.pe_experiment = get_pbo_experiment(
             parameter_names=["metric1", "metric2"],
+            num_experimental_trials=0,
             num_preference_trials=2,
+            num_preference_trials_w_repeated_arm=0,
             unbounded_search_space=True,
         )
 
