@@ -17,6 +17,7 @@ from botorch.models.deterministic import GenericDeterministicModel
 from botorch.models.model import ModelList
 from botorch.models.model_list_gp_regression import ModelListGP
 from botorch.models.multitask import MultiTaskGP
+from pyre_extensions import assert_is_instance
 from torch import Tensor
 
 
@@ -182,11 +183,7 @@ class SubsetModelTestMultiTask(TestCase):
         obj_weights[0, 0] = 1
         obj_weights[0, 2] = 1
         subset_model_results = subset_model(model, obj_weights)
-        models = subset_model_results.model.models
-        # pyre-fixme[6]: For 1st argument expected
-        #  `pyre_extensions.PyreReadOnly[Sized]` but got `Union[Tensor, Module]`.
+        models = assert_is_instance(subset_model_results.model, ModelListGP).models
         self.assertEqual(len(models), 2)
-        # pyre-fixme[29]: `Union[(self: TensorBase, indices: Union[None, slice[Any, A...
         self.assertIs(models[0], m1)
-        # pyre-fixme[29]: `Union[(self: TensorBase, indices: Union[None, slice[Any, A...
         self.assertIs(models[1], m2b)
