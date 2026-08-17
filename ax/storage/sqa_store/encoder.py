@@ -308,6 +308,7 @@ class Encoder:
                 upper=float(parameter.upper),
                 log_scale=parameter.log_scale,
                 digits=parameter.digits,
+                step_size=parameter.step_size,
                 is_fidelity=parameter.is_fidelity,
                 target_value=parameter.target_value,
                 dependents=parameter.dependents if parameter.is_hierarchical else None,
