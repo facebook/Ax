@@ -215,6 +215,7 @@ class TestPFeasiblePlot(TestCase):
                             generation_strategy=generation_strategy,
                         )
 
+    @mock_botorch_optimize
     def test_online(self) -> None:
         for experiment in get_online_experiments():
             # Skip if no outcome constraints
