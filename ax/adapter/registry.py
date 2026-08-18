@@ -106,6 +106,9 @@ MBM_X_trans_base: list[type[Transform]] = [
 ]
 MBM_X_trans: list[type[Transform]] = [MapKeyToFloat, *MBM_X_trans_base]
 
+# Random adapters now support discrete parameters natively, so they can use the
+# same set of transforms as MBM.
+Random_X_trans: list[type[Transform]] = MBM_X_trans_base
 
 Discrete_X_trans: list[type[Transform]] = [IntRangeToChoice]
 
@@ -210,12 +213,12 @@ GENERATOR_KEY_TO_GENERATOR_SETUP: dict[str, GeneratorSetup] = {
     "Sobol": GeneratorSetup(
         adapter_class=RandomAdapter,
         generator_class=SobolGenerator,
-        transforms=Cont_X_trans,
+        transforms=Random_X_trans,
     ),
     "Uniform": GeneratorSetup(
         adapter_class=RandomAdapter,
         generator_class=UniformGenerator,
-        transforms=Cont_X_trans,
+        transforms=Random_X_trans,
     ),
     # In-sample generators only select existing arms -- they do not need
     # arithmetic transforms (Log, Logit, UnitX) whose forward/reverse
