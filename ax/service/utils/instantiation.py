@@ -728,6 +728,45 @@ class InstantiationBase:
         return None
 
     @classmethod
+    def _build_lower_is_better_map(
+        cls,
+        optimization_config: OptimizationConfig,
+    ) -> dict[str, bool | None]:
+        """Map each optimization metric to its preferred direction.
+
+        A value of ``True`` means smaller metric values are better, ``False``
+        means larger values are better, and ``None`` means there is no single
+        preferred direction. For an objective, the direction is taken from
+        whether it is minimized. For a metric that appears only in outcome
+        constraints, the direction is inferred from the constraint operator
+        (``<=`` implies lower is better). A metric constrained on both sides --
+        a two-sided band with both a ``>=`` and a ``<=`` constraint -- has no
+        preferred direction and is mapped to ``None`` rather than to whichever
+        constraint happened to be listed first. Objective and constraint metric
+        names are disjoint (an objective metric cannot also be constrained), so
+        the two groups never conflict.
+        """
+        objective = optimization_config.objective
+        objective_weights = [weight for _, weight in objective.metric_weights]
+        lower_is_better_map: dict[str, bool | None] = {}
+        for metric_name, weight in zip(objective.metric_names, objective_weights):
+            lower_is_better_map[metric_name] = weight < 0
+
+        # Infer direction for constraint metrics. Track conflicts so a metric
+        # bounded on both sides is left without a preferred direction.
+        constraint_directions: dict[str, bool | None] = {}
+        for constraint in optimization_config.outcome_constraints:
+            constraint_lower_is_better = constraint.op is ComparisonOp.LEQ
+            for metric_name in constraint.metric_names:
+                if metric_name not in constraint_directions:
+                    constraint_directions[metric_name] = constraint_lower_is_better
+                elif constraint_directions[metric_name] != constraint_lower_is_better:
+                    constraint_directions[metric_name] = None
+
+        lower_is_better_map.update(constraint_directions)
+        return lower_is_better_map
+
+    @classmethod
     def make_search_space(
         cls,
         parameters: list[TParameterRepresentation],
@@ -905,18 +944,7 @@ class InstantiationBase:
         # names so they are registered with proper types and properties
         # before the auto-registration in Experiment.__init__ fires.
         if optimization_config is not None:
-            # Build lower_is_better map from the optimization config so
-            # that pre-registered metrics carry the correct directionality.
-            lower_is_better_map: dict[str, bool] = {}
-            obj = optimization_config.objective
-            obj_names = obj.metric_names
-            obj_weights = [w for _, w in obj.metric_weights]
-            for mn, weight in zip(obj_names, obj_weights):
-                lower_is_better_map[mn] = weight < 0
-            for constraint in optimization_config.outcome_constraints:
-                for mn in constraint.metric_names:
-                    if mn not in lower_is_better_map:
-                        lower_is_better_map[mn] = constraint.op is ComparisonOp.LEQ
+            lower_is_better_map = cls._build_lower_is_better_map(optimization_config)
 
             tracking_names = {m.name for m in (tracking_metrics or [])}
             for metric_name in optimization_config.metric_names:

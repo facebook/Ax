@@ -33,12 +33,7 @@ from ax.core.parameter_constraint import ParameterConstraint
 from ax.core.runner import Runner, RunnerConfig
 from ax.core.trial import Trial
 from ax.core.trial_status import TrialStatus
-from ax.core.types import (
-    ComparisonOp,
-    TEvaluationOutcome,
-    TParameterization,
-    TParamValue,
-)
+from ax.core.types import TEvaluationOutcome, TParameterization, TParamValue
 from ax.core.utils import compute_metric_availability, MetricAvailability
 from ax.early_stopping.strategies import BaseEarlyStoppingStrategy
 from ax.early_stopping.utils import estimate_early_stopping_savings
@@ -419,18 +414,9 @@ class AxClient(AnalysisBase, BestPointMixin, InstantiationBase):
             metric_definitions=metric_definitions,
         )
         if optimization_config:
-            # Build lower_is_better map from the optimization config so
-            # that auto-registered metrics carry the correct directionality.
-            lower_is_better_map: dict[str, bool] = {}
-            obj = optimization_config.objective
-            obj_names = obj.metric_names
-            obj_weights = [w for _, w in obj.metric_weights]
-            for mn, weight in zip(obj_names, obj_weights):
-                lower_is_better_map[mn] = weight < 0
-            for constraint in optimization_config.outcome_constraints:
-                for mn in constraint.metric_names:
-                    if mn not in lower_is_better_map:
-                        lower_is_better_map[mn] = constraint.op is ComparisonOp.LEQ
+            # Build lower_is_better map so auto-registered metrics carry the
+            # correct directionality.
+            lower_is_better_map = self._build_lower_is_better_map(optimization_config)
 
             # Auto-register metrics not yet on the experiment, using
             # metric_definitions to preserve metric types and properties.
