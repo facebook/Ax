@@ -58,12 +58,8 @@ class ContourPlot(Analysis):
     trial (for single-objective optimization), or at the center of the search space if
     neither is available.
 
-    The DataFrame computed will contain the following columns:
-        - PARAMETER_NAME: The value of the x parameter specified
-        - PARAMETER_NAME: The value of the y parameter specified
-        - METRIC_NAME_mean: The predicted mean of the metric specified
-        - METRIC_NAME_sem: The predicted standard error of the metric specified
-        - sampled: Whether the parameter values were sampled in at least one trial
+    The card's DataFrame is intentionally left empty; the plotted prediction grid is
+    fully represented in the card's Plotly blob.
     """
 
     def __init__(
@@ -205,7 +201,11 @@ class ContourPlot(Analysis):
                 "predicted values, providing insights into the gradient and potential "
                 "optima within the parameter space."
             ),
-            df=df,
+            # The prediction grid is O(N_sampled^2) rows and is fully represented in
+            # the Plotly blob, which is what every consumer renders from. Storing an
+            # empty DataFrame avoids persisting multiple MB per card for data nothing
+            # reads.
+            df=pd.DataFrame(),
             fig=fig,
         )
 
