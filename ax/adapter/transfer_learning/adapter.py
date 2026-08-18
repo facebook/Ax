@@ -788,8 +788,10 @@ def transfer_learning_generator_specs_constructor(
             model's input constructor.
         fit_tracking_metrics: Whether to fit the generator on tracking metrics. Passed
             to the `TransferLearningAdapter`.
-        additional_generator_kwargs: Additional kwargs to be passed
-            to the BoTorchGenerator
+        additional_generator_kwargs: Additional kwargs to be passed to each
+            BoTorchGenerator. When model selection is enabled, these kwargs must be
+            compatible with both the transfer learning model and the single-task
+            fallback.
 
     Returns:
         A tuple containing BOTL generator specs in case model selection is not enabled,
@@ -839,7 +841,10 @@ def transfer_learning_generator_specs_constructor(
     ]
     if use_model_selection:
         botl_specs.append(
-            GeneratorSpec(generator_enum=Generators.BOTORCH_MODULAR),
+            GeneratorSpec(
+                generator_enum=Generators.BOTORCH_MODULAR,
+                generator_kwargs=additional_generator_kwargs,
+            ),
         )
         best_model_selector = SingleDiagnosticBestModelSelector(
             diagnostic="Rank correlation",
