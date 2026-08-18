@@ -5,12 +5,16 @@
 
 # pyre-strict
 
+import numpy as np
 from ax.analysis.plotly.surface.contour import compute_contour_adhoc, ContourPlot
+from ax.core.arm import Arm
+from ax.core.generator_run import GeneratorRun
 from ax.core.trial import Trial
 from ax.exceptions.core import UserInputError
 from ax.service.ax_client import AxClient, ObjectiveProperties
 from ax.utils.common.testutils import TestCase
 from ax.utils.testing.mock import mock_botorch_optimize
+from plotly import graph_objects as go
 from pyre_extensions import assert_is_instance, none_throws
 
 
@@ -62,15 +66,14 @@ class TestContourPlot(TestCase):
         ]
         self.expected_title = "bar (Mean) vs. x, y"
         self.expected_name = "ContourPlot"
-        self.expected_cols = {
-            "x",
-            "y",
-            "bar_mean",
-            "bar_sem",
-            "sampled",
-            "trial_index",
-            "arm_name",
-        }
+
+    def _sampled_points_from_card(
+        self, fig: go.Figure
+    ) -> tuple[tuple[float, ...], tuple[float, ...]]:
+        """Extract the (x, y) coordinates of the "Sampled" scatter trace."""
+        scatters = [trace for trace in fig.data if isinstance(trace, go.Scatter)]
+        self.assertEqual(len(scatters), 1)
+        return tuple(scatters[0].x), tuple(scatters[0].y)
 
     def test_compute(self) -> None:
         analysis = ContourPlot(
@@ -97,14 +100,12 @@ class TestContourPlot(TestCase):
         self.assertEqual(card.title, self.expected_title)
         for expected_text in self.expected_subtitle_contains:
             self.assertIn(expected_text, card.subtitle)
-        self.assertEqual(
-            {*card.df.columns},
-            self.expected_cols,
-        )
         self.assertIsNotNone(card.blob)
+        # The prediction grid lives in the Plotly blob, not the DataFrame.
+        self.assertTrue(card.df.empty)
 
-        # Assert that any row where sampled is True has a value of x that is
-        # sampled in at least one trial.
+        # Assert that every point marked as sampled in the figure has x and y values
+        # that were sampled in at least one trial.
         x_values_sampled = {
             none_throws(assert_is_instance(trial, Trial).arm).parameters["x"]
             for trial in self.client.experiment.trials.values()
@@ -113,18 +114,13 @@ class TestContourPlot(TestCase):
             none_throws(assert_is_instance(trial, Trial).arm).parameters["y"]
             for trial in self.client.experiment.trials.values()
         }
-        self.assertTrue(
-            card.df.apply(
-                lambda row: row["x"] in x_values_sampled
-                and row["y"] in y_values_sampled
-                if row["sampled"]
-                else True,
-                axis=1,
-            ).all()
-        )
+        xs, ys = self._sampled_points_from_card(fig=card.get_figure())
+        for x, y in zip(xs, ys, strict=True):
+            self.assertIn(x, x_values_sampled)
+            self.assertIn(y, y_values_sampled)
 
         # Less-than-or-equal to because we may have removed some duplicates
-        self.assertTrue(card.df["sampled"].sum() <= len(self.client.experiment.trials))
+        self.assertLessEqual(len(xs), len(self.client.experiment.trials))
 
     def test_compute_adhoc(self) -> None:
         card = compute_contour_adhoc(
@@ -141,11 +137,11 @@ class TestContourPlot(TestCase):
         self.assertEqual(card.title, self.expected_title)
         for expected_text in self.expected_subtitle_contains:
             self.assertIn(expected_text, card.subtitle)
-        self.assertEqual({*card.df.columns}, self.expected_cols)
         self.assertIsNotNone(card.blob)
+        self.assertTrue(card.df.empty)
 
-        # Assert that any row where sampled is True has a value of x that is
-        # sampled in at least one trial.
+        # Assert that every point marked as sampled in the figure has x and y values
+        # that were sampled in at least one trial.
         x_values_sampled = {
             none_throws(assert_is_instance(trial, Trial).arm).parameters["x"]
             for trial in self.client.experiment.trials.values()
@@ -154,22 +150,23 @@ class TestContourPlot(TestCase):
             none_throws(assert_is_instance(trial, Trial).arm).parameters["y"]
             for trial in self.client.experiment.trials.values()
         }
-        self.assertTrue(
-            card.df.apply(
-                lambda row: row["x"] in x_values_sampled
-                and row["y"] in y_values_sampled
-                if row["sampled"]
-                else True,
-                axis=1,
-            ).all()
-        )
+        xs, ys = self._sampled_points_from_card(fig=card.get_figure())
+        for x, y in zip(xs, ys, strict=True):
+            self.assertIn(x, x_values_sampled)
+            self.assertIn(y, y_values_sampled)
 
         # Less-than-or-equal to because we may have removed some duplicates
-        self.assertTrue(card.df["sampled"].sum() <= len(self.client.experiment.trials))
+        self.assertLessEqual(len(xs), len(self.client.experiment.trials))
 
     def test_trial_status_filtering(self) -> None:
-        trial_index = self.client.experiment.new_trial().index
-        self.client.experiment.trials[trial_index].mark_abandoned()
+        # Add an abandoned trial whose arm sits at a parameterization no completed
+        # trial uses, so its exclusion is observable in the figure's sampled points.
+        abandoned_trial = self.client.experiment.new_trial(
+            generator_run=GeneratorRun(
+                arms=[Arm(parameters={"x": 0.5, "y": 0.5, "z": 1})]
+            )
+        )
+        abandoned_trial.mark_abandoned()
 
         analysis = ContourPlot(
             x_parameter_name="x", y_parameter_name="y", metric_name="bar"
@@ -178,10 +175,8 @@ class TestContourPlot(TestCase):
             experiment=self.client.experiment,
             generation_strategy=self.client.generation_strategy,
         )
-        self.assertNotIn(
-            trial_index,
-            card.df["trial_index"].values,
-        )
+        xs, ys = self._sampled_points_from_card(fig=card.get_figure())
+        self.assertNotIn((0.5, 0.5), set(zip(xs, ys, strict=True)))
 
     def test_display_sem(self) -> None:
         """Test that display='sem' shows standard error contour."""
@@ -199,9 +194,24 @@ class TestContourPlot(TestCase):
         # Title should indicate Standard Error
         self.assertEqual(card.title, "bar (Standard Error) vs. x, y")
         self.assertEqual(card.name, "ContourPlot")
-        # DataFrame should still have both mean and sem columns
-        self.assertIn("bar_mean", card.df.columns)
-        self.assertIn("bar_sem", card.df.columns)
+
+        # The contoured surface should be the sems, not the means. SEMs are
+        # non-negative, and the two surfaces should differ.
+        sem_z = np.asarray(card.get_figure().data[0].z, dtype=float)
+        self.assertTrue((sem_z >= 0).all())
+
+        mean_card = ContourPlot(
+            x_parameter_name="x",
+            y_parameter_name="y",
+            metric_name="bar",
+            display="mean",
+        ).compute(
+            experiment=self.client.experiment,
+            generation_strategy=self.client.generation_strategy,
+        )
+        mean_z = np.asarray(mean_card.get_figure().data[0].z, dtype=float)
+        self.assertEqual(sem_z.shape, mean_z.shape)
+        self.assertFalse(np.allclose(sem_z, mean_z))
 
     def test_invalid_display_value(self) -> None:
         """Test that invalid display value raises UserInputError at compute time."""
@@ -230,11 +240,8 @@ class TestContourPlot(TestCase):
         # Assert: Verify the contour plot was created successfully
         self.assertEqual(card.name, "ContourPlot")
         self.assertEqual(card.title, "bar (Mean) vs. x, z")
-        self.assertIn("x", card.df.columns)
-        self.assertIn("z", card.df.columns)
-        self.assertIn("bar_mean", card.df.columns)
 
-        # Assert: Verify that z only contains the discrete choice values
-        unique_z_values = card.df["z"].unique()
-        for value in unique_z_values:
-            self.assertIn(value, [1, 2, 3, 4])
+        # Assert: the y-axis (the choice parameter) only contains its discrete values
+        contour = card.get_figure().data[0]
+        self.assertEqual(contour.y, (1, 2, 3, 4))
+        self.assertGreater(len(contour.x), 0)
