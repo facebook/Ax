@@ -151,10 +151,12 @@ class ClientTest(TestCase):
                         raw_data={self.metric_name: result},
                         progression=step if attach_with_progression else None,
                     )
-                    if stopped := self.client.should_stop_trial_early(
+                    should_stop, _ = self.client.should_stop_trial_early(
                         trial_index=trial_index
-                    ):
+                    )
+                    if should_stop:
                         self.client.mark_trial_early_stopped(trial_index=trial_index)
+                        stopped = True
                         break
 
             if not stopped:
