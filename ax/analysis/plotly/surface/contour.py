@@ -384,9 +384,9 @@ def _prepare_plot(
 
     fig = go.Figure(
         data=go.Contour(
-            z=z_values,
-            x=z_grid.columns.values,
-            y=z_grid.index.values,
+            z=z_values.tolist(),
+            x=z_grid.columns.tolist(),
+            y=z_grid.index.tolist(),
             colorscale=METRIC_CONTINUOUS_COLOR_SCALE,
             showscale=True,
             colorbar={
