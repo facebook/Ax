@@ -348,7 +348,6 @@ def _compute_inverse_bounds(
     inv_bounds = defaultdict()
     for k, pt in power_transforms.items():
         bounds = [-np.inf, np.inf]
-        # pyre-ignore[16]: sklearn's PowerTransformer lacks type stubs for
         # _scaler (internal attr) and lambdas_ (set during fit).
         mu, sigma = pt._scaler.mean_.item(), pt._scaler.scale_.item()
         lambda_ = pt.lambdas_.item()  # pyre-ignore[16]

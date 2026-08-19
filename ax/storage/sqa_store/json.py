@@ -47,7 +47,6 @@ class JSONEncodedObject(TypeDecorator):
     def process_result_value(self, value: Any, dialect: Any) -> Any:
         if value is not None:
             try:  # TODO T61331534: revert this; just a hotfix for AutoML
-                # pyre-fixme[6]: `object_pairs_hook` expects a callable but
                 #  `type[Any] | None` is stored; compatible at runtime.
                 return json.loads(value, object_pairs_hook=self.object_pairs_hook)
             except JSONDecodeError:

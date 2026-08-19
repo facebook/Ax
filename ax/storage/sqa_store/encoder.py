@@ -262,7 +262,7 @@ class Encoder:
             Experiment
         ]
         exp_sqa = experiment_class(
-            id=experiment.db_id,  # pyre-ignore
+            id=experiment.db_id,
             description=experiment.description,
             is_test=experiment.is_test,
             name=experiment.name,
@@ -1206,7 +1206,6 @@ class Encoder:
     ) -> list[SQAAuxiliaryExperiment]:
         """Convert Ax auxiliary experiments by purpose to SQLAlchemy."""
 
-        # pyre-fixme: Expected `Base` for 1st...ot `typing.Type[AuxiliaryExperiment]`.
         auxiliary_experiment_class: SQAAuxiliaryExperiment = (
             # pyrefly: ignore [bad-assignment]
             self.config.class_to_sqa_class[AuxiliaryExperiment]

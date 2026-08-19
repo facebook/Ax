@@ -122,7 +122,6 @@ def _interval_boundary(
         The interval boundary that this progression is at or past (rounded down).
     """
     interval_num = (progression - min_progression) // interval
-    # pyre-ignore[58]: Numpy handles float + ndarray correctly at runtime
     return min_progression + interval_num * interval
 
 

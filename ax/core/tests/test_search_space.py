@@ -1206,7 +1206,6 @@ class SearchSpaceDigestTest(TestCase):
         for arg in self.kwargs:
             if arg in {"feature_names", "bounds"}:
                 continue
-            # pyrefly: ignore [bad-argument-type]
             ssd = SearchSpaceDigest(
                 # pyrefly: ignore [bad-argument-type]
                 **{k: v for k, v in self.kwargs.items() if k != arg}
@@ -1449,7 +1448,6 @@ class HierarchicalSearchSpaceTest(TestCase):
         self.assertEqual(  # Check one subtree.
             hss_1_obs_feats_1_cast.parameters,
             ObservationFeatures.from_arm(arm=self.hss_1_arm_1_cast).parameters,
-            # pyrefly: ignore [missing-attribute]
         )
         self.assertEqual(  # Check one subtree.
             # pyrefly: ignore [missing-attribute]
@@ -1498,9 +1496,7 @@ class HierarchicalSearchSpaceTest(TestCase):
             )
             self.assertEqual(  # Cast-flatten roundtrip.
                 hss_1_obs_feats_1.parameters,
-                # pyrefly: ignore [missing-attribute]
                 hss_1_obs_feats_1_flattened.parameters,
-                # pyrefly: ignore [missing-attribute]
             )
             self.assertEqual(  # Check that both cast and flattened have full params.
                 # pyrefly: ignore [missing-attribute]

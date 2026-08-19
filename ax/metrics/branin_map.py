@@ -68,7 +68,6 @@ class BraninTimestampMapMetric(NoisyFunctionMapMetric):
             decay_function_name
         ]
 
-        # pyre-fixme[4]: Attribute must be annotated.
         self._trial_index_to_timestamp = defaultdict(int)
 
         super().__init__(

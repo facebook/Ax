@@ -89,7 +89,6 @@ class Adapter:
     specification.
     """
 
-    # pyre-ignore[13]: Initialized in _set_and_filter_training_data, called
     # from __init__. Pyre can't trace through method calls.
     _training_data: ExperimentData
 

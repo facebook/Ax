@@ -30,9 +30,7 @@ TModelPredict = tuple[TModelMean, TModelCov]
 # ( { metric -> mean }, { metric -> { other_metric -> covariance } } ).
 TModelPredictArm = tuple[dict[str, float], dict[str, dict[str, float]] | None]
 
-# pyre-fixme[24]: Generic type `np.floating` expects 1 type parameter, use
 #  `np.floating[Any]` to avoid runtime subscripting errors with isinstance().
-# pyre-fixme[24]: Generic type `np.integer` expects 1 type parameter.
 FloatLike = int | float | np.floating | np.integer
 SingleMetricData = FloatLike | tuple[FloatLike, FloatLike | None]
 # 1-arm `Trial` evaluation data: {metric_name -> (mean, standard error)}}.

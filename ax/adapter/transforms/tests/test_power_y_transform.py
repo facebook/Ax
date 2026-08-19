@@ -99,7 +99,6 @@ class PowerTransformYTest(TestCase):
         Ys = {"m2": [0.9, 0.4, 0.8]}
         pt = _compute_power_transforms(Ys)["m2"]
         # lambda < 0: im(f) = (-inf, -1/lambda) without standardization
-        # pyre-fixme[16]: `PowerTransformer` has no attribute `lambdas_`.
         pt.lambdas_.fill(-2.5)
         bounds = _compute_inverse_bounds({"m2": pt})["m2"]
         self.assertEqual(bounds[0], -np.inf)

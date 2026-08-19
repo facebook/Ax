@@ -58,7 +58,7 @@ class TestOptimize(TestCase):
                 # pyrefly: ignore [unsupported-operation]
                 evaluation_function=lambda p: (p["x1"] + 2 * p["x2"] - 7) ** 2
                 + (2 * p["x1"] + p["x2"] - 5)  # pyrefly: ignore [unsupported-operation]
-                ** 2,  # pyrefly: ignore [unsupported-operation]
+                ** 2,
                 minimize=True,
                 total_trials=5,
             )
@@ -73,7 +73,7 @@ class TestOptimize(TestCase):
             # pyrefly: ignore [unsupported-operation]
             evaluation_function=lambda p: (p["x1"] + 2 * p["x2"] - 7) ** 2
             + (2 * p["x1"] + p["x2"] - 5)  # pyrefly: ignore [unsupported-operation]
-            ** 2,  # pyrefly: ignore [unsupported-operation]
+            ** 2,
             minimize=True,
             total_trials=5,
         )
@@ -150,7 +150,7 @@ class TestOptimize(TestCase):
             # pyrefly: ignore [unsupported-operation]
             evaluation_function=lambda p: (p["x1"] + 2 * p["x2"] - 7) ** 2
             + (2 * p["x1"] + p["x2"] - 5)  # pyrefly: ignore [unsupported-operation]
-            ** 2,  # pyrefly: ignore [unsupported-operation]
+            ** 2,
             minimize=True,
             parameter_constraints=["x1 + x2 <= 5"],
             total_trials=5,
@@ -278,7 +278,7 @@ class TestOptimize(TestCase):
             # pyrefly: ignore [unsupported-operation]
             evaluation_function=lambda p: (p["x1"] + 2 * p["x2"] - 7) ** 2
             + (2 * p["x1"] + p["x2"] - 5)  # pyrefly: ignore [unsupported-operation]
-            ** 2,  # pyrefly: ignore [unsupported-operation]
+            ** 2,
             minimize=True,
             total_trials=5,
             generation_strategy=gs,

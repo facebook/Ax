@@ -121,7 +121,6 @@ class MultiTypeExperiment(Experiment):
 
     # pyre does not support inferring the type of property setter decorators
     # or the `.fset` attribute on properties.
-    # pyre-fixme[56]: Pyre was not able to infer the type of the decorator.
     @Experiment.optimization_config.setter
     def optimization_config(self, optimization_config: OptimizationConfig) -> None:
         # pyre-fixme[16]: `Optional` has no attribute `fset`.

@@ -563,7 +563,6 @@ class RelativizeDataOptConfigTest(TestCase):
             )
             self.assertEqual(new_config.objective, optimization_config.objective)
             self.assertEqual(
-                # pyre-fixme[16]: `OptimizationConfig` has no attribute
                 #  `objective_thresholds`.
                 new_config.objective_thresholds[0].bound,
                 optimization_config.objective_thresholds[0].bound,

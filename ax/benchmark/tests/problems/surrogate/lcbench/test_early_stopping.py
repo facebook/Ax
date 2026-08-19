@@ -89,7 +89,6 @@ class TestEarlyStoppingProblem(TestCase):
         test_function = assert_is_instance(
             problem.test_function, LearningCurveBenchmarkTestFunction
         )
-        # pyre-fixme[8]: Incompatible attribute type -- not a bound method
         test_function.runtime_surrogate.predict = lambda X: np.array(
             [predicted_runtime]
         )

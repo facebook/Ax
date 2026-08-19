@@ -190,9 +190,7 @@ class BoTorchGeneratorTest(TestCase):
             self.torch_opt_config,
             objective_weights=self.moo_objective_weights,
             objective_thresholds=self.moo_objective_thresholds,
-            # pyrefly: ignore [bad-argument-type]
             outcome_constraints=self.moo_outcome_constraints,
-            # pyrefly: ignore [bad-argument-type]
             model_gen_options={
                 # pyrefly: ignore [bad-assignment]
                 Keys.OPTIMIZER_KWARGS: self.optimizer_options,
@@ -819,12 +817,11 @@ class BoTorchGeneratorTest(TestCase):
                 ),
             )
         )
-        # pyrefly: ignore [bad-argument-type]
         self.assertEqual(importances.shape, (2, 1, 3))
         # Add model we don't support
         # pyrefly: ignore [bad-argument-type]
         vanilla_model.covar_module = None
-        model.surrogate._model = vanilla_model  # pyre-ignore
+        model.surrogate._model = vanilla_model
         with self.assertRaisesRegex(
             NotImplementedError,
             "Failed to extract lengthscales from `m.covar_module` "
@@ -1108,7 +1105,6 @@ class BoTorchGeneratorTest(TestCase):
                 torch.cat([ds.Y for ds in self.moo_training_data], dim=-1),
             )
         )
-        # pyrefly: ignore [bad-argument-type]
         self.assertTrue(
             torch.equal(
                 training_data.Yvar,
@@ -1128,7 +1124,6 @@ class BoTorchGeneratorTest(TestCase):
         # gen_metadata stores maximization-aligned thresholds.
         obj_t = gen_results.gen_metadata["objective_thresholds"]
         self.assertTrue(torch.equal(obj_t, self.moo_objective_thresholds))
-        # pyrefly: ignore [bad-argument-type]
 
         self.assertIsInstance(ckwargs["objective"], WeightedMCMultiOutputObjective)
         self.assertTrue(
@@ -1224,7 +1219,6 @@ class BoTorchGeneratorTest(TestCase):
         botorch_acqf_classes_with_options = [
             (PosteriorMean, {}),
             (qLogNoisyExpectedImprovement, self.botorch_acqf_options),
-            # pyrefly: ignore [bad-argument-type]
         ]
         surrogate = Surrogate()
         model = BoTorchGenerator(

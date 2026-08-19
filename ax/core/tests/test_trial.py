@@ -102,7 +102,6 @@ class TrialTest(TestCase):
         self.assertEqual(self.trial.generation_method_str, MANUAL_GENERATION_METHOD_STR)
 
         # Test empty arms
-        # pyrefly: ignore [missing-attribute]
         t = self.experiment.new_trial()
         with self.assertRaises(AttributeError):
             # pyrefly: ignore [missing-attribute]
@@ -146,14 +145,12 @@ class TrialTest(TestCase):
 
     def test_add_trial_same_arm(self) -> None:
         # Check that adding new arm w/out name works correctly.
-        # pyrefly: ignore [missing-attribute]
         new_trial1 = self.experiment.new_trial(
             generator_run=GeneratorRun(arms=[self.arm.clone(clear_name=True)])
         )
         # pyrefly: ignore [missing-attribute]
         self.assertEqual(new_trial1.arm.name, self.trial.arm.name)
         self.assertFalse(new_trial1.arm is self.trial.arm)
-        # pyrefly: ignore [missing-attribute]
         # Check that adding new arm with name works correctly.
         new_trial2 = self.experiment.new_trial(
             generator_run=GeneratorRun(arms=[self.arm.clone()])
@@ -250,10 +247,8 @@ class TrialTest(TestCase):
             else:
                 status_transition_sequence = (TrialStatus.RUNNING, terminal_status)
 
-            # pyrefly: ignore [unsupported-operation]
             for status in status_transition_sequence:
                 kwargs = {}
-                # pyrefly: ignore [unsupported-operation]
                 if status == TrialStatus.RUNNING:
                     kwargs["no_runner_required"] = True
                 if status == TrialStatus.ABANDONED:
@@ -309,7 +304,6 @@ class TrialTest(TestCase):
         # test bad new status
         self.trial.mark_running(no_runner_required=True)
         with self.assertRaisesRegex(ValueError, "New status of a stopped trial must"):
-            # pyrefly: ignore [bad-override]
             self.trial.stop(new_status=TrialStatus.CANDIDATE)
 
         # dummy runner for testing stopping functionality
@@ -383,7 +377,6 @@ class TrialTest(TestCase):
     def test_update_stop_metadata(self) -> None:
         self.assertEqual(len(self.trial.stop_metadata), 1)
         old_stop_metadata = deepcopy(self.trial.stop_metadata)
-        # pyrefly: ignore [missing-attribute]
         self.trial.update_stop_metadata({"something": "new"})
         self.assertEqual(
             self.trial.stop_metadata, {**old_stop_metadata, "something": "new"}

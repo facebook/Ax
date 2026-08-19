@@ -146,7 +146,6 @@ def _rf_predict(
     f = np.zeros((X.shape[0], len(models)))
     cov = np.zeros((X.shape[0], len(models), len(models)))
     for i, m in enumerate(models):
-        # pyre-fixme[16]: `RandomForestRegressor` has no attribute `estimators_`.
         preds = np.vstack([tree.predict(X.numpy()) for tree in m.estimators_])
         f[:, i] = preds.mean(0)
         cov[:, i, i] = preds.var(0)

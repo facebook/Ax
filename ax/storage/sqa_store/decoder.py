@@ -228,7 +228,6 @@ class Decoder:
         # so need to convert it to regular dict.
         properties = dict(experiment_sqa.properties or {})
         if Keys.LLM_MESSAGES in properties:
-            # pyre-ignore[6]: SA 2.0 properties values are ColumnElement; runtime list.
             properties[Keys.LLM_MESSAGES] = [
                 LLMMessage(**m) for m in properties[Keys.LLM_MESSAGES]
             ]
@@ -297,7 +296,6 @@ class Decoder:
         """First step of conversion within experiment_from_sqa."""
         properties = dict(experiment_sqa.properties or {})
         if Keys.LLM_MESSAGES in properties:
-            # pyre-ignore[6]: SA 2.0 properties values are ColumnElement; runtime list.
             properties[Keys.LLM_MESSAGES] = [
                 LLMMessage(**m) for m in properties[Keys.LLM_MESSAGES]
             ]
@@ -328,13 +326,11 @@ class Decoder:
         )
 
         default_trial_type = none_throws(experiment_sqa.default_trial_type)
-        # pyre-ignore[9]: SA 2.0 Column[Optional[str]] keys; runtime str.
         trial_type_to_runner: dict[str, Runner | None] = {
             none_throws(sqa_runner.trial_type): self.runner_from_sqa(sqa_runner)
             for sqa_runner in experiment_sqa.runners
         }
         if len(trial_type_to_runner) == 0:
-            # pyre-ignore[9]: SA 2.0 Column[Optional[str]] keys; runtime str.
             trial_type_to_runner = {default_trial_type: None}
             trial_types_with_metrics = {
                 metric.trial_type
@@ -344,7 +340,6 @@ class Decoder:
             # trial_type_to_runner is instantiated to map all trial types to None,
             # so the trial types are associated with the experiment. This is
             # important for adding metrics.
-            # pyre-ignore[6]: SA 2.0 Column[T] keys vs str keys.
             trial_type_to_runner.update(dict.fromkeys(trial_types_with_metrics))
 
         experiment = MultiTypeExperiment(
@@ -1051,7 +1046,6 @@ class Decoder:
             decoder_registry=self.config.json_decoder_registry,
             class_decoder_registry=self.config.json_class_decoder_registry,
         )
-        # pyre-fixme[45]: `runner_class` is always a concrete subclass at runtime,
         #  but pyre sees `Runner` (abstract) from the reverse_runner_registry type.
         runner = runner_class(**args)
         runner.db_id = runner_sqa.id

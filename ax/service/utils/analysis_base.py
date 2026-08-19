@@ -20,10 +20,8 @@ class AnalysisBase(WithDBSettingsBase):
     Base class for analysis functionality shared between AxClient and orchestrator.
     """
 
-    # pyre-fixme[13]: Attribute `experiment` is declared in class
     # `AnalysisBase` to have type `Experiment` but is never initialized
     experiment: Experiment
-    # pyre-fixme[13]: Attribute `generation_strategy` is declared in class
     # `AnalysisBase` to have type `GenerationStrategy` but
     # is never initialized
     generation_strategy: GenerationStrategy

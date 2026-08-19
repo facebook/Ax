@@ -47,7 +47,6 @@ class RegressionAnalysis(Analysis):
         """
         self.prob_threshold = prob_threshold
 
-    # pyrefly: ignore [bad-override]
     @override
     # pyrefly: ignore [bad-override]
     def compute(

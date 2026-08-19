@@ -27,11 +27,9 @@ RETRY_EXCEPTION_TYPES: tuple[type[Exception], ...] = ()
 logger: Logger = get_logger(__name__)
 
 try:  # We don't require SQLAlchemy by default.
-    # pyre-fixme[21]: Could not find a name `__version__` defined in module
     # `sqlalchemy`.
     from sqlalchemy import __version__ as sqa_version
 
-    # pyre-fixme[16]: Module `sqlalchemy` has no attribute `__version__`.
     logger.info(f"Ax SQL storage initialized with SQLAlchemy {sqa_version}")
 
     from ax.storage.sqa_store.db import init_engine_and_session_factory
@@ -136,7 +134,6 @@ class WithDBSettingsBase:
             return None, None
 
         exp_id = _get_experiment_id(
-            # pyrefly: ignore [missing-attribute]
             experiment_name=experiment_name,
             # pyrefly: ignore [missing-attribute]
             config=self.db_settings.decoder.config,
@@ -144,7 +141,6 @@ class WithDBSettingsBase:
         if not exp_id:
             return None, None
         gs_id = get_generation_strategy_id(
-            # pyrefly: ignore [missing-attribute]
             experiment_name=experiment_name,
             # pyrefly: ignore [missing-attribute]
             decoder=self.db_settings.decoder,
@@ -637,7 +633,6 @@ def _update_runner_on_experiment_in_db_if_possible(
     suppress_all_errors: bool,  # Used by the decorator.
 ) -> None:
     update_runner_on_experiment(
-        # pyrefly: ignore [bad-argument-type]
         experiment=experiment,
         runner=runner,
         # pyrefly: ignore [bad-argument-type]

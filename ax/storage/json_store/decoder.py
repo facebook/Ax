@@ -373,7 +373,6 @@ def object_from_json(
 
 
 def ax_class_from_json_dict(
-    # pyre-fixme[24]: Generic type `type` expects 1 type parameter, use
     #  `typing.Type` to avoid runtime subscripting errors.
     _class: type,
     object_json: dict[str, Any],

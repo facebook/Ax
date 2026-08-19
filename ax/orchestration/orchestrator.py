@@ -353,7 +353,7 @@ class Orchestrator(WithDBSettingsBase, BestPointMixin):
     @property
     def options(self) -> OrchestratorOptions:
         """Orchestrator options."""
-        return self._options  # pyre-ignore [16]
+        return self._options
 
     @options.setter
     def options(self, options: OrchestratorOptions) -> None:
@@ -842,8 +842,6 @@ class Orchestrator(WithDBSettingsBase, BestPointMixin):
         )
         self._log_next_no_trials_reason = True
         return metadata
-
-    # pyrefly: ignore [not-callable]
 
     # pyrefly: ignore [not-callable]
     @retry_on_exception(retries=3, no_retry_on_exception_types=NO_RETRY_EXCEPTIONS)
@@ -1839,7 +1837,6 @@ class Orchestrator(WithDBSettingsBase, BestPointMixin):
                     ttl_seconds=self.options.ttl_seconds_for_trials,
                     trial_type=self.trial_type,
                 )
-            # pyrefly: ignore [bad-return]
 
             trials.append(trial)
         # pyrefly: ignore [bad-return]

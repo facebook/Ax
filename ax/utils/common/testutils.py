@@ -343,7 +343,6 @@ class TestCase(fake_filesystem_unittest.TestCase):
         )
 
     def run(
-        # pyrefly: ignore [bad-function-definition]
         self,
         # pyrefly: ignore [bad-function-definition]
         result: unittest.result.TestResult | None = ...,

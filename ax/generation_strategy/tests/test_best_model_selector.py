@@ -39,7 +39,6 @@ class TestBestModelSelector(TestCase):
     def test_user_input_error(self) -> None:
         with self.assertRaisesRegex(UserInputError, "ReductionCriterion"):
             SingleDiagnosticBestModelSelector(
-                # pyrefly: ignore [bad-argument-type]
                 "Fisher exact test p",
                 # pyrefly: ignore [bad-argument-type]
                 metric_aggregation=min,

@@ -160,7 +160,6 @@ class SubsetModelTestMultiTask(TestCase):
         # pyre-fixme[29]: `Union[(self: TensorBase, indices: Union[None, slice[Any, A...
         self.assertIsInstance(models[1], SingleTaskGP)
         # check that second model is the second output of m2
-        # pyre-fixme[29]: `Union[(self: TensorBase, indices: Union[None, slice[Any, A...
         self.assertTrue(torch.equal(models[1].train_targets, m2.train_targets[1]))
 
     def test_nested_model_list_gp(self) -> None:

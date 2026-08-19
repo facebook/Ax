@@ -282,7 +282,6 @@ class Runner(Base, SerializationMixin, ABC):
     def clone(self) -> Self:
         """Create a copy of this Runner."""
         cls = type(self)
-        # pyre-ignore[45]: Cannot instantiate abstract class `Runner`.
         return cls(
             **cls.deserialize_init_args(args=cls.serialize_init_args(obj=self)),
         )

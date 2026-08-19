@@ -67,7 +67,6 @@ class ParameterType(Enum):
 
 TParameterType = Union[type[int], type[float], type[str], type[bool]]
 
-# pyre-fixme[9]: Pyre collapses individual type[] values into Type[Union[...]].
 PARAMETER_PYTHON_TYPE_MAP: dict[ParameterType, TParameterType] = {
     ParameterType.INT: int,
     ParameterType.FLOAT: float,
@@ -1458,7 +1457,7 @@ class DerivedParameter(Parameter):
                 self._parameter_names_to_weights[parameter_name]
                 * float(
                     parameters[parameter_name]  # pyrefly: ignore [bad-argument-type]
-                )  # pyrefly: ignore [bad-argument-type]
+                )
                 for parameter_name in self._parameter_names_to_weights
             )
         )

@@ -27,7 +27,6 @@ class AxOutputNameFilter(logging.Filter):
 
     def filter(self, record: logging.LogRecord) -> bool:
         if not hasattr(record, "output_name"):
-            # pyre-ignore[16]: Record supports arbitrary attributes
             record.output_name = record.name
         return True
 

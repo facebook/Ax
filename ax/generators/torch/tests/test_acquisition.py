@@ -87,7 +87,6 @@ SURROGATE_PATH: str = Surrogate.__module__
 # Used to avoid going through BoTorch `Acquisition.__init__` which
 # requires valid kwargs (correct sizes and lengths of tensors, etc).
 class DummyAcquisitionFunction(AcquisitionFunction):
-    # pyrefly: ignore [bad-override-mutable-attribute]
     X_pending: Tensor | None = None
 
     def __init__(self, eta: float = 1e-3, model: Any = None, **kwargs: Any) -> None:
@@ -104,9 +103,6 @@ class DummyAcquisitionFunction(AcquisitionFunction):
             res = torch.linalg.norm(X, dim=-1).squeeze(-1)
         # At least 1d is required for sequential optimize_acqf.
         return torch.atleast_1d(res)
-
-
-# pyrefly: ignore [inconsistent-inheritance]
 
 
 # pyrefly: ignore [inconsistent-inheritance]
@@ -366,7 +362,6 @@ class AcquisitionTest(TestCase):
                 ) as mock_prune_irrelevant_parameters,
             ):
                 acquisition.optimize(
-                    # pyrefly: ignore [bad-argument-type]
                     n=n,
                     search_space_digest=self.search_space_digest,
                     # pyrefly: ignore [bad-argument-type]
@@ -824,11 +819,9 @@ class AcquisitionTest(TestCase):
             mock.patch(
                 f"{ACQUISITION_PATH}.optimizer_argparse", wraps=optimizer_argparse
             ) as mock_optimizer_argparse,
-            # pyrefly: ignore [bad-argument-type]
         ):
             acquisition.optimize(
                 n=3,
-                # pyrefly: ignore [bad-argument-type]
                 search_space_digest=ssd,
                 # pyrefly: ignore [bad-argument-type]
                 inequality_constraints=self.inequality_constraints,
@@ -857,22 +850,18 @@ class AcquisitionTest(TestCase):
                 },
                 set(kwargs.keys()),
             )
-            # pyrefly: ignore [bad-index]
             self.assertEqual(kwargs["acq_function"], acquisition.acqf)
             self.assertEqual(kwargs["q"], 3)
             self.assertEqual(
-                # pyrefly: ignore [bad-index]
                 kwargs["inequality_constraints"],
                 self.inequality_constraints,
             )
             self.assertEqual(
-                # pyrefly: ignore [bad-index]
                 kwargs["num_restarts"],
                 # pyrefly: ignore [bad-index]
                 self.optimizer_options["num_restarts"],
             )
             self.assertEqual(
-                # pyrefly: ignore [bad-index]
                 kwargs["raw_samples"],
                 # pyrefly: ignore [bad-index]
                 self.optimizer_options["raw_samples"],
@@ -983,11 +972,9 @@ class AcquisitionTest(TestCase):
                 mock.patch(
                     f"{ACQUISITION_PATH}.optimizer_argparse", wraps=optimizer_argparse
                 ) as mock_optimizer_argparse,
-                # pyrefly: ignore [bad-argument-type]
                 mock.patch(
                     f"{ACQUISITION_PATH}.optimize_acqf_discrete_local_search",
                     return_value=(valid_candidates, torch.rand(3)),
-                    # pyrefly: ignore [bad-argument-type]
                 ),
                 mock.patch(
                     f"{ACQUISITION_PATH}.optimize_acqf_mixed_alternating",
@@ -1011,11 +998,9 @@ class AcquisitionTest(TestCase):
             )
 
     @mock_botorch_optimize
-    # pyrefly: ignore [bad-argument-type]
     def test_optimize_mixed(self) -> None:
         ssd = SearchSpaceDigest(
             feature_names=["a", "b"],
-            # pyrefly: ignore [bad-argument-type]
             bounds=[(0, 1), (0, 2)],
             categorical_features=[1],
             discrete_choices={1: [0, 1, 2]},
@@ -1056,7 +1041,6 @@ class AcquisitionTest(TestCase):
     @mock_botorch_optimize
     def test_optimize_acqf_mixed_alternating(self) -> None:
         b_upper_bound = 15
-        # pyrefly: ignore [bad-argument-type]
         ssd = SearchSpaceDigest(
             feature_names=["a", "b", "c"],
             bounds=[(0, 1), (0, b_upper_bound), (0, 5)],
@@ -1101,7 +1085,6 @@ class AcquisitionTest(TestCase):
             num_restarts=2,
             raw_samples=4,
         )
-        # pyrefly: ignore [bad-argument-type]
 
         # Check with cateogrial features but no non-integer features.
         ssd_categorical = dataclasses.replace(
@@ -1169,13 +1152,11 @@ class AcquisitionTest(TestCase):
         mock_alternating.assert_called()
 
         # Check if the `fixed_features` argument works for discrete features.
-        # pyrefly: ignore [bad-argument-type]
         ub = 10
         ssd_many_combinations = SearchSpaceDigest(
             feature_names=["a", "b", "c"],
             bounds=[(0, 1), (0, ub), (0, ub)],
             ordinal_features=[1, 2],
-            # pyrefly: ignore [bad-argument-type]
             discrete_choices={1: list(range(ub + 1)), 2: list(range(ub + 1))},
         )
         dict_args = {
@@ -1219,7 +1200,7 @@ class AcquisitionTest(TestCase):
         mock_evaluate.assert_called_with(X=self.X)
 
     @mock_botorch_optimize
-    @mock.patch(  # pyre-ignore
+    @mock.patch(
         "ax.generators.torch.botorch_moo_utils._check_posterior_type",
         wraps=lambda y: y,
     )
@@ -1531,7 +1512,6 @@ class AcquisitionTest(TestCase):
         # inputs. After subsetting (weights=[1,1,0], constraint on m3),
         # all 3 outputs are kept.
         Y_test = torch.tensor([[1.0, 2.0, 0.3]], **self.tkwargs)
-        # pyre-ignore[6]: _constraints is typed as Union[Tensor, Module].
         constraints = acquisition.acqf._constraints
         # Constraint 0 (outcome constraint): m3 <= 0.5 → Y[2] - 0.5
         # = 0.3 - 0.5 = -0.2 (feasible)
@@ -1594,7 +1574,6 @@ class AcquisitionTest(TestCase):
         # Verify constraint values: model is subsetted to 2 outputs (m1, m2)
         # since there are no outcome constraints referencing m3.
         Y_test_2d = torch.tensor([[1.0, 2.0]], **self.tkwargs)
-        # pyre-ignore[6]: _constraints is typed as Union[Tensor, Module].
         constraints_no_oc = acquisition_no_oc.acqf._constraints
         # Threshold for m1 (maximize): -Y[0] + 0.5 = -1.0 + 0.5 = -0.5
         # pyre-ignore[29]: _constraints elements are callables at runtime.
@@ -2328,11 +2307,9 @@ class AcquisitionTest(TestCase):
         acquisition = self.get_acquisition_function(
             fixed_features=self.fixed_features,
         )
-        # pyrefly: ignore [bad-argument-type]
         n = 1
         # Create valid mock candidates that satisfy:
         # - Bounds: [(0, 10), (0, 10), (0, 10)]
-        # pyrefly: ignore [bad-argument-type]
         # - Fixed features: x[1] = 2.0
         # - Inequality constraint: -x[0] + x[1] >= 1 => x[0] <= x[1] - 1 = 1.0
         valid_candidates = torch.tensor([[0.5, 2.0, 5.0]], **self.tkwargs)
@@ -2411,12 +2388,10 @@ class AcquisitionTest(TestCase):
         )
 
     @mock_botorch_optimize
-    # pyrefly: ignore [bad-argument-type]
     def test_optimize_with_equality_constraints(self) -> None:
         """Test that equality_constraints are forwarded to optimize_acqf."""
         acquisition = self.get_acquisition_function(
             fixed_features=self.fixed_features,
-            # pyrefly: ignore [bad-argument-type]
         )
         # Equality constraint: x[0] + x[2] = 4.0
         # Compatible with fixed_features={1: 2.0} and
@@ -2466,12 +2441,10 @@ class AcquisitionTest(TestCase):
         """Test that equality_constraints are forwarded to optimize_acqf_mixed."""
         ssd = SearchSpaceDigest(
             feature_names=["a", "b"],
-            # pyrefly: ignore [bad-argument-type]
             bounds=[(0, 1), (0, 2)],
             categorical_features=[1],
             discrete_choices={1: [0, 1, 2]},
         )
-        # pyrefly: ignore [bad-argument-type]
         acquisition = self.get_acquisition_function()
         equality_constraints = [
             (
@@ -2517,7 +2490,6 @@ class AcquisitionTest(TestCase):
         self,
     ) -> None:
         """Test equality_constraints forwarded to optimize_acqf_mixed_alternating."""
-        # pyrefly: ignore [bad-argument-type]
         ssd = SearchSpaceDigest(
             feature_names=["a", "b", "c"],
             bounds=[(0, 1), (0, 15), (0, 5)],
@@ -2699,7 +2671,6 @@ class MultiAcquisitionTest(AcquisitionTest):
         mock_get_objective_and_transform.return_value = (botorch_objective, None)
         mock_get_X.return_value = (self.pending_observations[0], self.X[:1])
         self.options[Keys.SUBSET_MODEL] = False
-        # pyrefly: ignore [bad-argument-type]
         with mock.patch(
             f"{ACQUISITION_PATH}.get_outcome_constraint_transforms",
             return_value=self.constraints,
@@ -2753,7 +2724,6 @@ class MultiAcquisitionTest(AcquisitionTest):
         acquisition = self.get_acquisition_function(fixed_features=self.fixed_features)
         n = 5
         # Use more generations and larger population to reliably find feasible
-        # pyrefly: ignore [bad-argument-type]
         # candidates that satisfy the inequality constraint
         optimizer_options = {"max_gen": 10, "population_size": 50}
         # Mock candidates that satisfy constraints:
@@ -2818,7 +2788,6 @@ class MultiAcquisitionTest(AcquisitionTest):
 
     @skip_if_import_error
     def test_optimize_with_nsgaii_features(self) -> None:
-        # pyrefly: ignore [bad-argument-type]
         """Test that optimize_with_nsgaii correctly handles all features.
 
         This tests that candidates generated by optimize_with_nsgaii:
@@ -2877,7 +2846,6 @@ class MultiAcquisitionTest(AcquisitionTest):
             )
 
         # 3. Verify discrete choices: dimension 0 should only have allowed values
-        # pyrefly: ignore [bad-argument-type]
         allowed_values = torch.tensor(
             discrete_search_space_digest.discrete_choices[0], **self.tkwargs
         )

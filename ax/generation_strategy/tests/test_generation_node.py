@@ -468,7 +468,6 @@ class TestGenerationStep(TestCase):
             generator_kwargs=self.generator_kwargs,
         )
         self.generator_spec = GeneratorSpec(
-            # pyre-fixme[16]: Currently, Pyre doesn't recognize that `Generation
             #  Step.__new__` actually returns a `GenerationNode`.
             generator_enum=self.sobol_generation_step.generator_spec.generator_enum,
             generator_kwargs=self.generator_kwargs,
@@ -476,7 +475,6 @@ class TestGenerationStep(TestCase):
 
     def test_init(self) -> None:
         self.assertEqual(
-            # pyre-fixme[16]: Currently, Pyre doesn't recognize that `Generation
             #  Step.__new__` actually returns a `GenerationNode`.
             self.sobol_generation_step.generator_specs,
             [self.generator_spec],
@@ -488,7 +486,6 @@ class TestGenerationStep(TestCase):
             "Sobol",
         )
         self.assertEqual(
-            # pyre-fixme[16]: Currently, Pyre doesn't recognize that `Generation
             #  Step.__new__` actually returns a `GenerationNode`.
             self.sobol_generation_step.transition_criteria,
             [
@@ -553,11 +550,9 @@ class TestGenerationStep(TestCase):
 
     def test_properties(self) -> None:
         step = self.sobol_generation_step
-        # pyre-fixme[16]: Currently, Pyre doesn't recognize that `Generation
         #  Step.__new__` actually returns a `GenerationNode`.
         spec = step.generator_spec
         self.assertEqual(spec, self.generator_spec)
-        # pyre-fixme[16]: Currently, Pyre doesn't recognize that `Generation
         #  Step.__new__` actually returns a `GenerationNode`.
         self.assertEqual(step._unique_id, "GenerationStep_-1_Sobol")
         # Make sure that generator_kwargs and generator_gen_kwargs are synchronized

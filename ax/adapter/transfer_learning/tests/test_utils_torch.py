@@ -99,7 +99,7 @@ class TestUtilsTorch(TestCase):
         mapped_names = get_mapped_parameter_names(
             self.auxsrc4,
             target_search_space=self.target_ss,
-            transforms={  # pyre-ignore[6]
+            transforms={
                 "OneHot": OneHot(search_space=joint_ss),
                 "RemoveFixed": RemoveFixed(search_space=joint_ss),
             },

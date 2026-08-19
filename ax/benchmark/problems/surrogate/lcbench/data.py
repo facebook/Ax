@@ -102,9 +102,7 @@ class LCBenchData:
     timestamp_series: pd.Series
 
     runtime_series: pd.Series = field(init=False)
-    # pyre-ignore [16]: Pyre doesn't understand InitVars.
     runtime_fillna: InitVar[bool] = False
-    # pyre-ignore [16]: Pyre doesn't understand InitVars.
     log_scale_parameter_names: InitVar[Collection[str] | None] = None
     dtype: torch.dtype = torch.double
     device: torch.device | None = None

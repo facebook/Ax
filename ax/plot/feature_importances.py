@@ -64,7 +64,7 @@ def plot_feature_importance_by_feature_plotly(
             )
 
     if label_dict is not None:
-        sensitivity_values = {  # pyre-ignore
+        sensitivity_values = {
             label_dict.get(metric_name, metric_name): v
             # pyrefly: ignore [missing-attribute]
             for metric_name, v in sensitivity_values.items()

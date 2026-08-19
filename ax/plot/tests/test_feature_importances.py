@@ -50,7 +50,6 @@ def get_sensitivity_values(ax_model: Adapter) -> dict:
         ls = model.covar_module.lengthscale.squeeze()
     if len(ls.shape) > 1:
         ls = ls.mean(dim=0)
-    # pyre-fixme[16]: `float` has no attribute `detach`.
     importances_tensor = torch.stack([(1 / ls).detach().cpu()])
     importances_dict = dict(zip(ax_model.outcomes, importances_tensor))
     res = {}

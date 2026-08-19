@@ -85,7 +85,6 @@ class UtilsTest(TestCase):
         )
         self.hss_trial = self.hss_exp.new_trial(self.hss_gr)
         self.hss_cand_metadata = self.hss_trial._get_candidate_metadata(
-            # pyrefly: ignore [missing-attribute]
             arm_name=self.hss_arm.name
         )
         # pyrefly: ignore [missing-attribute]
@@ -130,7 +129,6 @@ class UtilsTest(TestCase):
         # With data for metric "m2", that metric should no longer have pending
         # observation features.
         with patch.object(
-            # pyrefly: ignore [missing-attribute]
             self.experiment,
             "lookup_data",
             return_value=raw_evaluations_to_data(
@@ -152,7 +150,6 @@ class UtilsTest(TestCase):
         )
         # A completed trial with data for some metrics should be pending only
         # for metrics without data.
-        # pyrefly: ignore [missing-attribute]
         with patch.object(
             self.experiment,
             "lookup_data",
@@ -177,7 +174,6 @@ class UtilsTest(TestCase):
             {"tracking": [self.obs_feat], "m2": [self.obs_feat], "m1": [self.obs_feat]},
         )
         # Abandoned trials with data for some metrics should only be pending
-        # pyrefly: ignore [missing-attribute]
         # for metrics without data.
         with patch.object(
             self.experiment,
@@ -386,7 +382,6 @@ class UtilsTest(TestCase):
 
     def test_get_pending_observation_features_multi_trial(self) -> None:
         # With data for metric "m2", that metric should no longer have pending
-        # pyrefly: ignore [missing-attribute]
         # observation features.
         self.trial.mark_running(no_runner_required=True)
         with patch.object(
@@ -398,19 +393,16 @@ class UtilsTest(TestCase):
                 trial_index=self.trial.index,
                 metric_name_to_signature={"m2": "m2"},
             ),
-            # pyrefly: ignore [bad-argument-type]
         ):
             self.assertEqual(
                 get_pending_observation_features(self.experiment),
                 {"tracking": [self.obs_feat], "m2": [], "m1": [self.obs_feat]},
             )
-        # pyrefly: ignore [missing-attribute]
 
         # Make sure that trial_index is set correctly
         # pyrefly: ignore [bad-argument-type]
         other_obs_feat = ObservationFeatures.from_arm(arm=self.trial.arm, trial_index=1)
         other_trial = self.experiment.new_trial(GeneratorRun([self.arm]))
-        # pyrefly: ignore [missing-attribute]
         other_trial.mark_running(no_runner_required=True)
 
         trial_0_data = raw_evaluations_to_data(
@@ -490,7 +482,6 @@ class UtilsTest(TestCase):
                     none_throws(pf.metadata),
                     none_throws(self.hss_gr.candidate_metadata_by_arm_signature)[
                         self.hss_arm.signature
-                        # pyrefly: ignore [missing-attribute]
                     ],
                 )
 
@@ -528,7 +519,6 @@ class UtilsTest(TestCase):
         # Status quo of this experiment is out-of-design, so it shouldn't be
         # among the pending points.
         self.assertEqual(
-            # pyrefly: ignore [bad-argument-type]
             get_pending_observation_features(self.experiment_2),
             {
                 "tracking": [self.obs_feat],

@@ -152,7 +152,6 @@ class TestGetFixedValuesForSliceOrContour(TestCase):
                 )
 
             self.assertIsNotNone(result)
-            # pyre-ignore[16]: result is not None per assertion above
             parameterization, trial_index, arm_name = result
             self.assertEqual(parameterization, {"x": 0.3, "y": 0.4})
             self.assertEqual(trial_index, 0)

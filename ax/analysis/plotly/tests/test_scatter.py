@@ -221,7 +221,6 @@ class TestScatterPlot(TestCase):
             "additional_arms": [Arm(parameters={"x1": 0, "x2": 0})],
             "labels": {"foo": "f"},
         }
-        # pyre-ignore[6]: Unsafe kwargs usage on purpose
         analysis = ScatterPlot(**kwargs)
 
         cards = analysis.compute(
@@ -232,7 +231,6 @@ class TestScatterPlot(TestCase):
         adhoc_cards = compute_scatter_adhoc(
             experiment=self.client._experiment,
             generation_strategy=self.client._generation_strategy,
-            # pyre-ignore[6]: Unsafe kwargs usage on purpose
             **kwargs,
         )
 

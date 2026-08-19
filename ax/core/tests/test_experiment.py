@@ -572,15 +572,11 @@ class ExperimentTest(TestCase):
         with self.assertRaisesRegex(ValueError, "not found on experiment"):
             self.experiment.optimization_config = new_opt_config
 
-    # pyrefly: ignore [missing-attribute]
-
     def test_status_quo_setter(self) -> None:
         # pyrefly: ignore [missing-attribute]
         sq_parameters = self.experiment.status_quo.parameters
 
-        # pyrefly: ignore [missing-attribute]
         # Verify normal update when no trials exist
-        # pyrefly: ignore [missing-attribute]
         sq_parameters["w"] = 3.5
         self.experiment.status_quo = Arm(sq_parameters)
         # pyrefly: ignore [missing-attribute]
@@ -622,12 +618,10 @@ class ExperimentTest(TestCase):
         sq_parameters["w"] = 3.7
         with self.assertRaises(UnsupportedError) as e:
             self.experiment.status_quo = Arm(sq_parameters)
-        # pyrefly: ignore [missing-attribute]
         self.assertIn(
             "Modifications of status_quo are disabled after trials have been created",
             str(e.exception),
         )
-        # pyrefly: ignore [missing-attribute]
 
         # Verify status_quo wasn't changed
         # pyrefly: ignore [missing-attribute]
@@ -1245,7 +1239,6 @@ class ExperimentTest(TestCase):
         _, trial_index = self.experiment.attach_trial(
             parameterizations=[{"w": 5.3, "x": 5, "y": "baz", "z": True, "d": 11.6}],
             arm_names=["arm1"],
-            # pyrefly: ignore [missing-attribute]
             ttl_seconds=3600,
             run_metadata={"test_metadata_field": 1},
         )
@@ -1273,7 +1266,7 @@ class ExperimentTest(TestCase):
         )
         self.assertEqual(exp._metrics_by_class(), {Metric: [m]})
 
-    @patch(  # pyre-ignore[56]: Cannot infer function type
+    @patch(
         # No-op mock just to record calls to `bulk_fetch_experiment_data`.
         f"{BraninMetric.__module__}.BraninMetric.bulk_fetch_experiment_data",
         side_effect=BraninMetric(
@@ -1299,7 +1292,6 @@ class ExperimentTest(TestCase):
             exp.fetch_data()
             # 1. No completed trials => no fetch case.
             mock_bulk_fetch_experiment_data.reset_mock()
-            # pyrefly: ignore [missing-attribute]
             dat = exp.fetch_data()
             mock_bulk_fetch_experiment_data.assert_not_called()
             # Data should be empty since there are no completed trials.
@@ -1369,7 +1361,6 @@ class ExperimentTest(TestCase):
 
         # check that all non-failed trials are copied to new_experiment
         new_experiment = get_branin_experiment()
-        # pyrefly: ignore [missing-attribute]
         # make metric noiseless for exact reproducibility
         _obj_name = none_throws(
             new_experiment.optimization_config
@@ -1382,7 +1373,6 @@ class ExperimentTest(TestCase):
         # name one arm to test name-preserving logic.
         # pyrefly: ignore [missing-attribute]
         old_experiment.trials[0].arm._name = DUMMY_ARM_NAME
-        # pyrefly: ignore [missing-attribute]
         new_experiment.warm_start_from_old_experiment(
             old_experiment=old_experiment,
         )
@@ -1397,7 +1387,6 @@ class ExperimentTest(TestCase):
                 # pyrefly: ignore [missing-attribute]
                 trial.arm.parameters,
                 old_arm.parameters,
-                # pyrefly: ignore [missing-attribute]
             )
             self.assertRegex(
                 trial._properties["source"], "Warm start.*Experiment.*trial"
@@ -1714,11 +1703,9 @@ class ExperimentTest(TestCase):
             tracking_metrics=[
                 Metric(name="metric_a", lower_is_better=False),
                 Metric(name="metric_b", lower_is_better=True),
-                # pyrefly: ignore [missing-attribute]
             ],
         )
         df = experiment.metric_config_summary_df
-        # pyrefly: ignore [missing-attribute]
         # metric_a has positive weight -> maximize
         # metric_b has negative weight -> minimize
         goal_by_name = dict(zip(df["Name"], df["Goal"]))
@@ -2372,7 +2359,6 @@ class ExperimentWithMapDataTest(TestCase):
         # check that all non-failed trials are copied to new_experiment
         new_experiment = get_branin_experiment_with_timestamp_map_metric()
         # make metric noiseless for exact reproducibility
-        # pyrefly: ignore [missing-attribute]
         _obj_name = none_throws(
             new_experiment.optimization_config
         ).objective.metric_names[0]
