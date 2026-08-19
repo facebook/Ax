@@ -17,7 +17,12 @@ from ax.adapter.transforms.base import Transform
 from ax.adapter.transforms.metadata_to_parameter import MetadataToParameterMixin
 from ax.core.data import MAP_KEY
 from ax.core.observation import ObservationFeatures
-from ax.core.parameter import ParameterType, RangeParameter
+from ax.core.parameter import (
+    EPS,
+    MIN_RANGE_PARAMETER_WIDTH,
+    ParameterType,
+    RangeParameter,
+)
 from ax.core.search_space import SearchSpace
 from ax.exceptions.core import UserInputError
 from ax.generators.types import TConfig
@@ -128,12 +133,16 @@ class MapKeyToFloat(MetadataToParameterMixin, Transform):
                 return
 
             p_config = self.parameters[MAP_KEY]
+            lower = float(p_config.get("lower", min(values)))
+            upper = float(p_config.get("upper", max(values)))
+            if upper - lower < MIN_RANGE_PARAMETER_WIDTH:
+                lower = upper - (MIN_RANGE_PARAMETER_WIDTH + EPS)
             self._parameter_list.append(
                 RangeParameter(
                     name=MAP_KEY,
                     parameter_type=ParameterType.FLOAT,
-                    lower=p_config.get("lower", min(values)),
-                    upper=p_config.get("upper", max(values)),
+                    lower=lower,
+                    upper=upper,
                     digits=p_config.get("digits", None),
                     is_fidelity=p_config.get("is_fidelity", False),
                     target_value=p_config.get("target_value", None),

@@ -24,7 +24,7 @@ from ax.api.utils.generation_strategy_dispatch import _get_sobol_node
 from ax.core.data import Data, MAP_KEY
 from ax.core.observation import ObservationFeatures
 from ax.core.observation_utils import observations_from_data
-from ax.core.parameter import ParameterType, RangeParameter
+from ax.core.parameter import MIN_RANGE_PARAMETER_WIDTH, ParameterType, RangeParameter
 from ax.core.trial import Trial
 from ax.core.trial_status import TrialStatus
 from ax.early_stopping.strategies import PercentileEarlyStoppingStrategy
@@ -35,6 +35,7 @@ from ax.generation_strategy.generator_spec import GeneratorSpec
 from ax.generators.base import Generator
 from ax.generators.torch.botorch_modular.generator import BoTorchGenerator
 from ax.generators.torch.botorch_modular.surrogate import ModelConfig, SurrogateSpec
+from ax.generators.types import TConfig
 from ax.utils.common.testutils import TestCase
 from ax.utils.testing.core_stubs import (
     get_branin_experiment_with_timestamp_map_metric,
@@ -42,6 +43,7 @@ from ax.utils.testing.core_stubs import (
 )
 from botorch.acquisition.logei import qLogExpectedImprovement
 from botorch.models.gp_regression import SingleTaskGP
+from pandas import MultiIndex
 from pandas.testing import assert_frame_equal
 from pyre_extensions import assert_is_instance, none_throws
 
@@ -503,6 +505,53 @@ class MapKeyToFloatTransformTest(TestCase):
                 self.assertEqual(obs_ft2, observation_features)
                 obs_ft2 = t.untransform_observation_features(obs_ft2)
                 self.assertEqual(obs_ft2, observation_features)
+
+    def test_minimum_progression_range(self) -> None:
+        for width, should_clamp in (
+            (MIN_RANGE_PARAMETER_WIDTH / 2, True),
+            (MIN_RANGE_PARAMETER_WIDTH, False),
+        ):
+            for configure_bounds in (False, True):
+                with self.subTest(
+                    width=width,
+                    configure_bounds=configure_bounds,
+                ):
+                    observation_data = self.experiment_data.observation_data.iloc[
+                        :2
+                    ].copy()
+                    observation_data.index = MultiIndex.from_arrays(
+                        [[0, 1], ["0_0", "1_0"], [0.0, width]],
+                        names=["trial_index", "arm_name", MAP_KEY],
+                    )
+                    experiment_data = ExperimentData(
+                        arm_data=self.experiment_data.arm_data,
+                        observation_data=observation_data,
+                    )
+                    config: TConfig | None = (
+                        {"parameters": {MAP_KEY: {"lower": 0.0, "upper": width}}}
+                        if configure_bounds
+                        else None
+                    )
+                    transform = MapKeyToFloat(
+                        experiment_data=experiment_data,
+                        config=config,
+                    )
+                    transformed_search_space = transform.transform_search_space(
+                        search_space=self.search_space.clone()
+                    )
+                    parameter = assert_is_instance(
+                        transformed_search_space.parameters[MAP_KEY], RangeParameter
+                    )
+
+                    self.assertEqual(parameter.upper, width)
+                    if should_clamp:
+                        self.assertLess(parameter.lower, 0.0)
+                    else:
+                        self.assertEqual(parameter.lower, 0.0)
+                    self.assertGreaterEqual(
+                        parameter.upper - parameter.lower,
+                        MIN_RANGE_PARAMETER_WIDTH,
+                    )
 
     def test_TransformObservationFeaturesWithEmptyMetadata(self) -> None:
         # undefined metadata
