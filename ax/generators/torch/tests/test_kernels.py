@@ -301,7 +301,6 @@ class KernelsTest(TestCase):
                 batch_shape=torch.Size([3]),
                 mle=True,
             )
-            # pyrefly: ignore [not-callable]
             self.assertTrue((kernel.lengthscale == sqrt(2) / 10).all())
             self.assertEqual(kernel.lengthscale.shape, torch.Size([3, 1, 2]))
             self.assertFalse(hasattr(kernel, "lengthscale_prior"))

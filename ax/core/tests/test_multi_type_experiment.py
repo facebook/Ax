@@ -236,17 +236,14 @@ class MultiTypeExperimentUtilsTest(TestCase):
 
     def test_filter_trials_by_type(self) -> None:
         trials = self.experiment.trials.values()
-        # pyrefly: ignore [bad-argument-type]
         self.assertEqual(len(trials), 2)
         # pyrefly: ignore [bad-argument-type]
         filtered = filter_trials_by_type(trials, trial_type="type1")
-        # pyrefly: ignore [bad-argument-type]
         self.assertEqual(len(filtered), 1)
         self.assertEqual(filtered[0].trial_type, "type1")
         # pyrefly: ignore [bad-argument-type]
         filtered = filter_trials_by_type(trials, trial_type="type2")
         self.assertEqual(len(filtered), 1)
-        # pyrefly: ignore [bad-argument-type]
         self.assertEqual(filtered[0].trial_type, "type2")
         # pyrefly: ignore [bad-argument-type]
         filtered = filter_trials_by_type(trials, trial_type="invalid")

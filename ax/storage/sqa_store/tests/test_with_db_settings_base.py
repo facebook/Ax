@@ -124,7 +124,6 @@ class TestWithDBSettingsBase(TestCase):
         saved = self.with_db_settings._save_experiment_to_db_if_possible(experiment)
         self.assertTrue(saved)
         loaded_experiment = _load_experiment(
-            # pyrefly: ignore [missing-attribute]
             experiment.name,
             # pyrefly: ignore [missing-attribute]
             decoder=self.with_db_settings.db_settings.decoder,
@@ -220,7 +219,6 @@ class TestWithDBSettingsBase(TestCase):
         )
 
         exp = _load_experiment(
-            # pyrefly: ignore [missing-attribute]
             experiment.name,
             # pyrefly: ignore [missing-attribute]
             decoder=self.with_db_settings.db_settings.decoder,
@@ -231,7 +229,6 @@ class TestWithDBSettingsBase(TestCase):
         )
         self.assertTrue(saved)
         exp = _load_experiment(
-            # pyrefly: ignore [missing-attribute]
             experiment.name,
             # pyrefly: ignore [missing-attribute]
             decoder=self.with_db_settings.db_settings.decoder,
@@ -245,7 +242,6 @@ class TestWithDBSettingsBase(TestCase):
         )
 
         exp = _load_experiment(
-            # pyrefly: ignore [missing-attribute]
             experiment.name,
             # pyrefly: ignore [missing-attribute]
             decoder=self.with_db_settings.db_settings.decoder,
@@ -267,7 +263,6 @@ class TestWithDBSettingsBase(TestCase):
         )
         self.assertTrue(saved)
         exp = _load_experiment(
-            # pyrefly: ignore [missing-attribute]
             experiment.name,
             # pyrefly: ignore [missing-attribute]
             decoder=self.with_db_settings.db_settings.decoder,
@@ -289,7 +284,6 @@ class TestWithDBSettingsBase(TestCase):
             trials=[trial],
         )
         loaded_experiment = _load_experiment(
-            # pyrefly: ignore [missing-attribute]
             experiment.name,
             # pyrefly: ignore [missing-attribute]
             decoder=self.with_db_settings.db_settings.decoder,
@@ -313,7 +307,6 @@ class TestWithDBSettingsBase(TestCase):
             trials=trials,
         )
         loaded_experiment = _load_experiment(
-            # pyrefly: ignore [missing-attribute]
             experiment.name,
             # pyrefly: ignore [missing-attribute]
             decoder=self.with_db_settings.db_settings.decoder,
@@ -347,7 +340,6 @@ class TestWithDBSettingsBase(TestCase):
         )
 
         loaded_experiment = _load_experiment(
-            # pyrefly: ignore [missing-attribute]
             experiment.name,
             # pyrefly: ignore [missing-attribute]
             decoder=self.with_db_settings.db_settings.decoder,
@@ -365,7 +357,6 @@ class TestWithDBSettingsBase(TestCase):
                     self.assertIsNotNone(getattr(t.generator_run, python_attr_name))
 
         loaded_generation_strategy = _load_generation_strategy_by_experiment_name(
-            # pyrefly: ignore [missing-attribute]
             experiment.name,
             # pyrefly: ignore [missing-attribute]
             decoder=self.with_db_settings.db_settings.decoder,
@@ -390,7 +381,6 @@ class TestWithDBSettingsBase(TestCase):
             experiment_with_updated_properties=experiment
         )
         loaded_experiment = _load_experiment(
-            # pyrefly: ignore [missing-attribute]
             experiment.name,
             # pyrefly: ignore [missing-attribute]
             decoder=self.with_db_settings.db_settings.decoder,
@@ -458,7 +448,6 @@ class TestSQLAlchemyDualVersionCompat(TestCase):
         type when SQLAlchemy is importable. Uses getattr because DBSettings is
         conditionally defined in a try/except in with_db_settings_base.
         """
-        # pyre-ignore[16]: DBSettings is conditionally defined in with_db_settings_base.
         module_dbsettings = getattr(_wdb_module, "DBSettings", None)
         self.assertIsNotNone(
             module_dbsettings,
@@ -477,7 +466,6 @@ class TestSQLAlchemyDualVersionCompat(TestCase):
                 "EXPECTED_SA_MAJOR not set; only enforced under the dual-version "
                 "BUCK targets that pin SQLAlchemy via constraint_overrides"
             )
-        # pyre-ignore[16]: Module `sqlalchemy` has no attribute `__version__`.
         actual_version = sqlalchemy.__version__
         actual_major = int(actual_version.split(".")[0])
         self.assertEqual(

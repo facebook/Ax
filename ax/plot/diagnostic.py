@@ -337,14 +337,12 @@ def _get_batch_comparison_plot_data(
             "context_stratum": None,
         }
         for i, mname in enumerate(x_observation_metric_names[arm_name]):
-            # pyre-fixme[16]: Optional type has no attribute `__setitem__`.
             arm_data["y"][mname] = x_observation.data.means[i]
             # pyre-fixme[16]: Item `None` of `Union[None, Dict[typing.Any,
             #  typing.Any], Dict[str, typing.Union[None, bool, float, int, str]], str]`
             #  has no attribute `__setitem__`.
             arm_data["se"][mname] = np.sqrt(x_observation.data.covariance[i][i])
         for i, mname in enumerate(y_observation_metric_names[arm_name]):
-            # pyre-fixme[16]: Item `None` of `Union[None, Dict[typing.Any,
             #  typing.Any], Dict[str, typing.Union[None, bool, float, int, str]], str]`
             #  has no attribute `__setitem__`.
             arm_data["y_hat"][mname] = y_observation.data.means[i]
@@ -407,14 +405,12 @@ def _get_cv_plot_data(
             "context_stratum": None,
         }
         for i, mname in enumerate(cv_result.observed.data.metric_signatures):
-            # pyre-fixme[16]: Optional type has no attribute `__setitem__`.
             arm_data["y"][mname] = cv_result.observed.data.means[i]
             # pyre-fixme[16]: Item `None` of `Union[None, Dict[typing.Any,
             #  typing.Any], Dict[str, typing.Union[None, bool, float, int, str]], str]`
             #  has no attribute `__setitem__`.
             arm_data["se"][mname] = np.sqrt(cv_result.observed.data.covariance[i][i])
         for i, mname in enumerate(cv_result.predicted.metric_signatures):
-            # pyre-fixme[16]: Item `None` of `Union[None, Dict[typing.Any,
             #  typing.Any], Dict[str, typing.Union[None, bool, float, int, str]], str]`
             #  has no attribute `__setitem__`.
             arm_data["y_hat"][mname] = cv_result.predicted.means[i]

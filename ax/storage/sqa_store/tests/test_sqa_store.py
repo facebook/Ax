@@ -804,7 +804,6 @@ class SQAStoreTest(TestCase):
         f"{Decoder.__module__}.Decoder.trial_from_sqa",
         side_effect=Decoder(SQAConfig()).trial_from_sqa,
     )
-    # pyre-fixme[56]: Pyre was not able to infer the type of argument `ax.storage.sqa...
     @patch(
         f"{Decoder.__module__}.Decoder.experiment_from_sqa",
         side_effect=Decoder(SQAConfig()).experiment_from_sqa,
@@ -1943,7 +1942,6 @@ class SQAStoreTest(TestCase):
         )
         with self.assertRaises(SQADecodeError):
             self.decoder.parameter_constraint_from_sqa(
-                # pyrefly: ignore [bad-argument-type]
                 sqa_parameter,
                 # pyrefly: ignore [bad-argument-type]
                 self.dummy_parameters,
@@ -1957,7 +1955,6 @@ class SQAStoreTest(TestCase):
         )
         with self.assertRaises(SQADecodeError):
             self.decoder.parameter_constraint_from_sqa(
-                # pyrefly: ignore [bad-argument-type]
                 sqa_parameter,
                 # pyrefly: ignore [bad-argument-type]
                 self.dummy_parameters,
@@ -2822,7 +2819,6 @@ class SQAStoreTest(TestCase):
         )
         self.assertTrue(immutable)
 
-    # pyre-fixme[56]: Pyre was not able to infer the type of argument `ax.storage.sqa...
     @patch(
         f"{Decoder.__module__}.Decoder.generator_run_from_sqa",
         side_effect=Decoder(SQAConfig()).generator_run_from_sqa,

@@ -29,7 +29,6 @@ from pyre_extensions import none_throws
 
 
 # type aliases
-# pyre-fixme[24]: Generic type `np.ndarray` expects 2 type parameters.
 SlicePredictions = tuple[
     PlotData,
     list[dict[str, str | float]],
@@ -479,7 +478,6 @@ def interact_slice_plotly(
     for i, metric in enumerate(metrics):
         # pyre-fixme[61]: `arm_data` is undefined, or not always defined.
         trace_cnt = 3 + len(arm_data[metric]["out_of_sample"].keys())
-        # pyre-fixme[61]: `metrics` is undefined, or not always defined.
         visible = [False] * (len(metrics) * trace_cnt)
         for j in range(i * trace_cnt, (i + 1) * trace_cnt):
             visible[j] = True
@@ -540,7 +538,6 @@ def interact_slice_plotly(
             "autorange": True,
             "tickfont": {"size": 11},
             "tickmode": "auto",
-            # pyre-fixme[61]: `metrics` is undefined, or not always defined.
             "title": metrics[0],
         },
     }

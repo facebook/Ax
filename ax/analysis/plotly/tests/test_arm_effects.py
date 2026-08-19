@@ -183,7 +183,6 @@ class TestArmEffectsPlot(TestCase):
             "additional_arms": [Arm(parameters={"x1": 0, "x2": 0})],
             "label": "f",
         }
-        # pyre-ignore[6]: Unsafe kwargs usage on purpose
         analysis = ArmEffectsPlot(**kwargs)
 
         cards = analysis.compute(

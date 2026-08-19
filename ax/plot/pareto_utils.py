@@ -200,9 +200,7 @@ def get_observed_pareto_frontiers(
     adapter = get_tensor_converter_adapter(experiment=experiment, data=data)
     pareto_observations = observed_pareto_frontier(adapter=adapter)
     # Convert to ParetoFrontierResults
-    objective_metric_names = set(
-        experiment.optimization_config.objective.metric_names  # pyre-ignore
-    )
+    objective_metric_names = set(experiment.optimization_config.objective.metric_names)
     obj_metr_list = sorted(objective_metric_names)
     pfr_means = {name: [] for name in obj_metr_list}
     pfr_sems = {name: [] for name in obj_metr_list}
@@ -218,7 +216,7 @@ def get_observed_pareto_frontiers(
     # Get objective thresholds
     rel_objth = {}
     objective_thresholds = {}
-    if experiment.optimization_config.objective_thresholds is not None:  # pyre-ignore
+    if experiment.optimization_config.objective_thresholds is not None:
         for objth in experiment.optimization_config.objective_thresholds:
             rel_objth[objth.metric_names[0]] = objth.relative
             objective_thresholds[objth.metric_names[0]] = objth.bound
@@ -471,7 +469,6 @@ def _extract_pareto_frontier_results(
     return ParetoFrontierResults(
         param_dicts=param_dicts,
         means=means_out,
-        # pyre-fixme[6]: For 3rd argument expected `Dict[str, List[float]]` but got
         #  `Dict[str, ndarray[typing.Any, dtype[typing.Any]]]`.
         sems=sems_out,
         primary_metric=primary_metric,

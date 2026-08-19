@@ -63,7 +63,6 @@ class TestTransferLearningAnalysis(TestCase):
 
     @patch(_MOCK_TARGET, return_value={})
     def test_no_candidates_returns_pass(self, mock_identify: object) -> None:
-        # pyrefly: ignore [bad-instantiation]
         experiment = _make_experiment(["x1", "x2"], experiment_type="my_type")
         # pyrefly: ignore [bad-instantiation]
         analysis = TransferLearningAnalysis()
@@ -80,7 +79,6 @@ class TestTransferLearningAnalysis(TestCase):
         mock_identify.return_value = {  # pyre-ignore[16]
             "source_exp": TransferLearningMetadata(
                 overlap_parameters=["x1", "x2", "x3", "x4"],
-                # pyrefly: ignore [bad-instantiation]
             ),
         }
         # pyrefly: ignore [bad-instantiation]
@@ -112,7 +110,6 @@ class TestTransferLearningAnalysis(TestCase):
                 overlap_parameters=["x1", "x2", "x3"],
             ),
             "exp_low": TransferLearningMetadata(
-                # pyrefly: ignore [bad-instantiation]
                 overlap_parameters=["x1"],
             ),
         }
@@ -139,7 +136,6 @@ class TestTransferLearningAnalysis(TestCase):
     def test_percentage_calculation(self, mock_identify: object) -> None:
         experiment = _make_experiment(["x1", "x2", "x3"], experiment_type="my_type")
         mock_identify.return_value = {  # pyre-ignore[16]
-            # pyrefly: ignore [bad-instantiation]
             "exp_a": TransferLearningMetadata(
                 overlap_parameters=["x1"],
             ),
@@ -154,7 +150,6 @@ class TestTransferLearningAnalysis(TestCase):
         experiment = _make_experiment(
             ["alpha", "beta", "gamma", "delta"], experiment_type="my_type"
         )
-        # pyrefly: ignore [bad-instantiation]
         mock_identify.return_value = {  # pyre-ignore[16]
             "exp_a": TransferLearningMetadata(
                 overlap_parameters=["gamma", "alpha", "delta"],
@@ -169,7 +164,6 @@ class TestTransferLearningAnalysis(TestCase):
         # pyrefly: ignore [bad-instantiation]
         analysis = TransferLearningAnalysis()
         with self.assertRaises(UserInputError):
-            # pyrefly: ignore [bad-instantiation]
             analysis.compute(experiment=None)
 
     @patch(_MOCK_TARGET, return_value={})
@@ -190,7 +184,6 @@ class TestTransferLearningAnalysis(TestCase):
     ) -> None:
         """When create_diff_paste_callable is provided, a 'Comparison' column
         should be added alongside the existing 'Parameters' column."""
-        # pyrefly: ignore [bad-instantiation]
         experiment = _make_experiment(
             ["x1", "x2", "x3", "x4"], experiment_type="my_type"
         )
@@ -220,7 +213,6 @@ class TestTransferLearningAnalysis(TestCase):
         )
         mock_identify.return_value = {  # pyre-ignore[16]
             "source_exp": TransferLearningMetadata(
-                # pyrefly: ignore [bad-instantiation]
                 overlap_parameters=["gamma", "alpha"],
             ),
         }
@@ -251,7 +243,6 @@ class TestTransferLearningAnalysis(TestCase):
         self.assertIn("source_exp", title)
         self.assertIn("test_experiment", title)
 
-    # pyrefly: ignore [bad-instantiation]
     @patch(_MOCK_TARGET)
     def test_no_callable_has_no_comparison_column(self, mock_identify: object) -> None:
         """Without callable, the 'Parameters' column should be present

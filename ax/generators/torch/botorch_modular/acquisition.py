@@ -134,7 +134,6 @@ def determine_optimizer(
             # the remaining parameters.
             cardinalities = [len(c) for c in discrete_choices.values()]
             max_cardinality = max(cardinalities)
-            # pyrefly: ignore [incompatible-overload-residual]
             total_discrete_choices = reduce(operator.mul, cardinalities)
             if total_discrete_choices > MAX_CHOICES_ENUMERATE:
                 if max_cardinality <= MAX_CARDINALITY_FOR_LOCAL_SEARCH:
@@ -381,7 +380,7 @@ class Acquisition(Base):
         ) and ("pref_model" in botorch_acqf_options or model.num_outputs == 1):
             input_constructor = get_acqf_input_constructor(botorch_acqf_class)
             acqf_inputs = input_constructor(model=model, **botorch_acqf_options)
-            return botorch_acqf_class(**acqf_inputs)  # pyre-ignore [45]
+            return botorch_acqf_class(**acqf_inputs)
 
         objective, posterior_transform = self.get_botorch_objective_and_transform(
             botorch_acqf_class=botorch_acqf_class,
@@ -451,7 +450,7 @@ class Acquisition(Base):
             bounds=self.search_space_digest.bounds,
             **{k: v for k, v in input_constructor_kwargs.items() if v is not None},
         )
-        return botorch_acqf_class(**acqf_inputs)  # pyre-ignore [45]
+        return botorch_acqf_class(**acqf_inputs)
 
     @property
     def botorch_acqf_class(self) -> type[AcquisitionFunction]:

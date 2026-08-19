@@ -166,9 +166,7 @@ def merge_parameters(
             target_value=choice_param.target_value,
             sort_values=choice_param.sort_values,
             dependents=merge_dependents(
-                # pyre-ignore[6]: p1/p2 are FixedParameter | ChoiceParameter here.
                 p1=p1,
-                # pyre-ignore[6]: p1/p2 are FixedParameter | ChoiceParameter here.
                 p2=p2,
                 reverse_param_config=reverse_param_config,
             ),

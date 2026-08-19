@@ -1118,7 +1118,6 @@ def get_figure_and_callback(
     """
     fig = go.FigureWidget(layout=go.Layout())
 
-    # pyre-fixme[53]: Captured variable `fig` is not annotated.
     def _update_fig_in_place(orchestrator: Orchestrator) -> None:
         try:
             new_fig = plot_fn(orchestrator)

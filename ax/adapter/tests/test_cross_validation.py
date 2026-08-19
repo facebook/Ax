@@ -563,7 +563,6 @@ class CrossValidationTest(TestCase):
 
         # Test conditions that should prevent efficient LOO CV from being used
         # Each tuple: (kwargs_override, adapter_override, description)
-        # pyre-ignore[9]: Type is correct for cross_validate kwargs
         conditions_preventing_efficient_loo: list[
             tuple[dict[str, object], TorchAdapter | None, str]
         ] = [
@@ -1044,7 +1043,6 @@ def _create_adapter_with_all_in_design_points() -> TorchAdapter:
     Returns:
         A TorchAdapter with all points in-design.
     """
-    # pyre-ignore [9]: Pyre is too picky with union types.
     parameterizations: list[TParameterization] = [
         {"x": x} for x in [1.0, 2.0, 3.0, 4.0]
     ]

@@ -216,7 +216,6 @@ def _construct_specified_input_transforms(
     ]
 
     return [
-        # pyre-ignore[45]: Concrete subclasses are passed at runtime.
         transform_class(**single_input_transform_kwargs)
         for transform_class, single_input_transform_kwargs in zip(
             input_transform_classes, input_transform_kwargs
@@ -286,7 +285,6 @@ def _make_botorch_outcome_transform(
     ]
 
     outcome_transforms = [
-        # pyre-ignore[45]: Concrete subclasses are passed at runtime.
         transform_class(**single_outcome_transform_kwargs)
         for transform_class, single_outcome_transform_kwargs in zip(
             outcome_transform_classes, outcome_transform_kwargs
@@ -335,12 +333,10 @@ def _construct_submodules(
             botorch_model_class=botorch_model_class,
             **deepcopy(model_config.covar_module_options),
         )
-        # pyre-ignore[45]: Concrete subclasses are passed at runtime.
         submodules["covar_module"] = covar_class(**covar_module_kwargs)
 
     if (likelihood_class := model_config.likelihood_class) is not None:
         _error_if_arg_not_supported("likelihood")
-        # pyre-ignore[45]: Concrete subclasses are passed at runtime.
         submodules["likelihood"] = likelihood_class(
             **deepcopy(model_config.likelihood_options)
         )
@@ -565,7 +561,6 @@ class Surrogate(Base):
             search_space_digest=search_space_digest,
             surrogate=self,
         )
-        # pyre-ignore[45]: Concrete subclasses are passed at runtime.
         model = botorch_model_class(**formatted_model_inputs)
         if state_dict is not None and (not refit or self.warm_start_refit):
             model.load_state_dict(state_dict)

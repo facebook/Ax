@@ -55,7 +55,6 @@ class DataLoaderConfig:
             in the `MAP_KEY` column for each (arm, metric) is limited by this value.
     """
 
-    # pyre-ignore[16]: Pyre doesn't support dataclass InitVar.
     fit_out_of_design: InitVar[bool | None] = None
     fit_abandoned: bool = False
     fit_only_completed_map_metrics: bool = False

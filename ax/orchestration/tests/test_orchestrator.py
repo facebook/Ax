@@ -133,7 +133,7 @@ class TestAxOrchestrator(TestCase):
     # TODO[@mgarrard]: Change this to `str(GenerationStrategy.__module__)`
     # once we are no longer splitting which `GS.gen` to call into based on
     # `Trial` vs. `BatchTrial`
-    PENDING_FEATURES_EXTRACTOR: tuple[  # pyre-ignore[8]
+    PENDING_FEATURES_EXTRACTOR: tuple[
         str,
         Callable[
             # pyrefly: ignore [invalid-argument]
@@ -145,7 +145,7 @@ class TestAxOrchestrator(TestCase):
         + "get_pending_observation_features_based_on_trial_status",
         get_pending_observation_features_based_on_trial_status,
     )
-    PENDING_FEATURES_BATCH_EXTRACTOR: tuple[  # pyre-ignore[8]
+    PENDING_FEATURES_BATCH_EXTRACTOR: tuple[
         str,
         Callable[
             # pyrefly: ignore [invalid-argument]
@@ -560,9 +560,7 @@ class TestAxOrchestrator(TestCase):
         test_obj: list[int | str | None] = [0, 0]
 
         def _callback(orchestrator: Orchestrator) -> None:
-            # pyrefly: ignore [unsupported-operation]
             test_obj[0] = orchestrator._latest_optimization_start_timestamp
-            # pyrefly: ignore [unsupported-operation]
             test_obj[1] = "apple"
             return
 
@@ -3245,7 +3243,6 @@ class TestAxOrchestratorMultiTypeExperiment(TestAxOrchestrator):
     ) -> None:
         # add a tracking metric
         self.branin_timestamp_map_metric_experiment.add_tracking_metric(
-            # pyrefly: ignore [unexpected-keyword]
             BraninMetric("branin", ["x1", "x2"]),
             # pyrefly: ignore [unexpected-keyword]
             trial_type="type1",
@@ -3285,7 +3282,6 @@ class TestAxOrchestratorMultiTypeExperiment(TestAxOrchestrator):
         # pyrefly: ignore [missing-attribute]
         self.branin_experiment.update_runner("type1", InfinitePollRunner())
         self.branin_experiment.add_tracking_metric(
-            # pyrefly: ignore [unexpected-keyword]
             get_branin_metric(),
             # pyrefly: ignore [unexpected-keyword]
             trial_type="type1",

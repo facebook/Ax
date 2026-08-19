@@ -216,9 +216,7 @@ class LearningCurveBenchmarkTestFunction(BenchmarkTestFunction):
     metric_surrogate: RegressorProtocol = field(init=False)
     runtime_surrogate: RegressorProtocol = field(init=False)
 
-    # pyre-ignore [16]: Pyre doesn't understand InitVars.
     metric_base_surrogate: InitVar[RegressorProtocol] = get_default_base_regressor()
-    # pyre-ignore [16]: Pyre doesn't understand InitVars.
     runtime_base_surrogate: InitVar[RegressorProtocol] = get_default_base_regressor()
 
     def __post_init__(

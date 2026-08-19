@@ -19,7 +19,6 @@ class TestRandom(TestCase):
         # Set the seeds manually & using the helper, and compares the random numbers.
         seed = 0
         random.seed(seed)
-        # pyrefly: ignore [bad-argument-type]
         np.random.seed(seed)
         torch.manual_seed(seed)
         native_rand = random.random()

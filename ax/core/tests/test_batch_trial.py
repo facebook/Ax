@@ -575,7 +575,6 @@ class BatchTrialTest(TestCase):
         self.batch.add_generator_run(gr_2)
         gr_2 = self.batch._generator_runs[-1]
         # gr_2 has no candidate metadata; all candidate metadata should come from gr_1
-        # pyrefly: ignore [unsupported-operation]
         cand_metadata_expected = {
             # pyrefly: ignore [unsupported-operation]
             a.name: gr_1.candidate_metadata_by_arm_signature[a.signature]
@@ -603,7 +602,6 @@ class BatchTrialTest(TestCase):
         gr_3._candidate_metadata_by_arm_signature = new_cand_metadata
         self.batch.add_generator_run(gr_3)
         gr_3 = self.batch._generator_runs[-1]
-        # pyrefly: ignore [unsupported-operation]
         cand_metadata_expected.update(
             {
                 # pyrefly: ignore [unsupported-operation]

@@ -36,7 +36,6 @@ from pyre_extensions import assert_is_instance
 
 
 class TransformToNewSQTest(RelativizeDataTest):
-    # pyre-ignore [15]: `relativize_classes` overrides attribute
     # defined in `RelativizeDataTest` inconsistently. Type `List
     # [Type[TransformToNewSQ]]` is not a subtype of the
     # overridden attribute `List[Type[Transform]]`

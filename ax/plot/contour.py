@@ -32,7 +32,6 @@ from ax.plot.helper import (
 
 
 # type aliases
-# pyre-fixme[24]: Generic type `np.ndarray` expects 2 type parameters.
 ContourPredictions = tuple[
     PlotData, np.ndarray, np.ndarray, np.ndarray, np.ndarray, dict[str, bool]
 ]

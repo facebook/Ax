@@ -777,7 +777,6 @@ class ObservationsTest(TestCase):
             self.assertTrue(
                 np.array_equal(
                     obs.data.means,
-                    # pyre-ignore[6]: numpy stubs type mismatch.
                     assert_is_instance(obs_truth["means"][i], np.ndarray),
                 )
             )

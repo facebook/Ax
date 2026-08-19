@@ -723,7 +723,6 @@ class TestGenerationStrategy(TestCase):
             sobol_generation_strategy.gen_single_trial(exp, n=1)
             self.assertEqual(len(sobol_generation_strategy._generator_runs), i)
 
-    # pyre-fixme[56]: Pyre was not able to infer the type of argument
     # `ax.utils.testing.core_stubs.get_data()` to decorator `unittest.mock.patch`.
     @patch(f"{Experiment.__module__}.Experiment.fetch_data", return_value=get_data())
     def test_factorial_thompson_strategy(self, _: MagicMock) -> None:

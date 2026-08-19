@@ -632,7 +632,6 @@ class ExpressionDerivedMetric(DerivedMetric):
         # _symbols are the original (unsanitized) metric names used for
         # looking up values at evaluation time.
         # Cast free_symbols to set[Symbol] since Pyre stubs use Basic
-        # pyre-fixme[16]: Pyre cannot infer that free_symbols contains Symbol
         free_syms = cast(set[Symbol], self._sympy_expr.free_symbols)
         sympy_symbols: list[str] = sorted(s.name for s in free_syms)
         self._symbols: list[str] = [unsanitize_name(s) for s in sympy_symbols]
@@ -661,7 +660,6 @@ class ExpressionDerivedMetric(DerivedMetric):
 
         # Reject undeclared variable names.
         # Cast free_symbols to set[Symbol] since Pyre stubs use Basic
-        # pyre-fixme[16]: Pyre cannot infer that free_symbols contains Symbol
         free_syms = cast(set[Symbol], self._sympy_expr.free_symbols)
         referenced_names = {unsanitize_name(s.name) for s in free_syms}
         input_metric_set = set(self._input_metric_names)

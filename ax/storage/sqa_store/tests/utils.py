@@ -46,7 +46,6 @@ from ax.utils.testing.core_stubs import (
 )
 
 
-# pyre-fixme[5]: Global expression must be annotated.
 TEST_CASES = [
     (
         "AbandonedArm",

@@ -119,7 +119,6 @@ def rejection_sample(
 
     while points.shape[0] < n and attempted_draws < max_draws:
         # _gen_unconstrained returns points including fixed features.
-        # pyre-ignore[28]: Unexpected keyword argument to anonymous call.
         point = gen_unconstrained(
             # pyrefly: ignore [bad-argument-count, unexpected-keyword]
             n=1,
@@ -382,7 +381,6 @@ def best_observed_point(
         bounds=bounds,
         objective_weights=objective_weights,
         outcome_constraints=outcome_constraints,
-        # pyrefly: ignore [bad-return]
         linear_constraints=linear_constraints,
         fixed_features=fixed_features,
         options=options,
@@ -401,7 +399,6 @@ def best_in_sample_point(
     fixed_features: dict[int, float] | None = None,
     options: TConfig | None = None,
 ) -> tuple[TTensoray, float] | None:
-    # pyrefly: ignore [bad-assignment]
     """Select the best point that has been observed.
 
     Implements two approaches to selecting the best point.
@@ -453,9 +450,7 @@ def best_in_sample_point(
         - d-array of the best point,
         - utility at the best point.
     """
-    # pyrefly: ignore [bad-assignment]
     # Parse options
-    # pyrefly: ignore [bad-assignment]
     if options is None:
         options = {}
     # pyrefly: ignore [bad-assignment]
@@ -482,7 +477,6 @@ def best_in_sample_point(
         X=X_obs,
         bounds=bounds,
         linear_constraints=linear_constraints,
-        # pyrefly: ignore [bad-argument-type]
         fixed_features=fixed_features,
     )
     if len(X_obs) == 0:
@@ -513,7 +507,6 @@ def best_in_sample_point(
     if method == "feasible_threshold":
         utility = obj
         utility[pfeas < threshold] = -np.inf
-    # pyrefly: ignore [bad-return]
     elif method == "max_utility":
         if B is None:
             B = obj.min()

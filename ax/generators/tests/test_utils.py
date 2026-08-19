@@ -224,7 +224,6 @@ class UtilsTest(TestCase):
                 n: int,
                 d: int,
                 tunable_feature_indices: npt.NDArray[np.intp],
-                # pyrefly: ignore [bad-specialization]
                 fixed_features: dict[int, float] | None,
                 # pyrefly: ignore [bad-specialization]
             ) -> npt.NDArray[np.floating[Any]]:
@@ -233,9 +232,6 @@ class UtilsTest(TestCase):
                 call_count += 1
                 return result
 
-            # pyrefly: ignore [bad-specialization]
-
-            # pyrefly: ignore [bad-specialization]
             def rounding_func(
                 # pyrefly: ignore [bad-specialization]
                 point: npt.NDArray[np.floating[Any]],

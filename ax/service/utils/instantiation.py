@@ -604,7 +604,6 @@ class InstantiationBase:
         status_quo_defined: bool,
         metric_definitions: dict[str, dict[str, Any]] | None = None,
     ) -> list[OutcomeConstraint]:
-        # pyre-ignore[9]: ObjectiveThreshold is a subclass of OutcomeConstraint;
         # list invariance prevents direct assignment.
         typed_objective_thresholds: list[OutcomeConstraint] = (
             [
