@@ -470,6 +470,9 @@ class SQAAnalysisCard(Base):
     )
     name: Mapped[str] = Column(String(NAME_OR_TYPE_FIELD_LENGTH), nullable=False)
     timestamp: Mapped[datetime] = Column(IntTimestamp, nullable=False)
+    ttl_timestamp: Mapped[int] = Column(
+        BigInteger, nullable=False, server_default="18446744073709551615"
+    )
 
     parent_id: Mapped[int | None] = Column(
         Integer,

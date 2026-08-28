@@ -128,6 +128,7 @@ from ax.storage.sqa_store.save import (
 )
 from ax.storage.sqa_store.sqa_classes import (
     SQAAbandonedArm,
+    SQAAnalysisCard,
     SQAArm,
     SQAExperiment,
     SQAGeneratorRun,
@@ -3085,6 +3086,11 @@ class SQAStoreTest(TestCase):
                 big_group,
                 self.experiment,
             )
+            for saved_card in get_session().query(SQAAnalysisCard).all():
+                self.assertEqual(
+                    saved_card.ttl_timestamp,
+                    int(saved_card.timestamp.timestamp()),
+                )
 
         with self.subTest("test_load_analysis_cards"):
             loaded_analysis_cards = load_analysis_cards_by_experiment_name(

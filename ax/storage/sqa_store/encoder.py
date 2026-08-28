@@ -1255,6 +1255,8 @@ class Encoder:
     ) -> SQAAnalysisCard:
         """Convert Ax analysis to SQLAlchemy."""
 
+        ttl_timestamp = int(analysis_card._timestamp.timestamp())
+
         # pyre-fixme: Expected `Base` for 1st...ot `typing.Type[BaseAnalysis]`.
         analysis_card_class: SQAAnalysisCard = self.config.class_to_sqa_class[
             AnalysisCard
@@ -1267,6 +1269,7 @@ class Encoder:
                 experiment_id=experiment_id,
                 name=analysis_card.name,
                 timestamp=analysis_card._timestamp,
+                ttl_timestamp=ttl_timestamp,
                 order=order,
                 title=analysis_card.title,
                 subtitle=analysis_card.subtitle,
@@ -1307,6 +1310,7 @@ class Encoder:
             experiment_id=experiment_id,
             name=card.name,
             timestamp=card._timestamp,
+            ttl_timestamp=ttl_timestamp,
             order=order,
             title=card.title,
             subtitle=card.subtitle,
