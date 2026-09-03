@@ -5,6 +5,8 @@
 
 # pyre-strict
 
+from unittest.mock import patch
+
 from ax.adapter.registry import Generators
 from ax.analysis.graphviz.generation_strategy_graph import (
     _add_edges_for_node,
@@ -25,7 +27,7 @@ from ax.generation_strategy.transition_criterion import (
     MinTrials,
 )
 from ax.utils.common.testutils import TestCase
-from graphviz import Digraph
+from graphviz import Digraph, Source
 
 
 class TestGenerationStrategyGraph(TestCase):
@@ -280,3 +282,21 @@ class TestGenerationStrategyGraph(TestCase):
         # First node should be current
         self.assertTrue(df.iloc[0]["is_current"])
         self.assertFalse(df.iloc[1]["is_current"])
+
+    def test_body_html_decodes_pipe_output(self) -> None:
+        """Test that the card body contains SVG markup, not a bytes literal.
+
+        ``graphviz.Source.pipe`` returns ``bytes`` when no encoding is given,
+        so the SVG has to be decoded before it is embedded in the card's HTML.
+        """
+        analysis = GenerationStrategyGraph()
+        card = analysis.compute(generation_strategy=self.node_gs)
+
+        svg_bytes = b'<svg xmlns="http://www.w3.org/2000/svg"><g/></svg>'
+        with patch.object(Source, "pipe", return_value=svg_bytes) as mock_pipe:
+            body_html = card._body_html(depth=0)
+
+        mock_pipe.assert_called_once_with(format="svg")
+        self.assertNotIn("b'", body_html)
+        self.assertIn("<svg", body_html)
+        self.assertTrue(body_html.startswith("<div>"))
