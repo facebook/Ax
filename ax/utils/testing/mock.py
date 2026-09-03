@@ -11,6 +11,7 @@ from functools import wraps
 from typing import Any
 from unittest import mock
 
+from ax.utils.sensitivity import sobol_measures
 from botorch.fit import fit_fully_bayesian_model_nuts
 from botorch.optim.optimize_mixed import optimize_acqf_mixed_alternating
 from botorch.test_utils.mock import mock_optimize_context_manager
@@ -130,6 +131,58 @@ def mock_botorch_optimize(f: Callable) -> Callable:
     @wraps(f)
     def inner(*args: Any, **kwargs: Any) -> Any:
         with mock_botorch_optimize_context_manager():
+            return f(*args, **kwargs)
+
+    return inner
+
+
+@contextmanager
+def mock_sensitivity_analysis_context_manager(
+    num_mc_samples: int = 32,
+) -> Generator[None, None, None]:
+    """A context manager that shrinks the Monte-Carlo sample count used by
+    variance-based sensitivity analysis (Sobol indices).
+
+    ``ax_parameter_sens`` defaults to ``num_mc_samples=10**4``, which means
+    ``O(num_mc_samples * num_params)`` posterior-mean evaluations per call. On a
+    fully Bayesian model each of those is multiplied by the number of MCMC
+    samples, so a single call can take tens of seconds even on a handful of
+    training points. Tests that exercise reporting/analysis code paths
+    (``get_standard_plots``, ``SensitivityAnalysisPlot``, ``OverviewAnalysis``)
+    pay this cost once per call and are dominated by it.
+
+    Note that ``mock_botorch_optimize`` does not help here: it makes *fitting*
+    cheap, not posterior evaluation.
+
+    Do not use this in tests that assert on sensitivity values, since a small
+    sample count makes the estimates noisy.
+
+    Args:
+        num_mc_samples: The Monte-Carlo sample count to force.
+    """
+    with ExitStack() as es:
+        for fn_name in (
+            "compute_sobol_indices_from_model_list",
+            "compute_derivatives_from_model_list",
+        ):
+            original = getattr(sobol_measures, fn_name)
+
+            def few_samples(
+                *args: Any, __original: Any = original, **kwargs: Any
+            ) -> Tensor:
+                kwargs.setdefault("num_mc_samples", num_mc_samples)
+                return __original(*args, **kwargs)
+
+            es.enter_context(mock.patch.object(sobol_measures, fn_name, few_samples))
+        yield
+
+
+def mock_sensitivity_analysis(f: Callable) -> Callable:
+    """Wraps `f` in `mock_sensitivity_analysis_context_manager` as a decorator."""
+
+    @wraps(f)
+    def inner(*args: Any, **kwargs: Any) -> Any:
+        with mock_sensitivity_analysis_context_manager():
             return f(*args, **kwargs)
 
     return inner
