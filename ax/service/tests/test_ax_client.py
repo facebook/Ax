@@ -461,6 +461,30 @@ class TestAxClient(TestCase):
             ),
         )
 
+    def test_set_optimization_config_two_sided_constraint_band(self) -> None:
+        # Regression: a metric constrained on both sides (>= and <=) previously
+        # took its lower_is_better from only the first constraint, hiding the
+        # upper bound behind a single "increase" direction. The band metric must
+        # have no preferred direction and both constraint ops must be preserved.
+        ax_client = AxClient()
+        ax_client.create_experiment(
+            name="test",
+            parameters=[
+                {"name": "x", "type": "range", "bounds": [-5.0, 10.0]},
+                {"name": "y", "type": "range", "bounds": [0.0, 15.0]},
+            ],
+        )
+        ax_client.set_optimization_config(
+            objectives={"obj": ObjectiveProperties(minimize=False)},
+            outcome_constraints=["band >= 0.9", "band <= 1.1"],
+        )
+        self.assertIsNone(ax_client.experiment.metrics["band"].lower_is_better)
+        opt_config = none_throws(ax_client.experiment.optimization_config)
+        self.assertEqual(
+            {oc.op for oc in opt_config.outcome_constraints},
+            {ComparisonOp.GEQ, ComparisonOp.LEQ},
+        )
+
     def test_set_optimization_config_without_objectives_raises_error(self) -> None:
         ax_client = AxClient()
         ax_client.create_experiment(
