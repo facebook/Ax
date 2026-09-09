@@ -28,7 +28,7 @@ from ax.core.data import Data, MAP_KEY
 from ax.core.experiment import Experiment
 from ax.core.experiment_status import ExperimentStatus
 from ax.core.generator_run import GeneratorRun
-from ax.core.metric import Metric
+from ax.core.metric import Metric, MetricFetchE
 from ax.core.multi_type_experiment import MultiTypeExperiment
 from ax.core.objective import Objective
 from ax.core.observation import ObservationFeatures
@@ -40,12 +40,7 @@ from ax.core.utils import (
     get_pending_observation_features_based_on_trial_status,
 )
 from ax.early_stopping.strategies import BaseEarlyStoppingStrategy
-from ax.exceptions.core import (
-    AxError,
-    OptimizationComplete,
-    UnsupportedError,
-    UserInputError,
-)
+from ax.exceptions.core import OptimizationComplete, UnsupportedError, UserInputError
 from ax.exceptions.generation_strategy import AxGenerationException
 from ax.generation_strategy.dispatch_utils import choose_generation_strategy_legacy
 from ax.generation_strategy.generation_strategy import (
@@ -99,6 +94,7 @@ from ax.storage.sqa_store.structs import DBSettings
 from ax.storage.sqa_store.with_db_settings_base import WithDBSettingsBase
 from ax.utils.common.constants import Keys
 from ax.utils.common.logger import AX_ROOT_LOGGER_NAME
+from ax.utils.common.result import Err
 from ax.utils.common.testutils import TestCase
 from ax.utils.common.timeutils import current_timestamp_in_millis
 from ax.utils.testing.core_stubs import (
@@ -1014,6 +1010,23 @@ class TestAxOrchestrator(TestCase):
         with self.assertRaises(FailureRateExceededError):
             orchestrator.run_all_trials()
         self.assertEqual(len(orchestrator.experiment.trials), 2)
+
+    def test_failure_rate_includes_completed_trial_without_data(self) -> None:
+        orchestrator = Orchestrator(
+            experiment=self.branin_experiment,
+            generation_strategy=self.sobol_GS_no_parallelism,
+            options=OrchestratorOptions(
+                tolerated_trial_failure_rate=0.2,
+                **self.orchestrator_options_kwargs,
+            ),
+            db_settings=self.db_settings_if_always_needed,
+        )
+        trial = self.branin_experiment.new_trial()
+        trial.mark_running(no_runner_required=True).mark_completed()
+
+        self.assertTrue(orchestrator._check_if_failure_rate_exceeded(force_check=True))
+        self.assertEqual(trial.status, TrialStatus.COMPLETED)
+        self.assertEqual(orchestrator._num_trials_bad_due_to_err, 1)
 
     def test_sqa_storage_without_experiment_name(self) -> None:
         init_test_engine_and_session_factory(force_init=True)
@@ -1983,7 +1996,37 @@ class TestAxOrchestrator(TestCase):
                 orchestrator.experiment.trials[0].status, TrialStatus.COMPLETED
             )
 
-    def test_fetch_and_process_trials_data_results_failed_objective(self) -> None:
+    def test_fetch_and_process_trials_data_results_unregistered_metric(self) -> None:
+        orchestrator = Orchestrator(
+            experiment=self.branin_experiment,
+            generation_strategy=self.two_sobol_steps_GS,
+            options=OrchestratorOptions(**self.orchestrator_options_kwargs),
+            db_settings=self.db_settings_if_always_needed,
+        )
+        trial = self.branin_experiment.new_trial()
+        trial.mark_running(no_runner_required=True).mark_completed()
+        results = {
+            trial.index: {
+                "collection_member": Err(
+                    MetricFetchE(message="fetch failed", exception=None)
+                )
+            }
+        }
+
+        with patch.object(
+            self.branin_experiment,
+            "fetch_trials_data_results",
+            return_value=results,
+        ):
+            actual = orchestrator._fetch_and_process_trials_data_results(
+                trial_indices=[trial.index]
+            )
+
+        self.assertEqual(actual, results)
+        self.assertEqual(trial.status, TrialStatus.COMPLETED)
+        self.assertEqual(orchestrator._num_metric_fetch_e_encountered, 1)
+
+    def test_fetch_error_does_not_change_completed_trial_status(self) -> None:
         gs = self.two_sobol_steps_GS
         orchestrator = Orchestrator(
             experiment=self.branin_experiment,
@@ -2004,74 +2047,11 @@ class TestAxOrchestrator(TestCase):
             ),
             self.assertLogs(logger="ax.orchestration.orchestrator") as lg,
         ):
-            # This trial will fail
             with self.assertRaises(FailureRateExceededError):
                 orchestrator.run_n_trials(max_trials=1)
         self.assertTrue(
             any(
                 re.search(r"Failed to fetch (branin|m1) for trial 0", warning)
-                is not None
-                for warning in lg.output
-            )
-        )
-        self.assertTrue(
-            any(
-                re.search(
-                    r"Because (branin|m1) is an objective, marking trial 0 as "
-                    "TrialStatus.ABANDONED",
-                    warning,
-                )
-                is not None
-                for warning in lg.output
-            )
-        )
-        self.assertEqual(
-            orchestrator.experiment.trials[0].status, TrialStatus.ABANDONED
-        )
-
-    def test_fetch_and_process_trials_data_results_failed_objective_but_recoverable(
-        self,
-    ) -> None:
-        gs = self.two_sobol_steps_GS
-        orchestrator = Orchestrator(
-            experiment=self.branin_experiment,
-            generation_strategy=gs,
-            options=OrchestratorOptions(
-                enforce_immutable_search_space_and_opt_config=False,
-                **self.orchestrator_options_kwargs,
-            ),
-            db_settings=self.db_settings_if_always_needed,
-        )
-        BraninMetric.recoverable_exceptions = {AxError, TypeError}
-        # we're throwing a recoverable exception because UserInputError
-        # is a subclass of AxError
-        with (
-            patch(
-                f"{BraninMetric.__module__}.BraninMetric.f",
-                side_effect=UserInputError("yikes!"),
-            ),
-            patch(
-                f"{BraninMetric.__module__}.BraninMetric.is_available_while_running",
-                return_value=False,
-            ),
-            self.assertLogs(logger="ax.orchestration.orchestrator") as lg,
-        ):
-            orchestrator.run_n_trials(max_trials=1)
-        self.assertTrue(
-            any(
-                re.search(r"Failed to fetch (branin|m1) for trial 0", warning)
-                is not None
-                for warning in lg.output
-            ),
-            lg.output,
-        )
-        self.assertTrue(
-            any(
-                re.search(
-                    "MetricFetchE INFO: Continuing optimization even though "
-                    "MetricFetchE encountered",
-                    warning,
-                )
                 is not None
                 for warning in lg.output
             )
@@ -2079,57 +2059,7 @@ class TestAxOrchestrator(TestCase):
         self.assertEqual(
             orchestrator.experiment.trials[0].status, TrialStatus.COMPLETED
         )
-
-    def test_fetch_and_process_trials_data_results_failed_objective_not_recoverable(
-        self,
-    ) -> None:
-        gs = self.two_sobol_steps_GS
-        orchestrator = Orchestrator(
-            experiment=self.branin_experiment,
-            generation_strategy=gs,
-            options=OrchestratorOptions(
-                **self.orchestrator_options_kwargs,
-            ),
-            db_settings=self.db_settings_if_always_needed,
-        )
-        # we're throwing a unrecoverable exception because Exception is not subclass
-        # of either error type in recoverable_exceptions
-        BraninMetric.recoverable_exceptions = {AxError, TypeError}
-        with (
-            patch(
-                f"{BraninMetric.__module__}.BraninMetric.f",
-                side_effect=Exception("yikes!"),
-            ),
-            patch(
-                f"{BraninMetric.__module__}.BraninMetric.is_available_while_running",
-                return_value=False,
-            ),
-            self.assertLogs(logger="ax.orchestration.orchestrator") as lg,
-        ):
-            # This trial will fail
-            with self.assertRaises(FailureRateExceededError):
-                orchestrator.run_n_trials(max_trials=1)
-        self.assertTrue(
-            any(
-                re.search(r"Failed to fetch (branin|m1) for trial 0", warning)
-                is not None
-                for warning in lg.output
-            )
-        )
-        self.assertTrue(
-            any(
-                re.search(
-                    r"Because (branin|m1) is an objective, marking trial 0 as "
-                    "TrialStatus.ABANDONED",
-                    warning,
-                )
-                is not None
-                for warning in lg.output
-            )
-        )
-        self.assertEqual(
-            orchestrator.experiment.trials[0].status, TrialStatus.ABANDONED
-        )
+        self.assertEqual(orchestrator._num_trials_bad_due_to_err, 1)
 
     def test_should_consider_optimization_complete(self) -> None:
         # Tests non-GSS parts of the completion criterion.

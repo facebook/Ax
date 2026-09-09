@@ -32,6 +32,7 @@ from ax.core.multi_type_experiment import (
 from ax.core.runner import Runner
 from ax.core.trial import Trial
 from ax.core.trial_status import TrialStatus
+from ax.core.utils import compute_metric_availability, MetricAvailability
 from ax.exceptions.core import (
     AxError,
     DataRequiredError,
@@ -71,20 +72,19 @@ OPTIMIZATION_COMPLETION_MSG = """Optimization completed with total of {num_trial
 trials attached to the underlying Ax experiment '{experiment_name}'.
 """
 FAILURE_EXCEEDED_MSG = (
-    "NOTE: This error is usually not caused by Ax. Please please check any trial "
-    "evaluation processes/jobs to see why they are failing, and ensure that they "
-    "succeed over the entire range of the parameters defined in this optimization.\n\n"
-    "Trials are failing or being abandoned at a rate {observed_rate} that exceeds the "
-    "tolerated trial failure rate of {f_rate} (at least {n_failed} out of first "
-    "{n_ran} trials failed or were abandoned). Checks are triggered both at the end "
-    "of an optimization and if at least {min_failed} trials have been "
-    "failed/abandoned, potentially automatically due to issues with the trial."
+    "NOTE: This error is usually not caused by Ax. Please check any trial evaluation "
+    "processes/jobs and metric fetching infrastructure to determine why trials are "
+    "failing or required data is missing.\n\n"
+    "Trials have runner failures or incomplete optimization config metric data at a "
+    "rate {observed_rate} that exceeds the tolerated trial failure rate of {f_rate} "
+    "(at least {n_failed} out of the first {n_ran} trials). Checks are triggered both "
+    "at the end of an optimization and after at least {min_failed} affected trials."
 )
 METRIC_FETCH_ERR_MESSAGE = (
-    "A majority of the trial failures encountered are due to metric fetching errors. "
+    "One or more completed trials have incomplete optimization config metric data. "
     "This could mean the metrics are flaky, broken, or misconfigured. Please check "
-    "that the trial processes/jobs are successfully producing the expected metrics and "
-    "that the metric is correctly configured."
+    "that the trial processes/jobs are producing the expected metrics and that the "
+    "metrics are correctly configured."
 )
 
 EXPECTED_STAGED_MSG = (
@@ -191,12 +191,11 @@ class Orchestrator(WithDBSettingsBase, BestPointMixin):
     # Saved as a property so that it can be accessed after optimization is complex (ex.
     # for global stopping saving calculation).
     _num_remaining_requested_trials: int = 0
-    # Total number of MetricFetchEs encountered during the course of optimization. Note
-    # this is different from and may be greater than the number of trials that have
-    # been marked either FAILED or ABANDONED due to metric fetching errors.
+    # Total number of MetricFetchEs encountered for non-running trials during the
+    # course of optimization.
     _num_metric_fetch_e_encountered: int = 0
-    # Number of trials that have been marked either FAILED or ABANDONED due to
-    # MetricFetchE being encountered during _fetch_and_process_trials_data_results
+    # Number of completed trials with incomplete optimization config metric data.
+    # Retained under its existing name for telemetry compatibility.
     _num_trials_bad_due_to_err: int = 0
     # Keeps track of whether the allowed failure rate has been exceeded during
     # the optimization. If true, allows any pending trials to finish and raises
@@ -1079,14 +1078,15 @@ class Orchestrator(WithDBSettingsBase, BestPointMixin):
         """Checks if the failure rate (set in Orchestrator options) has been exceeded at
         any point during the optimization.
 
-        NOTE: Both FAILED and ABANDONED trial statuses count towards the failure rate.
+        Runner-level FAILED and ABANDONED statuses count towards the failure rate, as
+        do completed trials with incomplete optimization config metric data.
 
         Args:
             force_check: Indicates whether to force a failure-rate check
                 regardless of the number of trials that have been executed. If False
-                (default), the check will be skipped if the optimization has fewer than
-                five failed trials. If True, the check will be performed unless there
-                are 0 failures.
+                (default), the check will be skipped if the optimization has fewer
+                affected trials than ``min_failed_trials_for_failure_rate_check``. If
+                True, the check will be performed unless there are 0 affected trials.
 
         Effect on state:
             If the failure rate has been exceeded, a warning is logged and the private
@@ -1100,7 +1100,9 @@ class Orchestrator(WithDBSettingsBase, BestPointMixin):
         if self._failure_rate_has_been_exceeded:
             return True
 
-        num_bad_in_orchestrator = self._num_bad_in_orchestrator()
+        num_runner_failures = self._num_bad_in_orchestrator()
+        self._num_trials_bad_due_to_err = self._num_metric_incomplete_in_orchestrator()
+        num_bad_in_orchestrator = num_runner_failures + self._num_trials_bad_due_to_err
         # skip check if 0 failures
         if num_bad_in_orchestrator == 0:
             return False
@@ -1120,12 +1122,10 @@ class Orchestrator(WithDBSettingsBase, BestPointMixin):
         ) > self.options.tolerated_trial_failure_rate
 
         if failure_rate_exceeded:
-            if self._num_trials_bad_due_to_err > num_bad_in_orchestrator / 2:
+            if self._num_trials_bad_due_to_err > 0:
                 self.logger.warning(
-                    "MetricFetchE INFO: Sweep aborted due to an exceeded error rate, "
-                    "which was primarily caused by failure to fetch metrics. Please "
-                    "check if anything could cause your metrics to be flaky or "
-                    "broken."
+                    "MetricFetchE INFO: Sweep aborted due to an exceeded error rate "
+                    "that includes incomplete optimization config metric data."
                 )
             # NOTE: this private attribute causes `_get_max_pending_trials` to
             # return zero, which causes no further trials to be scheduled.
@@ -1138,18 +1138,21 @@ class Orchestrator(WithDBSettingsBase, BestPointMixin):
         """Raises an exception if the failure rate (set in Orchestrator options) has
         been exceeded at any point during the optimization.
 
-        NOTE: Both FAILED and ABANDONED trial statuses count towards the failure rate.
+        Runner-level FAILED and ABANDONED statuses count towards the failure rate, as
+        do completed trials with incomplete optimization config metric data.
 
         Args:
             force_check: Indicates whether to force a failure-rate check
                 regardless of the number of trials that have been executed. If False
-                (default), the check will be skipped if the optimization has fewer than
-                five failed trials. If True, the check will be performed unless there
-                are 0 failures.
+                (default), the check will be skipped if the optimization has fewer
+                affected trials than ``min_failed_trials_for_failure_rate_check``. If
+                True, the check will be performed unless there are 0 affected trials.
         """
         if self._check_if_failure_rate_exceeded(force_check=force_check):
             raise self._get_failure_rate_exceeded_error(
-                num_bad_in_orchestrator=self._num_bad_in_orchestrator(),
+                num_bad_in_orchestrator=(
+                    self._num_bad_in_orchestrator() + self._num_trials_bad_due_to_err
+                ),
                 num_ran_in_orchestrator=self._num_ran_in_orchestrator(),
             )
 
@@ -1424,6 +1427,26 @@ class Orchestrator(WithDBSettingsBase, BestPointMixin):
     def _num_ran_in_orchestrator(self) -> int:
         """Returns the number of trials that have been run by the orchestrator."""
         return len(self.experiment.trials) - self._num_preexisting_trials
+
+    def _num_metric_incomplete_in_orchestrator(self) -> int:
+        """Count completed trials with incomplete optimization config data."""
+        if self.experiment.optimization_config is None:
+            return 0
+
+        completed_trial_indices = [
+            trial.index
+            for trial in self.trials
+            if trial.status == TrialStatus.COMPLETED
+            and trial.index >= self._num_preexisting_trials
+        ]
+        metric_availability = compute_metric_availability(
+            experiment=self.experiment,
+            trial_indices=completed_trial_indices,
+        )
+        return sum(
+            availability != MetricAvailability.COMPLETE
+            for availability in metric_availability.values()
+        )
 
     def _apply_trial_statuses(
         self, polled_status_to_trial_idcs: dict[TrialStatus, set[int]]
@@ -2071,8 +2094,7 @@ class Orchestrator(WithDBSettingsBase, BestPointMixin):
         trial_indices: Iterable[int],
     ) -> dict[int, dict[str, MetricFetchResult]]:
         """
-        Fetches results from experiment and modifies trial statuses depending on
-        success or failure.
+        Fetch results and report errors without changing trial statuses.
         """
 
         try:
@@ -2102,20 +2124,17 @@ class Orchestrator(WithDBSettingsBase, BestPointMixin):
                 # we do not do anything
                 metric_fetch_e = result.unwrap_err()
 
-                # If the metric is available while running just continue (we can try
-                # again later).
-                # NOTE: We don't need to report fetching errors in this case either
-                metric = self.experiment.metrics[metric_name]
                 status = self.experiment.trials[trial_index].status
+                metric = self.experiment.signature_to_metric.get(metric_name)
                 if (
-                    metric.is_available_while_running()
-                    and status == TrialStatus.RUNNING
+                    status == TrialStatus.RUNNING
+                    and metric is not None
+                    and metric.is_available_while_running()
                 ):
                     self.logger.info(
-                        f"MetricFetchE INFO: Because {metric_name} is "
-                        f"available_while_running and trial {trial_index} is still "
-                        "RUNNING continuing the experiment and retrying on next "
-                        "poll..."
+                        f"MetricFetchE INFO: Because trial {trial_index} is still "
+                        f"RUNNING, continuing after failing to fetch {metric_name} "
+                        "and retrying on the next poll."
                     )
                     continue
 
@@ -2130,31 +2149,9 @@ class Orchestrator(WithDBSettingsBase, BestPointMixin):
                     metric_fetch_e=metric_fetch_e,
                 )
 
-                # If the fetch failure was for a metric in the optimization config (an
-                # objective or constraint) mark the trial as failed
-                optimization_config = self.experiment.optimization_config
-                if (
-                    optimization_config is not None
-                    and metric_name in optimization_config.metric_names
-                    and not self.experiment.metrics[metric_name].is_recoverable_fetch_e(
-                        metric_fetch_e=metric_fetch_e
-                    )
-                ):
-                    status = self._mark_err_trial_status(
-                        trial=self.experiment.trials[trial_index],
-                        metric_name=metric_name,
-                        metric_fetch_e=metric_fetch_e,
-                    )
-                    self.logger.warning(
-                        f"MetricFetchE INFO: Because {metric_name} is an objective, "
-                        f"marking trial {trial_index} as {status}."
-                    )
-                    self._num_trials_bad_due_to_err += 1
-                    continue
-
                 self.logger.info(
-                    "MetricFetchE INFO: Continuing optimization even though "
-                    "MetricFetchE encountered."
+                    "MetricFetchE INFO: Trial status remains unchanged; metric data "
+                    "availability is tracked separately."
                 )
                 continue
 
@@ -2168,17 +2165,6 @@ class Orchestrator(WithDBSettingsBase, BestPointMixin):
     ) -> None:
         pass
 
-    def _mark_err_trial_status(
-        self,
-        trial: BaseTrial,
-        metric_name: str | None = None,
-        metric_fetch_e: MetricFetchE | None = None,
-    ) -> TrialStatus:
-        trial.mark_abandoned(
-            reason=metric_fetch_e.message if metric_fetch_e else None, unsafe=True
-        )
-        return TrialStatus.ABANDONED
-
     def _get_failure_rate_exceeded_error(
         self,
         num_bad_in_orchestrator: int,
@@ -2187,7 +2173,7 @@ class Orchestrator(WithDBSettingsBase, BestPointMixin):
         return FailureRateExceededError(
             (
                 f"{METRIC_FETCH_ERR_MESSAGE}\n"
-                if self._num_trials_bad_due_to_err > num_bad_in_orchestrator / 2
+                if self._num_trials_bad_due_to_err > 0
                 else ""
             )
             + " Original error message: "
