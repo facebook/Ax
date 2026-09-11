@@ -16,7 +16,7 @@
     <h2>{{cell.caption}}</h2>
   </div>
   <div class="cell_body">
-    {{cell.html}}
+    {{ cell.html | safe }}
   </div>
   {% endif %}
   {% endfor %}
