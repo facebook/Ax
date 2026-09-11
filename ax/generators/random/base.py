@@ -6,7 +6,7 @@
 
 # pyre-strict
 
-from collections.abc import Callable
+from collections.abc import Callable, Mapping, Sequence
 from logging import Logger
 from typing import Any
 
@@ -80,6 +80,7 @@ class RandomGenerator(Generator):
         self.fallback_to_sample_polytope = fallback_to_sample_polytope
         self.polytope_sampler_kwargs: dict[str, Any] = polytope_sampler_kwargs or {}
         self._bounds: npt.NDArray = np.empty((0, 2))
+        self._discrete_choices: Mapping[int, Sequence[int | float]] = {}
         self.attempted_draws: int = 0
 
     @property
@@ -137,6 +138,7 @@ class RandomGenerator(Generator):
             bounds=search_space_digest.bounds, fixed_features=fixed_features
         )
         self._bounds = np.array(search_space_digest.bounds)  # (d, 2)
+        self._discrete_choices = search_space_digest.discrete_choices
 
         max_draws = DEFAULT_MAX_RS_DRAWS
         discrete_indices = set(search_space_digest.discrete_choices.keys())
@@ -155,10 +157,11 @@ class RandomGenerator(Generator):
             # pyrefly: ignore [bad-argument-type]
             max_draws = int(assert_is_instance_of_tuple(max_draws, (int, float)))
         try:
-            # With equality constraints, unconstrained sampling has probability
-            # zero of producing feasible points, so skip straight to polytope
-            # sampling.
-            if equality_constraints is not None:
+            # Equalities involving tunable continuous parameters have probability
+            # zero under unconstrained sampling. Purely discrete equalities do not.
+            if equality_constraints is not None and any(
+                np.any(equality_constraints[0][:, i] != 0) for i in continuous_indices
+            ):
                 raise SearchSpaceExhausted(
                     "Equality constraints require polytope sampling."
                 )
@@ -176,6 +179,7 @@ class RandomGenerator(Generator):
                 fixed_features=fixed_features,
                 rounding_func=rounding_func,
                 existing_points=generated_points,
+                equality_constraints=equality_constraints,
             )
         except SearchSpaceExhausted as e:
             if has_continuous_parameters or self.fallback_to_sample_polytope:
@@ -226,7 +230,8 @@ class RandomGenerator(Generator):
                 ) -> npt.NDArray:
                     # Note: the fixed features are applied as equality constraints
                     # in the polytope sampler, so we don't need to apply them here.
-                    return polytope_sampler.draw(n=n).numpy()
+                    points = polytope_sampler.draw(n=n).numpy()
+                    return self._snap_to_discrete_choices(points=points)
 
                 # we call rejection_sample here to reuse all the deduplication
                 # logic
@@ -280,17 +285,45 @@ class RandomGenerator(Generator):
 
         """
         tunable_bounds = self._bounds[tunable_feature_indices]
+        sampling_bounds = tunable_bounds.copy()
+        for local_index, parameter_index in enumerate(tunable_feature_indices):
+            choices = self._discrete_choices.get(int(parameter_index))
+            if choices is not None:
+                sampling_bounds[local_index] = (0, len(choices))
         tunable_points = self._gen_samples(
             n=n,
             tunable_d=len(tunable_feature_indices),
-            bounds=tunable_bounds,
+            bounds=sampling_bounds,
         )
+        for local_index, parameter_index in enumerate(tunable_feature_indices):
+            choices = self._discrete_choices.get(int(parameter_index))
+            if choices is not None:
+                choice_indices = np.minimum(
+                    tunable_points[:, local_index].astype(int), len(choices) - 1
+                )
+                tunable_points[:, local_index] = np.asarray(choices)[choice_indices]
         return add_fixed_features(
             tunable_points=tunable_points,
             d=d,
             tunable_feature_indices=tunable_feature_indices,
             fixed_features=fixed_features,
         )
+
+    def _snap_to_discrete_choices(self, points: npt.NDArray) -> npt.NDArray:
+        """Project discrete dimensions onto their nearest supported values.
+
+        The polytope sampler must operate in the parameters' value space because
+        mapping irregularly spaced choices to indices is nonlinear and would not
+        preserve the linear constraints that define the polytope.
+        """
+        points = points.copy()
+        for parameter_index, choices in self._discrete_choices.items():
+            choice_values = np.asarray(choices)
+            distances = np.abs(
+                points[:, parameter_index, np.newaxis] - choice_values[np.newaxis, :]
+            )
+            points[:, parameter_index] = choice_values[np.argmin(distances, axis=1)]
+        return points
 
     def _gen_samples(self, n: int, tunable_d: int, bounds: npt.NDArray) -> npt.NDArray:
         """Generate n samples within the given bounds.

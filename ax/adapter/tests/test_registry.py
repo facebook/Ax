@@ -11,9 +11,9 @@ from ax.adapter.random import RandomAdapter
 from ax.adapter.registry import (
     _extract_generator_state_after_gen,
     _raise_on_callables,
-    Cont_X_trans,
     GENERATOR_KEY_TO_GENERATOR_SETUP,
     Generators,
+    Random_X_trans,
 )
 from ax.adapter.torch import TorchAdapter
 from ax.core.observation import ObservationFeatures
@@ -182,7 +182,7 @@ class ModelRegistryTest(TestCase):
                 },
                 {
                     "optimization_config": None,
-                    "transforms": Cont_X_trans,
+                    "transforms": Random_X_trans,
                     "transform_configs": None,
                     "data_loader_config": None,
                     "fit_tracking_metrics": True,

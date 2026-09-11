@@ -545,6 +545,56 @@ class TestClient(TestCase):
         # Check that GS is not saved to the DB.
         mock_save.assert_not_called()
 
+    def test_get_next_trials_with_constrained_discrete_parameter(self) -> None:
+        client = Client(random_seed=0)
+        choices = [0.01, 0.26, 0.72, 0.96]
+        client.configure_experiment(
+            parameters=[
+                RangeParameterConfig(
+                    name="p1", parameter_type="float", bounds=(0.0, 1.0)
+                ),
+                ChoiceParameterConfig(
+                    name="p2",
+                    parameter_type="float",
+                    values=choices,
+                    is_ordered=True,
+                ),
+            ],
+            parameter_constraints=["p1 <= p2"],
+        )
+        client.configure_optimization(objective="score")
+        client.configure_generation_strategy(initialize_with_center=False)
+
+        trials = client.get_next_trials(max_trials=10)
+
+        for trial in trials.values():
+            p1 = assert_is_instance(trial["p1"], float)
+            p2 = assert_is_instance(trial["p2"], float)
+            self.assertIn(p2, choices)
+            self.assertLessEqual(p1, p2)
+
+    def test_get_next_trials_with_integer_range(self) -> None:
+        client = Client(random_seed=0)
+        client.configure_experiment(
+            parameters=[
+                RangeParameterConfig(
+                    name="p1", parameter_type="float", bounds=(0.0, 2.0)
+                ),
+                RangeParameterConfig(name="p2", parameter_type="int", bounds=(0, 2)),
+            ],
+            parameter_constraints=["p1 <= p2"],
+        )
+        client.configure_optimization(objective="score")
+        client.configure_generation_strategy(initialize_with_center=False)
+
+        trials = client.get_next_trials(max_trials=10)
+
+        for trial in trials.values():
+            p1 = assert_is_instance(trial["p1"], float)
+            p2 = assert_is_instance(trial["p2"], int)
+            self.assertIn(p2, [0, 1, 2])
+            self.assertLessEqual(p1, p2)
+
     def test_get_next_trials_with_db(self) -> None:
         init_test_engine_and_session_factory(force_init=True)
         client = Client(storage_config=StorageConfig())
