@@ -66,8 +66,7 @@ def get_KxX_dx(gp: Model, x: Tensor, kernel_type: str = "rbf") -> Tensor:
         lengthscale = covar_module.lengthscale.detach()
         sigma_f = 1.0
     if kernel_type == "rbf":
-        # pyre-fixme[16]: Tensor, linear opearator mix is tricky to fix.
-        K_xX = covar_module(x, X).evaluate()
+        K_xX = covar_module(x, X).to_dense()
         part1 = -torch.eye(D, device=x.device, dtype=x.dtype) / lengthscale**2
         part2 = x.view(n, 1, D) - X.view(1, N, D)
         return part1 @ (part2 * K_xX.view(n, N, 1)).transpose(1, 2)
