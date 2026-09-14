@@ -42,20 +42,17 @@ class KernelsTest(TestCase):
             outputscale_prior=GammaPrior(2.0, 0.15),
             batch_shape=torch.Size([2]),
         )
-        self.assertTrue(isinstance(covar.base_kernel, MaternKernel))
-        self.assertTrue(isinstance(covar.base_kernel, MaternKernel))
-        self.assertEqual(covar.base_kernel.ard_num_dims, 10)
-        # pyre-fixme[16]: Item `Tensor` of `Tensor | Module` has no attribute `rate`.
-        self.assertEqual(covar.base_kernel.lengthscale_prior.rate, 3.0)
-        # pyre-fixme[16]: Item `Tensor` of `Tensor | Module` has no attribute
-        #  `concentration`.
-        self.assertEqual(covar.base_kernel.lengthscale_prior.concentration, 6.0)
-        # pyre-fixme[16]: Item `Tensor` of `Tensor | Module` has no attribute `rate`.
-        self.assertEqual(covar.outputscale_prior.rate, 0.15)
-        # pyre-fixme[16]: Item `Tensor` of `Tensor | Module` has no attribute
-        #  `concentration`.
-        self.assertEqual(covar.outputscale_prior.concentration, 2.0)
-        self.assertEqual(covar.base_kernel.batch_shape[0], 2)
+        base_kernel = assert_is_instance(covar.base_kernel, MaternKernel)
+        self.assertEqual(base_kernel.ard_num_dims, 10)
+        lengthscale_prior = assert_is_instance(
+            base_kernel.lengthscale_prior, GammaPrior
+        )
+        self.assertEqual(lengthscale_prior.rate, 3.0)
+        self.assertEqual(lengthscale_prior.concentration, 6.0)
+        outputscale_prior = assert_is_instance(covar.outputscale_prior, GammaPrior)
+        self.assertEqual(outputscale_prior.rate, 0.15)
+        self.assertEqual(outputscale_prior.concentration, 2.0)
+        self.assertEqual(base_kernel.batch_shape[0], 2)
         self.assertIsNone(covar.active_dims)
 
     def test_scalematern_kernel_active_dims(self) -> None:
