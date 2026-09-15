@@ -183,6 +183,197 @@ class RangeParameterTest(TestCase):
         param_clone._lower = 2.0
         self.assertNotEqual(self.param1.lower, param_clone.lower)
 
+    def test_step_size_snapping(self) -> None:
+        # ``cast()`` snaps to the nearest grid point anchored at ``lower``. Each
+        # case is (param, [(input, expected), ...]). Inputs avoid exact
+        # half-points (e.g. 0.15) where round-half-to-even makes the result
+        # ambiguous.
+        float_param = RangeParameter(
+            name="x",
+            parameter_type=ParameterType.FLOAT,
+            lower=0.0,
+            upper=1.0,
+            step_size=0.1,
+        )
+        # ``lower`` need not be zero; the grid {0.005, 0.015, 0.025} is anchored
+        # at the (non-zero) lower bound.
+        offset_param = RangeParameter(
+            name="x",
+            parameter_type=ParameterType.FLOAT,
+            lower=0.005,
+            upper=0.025,
+            step_size=0.01,
+        )
+        int_param = RangeParameter(
+            name="y",
+            parameter_type=ParameterType.INT,
+            lower=0,
+            upper=10,
+            step_size=2,
+        )
+        cases = [
+            (
+                float_param,
+                [
+                    (0.12, 0.1),
+                    (0.16, 0.2),
+                    (0.13, 0.1),
+                    # Bounds are on the grid (1 / 0.1 = 10) and reachable.
+                    (0.0, 0.0),
+                    (1.0, 1.0),
+                    # 0.98 snaps to the upper bound 1.0.
+                    (0.98, 1.0),
+                    # Out-of-bounds inputs (e.g. historical observations
+                    # recorded outside the current bounds) snap to the nearest
+                    # grid point WITHOUT being clamped into [lower, upper]. This
+                    # mirrors the non-step_size cast(), which leaves
+                    # out-of-bounds values in place rather than mutating them.
+                    (1.5, 1.5),
+                    (1.52, 1.5),
+                    (-0.3, -0.3),
+                ],
+            ),
+            (offset_param, [(0.006, 0.005), (0.013, 0.015), (0.025, 0.025)]),
+            (
+                int_param,
+                [
+                    # 3 -> (3-0)/2 = 1.5 -> round-half-to-even -> 2 -> 4.
+                    (3, 4),
+                    # 7 -> (7-0)/2 = 3.5 -> round-half-to-even -> 4 -> 8.
+                    (7, 8),
+                    (0, 0),
+                    (10, 10),
+                    # Out-of-bounds INT inputs are likewise not clamped:
+                    # 15 -> (15-0)/2 = 7.5 -> round-half-to-even -> 8 -> 16,
+                    # which exceeds upper=10 and is kept as-is.
+                    (15, 16),
+                ],
+            ),
+        ]
+        for param, input_expected in cases:
+            for value, expected in input_expected:
+                with self.subTest(param=param.name, value=value):
+                    snapped = none_throws(param.cast(value))
+                    self.assertAlmostEqual(snapped, expected)
+                    if param.parameter_type is ParameterType.INT:
+                        self.assertIsInstance(snapped, int)
+
+    def test_step_size_validation(self) -> None:
+        # All special-value / off-grid rejections at construction.
+        # Non-positive step_size.
+        with self.assertRaisesRegex(UserInputError, "must be strictly positive"):
+            RangeParameter("x", ParameterType.FLOAT, 0.0, 1.0, step_size=0.0)
+        with self.assertRaisesRegex(UserInputError, "must be strictly positive"):
+            RangeParameter("x", ParameterType.FLOAT, 0.0, 1.0, step_size=-0.1)
+        # Non-integer step_size for an INT parameter.
+        with self.assertRaisesRegex(UserInputError, "must be integer-valued"):
+            RangeParameter("y", ParameterType.INT, 0, 10, step_size=2.5)
+        # Off-grid bounds: (upper - lower) is not an integer multiple of
+        # step_size, so ``upper`` is off the grid anchored at ``lower``. FLOAT
+        # grid {0, 0.3, 0.6, 0.9} misses upper=1.0; INT grid {0, 3, 6, 9} misses
+        # upper=10.
+        with self.assertRaisesRegex(UserInputError, "must evenly divide the range"):
+            RangeParameter("x", ParameterType.FLOAT, 0.0, 1.0, step_size=0.3)
+        with self.assertRaisesRegex(UserInputError, "must evenly divide the range"):
+            RangeParameter("y", ParameterType.INT, 0, 10, step_size=3)
+        # Cannot set both digits and step_size.
+        with self.assertRaisesRegex(UserInputError, "Cannot set both"):
+            RangeParameter("x", ParameterType.FLOAT, 0.0, 1.0, digits=2, step_size=0.1)
+
+    def test_set_step_size(self) -> None:
+        param = RangeParameter(
+            name="x",
+            parameter_type=ParameterType.FLOAT,
+            lower=0.0,
+            upper=1.0,
+        )
+        self.assertIsNone(param.step_size)
+        returned = param.set_step_size(0.25)
+        self.assertIs(returned, param)
+        self.assertEqual(param.step_size, 0.25)
+        self.assertAlmostEqual(none_throws(param.cast(0.3)), 0.25)
+        # Clearing step_size disables snapping.
+        param.set_step_size(None)
+        self.assertIsNone(param.step_size)
+        self.assertAlmostEqual(none_throws(param.cast(0.3)), 0.3)
+        # ``set_step_size`` rejects a step that does not divide the range.
+        with self.assertRaisesRegex(UserInputError, "must evenly divide the range"):
+            param.set_step_size(0.3)
+        # The failed call leaves the parameter unchanged (no snapping).
+        self.assertIsNone(param.step_size)
+
+    def test_update_range_respects_step_size_grid(self) -> None:
+        param = RangeParameter(
+            name="x",
+            parameter_type=ParameterType.FLOAT,
+            lower=0.0,
+            upper=1.0,
+            step_size=0.1,
+        )
+        # New bounds on the grid are accepted and not snapped away.
+        param.update_range(lower=0.0, upper=0.5)
+        self.assertAlmostEqual(float(param.upper), 0.5)
+        # New bounds off the grid are rejected.
+        with self.assertRaisesRegex(UserInputError, "must evenly divide the range"):
+            param.update_range(upper=0.55)
+
+    def test_step_size_repr_and_clone(self) -> None:
+        param = RangeParameter(
+            name="x",
+            parameter_type=ParameterType.FLOAT,
+            lower=0.0,
+            upper=1.0,
+            step_size=0.1,
+        )
+        self.assertIn("step_size=0.1", str(param))
+        clone = param.clone()
+        self.assertEqual(clone.step_size, 0.1)
+        self.assertEqual(param, clone)
+        # Parameters differing only in step_size are not equal.
+        other = RangeParameter(
+            name="x",
+            parameter_type=ParameterType.FLOAT,
+            lower=0.0,
+            upper=1.0,
+            step_size=0.2,
+        )
+        self.assertNotEqual(param, other)
+
+    def test_step_size_cardinality(self) -> None:
+        # FLOAT with a grid has finite cardinality (number of grid points),
+        # not inf.
+        float_param = RangeParameter(
+            name="x",
+            parameter_type=ParameterType.FLOAT,
+            lower=0.0,
+            upper=1.0,
+            step_size=0.1,
+        )
+        # Grid {0.0, 0.1, ..., 1.0} has 11 points.
+        self.assertEqual(float_param.cardinality(), 11)
+        # INT with a grid counts grid points, not every integer in [lower,
+        # upper].
+        int_param = RangeParameter(
+            name="y",
+            parameter_type=ParameterType.INT,
+            lower=0,
+            upper=10,
+            step_size=2,
+        )
+        # Grid {0, 2, 4, 6, 8, 10} has 6 points (not 11).
+        self.assertEqual(int_param.cardinality(), 6)
+        # Without step_size, behavior is unchanged: FLOAT is inf, INT counts
+        # every integer.
+        self.assertEqual(
+            RangeParameter(
+                name="z",
+                parameter_type=ParameterType.INT,
+                lower=0,
+                upper=10,
+            ).cardinality(),
+            11,
+        )
+
     def test_get_parameter_type(self) -> None:
         self.assertEqual(_get_parameter_type(float), ParameterType.FLOAT)
         self.assertEqual(_get_parameter_type(int), ParameterType.INT)
