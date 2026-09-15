@@ -20,6 +20,8 @@ class GraphvizAnalysisCard(AnalysisCard):
         Return the a HTML div with the Graphviz figure as an SVG.
         """
         svg = self.get_digraph().pipe(format="svg")
+        if isinstance(svg, bytes):
+            svg = svg.decode("utf-8")
 
         return f"<div>{svg}</div>"
 
