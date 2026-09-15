@@ -436,6 +436,17 @@ def get_branin_experiment(
     return exp
 
 
+def get_experiment_with_concurrency_limit() -> Experiment:
+    """Return a Branin experiment with AutomationSettings on its design.
+
+    NOTE: ExperimentDesign is still under development; this stub may change
+    as the design is finalized.
+    """
+    experiment = get_branin_experiment()
+    experiment.set_concurrency_limit(concurrency_limit=42)
+    return experiment
+
+
 def get_branin_experiment_with_status_quo_trials(
     num_sobol_trials: int = 5,
     multi_objective: bool = False,
