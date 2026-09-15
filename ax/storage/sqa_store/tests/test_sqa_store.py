@@ -1889,6 +1889,41 @@ class SQAStoreTest(TestCase):
                 )
             )
 
+    def test_step_size_round_trip(self) -> None:
+        parameter = RangeParameter(
+            name="foo",
+            parameter_type=ParameterType.FLOAT,
+            lower=0.0,
+            upper=1.0,
+            step_size=0.1,
+        )
+        sqa_parameter = self.encoder.parameter_to_sqa(parameter)
+        self.assertEqual(sqa_parameter.step_size, 0.1)
+        self.assertIsNone(sqa_parameter.digits)
+        decoded = self.decoder.parameter_from_sqa(sqa_parameter)
+        self.assertEqual(decoded, parameter)
+        self.assertEqual(assert_is_instance(decoded, RangeParameter).step_size, 0.1)
+
+    def test_legacy_digits_row_decodes_via_fallback(self) -> None:
+        # A legacy row carries ``digits`` but no ``step_size``. The decoder
+        # falls back to ``digits``, which the constructor converts internally.
+        parameter = RangeParameter(
+            name="foo",
+            parameter_type=ParameterType.FLOAT,
+            lower=0.0,
+            upper=1.0,
+            digits=2,
+        )
+        sqa_parameter = self.encoder.parameter_to_sqa(parameter)
+        # Simulate an old row: clear step_size, keep digits populated.
+        sqa_parameter.step_size = None
+        sqa_parameter.digits = 2
+        decoded = assert_is_instance(
+            self.decoder.parameter_from_sqa(sqa_parameter), RangeParameter
+        )
+        # The decoded parameter round-trips its rounding behavior.
+        self.assertEqual(decoded.cast(0.123), parameter.cast(0.123))
+
     def test_bypass_cardinality_check(self) -> None:
         choice_parameter = ChoiceParameter(
             name="test_choice",
