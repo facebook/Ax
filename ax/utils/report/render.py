@@ -10,7 +10,7 @@ import os
 import pkgutil
 
 from ax.plot.render import _js_requires, _load_css_resource as _load_plot_css_resource
-from jinja2 import Environment, FunctionLoader
+from jinja2 import Environment, FunctionLoader, select_autoescape
 
 REPORT_MODULE_NAME = "ax.utils.report"
 
@@ -142,4 +142,7 @@ def _load_html_template(name: str) -> str:
 
 
 def _get_jinja_environment() -> Environment:
-    return Environment(loader=FunctionLoader(_load_html_template))
+    return Environment(
+        loader=FunctionLoader(_load_html_template),
+        autoescape=select_autoescape(["html", "xml"]),
+    )
