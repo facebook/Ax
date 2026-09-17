@@ -186,6 +186,18 @@ class UtilsTest(TestCase):
         )
         dc2_ff = mk_discrete_choices(ssd2, fixed_features={1: 0})
         self.assertEqual(dc2_ff, {1: [0], 2: [3, 4]})
+        # Regression for facebook/Ax#5254: fixing a continuous feature whose
+        # index is lower than existing discrete keys must not append it out of
+        # order (dict ** merge preserves insertion order).
+        ssd3 = SearchSpaceDigest(
+            feature_names=["a", "b", "c"],
+            bounds=[(0, 1), (0, 2), (3, 4)],
+            ordinal_features=[1, 2],
+            discrete_choices={1: [0, 1, 2], 2: [3, 4]},
+        )
+        dc3_ff = mk_discrete_choices(ssd3, fixed_features={0: 0.5})
+        self.assertEqual(dc3_ff, {0: [0.5], 1: [0, 1, 2], 2: [3, 4]})
+        self.assertEqual(list(dc3_ff.keys()), [0, 1, 2])
 
     def test_EnumerateDiscreteCombinations(self) -> None:
         dc1 = {1: [0, 1, 2]}

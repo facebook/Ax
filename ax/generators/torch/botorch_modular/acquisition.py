@@ -753,9 +753,13 @@ class Acquisition(Base):
 
             # Special handling for search spaces with a large number of choices
             if optimizer == "optimize_acqf_discrete_local_search":
+                # Index by feature position; mk_discrete_choices may append
+                # fixed-feature keys out of insertion order via dict merge.
                 discrete_choices = [
-                    torch.tensor(c, device=self.device, dtype=self.dtype)
-                    for c in discrete_choices.values()
+                    torch.tensor(
+                        discrete_choices[i], device=self.device, dtype=self.dtype
+                    )
+                    for i in range(len(discrete_choices))
                 ]
                 candidates, acqf_values = optimize_acqf_discrete_local_search(
                     acq_function=self.acqf,

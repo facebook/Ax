@@ -71,7 +71,10 @@ from botorch.optim.optimize import (
     optimize_acqf_discrete,
     optimize_acqf_mixed,
 )
-from botorch.optim.optimize_mixed import optimize_acqf_mixed_alternating
+from botorch.optim.optimize_mixed import (
+    MAX_CHOICES_ENUMERATE,
+    optimize_acqf_mixed_alternating,
+)
 from botorch.utils.constraints import get_outcome_constraint_transforms
 from botorch.utils.datasets import SupervisedDataset
 from botorch.utils.testing import MockPosterior, skip_if_import_error
@@ -882,6 +885,72 @@ class AcquisitionTest(TestCase):
                     for x in kwargs["X_avoid"]
                 )
             )
+
+    def test_optimize_acqf_discrete_local_search_fixed_feature_order(
+        self,
+    ) -> None:
+        # Regression for facebook/Ax#5254: when a continuous feature (index 0)
+        # is fixed and higher indices are discrete, local search must receive
+        # discrete_choices ordered by feature index, not dict insertion order.
+        discrete_choices = {
+            1: np.linspace(75.0, 150.0, 76).tolist(),
+            2: np.linspace(-150.0, -75.0, 76).tolist(),
+            3: np.linspace(0.0, 0.1, 11).tolist(),
+        }
+        # Product of cardinalities (after fixing index 0) exceeds
+        # MAX_CHOICES_ENUMERATE so local search is selected.
+        self.assertGreater(
+            np.prod([len(c) for c in discrete_choices.values()]),
+            MAX_CHOICES_ENUMERATE,
+        )
+        ssd = SearchSpaceDigest(
+            feature_names=["p1", "p2", "p3", "p4"],
+            bounds=[(-1.0, 0.0), (75.0, 150.0), (-150.0, -75.0), (0.0, 0.1)],
+            ordinal_features=[1, 2, 3],
+            discrete_choices=discrete_choices,
+        )
+        fixed_features = {0: 0.0}
+        # Candidate columns must match feature order [p1, p2, p3, p4].
+        valid_candidates = torch.tensor(
+            [[0.0, 130.0, -120.0, 0.05]],
+            dtype=torch.double,
+        )
+        acquisition = self.get_acquisition_function()
+        with mock.patch(
+            f"{ACQUISITION_PATH}.optimize_acqf_discrete_local_search",
+            return_value=(valid_candidates, torch.rand(1)),
+        ) as mock_local_search:
+            acquisition.optimize(
+                n=1,
+                search_space_digest=ssd,
+                inequality_constraints=None,
+                fixed_features=fixed_features,
+                rounding_func=self.rounding_func,
+                optimizer_options=self.optimizer_options,
+            )
+            mock_local_search.assert_called_once()
+            passed_choices = mock_local_search.call_args.kwargs["discrete_choices"]
+            self.assertEqual(len(passed_choices), 4)
+            # Index 0 is the fixed continuous feature; others match discrete_choices.
+            self.assertTrue(
+                torch.equal(
+                    passed_choices[0],
+                    torch.tensor(
+                        [0.0], device=acquisition.device, dtype=acquisition.dtype
+                    ),
+                )
+            )
+            for i in (1, 2, 3):
+                self.assertTrue(
+                    torch.allclose(
+                        passed_choices[i],
+                        torch.tensor(
+                            discrete_choices[i],
+                            device=acquisition.device,
+                            dtype=acquisition.dtype,
+                        ),
+                    )
+                )
 
     def test_optimize_acqf_discrete_too_many_choices(self) -> None:
         # Check that mixed optimizer is used when there are too many choices.
