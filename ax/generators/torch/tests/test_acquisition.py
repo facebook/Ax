@@ -2683,6 +2683,9 @@ class MultiAcquisitionTest(AcquisitionTest):
     def test_optimize_acqf_discrete_local_search(self) -> None:
         pass
 
+    def test_optimize_acqf_discrete_local_search_fixed_feature_order(self) -> None:
+        pass
+
     def test_optimize_acqf_discrete_too_many_choices(self) -> None:
         pass
 
