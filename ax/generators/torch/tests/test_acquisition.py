@@ -926,6 +926,7 @@ class AcquisitionTest(TestCase):
                 inequality_constraints=None,
                 fixed_features=fixed_features,
                 rounding_func=self.rounding_func,
+                # pyrefly: ignore [bad-argument-type]
                 optimizer_options=self.optimizer_options,
             )
             mock_local_search.assert_called_once()
