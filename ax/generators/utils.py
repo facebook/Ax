@@ -653,7 +653,10 @@ def mk_discrete_choices(
             **discrete_choices,
             **{k: [v] for k, v in fixed_features.items()},
         }
-    return discrete_choices
+    # Callers that iterate .values() positionally (e.g. local search)
+    # expect ascending feature-index order; dict merge can append keys
+    # out of order when continuous params are fixed.
+    return dict(sorted(discrete_choices.items()))
 
 
 def enumerate_discrete_combinations(
