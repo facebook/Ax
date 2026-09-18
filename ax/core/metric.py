@@ -88,10 +88,8 @@ class Metric(SortableBase, SerializationMixin):
         properties: Properties specific to a particular metric.
     """
 
-    # The set of exception types stored in a ``MetchFetchE.exception`` that are
-    # recoverable ``orchestrator._fetch_and_process_trials_data_results()``.
-    # Exception may be a subclass of any of these types.  If you want your metric
-    # to never fail the trial, set this to ``{Exception}`` in your metric subclass.
+    # Legacy configuration retained for compatibility with existing Metric subclasses.
+    # Metric fetching errors no longer change trial status in Orchestrator.
     recoverable_exceptions: set[type[Exception]] = set()
     has_map_data: bool = False
 
@@ -166,9 +164,7 @@ class Metric(SortableBase, SerializationMixin):
 
     @classmethod
     def is_recoverable_fetch_e(cls, metric_fetch_e: MetricFetchE) -> bool:
-        """Checks whether the given MetricFetchE is recoverable for this metric class
-        in ``orchestrator._fetch_and_process_trials_data_results``.
-        """
+        """Check whether the given MetricFetchE is recoverable for this metric."""
         if metric_fetch_e.exception is None:
             return False
         return any(
