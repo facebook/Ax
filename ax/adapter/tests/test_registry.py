@@ -11,13 +11,18 @@ from ax.adapter.random import RandomAdapter
 from ax.adapter.registry import (
     _extract_generator_state_after_gen,
     _raise_on_callables,
-    Cont_X_trans,
     GENERATOR_KEY_TO_GENERATOR_SETUP,
     Generators,
+    Random_X_trans,
+    Random_X_trans_config,
 )
 from ax.adapter.torch import TorchAdapter
+from ax.adapter.transforms.int_to_float import IntToFloat
+from ax.core.experiment import Experiment
 from ax.core.observation import ObservationFeatures
 from ax.core.optimization_config import MultiObjectiveOptimizationConfig
+from ax.core.parameter import ParameterType, RangeParameter
+from ax.core.search_space import SearchSpace
 from ax.generators.discrete.eb_thompson import EmpiricalBayesThompsonSampler
 from ax.generators.discrete.thompson import ThompsonSampler
 from ax.generators.random.sobol import SobolGenerator
@@ -166,6 +171,31 @@ class ModelRegistryTest(TestCase):
         uniform_run = uniform.gen(n=5)
         self.assertEqual(len(uniform_run.arms), 5)
 
+    def test_sobol_relaxes_large_integer_ranges(self) -> None:
+        experiment = Experiment(
+            search_space=SearchSpace(
+                parameters=[
+                    RangeParameter(
+                        name="integer",
+                        parameter_type=ParameterType.INT,
+                        lower=0,
+                        upper=1_000_000_000,
+                    )
+                ]
+            )
+        )
+
+        sobol = assert_is_instance(
+            Generators.SOBOL(experiment=experiment, seed=0), RandomAdapter
+        )
+        int_to_float = assert_is_instance(sobol.transforms["IntToFloat"], IntToFloat)
+        generator_run = sobol.gen(n=1)
+
+        self.assertEqual(int_to_float.transform_parameters, {"integer"})
+        value = assert_is_instance(generator_run.arms[0].parameters["integer"], int)
+        self.assertGreaterEqual(value, 0)
+        self.assertLessEqual(value, 1_000_000_000)
+
     def test_view_defaults(self) -> None:
         """Checks that kwargs are correctly constructed from default kwargs +
         standard kwargs."""
@@ -182,8 +212,8 @@ class ModelRegistryTest(TestCase):
                 },
                 {
                     "optimization_config": None,
-                    "transforms": Cont_X_trans,
-                    "transform_configs": None,
+                    "transforms": Random_X_trans,
+                    "transform_configs": Random_X_trans_config,
                     "data_loader_config": None,
                     "fit_tracking_metrics": True,
                     "fit_on_init": True,
