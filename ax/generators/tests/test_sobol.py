@@ -113,6 +113,65 @@ class SobolGeneratorTest(TestCase):
         self.assertTrue(np.all(generated_points >= np_bounds[:, 0]))
         self.assertTrue(np.all(generated_points <= np_bounds[:, 1]))
 
+    def test_SobolGeneratorWithDiscreteChoices(self) -> None:
+        choices = [0.01, 0.26, 0.72, 0.96]
+        ssd = SearchSpaceDigest(
+            feature_names=["continuous", "discrete"],
+            bounds=[(0.0, 1.0), (min(choices), max(choices))],
+            discrete_choices={1: choices},
+        )
+        generated_points, _ = SobolGenerator(seed=0).gen(
+            n=10,
+            search_space_digest=ssd,
+            linear_constraints=(np.array([[1.0, -1.0]]), np.array([[0.0]])),
+            rounding_func=lambda x: x,
+        )
+
+        self.assertTrue(set(generated_points[:, 1]).issubset(choices))
+        self.assertTrue(np.all(generated_points[:, 0] <= generated_points[:, 1]))
+
+    def test_SobolGeneratorWithDiscreteEqualityConstraint(self) -> None:
+        choices = [1.0, 10.0, 100.0]
+        ssd = SearchSpaceDigest(
+            feature_names=["discrete"],
+            bounds=[(min(choices), max(choices))],
+            discrete_choices={0: choices},
+        )
+        generated_points, _ = SobolGenerator(seed=0).gen(
+            n=1,
+            search_space_digest=ssd,
+            equality_constraints=(np.array([[1.0]]), np.array([[10.0]])),
+            rounding_func=lambda x: x,
+        )
+
+        self.assertEqual(generated_points[0, 0], 10.0)
+
+    def test_SobolGeneratorWithMixedEqualityConstraint(self) -> None:
+        choices = [0.0, 1.0]
+        ssd = SearchSpaceDigest(
+            feature_names=["continuous", "discrete"],
+            bounds=[(0.0, 1.0), (min(choices), max(choices))],
+            discrete_choices={1: choices},
+        )
+        equality_constraints = (
+            np.array([[1.0, 1.0]]),
+            np.array([[1.0]]),
+        )
+
+        generated_points, _ = SobolGenerator(seed=0).gen(
+            n=2,
+            search_space_digest=ssd,
+            equality_constraints=equality_constraints,
+            rounding_func=lambda x: x,
+        )
+
+        self.assertTrue(set(generated_points[:, 1]).issubset(choices))
+        np.testing.assert_allclose(
+            generated_points @ equality_constraints[0].T,
+            np.ones((2, 1)),
+            atol=1e-8,
+        )
+
     def test_SobolGeneratorOnline(self) -> None:
         # Verify that the generator will return the expected arms if called
         # one at a time.

@@ -134,6 +134,25 @@ class TestClient(TestCase):
                 owner="miles",
             )
 
+    def test_configure_experiment_with_equality_constraint(self) -> None:
+        client = Client()
+        client.configure_experiment(
+            parameters=[
+                RangeParameterConfig(
+                    name="x1", parameter_type="float", bounds=(0.0, 1.0)
+                ),
+                RangeParameterConfig(
+                    name="x2", parameter_type="float", bounds=(0.0, 1.0)
+                ),
+            ],
+            parameter_constraints=["x1 + x2 == 1"],
+        )
+
+        self.assertEqual(
+            client._experiment.search_space.parameter_constraints,
+            [ParameterConstraint(equality="x1 + x2 == 1")],
+        )
+
     def test_configure_optimization(self) -> None:
         client = Client()
 
@@ -544,6 +563,139 @@ class TestClient(TestCase):
 
         # Check that GS is not saved to the DB.
         mock_save.assert_not_called()
+
+    def test_get_next_trials_with_constrained_discrete_parameter(self) -> None:
+        client = Client(random_seed=0)
+        choices = [0.01, 0.26, 0.72, 0.96]
+        client.configure_experiment(
+            parameters=[
+                RangeParameterConfig(
+                    name="p1", parameter_type="float", bounds=(0.0, 1.0)
+                ),
+                ChoiceParameterConfig(
+                    name="p2",
+                    parameter_type="float",
+                    values=choices,
+                    is_ordered=True,
+                ),
+            ],
+            parameter_constraints=["p1 <= p2"],
+        )
+        client.configure_optimization(objective="score")
+        client.configure_generation_strategy(
+            method="random_search", initialize_with_center=False
+        )
+
+        trials = client.get_next_trials(max_trials=10)
+
+        self.assertEqual(len(trials), 10)
+        for trial_index, trial in trials.items():
+            p1 = assert_is_instance(trial["p1"], float)
+            p2 = assert_is_instance(trial["p2"], float)
+            self.assertIn(p2, choices)
+            self.assertLessEqual(p1, p2)
+            self.assertEqual(
+                client._experiment.trials[trial_index].generator_runs[0]._generator_key,
+                "Sobol",
+            )
+
+        fixed_trial = client.get_next_trials(
+            max_trials=1, fixed_parameters={"p2": 0.72}
+        )
+        self.assertEqual(len(fixed_trial), 1)
+        self.assertEqual(next(iter(fixed_trial.values()))["p2"], 0.72)
+
+        restored_client = Client._from_json_snapshot(
+            snapshot=client._to_json_snapshot()
+        )
+        restored_trials = restored_client.get_next_trials(max_trials=2)
+        self.assertEqual(len(restored_trials), 2)
+        for trial in restored_trials.values():
+            p1 = assert_is_instance(trial["p1"], float)
+            p2 = assert_is_instance(trial["p2"], float)
+            self.assertIn(p2, choices)
+            self.assertLessEqual(p1, p2)
+
+    def test_get_next_trials_with_integer_range(self) -> None:
+        client = Client(random_seed=0)
+        client.configure_experiment(
+            parameters=[
+                RangeParameterConfig(
+                    name="p1", parameter_type="float", bounds=(0.0, 2.0)
+                ),
+                RangeParameterConfig(name="p2", parameter_type="int", bounds=(0, 2)),
+            ],
+            parameter_constraints=["p1 <= p2"],
+        )
+        client.configure_optimization(objective="score")
+        client.configure_generation_strategy(
+            method="random_search", initialize_with_center=False
+        )
+
+        trials = client.get_next_trials(max_trials=10)
+
+        self.assertEqual(len(trials), 10)
+        for trial_index, trial in trials.items():
+            p1 = assert_is_instance(trial["p1"], float)
+            p2 = assert_is_instance(trial["p2"], int)
+            self.assertIn(p2, [0, 1, 2])
+            self.assertLessEqual(p1, p2)
+            self.assertEqual(
+                client._experiment.trials[trial_index].generator_runs[0]._generator_key,
+                "Sobol",
+            )
+
+    def test_get_next_trials_with_mixed_equality_constraint(self) -> None:
+        client = Client(random_seed=0)
+        client.configure_experiment(
+            parameters=[
+                RangeParameterConfig(
+                    name="continuous", parameter_type="float", bounds=(0.0, 1.0)
+                ),
+                ChoiceParameterConfig(
+                    name="choice",
+                    parameter_type="float",
+                    values=[0.0, 1.0],
+                    is_ordered=True,
+                ),
+            ],
+            parameter_constraints=["continuous + choice == 1"],
+        )
+        client.configure_optimization(objective="score")
+        client.configure_generation_strategy(
+            method="random_search", initialize_with_center=False
+        )
+
+        trials = client.get_next_trials(max_trials=2)
+
+        self.assertEqual(len(trials), 2)
+        for trial in trials.values():
+            continuous = assert_is_instance(trial["continuous"], float)
+            choice = assert_is_instance(trial["choice"], float)
+            self.assertIn(choice, [0.0, 1.0])
+            self.assertAlmostEqual(continuous + choice, 1.0)
+
+    def test_get_next_trials_with_large_integer_range(self) -> None:
+        client = Client(random_seed=0)
+        client.configure_experiment(
+            parameters=[
+                RangeParameterConfig(
+                    name="integer", parameter_type="int", bounds=(0, 1_000_000_000)
+                )
+            ]
+        )
+        client.configure_optimization(objective="score")
+        client.configure_generation_strategy(
+            method="random_search", initialize_with_center=False
+        )
+
+        trials = client.get_next_trials(max_trials=3)
+
+        self.assertEqual(len(trials), 3)
+        for trial in trials.values():
+            value = assert_is_instance(trial["integer"], int)
+            self.assertGreaterEqual(value, 0)
+            self.assertLessEqual(value, 1_000_000_000)
 
     def test_get_next_trials_with_db(self) -> None:
         init_test_engine_and_session_factory(force_init=True)

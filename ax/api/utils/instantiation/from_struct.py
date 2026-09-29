@@ -23,8 +23,10 @@ def experiment_from_struct(struct: ExperimentStruct) -> Experiment:
     ]
 
     constraints = [
-        ParameterConstraint(inequality=inequality)
-        for inequality in struct.parameter_constraints
+        ParameterConstraint(equality=constraint)
+        if "==" in constraint
+        else ParameterConstraint(inequality=constraint)
+        for constraint in struct.parameter_constraints
     ]
 
     # Ensure that all ParameterConstraints are valid and acting on existing parameters
