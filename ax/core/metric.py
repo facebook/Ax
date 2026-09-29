@@ -88,9 +88,6 @@ class Metric(SortableBase, SerializationMixin):
         properties: Properties specific to a particular metric.
     """
 
-    # Legacy configuration retained for compatibility with existing Metric subclasses.
-    # Metric fetching errors no longer change trial status in Orchestrator.
-    recoverable_exceptions: set[type[Exception]] = set()
     has_map_data: bool = False
 
     def __init__(
@@ -161,15 +158,6 @@ class Metric(SortableBase, SerializationMixin):
         anywhere else it is checked.
         """
         return timedelta(0)
-
-    @classmethod
-    def is_recoverable_fetch_e(cls, metric_fetch_e: MetricFetchE) -> bool:
-        """Check whether the given MetricFetchE is recoverable for this metric."""
-        if metric_fetch_e.exception is None:
-            return False
-        return any(
-            isinstance(metric_fetch_e.exception, e) for e in cls.recoverable_exceptions
-        )
 
     # NOTE: This is rarely overridden –– oonly if you want to fetch data in groups
     # consisting of multiple different metric classes, for data to be fetched together.
