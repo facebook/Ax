@@ -16,10 +16,11 @@ from ax.adapter.factory import get_sobol
 from ax.adapter.random import RandomAdapter
 from ax.adapter.registry import (
     _extract_generator_state_after_gen,
-    Cont_X_trans,
     GENERATOR_KEY_TO_GENERATOR_SETUP,
     Generators,
     MBM_MTGP_trans,
+    Random_X_trans,
+    Random_X_trans_config,
 )
 from ax.adapter.torch import TorchAdapter
 from ax.core.arm import Arm
@@ -679,8 +680,8 @@ class TestGenerationStrategy(TestCase):
                     g._adapter_kwargs,
                     {
                         "optimization_config": None,
-                        "transform_configs": None,
-                        "transforms": Cont_X_trans,
+                        "transform_configs": Random_X_trans_config,
+                        "transforms": Random_X_trans,
                         "data_loader_config": None,
                         "fit_tracking_metrics": True,
                         "fit_on_init": True,
@@ -1635,8 +1636,8 @@ class TestGenerationStrategy(TestCase):
                     g._adapter_kwargs,
                     {
                         "optimization_config": None,
-                        "transform_configs": None,
-                        "transforms": Cont_X_trans,
+                        "transform_configs": Random_X_trans_config,
+                        "transforms": Random_X_trans,
                         "data_loader_config": None,
                         "fit_tracking_metrics": True,
                         "fit_on_init": True,
