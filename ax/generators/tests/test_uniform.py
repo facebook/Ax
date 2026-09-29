@@ -182,3 +182,20 @@ class UniformGeneratorTest(TestCase):
         self.assertTrue(np.all(generated_points >= np_bounds[:, 0]))
         self.assertTrue(np.all(generated_points <= np_bounds[:, 1]))
         self.assertTrue(np.all(weights == 1.0))
+
+    def test_with_discrete_choices(self) -> None:
+        choices = [1.0, 10.0, 100.0]
+        ssd = SearchSpaceDigest(
+            feature_names=["discrete"],
+            bounds=[(min(choices), max(choices))],
+            discrete_choices={0: choices},
+        )
+        generated_points, _ = UniformGenerator(seed=self.seed, deduplicate=False).gen(
+            n=100,
+            search_space_digest=ssd,
+            rounding_func=lambda x: x,
+        )
+
+        generated_choices = set(generated_points[:, 0])
+        self.assertTrue(generated_choices.issubset(choices))
+        self.assertEqual(generated_choices, set(choices))

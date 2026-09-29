@@ -78,7 +78,7 @@ class RandomGeneratorTest(TestCase):
             )
         )
         self.assertEqual(C.shape, (2, d))
-        self.assertEqual(c.shape, (2,))
+        self.assertEqual(c.shape, (2, 1))
         self.assertEqual(C[0, 1].item(), 1.0)
         self.assertEqual(C[1, 3].item(), 1.0)
         self.assertAlmostEqual(c[0].item(), 0.5)
@@ -95,7 +95,7 @@ class RandomGeneratorTest(TestCase):
             )
         )
         self.assertEqual(C.shape, (1, d))
-        self.assertEqual(c.shape, (1,))
+        self.assertEqual(c.shape, (1, 1))
         self.assertTrue(torch.equal(C, torch.tensor([[1.0, 1.0, 0.0, 0.0]])))
         self.assertAlmostEqual(c[0].item(), 2.0)
 
@@ -109,7 +109,7 @@ class RandomGeneratorTest(TestCase):
         )
         # 2 from fixed_features + 1 from equality_constraints = 3 rows.
         self.assertEqual(C.shape, (3, d))
-        self.assertEqual(c.shape, (3,))
+        self.assertEqual(c.shape, (3, 1))
         # First two rows are from fixed_features (sorted by key: 1, 3).
         self.assertEqual(C[0, 1].item(), 1.0)
         self.assertEqual(C[1, 3].item(), 1.0)
