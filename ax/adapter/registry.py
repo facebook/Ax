@@ -50,6 +50,7 @@ from ax.adapter.transforms.winsorize import Winsorize
 from ax.core.data import Data
 from ax.core.experiment import Experiment
 from ax.core.generator_run import GeneratorRun
+from ax.core.parameter import MAX_VALUES_CHOICE_PARAM
 from ax.exceptions.core import UserInputError
 from ax.generators.base import Generator
 from ax.generators.discrete.eb_ashr import EBAshr
@@ -64,6 +65,7 @@ from ax.generators.torch.botorch_modular.generator import (
 )
 from ax.generators.torch.botorch_modular.surrogate import SurrogateSpec
 from ax.generators.torch.botorch_modular.utils import ModelConfig
+from ax.generators.types import TConfig
 from ax.utils.common.kwargs import (
     consolidate_kwargs,
     get_function_argument_names,
@@ -106,6 +108,20 @@ MBM_X_trans_base: list[type[Transform]] = [
 ]
 MBM_X_trans: list[type[Transform]] = [MapKeyToFloat, *MBM_X_trans_base]
 
+# Random adapters support discrete parameters natively. Integer ranges larger than
+# the maximum supported ChoiceParameter cardinality retain the continuous relaxation
+# to avoid materializing every integer in the range.
+Random_X_trans: list[type[Transform]] = [
+    RemoveFixed,
+    ChoiceToNumericChoice,
+    OneHot,
+    IntToFloat,
+    Log,
+    Logit,
+]
+Random_X_trans_config: dict[str, TConfig] = {
+    "IntToFloat": {"min_choices": MAX_VALUES_CHOICE_PARAM + 1}
+}
 
 Discrete_X_trans: list[type[Transform]] = [IntRangeToChoice]
 
@@ -210,12 +226,14 @@ GENERATOR_KEY_TO_GENERATOR_SETUP: dict[str, GeneratorSetup] = {
     "Sobol": GeneratorSetup(
         adapter_class=RandomAdapter,
         generator_class=SobolGenerator,
-        transforms=Cont_X_trans,
+        transforms=Random_X_trans,
+        standard_adapter_kwargs={"transform_configs": Random_X_trans_config},
     ),
     "Uniform": GeneratorSetup(
         adapter_class=RandomAdapter,
         generator_class=UniformGenerator,
-        transforms=Cont_X_trans,
+        transforms=Random_X_trans,
+        standard_adapter_kwargs={"transform_configs": Random_X_trans_config},
     ),
     # In-sample generators only select existing arms -- they do not need
     # arithmetic transforms (Log, Logit, UnitX) whose forward/reverse
