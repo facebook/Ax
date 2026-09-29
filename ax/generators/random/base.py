@@ -6,7 +6,7 @@
 
 # pyre-strict
 
-from collections.abc import Callable
+from collections.abc import Callable, Mapping, Sequence
 from logging import Logger
 from typing import Any
 
@@ -26,8 +26,9 @@ from ax.generators.utils import (
 from ax.utils.common.docutils import copy_doc
 from ax.utils.common.logger import get_logger
 from ax.utils.common.typeutils import assert_is_instance_of_tuple
+from botorch.exceptions.errors import InfeasibilityError
 from botorch.utils.sampling import HitAndRunPolytopeSampler
-from pyre_extensions import assert_is_instance
+from pyre_extensions import assert_is_instance, none_throws
 from torch import Tensor
 
 
@@ -80,6 +81,7 @@ class RandomGenerator(Generator):
         self.fallback_to_sample_polytope = fallback_to_sample_polytope
         self.polytope_sampler_kwargs: dict[str, Any] = polytope_sampler_kwargs or {}
         self._bounds: npt.NDArray = np.empty((0, 2))
+        self._discrete_choices: Mapping[int, Sequence[int | float]] = {}
         self.attempted_draws: int = 0
 
     @property
@@ -137,6 +139,7 @@ class RandomGenerator(Generator):
             bounds=search_space_digest.bounds, fixed_features=fixed_features
         )
         self._bounds = np.array(search_space_digest.bounds)  # (d, 2)
+        self._discrete_choices = search_space_digest.discrete_choices
 
         max_draws = DEFAULT_MAX_RS_DRAWS
         discrete_indices = set(search_space_digest.discrete_choices.keys())
@@ -150,15 +153,26 @@ class RandomGenerator(Generator):
                 if i in continuous_indices:
                     continuous_indices.remove(i)
         has_continuous_parameters = len(continuous_indices) > 0
+        tunable_discrete_indices = sorted(
+            discrete_indices.intersection(tf_indices.tolist())
+        )
+        equality_involves_continuous = equality_constraints is not None and any(
+            np.any(equality_constraints[0][:, i] != 0) for i in continuous_indices
+        )
+        equality_involves_tunable_discrete = equality_constraints is not None and any(
+            np.any(equality_constraints[0][:, i] != 0) for i in tunable_discrete_indices
+        )
+        condition_on_discrete_choices = (
+            equality_involves_continuous and equality_involves_tunable_discrete
+        )
         if model_gen_options:
             max_draws = model_gen_options.get("max_rs_draws", DEFAULT_MAX_RS_DRAWS)
             # pyrefly: ignore [bad-argument-type]
             max_draws = int(assert_is_instance_of_tuple(max_draws, (int, float)))
         try:
-            # With equality constraints, unconstrained sampling has probability
-            # zero of producing feasible points, so skip straight to polytope
-            # sampling.
-            if equality_constraints is not None:
+            # Equalities involving tunable continuous parameters have probability
+            # zero under unconstrained sampling. Purely discrete equalities do not.
+            if equality_involves_continuous:
                 raise SearchSpaceExhausted(
                     "Equality constraints require polytope sampling."
                 )
@@ -176,6 +190,7 @@ class RandomGenerator(Generator):
                 fixed_features=fixed_features,
                 rounding_func=rounding_func,
                 existing_points=generated_points,
+                equality_constraints=equality_constraints,
             )
         except SearchSpaceExhausted as e:
             if has_continuous_parameters or self.fallback_to_sample_polytope:
@@ -201,22 +216,24 @@ class RandomGenerator(Generator):
                     interior_point = torch.from_numpy(
                         generated_points[-1].reshape((-1, 1))
                     ).double()
-                kwargs = {"n_burnin": 100, "n_thinning": 20}
-                kwargs.update(self.polytope_sampler_kwargs)
-                polytope_sampler: HitAndRunPolytopeSampler = HitAndRunPolytopeSampler(
-                    inequality_constraints=self._convert_inequality_constraints(
-                        linear_constraints,
-                    ),
-                    equality_constraints=self._combine_equality_constraints(
-                        d=len(search_space_digest.bounds),
-                        fixed_features=fixed_features,
+                polytope_sampler = None
+                if not condition_on_discrete_choices:
+                    polytope_sampler = self._get_polytope_sampler(
+                        search_space_digest=search_space_digest,
+                        linear_constraints=linear_constraints,
                         equality_constraints=equality_constraints,
-                    ),
-                    bounds=self._convert_bounds(bounds=search_space_digest.bounds),
-                    interior_point=interior_point,
-                    seed=self.seed + num_generated,
-                    **kwargs,
+                        fixed_features=fixed_features,
+                        interior_point=interior_point,
+                        seed=self.seed + num_generated,
+                    )
+
+                conditional_samplers: dict[
+                    tuple[tuple[int, float], ...], HitAndRunPolytopeSampler
+                ] = {}
+                infeasible_discrete_assignments: set[tuple[tuple[int, float], ...]] = (
+                    set()
                 )
+                num_discrete_draws = 0
 
                 def gen_polytope_sampler(
                     n: int,
@@ -226,7 +243,52 @@ class RandomGenerator(Generator):
                 ) -> npt.NDArray:
                     # Note: the fixed features are applied as equality constraints
                     # in the polytope sampler, so we don't need to apply them here.
-                    return polytope_sampler.draw(n=n).numpy()
+                    nonlocal num_discrete_draws
+                    if condition_on_discrete_choices:
+                        while num_discrete_draws < max_draws:
+                            sampled_point = self._gen_unconstrained(
+                                n=1,
+                                d=d,
+                                tunable_feature_indices=tunable_feature_indices,
+                                fixed_features=fixed_features,
+                            )[0]
+                            num_discrete_draws += 1
+                            assignment = tuple(
+                                (i, float(sampled_point[i]))
+                                for i in tunable_discrete_indices
+                            )
+                            if assignment in infeasible_discrete_assignments:
+                                continue
+                            conditional_sampler = conditional_samplers.get(assignment)
+                            if conditional_sampler is None:
+                                conditioned_fixed_features = {
+                                    **(fixed_features or {}),
+                                    **dict(assignment),
+                                }
+                                try:
+                                    conditional_sampler = self._get_polytope_sampler(
+                                        search_space_digest=search_space_digest,
+                                        linear_constraints=linear_constraints,
+                                        equality_constraints=equality_constraints,
+                                        fixed_features=conditioned_fixed_features,
+                                        interior_point=None,
+                                        seed=self.seed
+                                        + num_generated
+                                        + num_discrete_draws,
+                                    )
+                                except InfeasibilityError:
+                                    infeasible_discrete_assignments.add(assignment)
+                                    continue
+                                conditional_samplers[assignment] = conditional_sampler
+                            points = conditional_sampler.draw(n=n).numpy()
+                            return self._snap_to_discrete_choices(points=points)
+                        raise SearchSpaceExhausted(
+                            "Unable to find a feasible discrete assignment for the "
+                            "mixed equality constraints."
+                        )
+
+                    points = none_throws(polytope_sampler).draw(n=n).numpy()
+                    return self._snap_to_discrete_choices(points=points)
 
                 # we call rejection_sample here to reuse all the deduplication
                 # logic
@@ -247,6 +309,33 @@ class RandomGenerator(Generator):
                 raise e
 
         return points, np.ones(len(points))
+
+    def _get_polytope_sampler(
+        self,
+        search_space_digest: SearchSpaceDigest,
+        linear_constraints: tuple[npt.NDArray, npt.NDArray] | None,
+        equality_constraints: tuple[npt.NDArray, npt.NDArray] | None,
+        fixed_features: dict[int, float] | None,
+        interior_point: Tensor | None,
+        seed: int,
+    ) -> HitAndRunPolytopeSampler:
+        """Construct a polytope sampler for the supplied constraints."""
+        kwargs = {"n_burnin": 100, "n_thinning": 20}
+        kwargs.update(self.polytope_sampler_kwargs)
+        return HitAndRunPolytopeSampler(
+            inequality_constraints=self._convert_inequality_constraints(
+                linear_constraints
+            ),
+            equality_constraints=self._combine_equality_constraints(
+                d=len(search_space_digest.bounds),
+                fixed_features=fixed_features,
+                equality_constraints=equality_constraints,
+            ),
+            bounds=self._convert_bounds(bounds=search_space_digest.bounds),
+            interior_point=interior_point,
+            seed=seed,
+            **kwargs,
+        )
 
     @copy_doc(Generator._get_state)
     def _get_state(self) -> dict[str, Any]:
@@ -280,17 +369,45 @@ class RandomGenerator(Generator):
 
         """
         tunable_bounds = self._bounds[tunable_feature_indices]
+        sampling_bounds = tunable_bounds.copy()
+        for local_index, parameter_index in enumerate(tunable_feature_indices):
+            choices = self._discrete_choices.get(int(parameter_index))
+            if choices is not None:
+                sampling_bounds[local_index] = (0, len(choices))
         tunable_points = self._gen_samples(
             n=n,
             tunable_d=len(tunable_feature_indices),
-            bounds=tunable_bounds,
+            bounds=sampling_bounds,
         )
+        for local_index, parameter_index in enumerate(tunable_feature_indices):
+            choices = self._discrete_choices.get(int(parameter_index))
+            if choices is not None:
+                choice_indices = np.minimum(
+                    tunable_points[:, local_index].astype(int), len(choices) - 1
+                )
+                tunable_points[:, local_index] = np.asarray(choices)[choice_indices]
         return add_fixed_features(
             tunable_points=tunable_points,
             d=d,
             tunable_feature_indices=tunable_feature_indices,
             fixed_features=fixed_features,
         )
+
+    def _snap_to_discrete_choices(self, points: npt.NDArray) -> npt.NDArray:
+        """Project discrete dimensions onto their nearest supported values.
+
+        The polytope sampler must operate in the parameters' value space because
+        mapping irregularly spaced choices to indices is nonlinear and would not
+        preserve the linear constraints that define the polytope.
+        """
+        points = points.copy()
+        for parameter_index, choices in self._discrete_choices.items():
+            choice_values = np.asarray(choices)
+            distances = np.abs(
+                points[:, parameter_index, np.newaxis] - choice_values[np.newaxis, :]
+            )
+            points[:, parameter_index] = choice_values[np.argmin(distances, axis=1)]
+        return points
 
     def _gen_samples(self, n: int, tunable_d: int, bounds: npt.NDArray) -> npt.NDArray:
         """Generate n samples within the given bounds.
@@ -351,7 +468,7 @@ class RandomGenerator(Generator):
         fixed_indices = sorted(fixed_features.keys())
         fixed_vals = torch.tensor(
             [fixed_features[i] for i in fixed_indices], dtype=torch.double
-        )
+        ).unsqueeze(-1)
         constraint_matrix = torch.zeros((n, d), dtype=torch.double)
         for index in range(0, len(fixed_vals)):
             constraint_matrix[index, fixed_indices[index]] = 1.0
@@ -382,7 +499,9 @@ class RandomGenerator(Generator):
         param_eq = None
         if equality_constraints is not None:
             A = torch.as_tensor(equality_constraints[0], dtype=torch.double)
-            b = torch.as_tensor(equality_constraints[1], dtype=torch.double).squeeze(-1)
+            b = torch.as_tensor(equality_constraints[1], dtype=torch.double).reshape(
+                -1, 1
+            )
             param_eq = (A, b)
 
         if fixed_eq is None and param_eq is None:
