@@ -11,7 +11,8 @@ References
 
 .. [Daulton2026bonsai]
     S. Daulton, D. Eriksson, M. Balandat, and E. Bakshy. BONSAI: Bayesian
-    Optimization with Natural Simplicity and Interpretability. ArXiv, 2026.
+    Optimization with Natural Simplicity and Interpretability. Advances in Neural
+    Information Processing Systems 39 (NeurIPS), 2026.
 """
 
 from __future__ import annotations
