@@ -65,5 +65,29 @@ class MarginalEffectsTest(TestCase):
             }
         )
         fx = marginal_effects(df)
-        self.assertTrue(np.allclose(fx["Beta"].values, [-40, 40, -20, 20], atol=1e-3))
-        self.assertTrue(np.allclose(fx["SE"].values, [2.83] * 4, atol=1e-2))
+        self.assertTrue(
+            np.allclose(
+                fx["Beta"].values, [-40.024, 39.944, -20.032, 19.952], atol=1e-3
+            )
+        )
+        self.assertTrue(
+            np.allclose(fx["SE"].values, [2.154, 2.154, 2.040, 2.040], atol=1e-3)
+        )
+
+    def test_marginal_effects_se_matches_simulation(self) -> None:
+        # The group means are part of the overall mean, so the standard errors
+        # must account for both the overall SEM and their covariance.
+        means = np.array([1.0, 2.0, 3.0, 4.0])
+        sems = np.array([0.05, 0.2, 0.1, 0.3])
+        df = pd.DataFrame({"mean": means, "sem": sems, "factor": ["a", "a", "b", "b"]})
+        fx = marginal_effects(df)
+
+        rng = np.random.default_rng(0)
+        draws = means + sems * rng.standard_normal((200_000, 4))
+        weights = 1 / sems**2
+        overall = draws @ weights / weights.sum()
+        for level, idx in (("a", [0, 1]), ("b", [2, 3])):
+            group = draws[:, idx] @ weights[idx] / weights[idx].sum()
+            simulated_se = np.std(100 * (group / overall - 1))
+            se = fx.loc[fx["Level"] == level, "SE"].item()
+            self.assertAlmostEqual(se, simulated_se, delta=0.02 * simulated_se)

@@ -193,7 +193,7 @@ def marginal_effects(
     """
     covariates = covariates or [col for col in df.columns if col not in ["mean", "sem"]]
     formatted_vals = []
-    overall_mean, overall_sem = inverse_variance_weight(
+    overall_mean, overall_var = inverse_variance_weight(
         df["mean"],
         np.power(df["sem"], 2),
     )
@@ -205,12 +205,15 @@ def marginal_effects(
             group_mean, group_var = inverse_variance_weight(
                 group_df["mean"], np.power(group_df["sem"], 2)
             )
+            # The group mean and the overall mean share the group's
+            # observations. With inverse variance weights, their covariance
+            # is the variance of the overall mean.
             effect, effect_sem = relativize(
                 group_mean,
                 np.sqrt(group_var),
                 overall_mean,
-                overall_sem,
-                cov_means=0.0,
+                np.sqrt(overall_var),
+                cov_means=overall_var,
                 as_percent=True,
             )
             formatted_vals.append(
