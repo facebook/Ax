@@ -37,7 +37,13 @@ export default {
       type: 'category',
       label: 'Introduction',
       collapsed: false,
-      items: ['why-ax', 'installation', 'intro-to-ae', 'intro-to-bo'],
+      items: [
+        'why-ax',
+        'installation',
+        'intro-to-ae',
+        'intro-to-bo',
+        'ae-vs-traditional',
+      ],
     },
     {
       type: 'category',
