@@ -580,7 +580,13 @@ def interact_contour_plotly(
         xbutton_data_args = {"x": [], "y": [], "z": []}
         for yvar in param_names:
             res = relativize_data(
-                f_dict[xvar][yvar], sd_dict[xvar][yvar], rel, arm_data, metric
+                # pyrefly: ignore [bad-argument-type]
+                f_dict[xvar][yvar],
+                # pyrefly: ignore [bad-argument-type]
+                sd_dict[xvar][yvar],
+                rel,
+                arm_data,
+                metric,
             )
             f_final = res[0]
             sd_final = res[1]
@@ -624,7 +630,9 @@ def interact_contour_plotly(
             {
                 "xaxis.title": short_name(xvar),
                 "xaxis2.title": short_name(xvar),
+                # pyrefly: ignore [bad-argument-type]
                 "xaxis.range": axis_range(grid_dict[xvar], is_log_dict[xvar]),
+                # pyrefly: ignore [bad-argument-type]
                 "xaxis2.range": axis_range(grid_dict[xvar], is_log_dict[xvar]),
                 "xaxis.type": "log" if is_log_dict[xvar] else "linear",
                 "xaxis2.type": "log" if is_log_dict[xvar] else "linear",
@@ -649,10 +657,14 @@ def interact_contour_plotly(
                     {
                         "yaxis.title": short_name(y_param),
                         "yaxis.range": axis_range(
-                            grid_dict[y_param], is_log_dict[y_param]
+                            # pyrefly: ignore [bad-argument-type]
+                            grid_dict[y_param],
+                            is_log_dict[y_param],
                         ),
                         "yaxis2.range": axis_range(
-                            grid_dict[y_param], is_log_dict[y_param]
+                            # pyrefly: ignore [bad-argument-type]
+                            grid_dict[y_param],
+                            is_log_dict[y_param],
                         ),
                         "yaxis.type": "log" if is_log_dict[y_param] else "linear",
                         "yaxis2.type": "log" if is_log_dict[y_param] else "linear",
@@ -785,7 +797,9 @@ def interact_contour_plotly(
     # Initially visible yvar
     yvar = param_names[1]
 
+    # pyrefly: ignore [bad-argument-type]
     xrange = axis_range(grid_dict[xvar], is_log_dict[xvar])
+    # pyrefly: ignore [bad-argument-type]
     yrange = axis_range(grid_dict[yvar], is_log_dict[yvar])
 
     xtype = "log" if is_log_dict[xvar] else "linear"

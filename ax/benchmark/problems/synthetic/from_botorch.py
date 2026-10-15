@@ -190,6 +190,7 @@ def create_problem_from_botorch(
     if isinstance(test_problem_class, str):
         test_problem_class = getattr(synthetic, test_problem_class)
 
+    # pyrefly: ignore [not-callable]
     test_problem = test_problem_class(**test_problem_kwargs)
     is_constrained = isinstance(test_problem, ConstrainedBaseTestProblem)
 
@@ -264,6 +265,7 @@ def create_problem_from_botorch(
     else:
         worst_feasible_value = None  # Not needed for unconstrained problems
     baseline_value = (
+        # pyrefly: ignore [missing-attribute]
         BOTORCH_BASELINE_VALUES[(test_problem_class.__name__, dim)]
         if baseline_value is None
         else baseline_value

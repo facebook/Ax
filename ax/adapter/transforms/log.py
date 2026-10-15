@@ -157,7 +157,10 @@ class Log(Transform):
                     if p_name in self.original_values:
                         val = assert_is_instance_of_tuple(
                             min(
-                                self.original_values[p_name], key=lambda x: abs(x - val)
+                                # pyrefly: ignore [unsupported-operation]
+                                self.original_values[p_name],
+                                # pyrefly: ignore [unsupported-operation]
+                                key=lambda x: abs(x - val),
                             ),
                             (float, int),
                         )
