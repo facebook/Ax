@@ -165,6 +165,7 @@ def unrelativize(
         if bias_correction:
             m_t = m_t / (1 - (sem_c / abs_mean_c) ** 2)
 
+        # pyrefly: ignore [unsupported-operation]
         var = sems_t**2
         c = m_t / mean_c
         s_t2 = var * (mean_c**2) + 2 * c * cov_means - (c**2) * (sem_c**2)
