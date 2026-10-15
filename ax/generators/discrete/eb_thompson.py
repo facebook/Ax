@@ -61,4 +61,5 @@ class EmpiricalBayesThompsonSampler(ThompsonSampler):
         Y = npY.tolist()
         npYvar = npYsem**2
         Yvar = npYvar.tolist()
+        # pyrefly: ignore [bad-return]
         return Y, Yvar

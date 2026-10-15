@@ -52,7 +52,9 @@ class Ashr:
         if prior_vars is None:
             prior_stds = prior_grid(Y=Y, Yvar=Yvar, grid_param=eb_grid_param)
             prior_vars = prior_stds**2
+        # pyrefly: ignore [bad-assignment]
         self.prior_vars: npt.NDArray = prior_vars
+        # pyrefly: ignore [bad-argument-type]
         self.ll: npt.NDArray = marginal_densities(Y=Y, Yvar=Yvar, prior_vars=prior_vars)
 
     def posterior(self, w: npt.NDArray) -> GaussianMixture:
@@ -115,15 +117,22 @@ class Ashr:
         k = len(self.prior_vars)  # total number of classes
         if lambdas is None:
             lambdas = np.ones(k)  # no penalty
+        # pyrefly: ignore [bad-argument-type]
         if len(lambdas) != k:
             raise ValueError(
                 "The length of the penalty sequence should be the number of "
                 "prior classes."
             )
+        # pyrefly: ignore [missing-attribute]
         lambdas = lambdas.astype(np.float64)
 
         results = fit_ashr_em(
-            ll=self.ll, lambdas=lambdas, threshold=threshold, nsteps=nsteps
+            # pyrefly: ignore [bad-argument-type]
+            ll=self.ll,
+            # pyrefly: ignore [bad-argument-type]
+            lambdas=lambdas,
+            threshold=threshold,
+            nsteps=nsteps,
         )
 
         return results

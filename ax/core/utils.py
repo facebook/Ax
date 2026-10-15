@@ -733,12 +733,15 @@ def _sort_trials(
                 (
                     # if the trial is running, we set end time to now for sorting ease
                     (
-                        _time_trial_completed_safe(trial=t).timestamp()
+                        _time_trial_completed_safe(
+                            trial=t  # pyrefly: ignore [bad-argument-type]
+                        ).timestamp()  # pyrefly: ignore [bad-argument-type]
                         if not trials_are_running
                         else default_time_run_started.timestamp()
                     )
                     - _time_trial_started_safe(
-                        trial=t, default_time_run_started=default_time_run_started
+                        trial=t,  # pyrefly: ignore [bad-argument-type]
+                        default_time_run_started=default_time_run_started,  # pyrefly: ignore [bad-argument-type]
                     ).timestamp()
                 )
                 // twelve_hours_in_secs

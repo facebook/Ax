@@ -1297,6 +1297,7 @@ def _combine_multiple_status_quo_observations(
     partial_obs = [
         max(
             status_quo_observations,
+            # pyrefly: ignore [unsupported-operation]
             key=lambda obs: obs.features.metadata[MAP_KEY],
         )
     ]
@@ -1323,6 +1324,7 @@ def _combine_multiple_status_quo_observations(
         partial_obs.append(
             max(
                 obs_w_lookup_metric,
+                # pyrefly: ignore [unsupported-operation]
                 key=lambda obs: obs.features.metadata[MAP_KEY],
             )
         )
