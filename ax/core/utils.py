@@ -741,7 +741,8 @@ def _sort_trials(
                     )
                     - _time_trial_started_safe(
                         trial=t,  # pyrefly: ignore [bad-argument-type]
-                        default_time_run_started=default_time_run_started,  # pyrefly: ignore [bad-argument-type]
+                        # pyrefly: ignore [bad-argument-type]
+                        default_time_run_started=default_time_run_started,
                     ).timestamp()
                 )
                 // twelve_hours_in_secs
