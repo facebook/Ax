@@ -6,6 +6,7 @@
 
 # pyre-strict
 
+from collections.abc import Sequence
 from copy import deepcopy
 from unittest import mock
 from unittest.mock import MagicMock
@@ -16,9 +17,13 @@ from ax.core.data import Data
 from ax.core.experiment import Experiment
 from ax.core.generator_run import GeneratorRun
 from ax.core.types import TParameterization
-from ax.exceptions.core import UnsupportedError
+from ax.exceptions.core import DataRequiredError, UnsupportedError
 from ax.generation_strategy.external_generation_node import ExternalGenerationNode
 from ax.generation_strategy.generation_strategy import GenerationStrategy
+from ax.generation_strategy.transition_criterion import (
+    MaxTrialsAwaitingData,
+    PausingCriterion,
+)
 from ax.utils.common.testutils import TestCase
 from ax.utils.testing.core_stubs import (
     get_branin_data,
@@ -29,8 +34,16 @@ from pyre_extensions import none_throws
 
 
 class DummyNode(ExternalGenerationNode):
-    def __init__(self, should_deduplicate: bool = False) -> None:
-        super().__init__(name="dummy", should_deduplicate=should_deduplicate)
+    def __init__(
+        self,
+        should_deduplicate: bool = False,
+        pausing_criteria: Sequence[PausingCriterion] | None = None,
+    ) -> None:
+        super().__init__(
+            name="dummy",
+            should_deduplicate=should_deduplicate,
+            pausing_criteria=pausing_criteria,
+        )
         self.update_count = 0
         self.gen_count = 0
         self.generator: RandomAdapter | None = None
@@ -92,6 +105,19 @@ class TestExternalGenerationNode(TestCase):
         self.assertGreater(none_throws(gr.gen_time), 0.0)
         self.assertEqual(gr._generator_key, "dummy")
         self.assertEqual(len(node.last_pending), 4)
+
+    def test_pausing_criteria(self) -> None:
+        node = DummyNode(
+            pausing_criteria=[MaxTrialsAwaitingData(threshold=1, not_in_statuses=[])]
+        )
+        gs = GenerationStrategy(name="test gs", nodes=[node])
+        experiment = get_branin_experiment()
+        experiment.new_trial(
+            generator_run=gs.gen_single_trial(n=1, experiment=experiment)
+        )
+        with self.assertRaises(DataRequiredError):
+            gs.gen_single_trial(n=1, experiment=experiment)
+        self.assertEqual(node.gen_count, 1)
 
     def test_fallback(self) -> None:
         node = DummyNode(should_deduplicate=True)

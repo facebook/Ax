@@ -21,7 +21,10 @@ from ax.core.types import TParameterization
 from ax.exceptions.core import UnsupportedError
 from ax.generation_strategy.generation_node import GenerationNode
 from ax.generation_strategy.generator_spec import GeneratorSpec
-from ax.generation_strategy.transition_criterion import TransitionCriterion
+from ax.generation_strategy.transition_criterion import (
+    PausingCriterion,
+    TransitionCriterion,
+)
 
 
 class ExternalGenerationNode(GenerationNode, ABC):
@@ -52,6 +55,7 @@ class ExternalGenerationNode(GenerationNode, ABC):
         suggested_experiment_status: ExperimentStatus | None = None,
         should_deduplicate: bool = True,
         transition_criteria: Sequence[TransitionCriterion] | None = None,
+        pausing_criteria: Sequence[PausingCriterion] | None = None,
     ) -> None:
         """Initialize an external generation node.
 
@@ -72,6 +76,7 @@ class ExternalGenerationNode(GenerationNode, ABC):
             transition_criteria: Criteria for determining whether to move to the next
                 node in the generation strategy. This is an advanced option that is
                 only relevant if the generation strategy consists of multiple nodes.
+            pausing_criteria: Criteria that pause generation while awaiting data.
         """
         t_init_start = time.monotonic()
         super().__init__(
@@ -81,6 +86,7 @@ class ExternalGenerationNode(GenerationNode, ABC):
             best_model_selector=None,
             should_deduplicate=should_deduplicate,
             transition_criteria=transition_criteria,
+            pausing_criteria=pausing_criteria,
         )
         self.fit_time_since_gen: float = time.monotonic() - t_init_start
 
