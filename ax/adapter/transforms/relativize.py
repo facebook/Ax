@@ -368,7 +368,7 @@ class BaseRelativize(Transform, ABC):
             return mean_c, sem_c
         if (
             rel_op == relativize
-            and (is_status_quo or not self.control_as_constant)
+            and is_status_quo
             and means_t == mean_c
             and sems_t == sem_c
         ):

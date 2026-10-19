@@ -25,6 +25,7 @@ from ax.adapter.transforms.relativize import (
 )
 from ax.core import BatchTrial
 from ax.core.arm import Arm
+from ax.core.data import Data
 from ax.core.experiment import Experiment
 from ax.core.metric import Metric
 from ax.core.objective import MultiObjective, Objective
@@ -321,8 +322,52 @@ class RelativizeDataTest(TestCase):
                         result.data.covariance, original.data.covariance
                     )
 
-    def test_nonconstant_control_identical_data_round_trip(self) -> None:
-        """Keep the legacy identical-data shortcut outside constant-control mode."""
+    def test_identical_treatment_stats_match_experiment_data(self) -> None:
+        """Observation and vectorized paths agree for equal-stat treatments."""
+        for mean, sem in product((10.0, -10.0), (0.0, 0.1)):
+            with self.subTest(mean=mean, sem=sem):
+                experiment = get_branin_experiment(
+                    with_batch=True, with_status_quo=True
+                )
+                batch = assert_is_instance(experiment.trials[0], BatchTrial)
+                batch.mark_running(no_runner_required=True)
+                data = Data(
+                    df=get_branin_data_batch(batch=batch).full_df.assign(
+                        mean=mean, sem=sem
+                    )
+                )
+                experiment.attach_data(data=data)
+                batch.mark_completed()
+                adapter = Adapter(experiment=experiment, generator=Generator())
+                transform = Relativize(adapter=adapter)
+                vectorized = transform.transform_experiment_data(
+                    extract_experiment_data(
+                        experiment=experiment, data_loader_config=DataLoaderConfig()
+                    )
+                )
+                observations = transform.transform_observations(
+                    observations_from_data(experiment=experiment, data=data)
+                )
+                for observation in observations:
+                    row = vectorized.observation_data.loc[
+                        (0, none_throws(observation.arm_name))
+                    ]
+                    expected_variance = (
+                        0.0
+                        if observation.arm_name == adapter.status_quo_name
+                        else 2.0 * (100.0 * sem / abs(mean)) ** 2
+                    )
+                    self.assertAllClose(observation.data.means, np.array([0.0]))
+                    self.assertAllClose(
+                        observation.data.covariance, np.array([[expected_variance]])
+                    )
+                    self.assertAlmostEqual(float(row["mean", "branin"]), 0.0)
+                    self.assertAlmostEqual(
+                        float(row["sem", "branin"]) ** 2, expected_variance
+                    )
+
+    def test_nonconstant_control_identical_treatment_round_trip(self) -> None:
+        """Distinct treatments retain independent variance despite equal stats."""
         data = ObservationData(
             metric_signatures=["m"],
             means=np.array([10.0]),
@@ -342,7 +387,7 @@ class RelativizeDataTest(TestCase):
         )
         relative = transform.transform_observations([observation])
         self.assertAllClose(relative[0].data.means, np.array([0.0]))
-        self.assertAllClose(relative[0].data.covariance, np.array([[0.0]]))
+        self.assertAllClose(relative[0].data.covariance, np.array([[2.0]]))
         restored = transform.untransform_observations(relative)[0]
         self.assertAllClose(restored.data.means, data.means)
         self.assertAllClose(restored.data.covariance, data.covariance)
