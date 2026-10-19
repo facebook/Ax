@@ -20,11 +20,12 @@ from ax.adapter.transforms.base import Transform
 from ax.adapter.transforms.tests.test_relativize_transform import RelativizeDataTest
 from ax.adapter.transforms.transform_to_new_sq import TransformToNewSQ
 from ax.core.batch_trial import BatchTrial
+from ax.core.observation import Observation, ObservationData, ObservationFeatures
 from ax.core.observation_utils import observations_from_data
 from ax.exceptions.core import DataRequiredError
 from ax.generators.base import Generator
 from ax.utils.common.testutils import TestCase
-from ax.utils.stats.math_utils import relativize
+from ax.utils.stats.math_utils import relativize, unrelativize
 from ax.utils.testing.core_stubs import (
     get_branin_data_batch,
     get_branin_experiment,
@@ -95,6 +96,82 @@ class TransformToNewSQSpecificTest(TestCase):
             experiment=self.exp,
             data=self.exp.lookup_data(),
         )
+
+    def test_equal_mean_treatment_round_trip(self) -> None:
+        """Moving to a new SQ and back must preserve equal-mean treatment SEMs."""
+        for mean_c in (10.0, -10.0):
+            with self.subTest(mean_c=mean_c):
+                sq_data = {
+                    idx: ObservationData(
+                        metric_signatures=["m"],
+                        means=np.array([mean]),
+                        covariance=np.array([[0.01]]),
+                    )
+                    for idx, mean in enumerate((mean_c, 30.0))
+                }
+                transform = TransformToNewSQ(
+                    adapter=mock.Mock(
+                        status_quo_name="status_quo",
+                        status_quo_data_by_trial=sq_data,
+                        _experiment=None,
+                    ),
+                    config={"target_trial_index": 1},
+                )
+                observations = [
+                    Observation(
+                        features=ObservationFeatures(
+                            parameters={"x": i}, trial_index=0
+                        ),
+                        data=ObservationData(
+                            metric_signatures=["m"],
+                            means=np.array([mean_c]),
+                            covariance=np.array([[variance]]),
+                        ),
+                        arm_name=str(i),
+                    )
+                    for i, variance in enumerate((4.0, 0.0))
+                ]
+                transformed = transform.transform_observations(observations)
+                self.assertAllClose(transformed[0].data.means, np.array([30.0]))
+                self.assertAllClose(transformed[0].data.covariance, np.array([[36.0]]))
+                restored = transform.untransform_observations(transformed)
+                for original, result in zip(observations, restored):
+                    self.assertAllClose(result.data.means, original.data.means)
+                    self.assertAllClose(
+                        result.data.covariance, original.data.covariance
+                    )
+
+    def test_status_quo_inverse_uses_target_absolute_scale(self) -> None:
+        """The subclass hook, not the base data loop, interprets inverse values."""
+        transform = TransformToNewSQ(
+            adapter=mock.Mock(
+                status_quo_name="status_quo",
+                status_quo_data_by_trial={
+                    idx: ObservationData(
+                        metric_signatures=["m"],
+                        means=np.array([mean]),
+                        covariance=np.array([[0.01]]),
+                    )
+                    for idx, mean in enumerate((10.0, 30.0))
+                },
+                _experiment=None,
+            ),
+            config={"target_trial_index": 1},
+        )
+        observation = Observation(
+            features=ObservationFeatures(parameters={}, trial_index=0),
+            data=ObservationData(
+                metric_signatures=["m"],
+                means=np.zeros(1),
+                covariance=np.zeros((1, 1)),
+            ),
+            arm_name="status_quo",
+        )
+        restored = transform._get_relative_data_from_obs(
+            obs=observation, rel_op=unrelativize
+        )
+        self.assertAllClose(restored.means, np.zeros(1))
+        self.assertAllClose(restored.covariance, np.zeros((1, 1)))
 
     def test_adapter_without_status_quo_name(self) -> None:
         self.adapter._status_quo = None

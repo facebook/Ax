@@ -267,6 +267,7 @@ class RelativizeDataTest(TestCase):
                         features=obs_features[2],
                         arm_name=arm_names[2],
                     ),
+                    status_quo_name=arm_names[2],
                     status_quo_data_by_trial={0: obs_data[0], 1: obs_data[2]},
                 )
                 tf = relativize_cls(
@@ -281,6 +282,178 @@ class RelativizeDataTest(TestCase):
                     observations=observations2[2:4],
                     expected_mean_and_covar=expected_mean_and_covar[2:4],
                 )
+
+    def test_constant_control_equal_means_round_trip(self) -> None:
+        """Restore the true SQ without overwriting equal-mean treatment variances."""
+        for mean, sq_variance in product((10.0, -10.0), (0.0, 0.01)):
+            with self.subTest(mean=mean, sq_variance=sq_variance):
+                observations = [
+                    Observation(
+                        features=ObservationFeatures(
+                            parameters={"x": i}, trial_index=0
+                        ),
+                        data=ObservationData(
+                            metric_signatures=["m"],
+                            means=np.array([mean]),
+                            covariance=np.array([[variance]]),
+                        ),
+                        arm_name="status_quo" if i == 0 else str(i),
+                    )
+                    for i, variance in enumerate((sq_variance, 4.0, 0.0, sq_variance))
+                ]
+                transform = RelativizeWithConstantControl(
+                    adapter=Mock(
+                        status_quo_name="status_quo",
+                        status_quo_data_by_trial={0: observations[0].data},
+                        _experiment=None,
+                    )
+                )
+                relative = transform.transform_observations(observations)
+                self.assertAllClose(relative[0].data.means, np.array([0.0]))
+                self.assertAllClose(relative[0].data.covariance, np.array([[0.0]]))
+                self.assertAllClose(
+                    relative[3].data.covariance, np.array([[100.0 * sq_variance]])
+                )
+                restored = transform.untransform_observations(relative)
+                for original, result in zip(observations, restored):
+                    self.assertAllClose(result.data.means, original.data.means)
+                    self.assertAllClose(
+                        result.data.covariance, original.data.covariance
+                    )
+
+    def test_nonconstant_control_identical_data_round_trip(self) -> None:
+        """Keep the legacy identical-data shortcut outside constant-control mode."""
+        data = ObservationData(
+            metric_signatures=["m"],
+            means=np.array([10.0]),
+            covariance=np.array([[0.01]]),
+        )
+        transform = Relativize(
+            adapter=Mock(
+                status_quo_name="status_quo",
+                status_quo_data_by_trial={0: data},
+                _experiment=None,
+            )
+        )
+        observation = Observation(
+            features=ObservationFeatures(parameters={}, trial_index=0),
+            data=data,
+            arm_name="treatment",
+        )
+        relative = transform.transform_observations([observation])
+        self.assertAllClose(relative[0].data.means, np.array([0.0]))
+        self.assertAllClose(relative[0].data.covariance, np.array([[0.0]]))
+        restored = transform.untransform_observations(relative)[0]
+        self.assertAllClose(restored.data.means, data.means)
+        self.assertAllClose(restored.data.covariance, data.covariance)
+
+    def test_untransform_status_quo_by_trial_and_metric(self) -> None:
+        """Restore each trial's SQ in observation metric order, including fallback."""
+        sq_data = {
+            0: ObservationData(
+                metric_signatures=["a", "b"],
+                means=np.array([10.0, 20.0]),
+                covariance=np.diag([0.01, 0.09]),
+            ),
+            1: ObservationData(
+                metric_signatures=["a", "b"],
+                means=np.array([-10.0, 30.0]),
+                covariance=np.diag([0.04, 0.16]),
+            ),
+        }
+        transform = RelativizeWithConstantControl(
+            adapter=Mock(
+                status_quo_name="status_quo",
+                status_quo_data_by_trial=sq_data,
+                _experiment=None,
+            )
+        )
+        for trial_index in (0, 1, None):
+            with self.subTest(trial_index=trial_index):
+                observation = Observation(
+                    features=ObservationFeatures(
+                        parameters={}, trial_index=trial_index
+                    ),
+                    data=ObservationData(
+                        metric_signatures=["b", "a"],
+                        means=np.zeros(2),
+                        covariance=np.zeros((2, 2)),
+                    ),
+                    arm_name="status_quo",
+                )
+                restored = transform.untransform_observations([observation])[0]
+                expected = sq_data[1 if trial_index is None else trial_index]
+                self.assertAllClose(restored.data.means, expected.means[::-1].copy())
+                self.assertAllClose(
+                    restored.data.covariance, expected.covariance[::-1, ::-1].copy()
+                )
+
+    def test_status_quo_and_unnamed_predictions_are_untransformed(self) -> None:
+        """Unnamed predictions retain uncertainty; only the true SQ at (0, 0) resets."""
+        transform = RelativizeWithConstantControl(
+            adapter=Mock(
+                status_quo_name="status_quo",
+                status_quo_data_by_trial={
+                    0: ObservationData(
+                        metric_signatures=["m"],
+                        means=np.array([10.0]),
+                        covariance=np.array([[0.01]]),
+                    )
+                },
+                _experiment=None,
+            )
+        )
+        for arm_name, mean, variance in product(
+            (None, "status_quo"), (0.0, 5.0, 10.0), (0.0, 0.01, 400.0)
+        ):
+            with self.subTest(arm_name=arm_name, mean=mean, variance=variance):
+                observation = Observation(
+                    features=ObservationFeatures(parameters={}, trial_index=0),
+                    data=ObservationData(
+                        metric_signatures=["m"],
+                        means=np.array([mean]),
+                        covariance=np.array([[variance]]),
+                    ),
+                    arm_name=arm_name,
+                )
+                restored = transform.untransform_observations([observation])[0]
+                expected_variance = (
+                    0.01
+                    if arm_name == "status_quo" and mean == variance == 0
+                    else variance / 100.0
+                )
+                self.assertAllClose(restored.data.means, np.array([10.0 + mean / 10.0]))
+                self.assertAllClose(
+                    restored.data.covariance, np.array([[expected_variance]])
+                )
+
+    def test_nonconstant_inverse_does_not_use_forward_shortcut(self) -> None:
+        """Matching relative and absolute numbers must not zero an inverse result."""
+        transform = Relativize(
+            adapter=Mock(
+                status_quo_name="status_quo",
+                status_quo_data_by_trial={
+                    0: ObservationData(
+                        metric_signatures=["m"],
+                        means=np.array([10.0]),
+                        covariance=np.array([[0.01]]),
+                    )
+                },
+                _experiment=None,
+            )
+        )
+        observation = Observation(
+            features=ObservationFeatures(parameters={}, trial_index=0),
+            data=ObservationData(
+                metric_signatures=["m"],
+                means=np.array([10.0]),
+                covariance=np.array([[0.01]]),
+            ),
+            arm_name="treatment",
+        )
+        restored = transform.untransform_observations([observation])[0]
+        self.assertAllClose(restored.data.means, np.array([11.0 / (1.0 - 0.0001)]))
+        self.assertAllClose(restored.data.covariance, np.array([[0.0]]))
 
     def test_bad_relativize(self) -> None:
         # Check instantiation and subclassing of BaseRelativize
@@ -322,6 +495,7 @@ class RelativizeDataTest(TestCase):
                 status_quo=Mock(
                     data=obs_data[0], features=obs_features[0], arm_name=arm_names[0]
                 ),
+                status_quo_name=arm_names[0],
                 status_quo_data_by_trial={0: obs_data[0]},
             )
             observations = recombine_observations(obs_features, obs_data, arm_names)
@@ -369,6 +543,7 @@ class RelativizeDataTest(TestCase):
                 ),
                 arm_name="status_quo",
             ),
+            status_quo_name="status_quo",
             status_quo_data_by_trial={
                 i: sq_obs_data[i] for i in range(len(sq_obs_data))
             },

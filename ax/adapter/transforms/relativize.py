@@ -290,6 +290,7 @@ class BaseRelativize(Transform, ABC):
             data=obs.data,
             status_quo_data=self.status_quo_data_by_trial[idx],
             rel_op=rel_op,
+            is_status_quo=obs.arm_name == self.status_quo_name,
         )
 
     def _rel_op_on_observations(
@@ -311,6 +312,7 @@ class BaseRelativize(Transform, ABC):
         data: ObservationData,
         status_quo_data: ObservationData,
         rel_op: Callable[..., tuple[npt.NDArray, npt.NDArray]],
+        is_status_quo: bool,
     ) -> ObservationData:
         r"""
         Relativize or unrelativize `data` based on `status_quo_data` based on `rel_op`
@@ -319,7 +321,7 @@ class BaseRelativize(Transform, ABC):
             data: ObservationData object to relativize
             status_quo_data: The status quo data (un)relativization is based upon
             rel_op: relativize or unrelativize operator.
-            control_as_constant: if treating the control metric as constant
+            is_status_quo: Whether the observation belongs to the status quo arm.
 
         Returns:
             (un)relativized ObservationData
@@ -345,6 +347,7 @@ class BaseRelativize(Transform, ABC):
                 sem_c=sem_c,
                 metric=metric,
                 rel_op=rel_op,
+                is_status_quo=is_status_quo,
             )
             result.means[i] = means_rel
             result.covariance[i][i] = sems_rel**2
@@ -358,10 +361,17 @@ class BaseRelativize(Transform, ABC):
         sem_c: float,
         metric: str,
         rel_op: Callable[..., tuple[npt.NDArray, npt.NDArray]],
+        is_status_quo: bool,
     ) -> tuple[float | npt.NDArray, float | npt.NDArray]:
         """Compute (un)relativized mean and sem for a single metric."""
-        # if the is the status quo
-        if means_t == mean_c and sems_t == sem_c:
+        if is_status_quo and rel_op == unrelativize and means_t == sems_t == 0:
+            return mean_c, sem_c
+        if (
+            rel_op == relativize
+            and (is_status_quo or not self.control_as_constant)
+            and means_t == mean_c
+            and sems_t == sem_c
+        ):
             return 0, 0
         return rel_op(
             means_t=means_t,

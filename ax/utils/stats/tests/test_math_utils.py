@@ -341,3 +341,56 @@ class UnrelativizeTest(TestCase):
             )
             self.assertTrue(np.allclose(means_t, unrel_mean_t))
             self.assertTrue(np.allclose(sems_t, unrel_sems_t))
+
+    def test_constant_control_zero_change_round_trip(self) -> None:
+        """Equal means must not replace treatment SEMs with control uncertainty."""
+        for mean_c, sem_c, as_percent in product(
+            (10.0, -10.0), (0.0, 0.1, np.nan), (False, True)
+        ):
+            with self.subTest(mean_c=mean_c, sem_c=sem_c, as_percent=as_percent):
+                means = np.array([mean_c, mean_c, mean_c + 1.0])
+                sems = np.array([2.0, 0.0, 3.0])
+                relative_means, relative_sems = relativize(
+                    means_t=means,
+                    sems_t=sems,
+                    mean_c=mean_c,
+                    sem_c=sem_c,
+                    as_percent=as_percent,
+                    control_as_constant=True,
+                )
+                restored_means, restored_sems = unrelativize(
+                    means_t=relative_means,
+                    sems_t=relative_sems,
+                    mean_c=mean_c,
+                    sem_c=sem_c,
+                    as_percent=as_percent,
+                    control_as_constant=True,
+                )
+                self.assertAllClose(restored_means, means)
+                self.assertAllClose(restored_sems, sems)
+                scalar_mean, scalar_sem = unrelativize(
+                    means_t=float(relative_means[0]),
+                    sems_t=float(relative_sems[0]),
+                    mean_c=mean_c,
+                    sem_c=sem_c,
+                    as_percent=as_percent,
+                    control_as_constant=True,
+                )
+                self.assertAlmostEqual(float(scalar_mean), mean_c)
+                self.assertAlmostEqual(float(scalar_sem), 2.0)
+
+    def test_nonconstant_control_zero_change(self) -> None:
+        """Preserve the legacy status-quo override for the delta-method inverse."""
+        for bias_correction, as_percent in product((False, True), (False, True)):
+            with self.subTest(bias_correction=bias_correction, as_percent=as_percent):
+                means, sems = unrelativize(
+                    means_t=np.array([0.0]),
+                    sems_t=np.array([0.2]),
+                    mean_c=10.0,
+                    sem_c=0.1,
+                    bias_correction=bias_correction,
+                    as_percent=as_percent,
+                    control_as_constant=False,
+                )
+                self.assertAllClose(means, np.array([10.0]))
+                self.assertAllClose(sems, np.array([0.1]))
