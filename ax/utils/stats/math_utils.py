@@ -143,6 +143,9 @@ def unrelativize(
                     (i.e., 1 means 1%).
         control_as_constant: If true, control is treated as a constant.
             bias_correction, sem_c, and cov_means are ignored when this is true.
+            SEMs are rescaled by abs(mean_c), including for zero relative changes.
+            The zero-relative-mean override that restores the control mean and SEM
+            applies only when control_as_constant=False.
 
     Returns:
         m_t: Inferred sample (test) means in the unrelativized scale
@@ -174,15 +177,15 @@ def unrelativize(
         # If above condition cannot be guaranteed, use control_as_constant = True
         s_t = np.sqrt(s_t2.clip(min=0.0))
 
-    # if means_t is 0.0 exactly, return control mean and sem directly
-    if np.isscalar(means_t):
-        if means_t == 0.0:
-            m_t = mean_c
-            s_t = sem_c
-    else:
-        m_t = np.array(m_t)
-        s_t = np.array(s_t)
-        m_t[means_t == 0.0] = mean_c
-        s_t[means_t == 0.0] = sem_c
+        # if means_t is 0.0 exactly, return control mean and sem directly
+        if np.isscalar(means_t):
+            if means_t == 0.0:
+                m_t = mean_c
+                s_t = sem_c
+        else:
+            m_t = np.array(m_t)
+            s_t = np.array(s_t)
+            m_t[means_t == 0.0] = mean_c
+            s_t[means_t == 0.0] = sem_c
 
     return np.asarray(m_t), np.asarray(s_t)

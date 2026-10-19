@@ -250,6 +250,7 @@ class TransformToNewSQ(BaseRelativize):
         sem_c: float,
         metric: str,
         rel_op: Callable[..., tuple[npt.NDArray, npt.NDArray]],
+        is_status_quo: bool,
     ) -> tuple[float, float]:
         """Compute (un)transformed mean and sem for a single metric."""
         target_status_quo_data = self.status_quo_data_by_trial[self.default_trial_idx]
