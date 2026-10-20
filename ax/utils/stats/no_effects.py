@@ -173,7 +173,6 @@ def check_experiment_effects(
     effective = np.min(ps) < no_effect_alpha
     bounds_df = pd.DataFrame(fx_bounds, columns=["metric_name", "min", "max", "p"])
     bounds_df.sort_values(by="p", inplace=True)
-    # pyrefly: ignore [bad-return]
     return effective, ineffective_on_objectives, bounds_df
 
 

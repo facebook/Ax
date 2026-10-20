@@ -195,7 +195,6 @@ class BoTorchGeneratorTest(TestCase):
                 # pyrefly: ignore [bad-assignment]
                 Keys.OPTIMIZER_KWARGS: self.optimizer_options,
                 Keys.ACQF_KWARGS: {"eta": 3.0},
-                # pyrefly: ignore [bad-assignment]
                 Keys.AX_ACQUISITION_KWARGS: {Keys.SUBSET_MODEL: True},
             },
         )
@@ -1128,7 +1127,6 @@ class BoTorchGeneratorTest(TestCase):
         self.assertIsInstance(ckwargs["objective"], WeightedMCMultiOutputObjective)
         self.assertTrue(
             torch.equal(
-                # pyrefly: ignore [bad-argument-type]
                 ckwargs["objective"].weights,
                 extract_objectives(self.moo_objective_weights)[1],
             )

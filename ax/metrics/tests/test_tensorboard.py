@@ -51,7 +51,6 @@ def _get_fake_multiplexer(
     # pyre-ignore[8] Return fake tags when content is requested
     mul.PluginRunToTagToContent = lambda plugin: {".": {"loss": ""}}
 
-    # pyre-ignore[8] Return fake data when tensors requested
     mul.Tensors = lambda run, tag: [
         _TensorEvent(step=i, tensor_proto=_TensorProto(double_val=[dat]))
         for i, dat in enumerate(fake_data)

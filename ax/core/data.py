@@ -871,7 +871,6 @@ def _subsample_one_metric(
         else:
             filtered_df = df_g.iloc[:: int(derived_keep_every)]
         filtered_dfs.append(filtered_df)
-    # pyrefly: ignore [bad-return]
     return pd.concat(filtered_dfs)
 
 
