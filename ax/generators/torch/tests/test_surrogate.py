@@ -280,7 +280,6 @@ class SurrogateInputConstructorsTest(TestCase):
                 dataset=dataset,
             )
             transform = assert_is_instance(transform, Normalize)
-            # pyrefly: ignore [not-callable]
             self.assertEqual(transform.indices.tolist(), [0])
             self.assertEqual(transform.bounds.tolist(), [[1.0], [5.0]])
 

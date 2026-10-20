@@ -252,9 +252,7 @@ def _get_in_sample_arms(
                         cov_dict=obs.data.covariance_matrix,
                         agg_metric_weight_dict=agg_metric["weight"],
                     )
-                    # pyrefly: ignore [unsupported-operation]
                     obs_y[agg_metric_name] = agg_mean
-                    # pyrefly: ignore [unsupported-operation]
                     obs_se[agg_metric_name] = np.sqrt(agg_var)
         if training_in_design[i]:
             # Update with the input fixed features

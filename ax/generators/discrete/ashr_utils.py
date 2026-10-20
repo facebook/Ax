@@ -127,7 +127,6 @@ class Ashr:
         lambdas = lambdas.astype(np.float64)
 
         results = fit_ashr_em(
-            # pyrefly: ignore [bad-argument-type]
             ll=self.ll,
             # pyrefly: ignore [bad-argument-type]
             lambdas=lambdas,

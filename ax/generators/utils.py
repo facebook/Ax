@@ -385,7 +385,6 @@ def best_observed_point(
         fixed_features=fixed_features,
         options=options,
     )
-    # pyrefly: ignore [bad-return]
     return None if best_point_and_value is None else best_point_and_value[0]
 
 
