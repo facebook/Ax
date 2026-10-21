@@ -165,6 +165,7 @@ def merge_parameters(
             is_fidelity=choice_param.is_fidelity,
             target_value=choice_param.target_value,
             sort_values=choice_param.sort_values,
+            log_scale=choice_param.log_scale,
             dependents=merge_dependents(
                 p1=p1,
                 p2=p2,
@@ -181,6 +182,7 @@ def merge_parameters(
             is_fidelity=p1.is_fidelity,
             target_value=p1.target_value,
             sort_values=p1.sort_values,
+            log_scale=p1.log_scale,
             dependents=merge_dependents(
                 p1=p1, p2=p2, reverse_param_config=reverse_param_config
             ),
