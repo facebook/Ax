@@ -26,6 +26,36 @@ from pyre_extensions import assert_is_instance, none_throws
 
 
 class AxFbCoreUtilsTest(TestCase):
+    def test_merge_choice_parameters_preserves_log_scale(self) -> None:
+        for log_scale, extra_value in [(True, 3), (False, 4)]:
+            choice = ChoiceParameter(
+                "x",
+                parameter_type=ParameterType.INT,
+                values=[1, 2],
+                is_ordered=True,
+                sort_values=True,
+                log_scale=log_scale,
+            )
+            other_choice = ChoiceParameter(
+                "x",
+                parameter_type=ParameterType.INT,
+                values=[2, extra_value],
+                is_ordered=True,
+                sort_values=True,
+                log_scale=not log_scale,
+            )
+            fixed = FixedParameter(
+                "x", parameter_type=ParameterType.INT, value=extra_value
+            )
+            for p1, p2 in [(choice, other_choice), (choice, fixed), (fixed, choice)]:
+                with self.subTest(log_scale=log_scale, p1=p1, p2=p2):
+                    merged = assert_is_instance(
+                        merge_parameters(p1, p2, reverse_param_config={}),
+                        ChoiceParameter,
+                    )
+                    self.assertEqual(merged.values, [1, 2, extra_value])
+                    self.assertEqual(merged.log_scale, log_scale)
+
     def test_get_joint_search_space(self) -> None:
         parameters: list[Parameter] = [
             RangeParameter(f"x{i}", parameter_type=ParameterType.INT, lower=0, upper=5)
