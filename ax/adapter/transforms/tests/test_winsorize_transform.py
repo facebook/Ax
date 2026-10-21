@@ -25,6 +25,7 @@ from ax.adapter.transforms.winsorize import (
 from ax.core.arm import Arm
 from ax.core.data import Data
 from ax.core.metric import Metric
+from ax.core.observation import Observation, ObservationData
 from ax.core.objective import MultiObjective, Objective, ScalarizedObjective
 from ax.core.optimization_config import (
     MultiObjectiveOptimizationConfig,
@@ -179,6 +180,24 @@ class WinsorizeTransformTest(TestCase):
             observation_data = t._transform_observation_data(deepcopy(obsd_list))
             tf_means = [obsd.means.tolist() for obsd in observation_data]
             self.assertListEqual(tf_means, expected)
+
+    def test_transform_observations_with_read_only_means(self) -> None:
+        means = np.array([0.0, 3.0])
+        covariance = np.eye(2)
+        means.flags.writeable = False
+        covariance.flags.writeable = False
+        observation = Observation(
+            features=self.observations[0].features,
+            data=ObservationData(
+                metric_signatures=["m1", "m2"],
+                means=means,
+                covariance=covariance,
+            ),
+        )
+
+        transformed = self.t.transform_observations([observation])
+
+        self.assertEqual(transformed[0].data.means.tolist(), [0.0, 2.0])
 
     def test_optimization_config_default(self) -> None:
         # Specify the winsorization

@@ -174,6 +174,10 @@ class LogY(Transform):
         if len(self.metric_signatures) == 0:
             return observation_data
         for obsd in observation_data:
+            if not obsd.means.flags.writeable:
+                obsd.means = obsd.means.copy()
+            if not obsd.covariance.flags.writeable:
+                obsd.covariance = obsd.covariance.copy()
             cov = obsd.covariance
             # Check for correlations in the covariance matrix
             diff = cov - np.diag(np.diag(cov))

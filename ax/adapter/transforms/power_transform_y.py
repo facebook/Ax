@@ -111,6 +111,10 @@ class PowerTransformY(Transform):
     ) -> list[ObservationData]:
         """Winsorize observation data in place."""
         for obsd in observation_data:
+            if not obsd.means.flags.writeable:
+                obsd.means = obsd.means.copy()
+            if not obsd.covariance.flags.writeable:
+                obsd.covariance = obsd.covariance.copy()
             for i, m in enumerate(obsd.metric_signatures):
                 if m in self.metric_signatures:
                     transform = self.power_transforms[m].transform
@@ -130,6 +134,10 @@ class PowerTransformY(Transform):
     ) -> list[ObservationData]:
         """Winsorize observation data in place."""
         for obsd in observation_data:
+            if not obsd.means.flags.writeable:
+                obsd.means = obsd.means.copy()
+            if not obsd.covariance.flags.writeable:
+                obsd.covariance = obsd.covariance.copy()
             for i, m in enumerate(obsd.metric_signatures):
                 if m in self.metric_signatures:
                     l, u = self.inv_bounds[m]

@@ -102,6 +102,10 @@ class BilogY(Transform):
         transform: Callable[[npt.NDArray, npt.NDArray], npt.NDArray],
     ) -> list[ObservationData]:
         for obsd in observation_data:
+            if not obsd.means.flags.writeable:
+                obsd.means = obsd.means.copy()
+            if not obsd.covariance.flags.writeable:
+                obsd.covariance = obsd.covariance.copy()
             for i, m in enumerate(obsd.metric_signatures):
                 if m in self.metric_to_bound.keys():
                     bound = self.metric_to_bound[m]

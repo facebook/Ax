@@ -140,6 +140,8 @@ class Winsorize(Transform):
     ) -> list[ObservationData]:
         """Winsorize observation data in place."""
         for obsd in observation_data:
+            if not obsd.means.flags.writeable:
+                obsd.means = obsd.means.copy()
             for idx, metric_signature in enumerate(obsd.metric_signatures):
                 if metric_signature not in self.cutoffs:
                     continue

@@ -79,6 +79,8 @@ class StandardizeY(Transform):
             means = np.array([self.Ymean[m] for m in obsd.metric_signatures])
             stds = np.array([self.Ystd[m] for m in obsd.metric_signatures])
             obsd.means = (obsd.means - means) / stds
+            if not obsd.covariance.flags.writeable:
+                obsd.covariance = obsd.covariance.copy()
             obsd.covariance /= np.dot(stds[:, None], stds[:, None].transpose())
         return observation_data
 
@@ -221,6 +223,8 @@ class StandardizeY(Transform):
             means = np.array([self.Ymean[m] for m in obsd.metric_signatures])
             stds = np.array([self.Ystd[m] for m in obsd.metric_signatures])
             obsd.means = obsd.means * stds + means
+            if not obsd.covariance.flags.writeable:
+                obsd.covariance = obsd.covariance.copy()
             obsd.covariance *= np.dot(stds[:, None], stds[:, None].transpose())
         return observation_data
 
