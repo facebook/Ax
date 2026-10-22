@@ -197,7 +197,7 @@ from botorch.models.map_saas import (
     AdditiveMapSaasSingleTaskGP,
     EnsembleMapSaasSingleTaskGP,
 )
-from botorch.models.transforms.input import Normalize
+from botorch.models.transforms.input import Log10, Normalize
 from botorch.models.transforms.outcome import Standardize
 from botorch.sampling.normal import SobolQMCNormalSampler
 from gpytorch.mlls.exact_marginal_log_likelihood import ExactMarginalLogLikelihood
@@ -652,6 +652,14 @@ class JSONStoreTest(TestCase):
                     )
                 else:
                     raise e
+
+    def test_model_config_with_log10_roundtrip(self) -> None:
+        config = ModelConfig(
+            input_transform_classes=[Log10],
+            input_transform_options={"Log10": {"indices": [1]}},
+        )
+        decoded = object_from_json(json.loads(json.dumps(object_to_json(config))))
+        self.assertEqual(decoded, config)
 
     def test_EncodeDecode_dataclass_with_initvar(self) -> None:
         @dataclasses.dataclass
