@@ -16,12 +16,14 @@ from ax.adapter.adapter_utils import (
     pending_observations_as_array_list,
 )
 from ax.adapter.registry import Generators
+from ax.adapter.torch import validate_transformed_optimization_config
 from ax.core.arm import Arm
 from ax.core.evaluations_to_data import raw_evaluations_to_data
 from ax.core.generator_run import GeneratorRun
 from ax.core.metric import Metric
 from ax.core.objective import MultiObjective, Objective
 from ax.core.observation import ObservationData, ObservationFeatures
+from ax.core.optimization_config import OptimizationConfig
 from ax.core.outcome_constraint import (
     ObjectiveThreshold,
     OutcomeConstraint,
@@ -29,6 +31,7 @@ from ax.core.outcome_constraint import (
 )
 from ax.core.types import ComparisonOp
 from ax.core.utils import get_pending_observation_features
+from ax.exceptions.core import DataRequiredError
 from ax.utils.common.constants import Keys
 from ax.utils.common.testutils import TestCase
 from ax.utils.testing.core_stubs import (
@@ -115,6 +118,56 @@ class TestAdapterUtils(TestCase):
         self.assertListEqual(list(res[0][1]), [0, -0.5, -0.5])
         self.assertEqual(res[1][0][0], 0)
         self.assertEqual(res[1][1][0], -1)
+
+    def test_expression_outcome_constraints(self) -> None:
+        """Preserve every coefficient and resolve names to fitted signatures."""
+        mapping = {"a": "a_sig", "b": "b_sig"}
+        constraints = [
+            OutcomeConstraint(expression=expression, metric_name_to_signature=mapping)
+            for expression in [
+                "a + 2 * b <= 1.0",
+                "a + 2 * b >= 1.0",
+                "a - 2 * b >= -3.0",
+                "2 * a <= 4.0",
+            ]
+        ]
+        A, b = none_throws(
+            extract_outcome_constraints(
+                outcome_constraints=constraints, outcomes=["b_sig", "obj", "a_sig"]
+            )
+        )
+        np.testing.assert_allclose(A, [[2, 0, 1], [-2, 0, -1], [2, 0, -1], [0, 0, 1]])
+        np.testing.assert_allclose(b, [[1], [-1], [3], [2]])
+
+    def test_expression_constraint_fitted_metrics(self) -> None:
+        """Validate every component, not just the first metric in an expression."""
+        config = OptimizationConfig(
+            objective=Objective(
+                expression="obj", metric_name_to_signature={"obj": "obj"}
+            ),
+            outcome_constraints=[
+                OutcomeConstraint(
+                    expression="a + 2 * b <= 1.0",
+                    metric_name_to_signature={"a": "a_sig", "b": "b_sig"},
+                )
+            ],
+        )
+        validate_transformed_optimization_config(
+            optimization_config=config, outcomes=["obj", "a_sig", "b_sig"]
+        )
+        for missing in ["a_sig", "b_sig"]:
+            with (
+                self.subTest(missing=missing),
+                self.assertRaisesRegex(
+                    DataRequiredError, f"{missing} not found in fitted data"
+                ),
+            ):
+                validate_transformed_optimization_config(
+                    optimization_config=config,
+                    outcomes=[
+                        sig for sig in ["obj", "a_sig", "b_sig"] if sig != missing
+                    ],
+                )
 
     def test_extract_objective_thresholds(self) -> None:
         outcomes = ["m1", "m2", "m3", "m4"]

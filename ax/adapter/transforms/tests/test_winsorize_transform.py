@@ -19,6 +19,7 @@ from ax.adapter.transforms.winsorize import (
     _get_auto_winsorization_cutoffs_outcome_constraint,
     _get_auto_winsorization_cutoffs_single_objective,
     _get_tukey_cutoffs,
+    _obtain_cutoffs_from_outcome_constraints,
     AUTO_WINS_QUANTILE,
     Winsorize,
 )
@@ -526,6 +527,41 @@ class WinsorizeTransformTest(TestCase):
         self.assertEqual(transform.cutoffs["m2"], (-INF, 10.0))  # 4 + 1.5 * 4
         self.assertEqual(transform.cutoffs["m3"], (-3.5, INF))  # 1 - 1.5 * 3
 
+    def test_expression_outcome_constraints(self) -> None:
+        """Do not apply single-metric winsorization to a weighted outcome."""
+        mapping = {"a": "a_sig", "b": "b_sig"}
+        config = OptimizationConfig(
+            objective=Objective(
+                expression="obj", metric_name_to_signature={"obj": "obj"}
+            ),
+            outcome_constraints=[
+                OutcomeConstraint(
+                    expression="a + 2 * b <= 1.0", metric_name_to_signature=mapping
+                )
+            ],
+        )
+        for signature in mapping.values():
+            with (
+                self.subTest(signature=signature),
+                self.assertWarnsRegex(AxOptimizationWarning, f"manually.*{signature}"),
+            ):
+                cutoffs = _obtain_cutoffs_from_outcome_constraints(
+                    optimization_config=config,
+                    metric_signature=signature,
+                    metric_values=[0.0, 1.0, 2.0],
+                )
+            self.assertEqual(cutoffs, (-INF, INF))
+        config.outcome_constraints.append(
+            OutcomeConstraint(expression="a <= 1.0", metric_name_to_signature=mapping)
+        )
+        with self.assertWarnsRegex(AxOptimizationWarning, "manually.*a_sig"):
+            cutoffs = _obtain_cutoffs_from_outcome_constraints(
+                optimization_config=config,
+                metric_signature="a_sig",
+                metric_values=[0.0, 1.0, 2.0],
+            )
+        self.assertEqual(cutoffs, (-INF, 5.0))
+
     def test_relative_constraints(self) -> None:
         # Adapter with in-design status quo
         search_space = SearchSpace(
@@ -615,14 +651,17 @@ class WinsorizeTransformTest(TestCase):
             t.cutoffs, {"a": (-INF, INF), "b": (-INF, INF), "c": (-3.25, INF)}
         )
         # Winsorizes with `derelativize_with_raw_status_quo`.
-        t = Winsorize(
-            search_space=search_space,
-            experiment_data=adapter.get_training_data(),
-            adapter=adapter,
-            config={"derelativize_with_raw_status_quo": True},
-        )
+        with self.assertWarnsRegex(
+            AxOptimizationWarning, "Automatic winsorization isn't supported"
+        ):
+            t = Winsorize(
+                search_space=search_space,
+                experiment_data=adapter.get_training_data(),
+                adapter=adapter,
+                config={"derelativize_with_raw_status_quo": True},
+            )
         self.assertDictEqual(
-            t.cutoffs, {"a": (-INF, 2.625), "b": (-INF, 4.25), "c": (-3.25, INF)}
+            t.cutoffs, {"a": (-INF, 4.25), "b": (-INF, 4.25), "c": (-3.25, INF)}
         )
 
     def test_transform_experiment_data(self) -> None:

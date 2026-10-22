@@ -109,6 +109,40 @@ class TestFromString(TestCase):
             ),
         )
 
+    def test_relative_scalarized_constraints(self) -> None:
+        """Reject relative multi-metric expressions before generation."""
+        for objective in ["obj", "obj, obj2"]:
+            for expression in [
+                "a + 2 * b >= 0.9 * baseline",
+                "a + 2 * b <= 0.9 * baseline",
+                "a - 2 * b >= 0.9 * baseline",
+            ]:
+                with (
+                    self.subTest(objective=objective, expression=expression),
+                    self.assertRaisesRegex(
+                        UserInputError,
+                        "Scalarized outcome constraints cannot be relative",
+                    ),
+                ):
+                    optimization_config_from_string(
+                        objective_str=objective, outcome_constraint_strs=[expression]
+                    )
+            for expression in ["a >= 0.9 * baseline", "a + 0 * b >= 0.9 * baseline"]:
+                config = optimization_config_from_string(
+                    objective_str=objective, outcome_constraint_strs=[expression]
+                )
+                self.assertTrue(config.outcome_constraints[0].relative)
+                self.assertEqual(
+                    config.outcome_constraints[0].metric_weights, [("a", 1)]
+                )
+            config = optimization_config_from_string(
+                objective_str=objective, outcome_constraint_strs=["a + 2 * b <= 1.0"]
+            )
+            self.assertFalse(config.outcome_constraints[0].relative)
+            self.assertCountEqual(
+                config.outcome_constraints[0].metric_weights, [("a", 1), ("b", 2)]
+            )
+
     def test_objective_constraint_on_single_objective_raises(self) -> None:
         with self.assertRaisesRegex(
             UserInputError, "Outcome constraints may not be placed"

@@ -66,12 +66,20 @@ class BilogY(Transform):
             config=config,
         )
         if adapter is not None and adapter._optimization_config is not None:
+            constraints = adapter._optimization_config.outcome_constraints
+            scalarized_metrics = {
+                sig
+                for oc in constraints
+                if len(oc.metric_weights) > 1
+                for sig in oc.metric_signatures
+            }
             # TODO @deriksson: Add support for relative outcome constraints
             self.metric_to_bound: dict[str, float] = {
                 sig: oc.bound
-                for oc in adapter._optimization_config.outcome_constraints
-                if not oc.relative
+                for oc in constraints
+                if not oc.relative and len(oc.metric_weights) == 1
                 for sig in oc.metric_signatures
+                if sig not in scalarized_metrics
             }
         else:
             self.metric_to_bound = {}

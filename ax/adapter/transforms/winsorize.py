@@ -28,7 +28,6 @@ from ax.core.outcome_constraint import (
     ComparisonOp,
     ObjectiveThreshold,
     OutcomeConstraint,
-    ScalarizedOutcomeConstraint,
 )
 from ax.core.search_space import SearchSpace
 from ax.exceptions.core import AxOptimizationWarning, UserInputError
@@ -313,8 +312,7 @@ def _obtain_cutoffs_from_outcome_constraints(
     """Get all outcome constraints (non-scalarized) for a given metric."""
     # Check for scalarized outcome constraints for the given metric
     if any(
-        isinstance(oc, ScalarizedOutcomeConstraint)
-        and metric_signature in oc.metric_names
+        len(oc.metric_weights) > 1 and metric_signature in oc.metric_signatures
         for oc in optimization_config.outcome_constraints
     ):
         warnings.warn(
@@ -341,8 +339,7 @@ def _get_non_scalarized_outcome_constraints(
     return [
         oc
         for oc in optimization_config.outcome_constraints
-        if not isinstance(oc, ScalarizedOutcomeConstraint)
-        and oc.metric_names[0] == metric_signature
+        if len(oc.metric_weights) == 1 and oc.metric_signatures[0] == metric_signature
     ]
 
 
