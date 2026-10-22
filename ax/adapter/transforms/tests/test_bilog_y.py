@@ -10,13 +10,18 @@ from __future__ import annotations
 from copy import deepcopy
 from functools import partial
 from itertools import product
+from unittest.mock import Mock
 
 import numpy as np
 from ax.adapter.base import Adapter, DataLoaderConfig
 from ax.adapter.data_utils import extract_experiment_data
 from ax.adapter.transforms.bilog_y import bilog_transform, BilogY, inv_bilog_transform
 from ax.adapter.transforms.log_y import match_ci_width
+from ax.core.objective import Objective
+from ax.core.observation import ObservationData
 from ax.core.observation_utils import observations_from_data
+from ax.core.optimization_config import OptimizationConfig
+from ax.core.outcome_constraint import OutcomeConstraint
 from ax.generators.base import Generator
 from ax.utils.common.testutils import TestCase
 from ax.utils.testing.core_stubs import get_branin_experiment
@@ -57,6 +62,36 @@ class BilogYTest(TestCase):
                 adapter=None,
             )
             self.assertEqual(t.metric_to_bound, {})
+
+    def test_scalarized_constraint_metrics_are_not_transformed(self) -> None:
+        """Nonlinear component transforms cannot preserve a linear combination."""
+        mapping = {"a": "a_sig", "b": "b_sig", "c": "c_sig"}
+        config = OptimizationConfig(
+            objective=Objective(
+                expression="obj", metric_name_to_signature={"obj": "obj"}
+            ),
+            outcome_constraints=[
+                OutcomeConstraint(expression=expr, metric_name_to_signature=mapping)
+                for expr in ["a + 2 * b <= 5", "a <= 2", "c <= 1"]
+            ],
+        )
+        transform = BilogY(adapter=Mock(spec=Adapter, _optimization_config=config))
+        self.assertEqual(transform.metric_to_bound, {"c_sig": 1.0})
+        observation = ObservationData(
+            metric_signatures=["a_sig", "b_sig", "c_sig"],
+            means=np.array([3.0, 4.0, 5.0]),
+            covariance=np.eye(3),
+        )
+        transformed = transform._transform_observation_data(
+            observation_data=[deepcopy(observation)]
+        )[0]
+        np.testing.assert_allclose(transformed.means[:2], observation.means[:2])
+        np.testing.assert_allclose(
+            transformed.covariance[:2, :2], observation.covariance[:2, :2]
+        )
+        self.assertAlmostEqual(
+            transformed.means[2], float(bilog_transform(y=np.array(5.0), bound=1))
+        )
 
     def test_Bilog(self) -> None:
         self.assertAlmostEqual(

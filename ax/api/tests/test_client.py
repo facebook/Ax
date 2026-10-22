@@ -16,6 +16,7 @@ from unittest import mock
 
 import numpy as np
 import pandas as pd
+from ax.adapter.adapter_utils import extract_outcome_constraints
 from ax.analysis.analysis import NOT_APPLICABLE_STATE_SUBTITLE
 from ax.analysis.plotly.parallel_coordinates import ParallelCoordinatesPlot
 from ax.api.client import Client
@@ -43,6 +44,7 @@ from ax.core.parameter_constraint import ParameterConstraint
 from ax.core.search_space import SearchSpace
 from ax.core.trial import Trial
 from ax.core.trial_status import TrialStatus
+from ax.core.types import TBounds
 from ax.core.utils import compute_metric_availability, MetricAvailability
 from ax.early_stopping.strategies import PercentileEarlyStoppingStrategy
 from ax.exceptions.core import UnsupportedError
@@ -1955,6 +1957,56 @@ class TestClient(TestCase):
         self.assertIn("param2", summary_df.columns)
         self.assertIn("param_sum", summary_df.columns)
         self.assertEqual(len(summary_df), 3)
+
+    @mock_botorch_optimize
+    def test_expression_outcome_constraint_generation(self) -> None:
+        """Keep a multi-metric constraint intact through Client's transform chain."""
+        client = Client()
+        client.configure_experiment(
+            parameters=[
+                RangeParameterConfig(name="x", parameter_type="float", bounds=(0, 1))
+            ]
+        )
+        client.configure_optimization(
+            objective="obj", outcome_constraints=["a + 2 * b <= 1.0"]
+        )
+        client.configure_generation_strategy(
+            initialization_budget=3, initialization_random_seed=123
+        )
+        x_values = []
+        for _ in range(3):
+            for index, parameters in client.get_next_trials(max_trials=1).items():
+                x = assert_is_instance(parameters["x"], float)
+                x_values.append(x)
+                client.complete_trial(
+                    trial_index=index, raw_data={"obj": x, "a": x, "b": 1 - x}
+                )
+        captured: list[tuple[list[str], TBounds]] = []
+
+        def capture_constraints(
+            outcome_constraints: list[OutcomeConstraint], outcomes: list[str]
+        ) -> TBounds:
+            result = extract_outcome_constraints(
+                outcome_constraints=outcome_constraints, outcomes=outcomes
+            )
+            captured.append((outcomes, result))
+            return result
+
+        with mock.patch(
+            "ax.adapter.torch.extract_outcome_constraints",
+            side_effect=capture_constraints,
+        ):
+            self.assertEqual(len(client.get_next_trials(max_trials=1)), 1)
+        self.assertGreater(len(captured), 0)
+        outcomes, constraints = captured[-1]
+        A, b = none_throws(constraints)
+        metrics = client._experiment.metrics
+        std = np.std(x_values, ddof=1)
+        expected = np.zeros((1, len(outcomes)))
+        expected[0, outcomes.index(metrics["a"].signature)] = std
+        expected[0, outcomes.index(metrics["b"].signature)] = 2 * std
+        np.testing.assert_allclose(A, expected)
+        np.testing.assert_allclose(b, [[np.mean(x_values) - 1]])
 
     @mock_botorch_optimize
     def test_scalarized_single_objective_optimization(self) -> None:

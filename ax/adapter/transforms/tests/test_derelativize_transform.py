@@ -14,7 +14,11 @@ from unittest.mock import Mock, patch
 import numpy as np
 from ax.adapter.base import Adapter
 from ax.adapter.torch import TorchAdapter
-from ax.adapter.transforms.derelativize import Derelativize, logger
+from ax.adapter.transforms.derelativize import (
+    _warn_if_raw_sq_is_out_of_CI,
+    Derelativize,
+    logger,
+)
 from ax.core.arm import Arm
 from ax.core.experiment import Experiment
 from ax.core.metric import Metric
@@ -300,7 +304,7 @@ class DerelativizeTransformTest(TestCase):
             ),
             self.assertRaisesRegex(
                 DataRequiredError,
-                "Status-quo metric value not yet available for metric\\(s\\) ",
+                "Status-quo metric value not yet available for metric ",
             ),
         ):
             t2.transform_optimization_config(deepcopy(oc_scalarized_only), g, None)
@@ -315,6 +319,130 @@ class DerelativizeTransformTest(TestCase):
         # Raises error with relative constraint, no adapter.
         with self.assertRaises(ValueError):
             t.transform_optimization_config(deepcopy(oc), None, None)
+
+    def test_expression_relative_constraint(self) -> None:
+        """Derelativize against the same weighted outcome at the status quo."""
+        for sign in [1.0, -1.0]:
+            experiment = get_experiment_with_observations(
+                observations=[[sign, 2 * sign]],
+                sems=[[1.0, 1.0]],
+                parameterizations=[{"x": 2.0, "y": 10.0}],
+            ).clone_with(
+                name="relative_constraint_test",
+                status_quo=Arm(parameters={"x": 2.0, "y": 10.0}, name="0_0"),
+            )
+            adapter = Adapter(experiment=experiment, generator=Generator())
+            for use_raw in [False, True]:
+                with self.subTest(sign=sign, use_raw=use_raw):
+                    constraint = OutcomeConstraint(
+                        expression="m1 + 2 * m2 >= 0.9 * baseline",
+                        metric_name_to_signature={"m1": "m1", "m2": "m2"},
+                    )
+                    config = OptimizationConfig(
+                        objective=Objective(
+                            expression="obj", metric_name_to_signature={"obj": "obj"}
+                        ),
+                        outcome_constraints=[constraint],
+                    )
+                    transform = Derelativize(
+                        search_space=None, config={"use_raw_status_quo": use_raw}
+                    )
+                    with patch.object(
+                        adapter,
+                        "predict",
+                        return_value=(
+                            {"m1": [3 * sign], "m2": [5 * sign]},
+                            {"m1": {"m1": [1.0]}, "m2": {"m2": [4.0]}},
+                        ),
+                    ) as predict:
+                        result = transform.transform_optimization_config(
+                            optimization_config=config, adapter=adapter
+                        ).outcome_constraints[0]
+                    sq_val = (5 if use_raw else 13) * sign
+                    self.assertAlmostEqual(result.bound, sq_val - 0.1 * abs(sq_val))
+                    self.assertEqual(result.metric_weights, constraint.metric_weights)
+                    self.assertEqual(result.op, constraint.op)
+                    self.assertFalse(result.relative)
+                    self.assertEqual(predict.call_count, int(not use_raw))
+
+    def test_expression_relative_constraint_missing_metric(self) -> None:
+        """Require status quo data for every component of a relative expression."""
+        experiment = get_experiment_with_observations(
+            observations=[[1.0, 2.0]],
+            sems=[[1.0, 1.0]],
+            parameterizations=[{"x": 2.0, "y": 10.0}],
+        ).clone_with(
+            name="relative_constraint_test",
+            status_quo=Arm(parameters={"x": 2.0, "y": 10.0}, name="0_0"),
+        )
+        adapter = Adapter(experiment=experiment, generator=Generator())
+        config = OptimizationConfig(
+            objective=Objective(
+                expression="obj", metric_name_to_signature={"obj": "obj"}
+            ),
+            outcome_constraints=[
+                OutcomeConstraint(
+                    expression="m1 + 2 * m2 >= 0.9 * baseline",
+                    metric_name_to_signature={"m1": "m1", "m2": "m2"},
+                )
+            ],
+        )
+        transform = Derelativize(search_space=None, config={"use_raw_status_quo": True})
+        with (
+            patch(
+                f"{Derelativize.__module__}.unwrap_observation_data",
+                return_value=({"m1": [1.0]}, {}),
+            ),
+            self.assertRaisesRegex(DataRequiredError, "m2"),
+        ):
+            transform.transform_optimization_config(
+                optimization_config=config, adapter=adapter
+            )
+
+    def test_expression_relative_constraint_warnings(self) -> None:
+        """Check both canonical metric signatures when warning about the baseline."""
+        config = OptimizationConfig(
+            objective=Objective(
+                expression="obj", metric_name_to_signature={"obj": "obj"}
+            ),
+            outcome_constraints=[
+                OutcomeConstraint(
+                    expression="a + 2 * b <= 0.9 * baseline",
+                    metric_name_to_signature={"a": "a_sig", "b": "b_sig"},
+                )
+            ],
+        )
+        for signature in ["a_sig", "b_sig"]:
+            with (
+                self.subTest(signature=signature),
+                self.assertLogs(logger=logger) as logs,
+            ):
+                _warn_if_raw_sq_is_out_of_CI(
+                    optimization_config=config,
+                    raw_f={"a_sig": [0.0], "b_sig": [0.0]},
+                    pred_f={
+                        sig: [10.0 if sig == signature else 0.0]
+                        for sig in ["a_sig", "b_sig"]
+                    },
+                    pred_cov={"a_sig": {"a_sig": [1.0]}, "b_sig": {"b_sig": [1.0]}},
+                )
+            self.assertEqual(len(logs.records), 1)
+            self.assertIn(signature, logs.records[0].getMessage())
+        for missing_raw in [False, True]:
+            with (
+                self.subTest(missing_raw=missing_raw),
+                self.assertNoLogs(logger=logger),
+            ):
+                _warn_if_raw_sq_is_out_of_CI(
+                    optimization_config=config,
+                    raw_f={"a_sig": [0.0]}
+                    if missing_raw
+                    else {"a_sig": [0.0], "b_sig": [0.0]},
+                    pred_f={"a_sig": [0.0], "b_sig": [0.0]}
+                    if missing_raw
+                    else {"a_sig": [0.0]},
+                    pred_cov={"a_sig": {"a_sig": [1.0]}, "b_sig": {"b_sig": [1.0]}},
+                )
 
     def test_errors(self) -> None:
         t = Derelativize(search_space=None)

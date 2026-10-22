@@ -67,6 +67,13 @@ def optimization_config_from_string(
         else None
     )
 
+    for constraint in outcome_constraints or []:
+        if constraint.relative and len(constraint.metric_weights) > 1:
+            raise UserInputError(
+                "Scalarized outcome constraints cannot be relative. "
+                f"Use an absolute bound instead, found {constraint.expression}."
+            )
+
     if objective.is_multi_objective:
         # A single-metric constraint on an objective metric becomes an
         # objective threshold only when it bounds the objective from its

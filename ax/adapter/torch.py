@@ -72,11 +72,7 @@ from ax.core.optimization_config import (
     OptimizationConfig,
     PreferenceOptimizationConfig,
 )
-from ax.core.outcome_constraint import (
-    ComparisonOp,
-    ObjectiveThreshold,
-    ScalarizedOutcomeConstraint,
-)
+from ax.core.outcome_constraint import ComparisonOp, ObjectiveThreshold
 from ax.core.search_space import SearchSpace
 from ax.core.types import TCandidateMetadata, TModelPredictArm
 from ax.exceptions.core import DataRequiredError, UnsupportedError, UserInputError
@@ -1334,7 +1330,7 @@ def validate_transformed_optimization_config(
                 "either a `Relativize` or `Derelativize` transform was expected to be"
                 " applied but was not."
             )
-        if isinstance(c, ScalarizedOutcomeConstraint):
+        if len(c.metric_weights) > 1:
             for c_sig in c.metric_signatures:
                 if c_sig not in outcomes:
                     raise DataRequiredError(

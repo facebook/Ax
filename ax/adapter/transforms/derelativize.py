@@ -20,7 +20,7 @@ from ax.core.optimization_config import (
     MultiObjectiveOptimizationConfig,
     OptimizationConfig,
 )
-from ax.core.outcome_constraint import OutcomeConstraint, ScalarizedOutcomeConstraint
+from ax.core.outcome_constraint import OutcomeConstraint
 from ax.core.types import ComparisonOp, TModelCov, TModelMean
 from ax.exceptions.core import DataRequiredError
 from ax.utils.common.logger import get_logger
@@ -174,26 +174,14 @@ def _compute_sq_val(
     status quo values. For single-metric constraints, returns the status quo
     value for that metric.
     """
-    if isinstance(c, ScalarizedOutcomeConstraint):
-        metrics = adapter._experiment.get_metrics(c.metric_names)
-        missing_metrics = {
-            metric.signature for metric in metrics if metric.signature not in f
-        }
+    if len(c.metric_weights) > 1:
+        missing_metrics = {sig for sig, _ in c.metric_weights if sig not in f}
         if len(missing_metrics) > 0:
             raise DataRequiredError(
                 f"Status-quo metric value not yet available for metric(s) "
                 f"{missing_metrics}."
             )
-        # The sq_val of scalarized outcome is the weighted
-        # sum of its component metrics
-        return float(
-            np.sum(
-                [
-                    c.weights[i] * f[metric.signature][0]
-                    for i, metric in enumerate(metrics)
-                ]
-            )
-        )
+        return float(np.sum([weight * f[sig][0] for sig, weight in c.metric_weights]))
     else:
         metric = adapter._experiment.get_metrics(c.metric_names)[0]
         if metric.signature in f:
@@ -215,18 +203,14 @@ def _warn_if_raw_sq_is_out_of_CI(
     by more than 1.96 standard deviation from the predictions.
     """
     relative_metrics = {
-        oc.metric_signatures[0]
+        sig
         for oc in optimization_config.all_constraints
-        if oc.relative and not isinstance(oc, ScalarizedOutcomeConstraint)
-    }.union(
-        {
-            sig
-            for oc in optimization_config.all_constraints
-            if oc.relative and isinstance(oc, ScalarizedOutcomeConstraint)
-            for sig in oc.metric_signatures
-        }
-    )
+        if oc.relative
+        for sig in oc.metric_signatures
+    }
     for metric_signature in relative_metrics:
+        if metric_signature not in raw_f or metric_signature not in pred_f:
+            continue
         raw_obs = raw_f[metric_signature][0]
         pred_mean = pred_f[metric_signature][0]
         pred_std = np.sqrt(pred_cov[metric_signature][metric_signature][0])

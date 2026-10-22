@@ -34,11 +34,7 @@ from ax.core.optimization_config import (
     OptimizationConfig,
     TRefPoint,
 )
-from ax.core.outcome_constraint import (
-    ComparisonOp,
-    OutcomeConstraint,
-    ScalarizedOutcomeConstraint,
-)
+from ax.core.outcome_constraint import ComparisonOp, OutcomeConstraint
 from ax.core.parameter import ChoiceParameter, ParameterType, RangeParameter
 from ax.core.parameter_constraint import ParameterConstraint
 from ax.core.search_space import SearchSpace, SearchSpaceDigest
@@ -406,13 +402,9 @@ def extract_outcome_constraints(
     b = np.zeros((len(outcome_constraints), 1))
     for i, c in enumerate(outcome_constraints):
         s = 1 if c.op == ComparisonOp.LEQ else -1
-        if isinstance(c, ScalarizedOutcomeConstraint):
-            for c_metric_sig, c_weight in c.metric_weights:
-                j = outcomes.index(c_metric_sig)
-                A[i, j] = s * c_weight
-        else:
-            j = outcomes.index(c.metric_signatures[0])
-            A[i, j] = s
+        for c_metric_sig, c_weight in c.metric_weights:
+            j = outcomes.index(c_metric_sig)
+            A[i, j] = s * c_weight
         b[i, 0] = s * c.bound
     return (A, b)
 
