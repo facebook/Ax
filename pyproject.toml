@@ -32,6 +32,7 @@ dependencies = [
     "sympy",
     "markdown",
     "graphviz",
+    "SQLAlchemy>=1.4.17",
 ]
 
 [project.optional-dependencies]
